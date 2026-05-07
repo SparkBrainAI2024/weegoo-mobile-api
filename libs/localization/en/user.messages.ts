@@ -57,4 +57,5 @@ export const USER = {
     "Date of birth cannot be in the future or more than 120 years ago.",
   MIN_GEOLOCATION_COORDINATES:
     "GeoLocation must contain at least two numeric values [longitude, latitude].",
+  USER_NOT_COMPLETE: "User details not complete.",
 };

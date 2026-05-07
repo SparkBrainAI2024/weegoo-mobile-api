@@ -1,7 +1,7 @@
 export * from './health.resolver';
 export { default as envConfiguration } from './config/env.configuration';
 export * from './config/env.configuration';
-
+export * from './config/env.config.interface';
 // constants
 export * from './constants';
 
@@ -15,6 +15,9 @@ export * from './decorators/user.decorator';
 // exceptions
 export * from './exceptions';
 
+//errors
+export * from './errors';
+
 // helpers
 export * from './helpers';
 
@@ -26,3 +29,4 @@ export * from './utils/datetime';
 export * from './utils/handle.file';
 export * from './utils/id.generator';
 export * from './utils/jwt';
+

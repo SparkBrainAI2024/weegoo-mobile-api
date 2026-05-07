@@ -15,6 +15,8 @@ import {
   EmailSignUpInput,
   VerifyEmailInput,
   BasicResponse,
+  GoogleSignInInput,
+  GoogleSignUpInput,
 } from "@libs/data-access";
 
 @Resolver()
@@ -75,5 +77,15 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.resetPassword(input, lang);
+  }
+
+  @Mutation(() => SignInResponse)
+  googleSignUp(@Args("input") input: GoogleSignUpInput, @CurrentLang() lang: string) {
+    return this.authService.googleSignUp(input, lang);
+  }
+
+  @Mutation(() => SignInResponse)
+  googleSignIn(@Args("input") input: GoogleSignInInput) {
+    return this.authService.googleSignIn(input);
   }
 }

@@ -57,6 +57,12 @@
       "@libs/services/auth/*": [
         "libs/services/auth/src/*"
       ],
+      "@libs/services/social-auth": [
+        "libs/services/social-auth/src"
+      ],
+      "@libs/services/social-auth/*": [
+        "libs/services/social-auth/src/*"
+      ],
       "@libs/services/user": [
         "libs/services/user/src"
       ],

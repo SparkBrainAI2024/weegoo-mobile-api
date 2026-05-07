@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
+import { Types } from "mongoose";
 import { ErrorException } from "@libs/common/exceptions";
 import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
 import { UTCTime } from "@libs/common/utils/datetime";
@@ -23,11 +23,42 @@ import {
   UserDetailsRepository,
   UserDetailsDocument,
   verificationType,
-  EmailInput
+  EmailInput,
+  GoogleSignInInput,
+  GoogleSignUpInput,
 } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
+import { SocialAuthService } from "@libs/services/social-auth";
 
+export interface SignInResult {
+  user: UserResponse;
+  userDetails: UserDetailsResponse;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export type UserResponse = {
+  _id: Types.ObjectId;
+  email: string;
+  phone: string;
+  verified: boolean;
+  language: string;
+  suspended: boolean;
+  profileCompleted: boolean;
+  loginAs: string;
+};
+
+export type UserDetailsResponse = {
+  fullName: string;
+  address: string;
+  profileImage: string;
+  dateOfBirth: Date;
+  bio: string;
+  gender: string;
+  createdAt: Date;
+  geoLocation: any;
+};
 
 @Injectable()
 export class AuthService {
@@ -38,13 +69,125 @@ export class AuthService {
     private readonly deviceRepository: DeviceRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly envService: EnvService,
+    private readonly socialAuthService: SocialAuthService,
   ) { }
+
+  private async createAuthTokens(userId: Types.ObjectId | string, email: string): Promise<{ accessToken: string; refreshToken: string }> {
+    const accessTokenData = {
+      id: userId,
+      email,
+      sessionId: generateMongoDbId(),
+      type: tokenTypes.accessToken,
+    };
+    const refreshTokenData = {
+      id: userId,
+      email,
+      type: tokenTypes.refreshToken,
+    };
+    const [accessToken, refreshToken] = await Promise.all([
+      generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
+        expiresIn: this.envService.getAccessTokenLife(),
+      }),
+      generateToken(refreshTokenData, this.envService.getJwtSecretKey(), {
+        expiresIn: this.envService.getRefreshTokenLife(),
+      }),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  private buildUserResponse(user: UserDocument): UserResponse {
+    return {
+      _id: user._id,
+      email: user.email,
+      phone: user.phone,
+      verified: user.verified,
+      language: user.language,
+      suspended: user.suspended,
+      profileCompleted: user.profileCompleted,
+      loginAs: user.loginAs,
+    };
+  }
+
+  private buildUserDetailsResponse(userDetails: UserDetailsDocument): UserDetailsResponse {
+    return {
+      fullName: userDetails.fullName,
+      address: userDetails.address,
+      profileImage: userDetails.profileImage,
+      dateOfBirth: userDetails.dateOfBirth,
+      bio: userDetails.bio,
+      gender: userDetails.gender,
+      createdAt: userDetails.createdAt,
+      geoLocation: userDetails?.geoLocation?.type ? userDetails.geoLocation : null,
+    };
+  }
+
+  private buildSignInResult(
+    user: UserDocument,
+    userDetails: UserDetailsDocument,
+    accessToken: string,
+    refreshToken: string,
+  ): SignInResult {
+    return {
+      user: this.buildUserResponse(user),
+      userDetails: this.buildUserDetailsResponse(userDetails),
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  private async verifyOtpForUser(email: string, otp: string): Promise<{ user: UserDocument; verification: any }> {
+    const user: UserDocument = await this.userRepository.findByEmail(email);
+    if (!user) {
+      ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+    }
+    const verification = await this.userVerificationRepository.findOne({
+      userId: user._id,
+      otp,
+      type: verificationType.EMAIL,
+    });
+    if (!verification) {
+      ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+    }
+    return { user, verification };
+  }
+
+  private async registerDeviceIfProvided(userId: Types.ObjectId, device: { deviceId: string; firebaseToken: string; deviceType: string }): Promise<void> {
+    if (device) {
+      const { deviceId, firebaseToken, deviceType } = device;
+      await this.deviceRepository.addDevice(
+        userId,
+        deviceId,
+        firebaseToken,
+        deviceType,
+      );
+    }
+  }
+
+  private async validateUserForSignIn(email: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) {
+      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
+    }
+    const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+    if (!userDetails) {
+      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
+    }
+    if (password !== undefined) {
+      const checkPassword = await comparePassword(password, user.password);
+      if (!checkPassword) {
+        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
+      }
+    }
+    if (user.suspended) {
+      ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+    }
+    return { user, userDetails };
+  }
 
   async signup(createUserInput: EmailSignUpInput, lang: string) {
     try {
       const { email, fullName, gender, phone } = createUserInput;
-      const userExistWithThisEmail =
-        await this.userRepository.findByEmail(email);
+      const userExistWithThisEmail = await this.userRepository.findByEmail(email);
       if (userExistWithThisEmail?.password) {
         ErrorException(null, "USER.USED_EMAIL", HttpStatus.BAD_REQUEST);
       }
@@ -134,66 +277,13 @@ export class AuthService {
         { _id: user._id },
         { password: await hashPassword(password, passwordSalt) },
       );
-      if (device) {
-        const { deviceId, firebaseToken, deviceType } = device;
-        await this.deviceRepository.addDevice(
-          user._id,
-          deviceId,
-          firebaseToken,
-          deviceType,
-        );
-      }
-      const accessTokenData = {
-        id: user._id,
-        email: user.email,
-        sessionId: generateMongoDbId(),
-        type: tokenTypes.accessToken,
-      };
-      const refreshTokenData = {
-        id: user._id,
-        email: user.email,
-        type: tokenTypes.refreshToken,
-      };
-      const accessToken = await generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
-        expiresIn: this.envService.getAccessTokenLife(),
-      });
-      const refreshToken = await generateToken(
-        refreshTokenData,
-        this.envService.getJwtSecretKey(),
-        { expiresIn: this.envService.getRefreshTokenLife() },
-      );
-      const userDetails: UserDetailsDocument =
-        await this.userDetailsRepository.findOne({ userId: user._id });
-
+      await this.registerDeviceIfProvided(user._id, device);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
       if (!userDetails) {
         ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
       }
-      const result = {
-        user: {
-          _id: user._id,
-          email: user.email,
-          phone: user.phone,
-          verified: user.verified,
-          language: user.language,
-          suspended: user.suspended,
-          profileCompleted: user.profileCompleted,
-          loginAs: user.loginAs,
-        },
-        userDetails: {
-          fullName: userDetails.fullName,
-          address: userDetails.address,
-          profileImage: userDetails.profileImage,
-          dateOfBirth: userDetails.dateOfBirth,
-          bio: userDetails.bio,
-          gender: userDetails.gender,
-          createdAt: userDetails.createdAt,
-          geoLocation: userDetails?.geoLocation?.type
-            ? userDetails.geoLocation
-            : null,
-        },
-        accessToken,
-        refreshToken,
-      };
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
       ErrorException(
@@ -207,103 +297,21 @@ export class AuthService {
   async signIn(signInInput: EmailSignInInput) {
     try {
       const { email, password, device } = signInInput;
-      const user: UserDocument = await this.userRepository.findByEmail(email);
-      if (!user) {
-        ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
-      }
-      const userDetails: UserDetailsDocument =
-        await this.userDetailsRepository.findOne({ userId: user._id });
-
-      if (!userDetails) {
-        ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
-      }
-      const checkPassword = await comparePassword(password, user.password);
-      if (!checkPassword) {
-        ErrorException(
-          null,
-          "USER.INCORRECT_PASSWORD",
-          HttpStatus.UNAUTHORIZED,
-        );
-      }
-      if (user.suspended) {
-        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-      }
+      const { user, userDetails } = await this.validateUserForSignIn(email, password);
       await this.userRepository.updateOne(
         { _id: user._id },
-        {
-          lastLogin: UTCTime(),
-        },
+        { lastLogin: UTCTime() },
       );
-      const accessTokenData = {
-        id: user._id,
-        email: user.email,
-        sessionId: generateMongoDbId(),
-        type: tokenTypes.accessToken,
-      };
-      const refreshTokenData = {
-        id: user._id,
-        email: user.email,
-        type: tokenTypes.refreshToken,
-      };
-      const accessToken = await generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
-        expiresIn: this.envService.getAccessTokenLife(),
-      });
-      const refreshToken = await generateToken(
-        refreshTokenData,
-        this.envService.getJwtSecretKey(),
-        { expiresIn: this.envService.getRefreshTokenLife() },
-      );
-
-      if (device) {
-        const { deviceId, firebaseToken, deviceType } = device;
-        await this.deviceRepository.addDevice(
-          user._id,
-          deviceId,
-          firebaseToken,
-          deviceType,
-        );
-      }
-      const result = {
-        user: {
-          _id: user._id,
-          email: user.email,
-          phone: user.phone,
-          verified: user.verified,
-          language: user.language,
-          suspended: user.suspended,
-          profileCompleted: user.profileCompleted,
-          loginAs: user.loginAs,
-        },
-        userDetails: {
-          fullName: userDetails.fullName,
-          address: userDetails.address,
-          profileImage: userDetails.profileImage,
-          dateOfBirth: userDetails.dateOfBirth,
-          bio: userDetails.bio,
-          gender: userDetails.gender,
-          createdAt: userDetails.createdAt,
-          geoLocation: userDetails?.geoLocation?.type
-            ? userDetails.geoLocation
-            : null,
-        },
-        accessToken,
-        refreshToken,
-      };
-      console.log(result);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      await this.registerDeviceIfProvided(user._id, device);
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
-      ErrorException(
-        e,
-        "COMMON.INTERNAL_SERVER_ERROR",
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  async sendVerifyEmailOtp(
-    sendOtpInput: EmailInput,
-    lang: string,
-  ) {
+  async sendVerifyEmailOtp(sendOtpInput: EmailInput, lang: string) {
     try {
       const { email } = sendOtpInput;
       const user: UserDocument = await this.userRepository.findByEmail(email);
@@ -340,11 +348,7 @@ export class AuthService {
   async verifyEmail(verifyEmaillInput: VerifyEmailInput, lang: string) {
     try {
       const { email, otp } = verifyEmaillInput;
-      const user: UserDocument = await this.userRepository.findByEmail(email);
-      if (!user) {
-        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-      }
-
+      const { user, verification } = await this.verifyOtpForUser(email, otp);
       if (user.verified) {
         ErrorException(
           null,
@@ -352,21 +356,11 @@ export class AuthService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const code = await this.userVerificationRepository.findOne({
-        userId: user._id,
-        otp,
-        type: verificationType.EMAIL,
-      });
-      if (!code) {
-        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
-      }
       await this.userRepository.updateOne(
         { _id: user._id },
-        {
-          verified: true,
-        },
+        { verified: true },
       );
-      await this.userVerificationRepository.deleteOtpById(code._id);
+      await this.userVerificationRepository.deleteOtpById(verification._id);
       return {
         message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
         success: true,
@@ -380,24 +374,10 @@ export class AuthService {
     }
   }
 
-  async verifyResetPasswordOTP(
-    verifyOTPInput: VerifyEmailInput,
-    lang: string,
-  ) {
+  async verifyResetPasswordOTP(verifyOTPInput: VerifyEmailInput, lang: string) {
     try {
       const { email, otp } = verifyOTPInput;
-      const user: UserDocument = await this.userRepository.findByEmail(email);
-      if (!user) {
-        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-      }
-      const code = await this.userVerificationRepository.findOne({
-        userId: user._id,
-        otp,
-        type: verificationType.EMAIL,
-      });
-      if (!code) {
-        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
-      }
+      const { user, verification } = await this.verifyOtpForUser(email, otp);
       const resetPasswordToken = await generateToken(
         {
           id: user._id,
@@ -407,7 +387,7 @@ export class AuthService {
         this.envService.getJwtSecretKey(),
         { expiresIn: this.envService.getResetPasswordTokenLife() },
       );
-      await this.userVerificationRepository.deleteOtpById(code._id);
+      await this.userVerificationRepository.deleteOtpById(verification._id);
       return {
         message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
         success: true,
@@ -437,10 +417,9 @@ export class AuthService {
       const user: UserDocument = await this.userRepository.findOne({
         _id: verifiedToken.id,
       });
-      const userDetails: UserDetailsDocument =
-        await this.userDetailsRepository.findOne({
-          userId: user._id,
-        });
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({
+        userId: user._id,
+      });
       if (!user || !userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
       }
@@ -449,54 +428,11 @@ export class AuthService {
       }
       await this.userRepository.updateOne(
         { _id: user._id },
-        {
-          lastLogin: UTCTime(),
-        },
+        { lastLogin: UTCTime() },
       );
-      const accessTokenData = {
-        id: user._id,
-        email: user.email,
-        sessionId: generateMongoDbId(),
-        type: tokenTypes.accessToken,
-      };
-      const refreshTokenData = {
-        id: user._id,
-        email: user.email,
-        type: tokenTypes.refreshToken,
-      };
-      const accessToken = await generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
-        expiresIn: this.envService.getAccessTokenLife(),
-      });
-      const refreshToken = await generateToken(
-        refreshTokenData,
-        this.envService.getJwtSecretKey(),
-        { expiresIn: this.envService.getRefreshTokenLife() },
-      );
-      return {
-        user: {
-          _id: user._id,
-          email: user.email,
-          phone: user.phone,
-          verified: user.verified,
-          language: user.language,
-          suspended: user.suspended,
-          loginAs: user.loginAs,
-        },
-        userDetails: {
-          fullName: userDetails.fullName,
-          address: userDetails.address,
-          profileImage: userDetails.profileImage,
-          dateOfBirth: userDetails.dateOfBirth,
-          bio: userDetails.bio,
-          gender: userDetails.gender,
-          createdAt: userDetails.createdAt,
-          geoLocation: userDetails?.geoLocation?.type
-            ? userDetails.geoLocation
-            : null,
-        },
-        accessToken,
-        refreshToken,
-      };
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      return result;
     } catch (e) {
       ErrorException(
         e,
@@ -509,7 +445,6 @@ export class AuthService {
   async resetPassword(resetPasswordInput: ResetPasswordInput, lang: string) {
     try {
       const { password, resetPasswordToken } = resetPasswordInput;
-
       const verifiedToken = await verifyToken(
         resetPasswordToken,
         this.envService.getJwtSecretKey(),
@@ -540,6 +475,78 @@ export class AuthService {
         "COMMON.INTERNAL_SERVER_ERROR",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    }
+  }
+
+  async googleSignUp(googleSignUpInput: GoogleSignUpInput, lang: string) {
+    try {
+      const { token, deviceId } = googleSignUpInput;
+      const socialUser = await this.socialAuthService.verifyToken(token, 'google');
+      if (!socialUser.email) {
+        ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+      }
+      let user: UserDocument = await this.userRepository.findByEmail(socialUser.email);
+      if (!user) {
+        const verificationCode = GenerateRandomDigit(userOtpSalt);
+        const sendMail = await this.mailService.sendUserConfirmation(
+          socialUser.email,
+          verificationCode,
+        );
+        if (sendMail) {
+          user = await this.userRepository.create({
+            email: socialUser.email,
+            phone: '',
+            verified: false,
+          });
+          await this.userDetailsRepository.create({
+            userId: user._id,
+            fullName: socialUser.name || '',
+            profileImage: socialUser.picture || '',
+          });
+          await this.userVerificationRepository.sendEmailVerificationOtp(
+            user._id,
+            verificationCode,
+          );
+        } else {
+          ErrorException(
+            null,
+            "USER.CAN_NOT_SEND_MAIL",
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken: null, deviceType: null });
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      return result;
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async googleSignIn(googleSignInInput: GoogleSignInInput) {
+    try {
+      const { token, device } = googleSignInInput;
+      const socialUser = await this.socialAuthService.verifyToken(token, 'google');
+      if (!socialUser.email) {
+        ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+      }
+      const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { lastLogin: UTCTime() },
+      );
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      await this.registerDeviceIfProvided(user._id, device);
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      return result;
+    } catch (e) {
+      ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 }

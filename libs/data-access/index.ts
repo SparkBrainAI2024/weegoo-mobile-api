@@ -47,6 +47,8 @@ export * from './dtos/input/change-email.input';
 export * from './dtos/input/change-password.input';
 export * from './dtos/input/change-language.input';
 export * from './dtos/input/change-email.input';
+export * from './dtos/input/google-signin.input';
+export * from './dtos/input/google-signup.input';
 export * from './dtos/input/logout-input';
 
 // dtos - response
