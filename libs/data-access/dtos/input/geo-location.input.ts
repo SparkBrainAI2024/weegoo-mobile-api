@@ -22,5 +22,5 @@ export class GeoLocationInput {
   @ArrayNotEmpty({ message: "USER.REQUIRED_GEOLOCATION_COORDINATES" })
   @ArrayMinSize(2, { message: "USER.MIN_GEOLOCATION_COORDINATES" })
   @Type(() => Number)
-  coordinates: number[];
+  coordinates: [number, number];
 }
