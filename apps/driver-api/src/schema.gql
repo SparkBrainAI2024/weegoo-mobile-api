@@ -75,6 +75,7 @@ type UserDetailEntity {
 type Query {
   health: String!
   getUser: UserDetailEntity!
+  getUserDetails: UserDetailsResponse!
 }
 
 type Mutation {
@@ -92,6 +93,7 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
+  updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
 input EmailSignUpInput {
@@ -161,4 +163,25 @@ input ChangePasswordInput {
 
 input ChangeLanguageInput {
   language: String!
+}
+
+input CreateUserDetailsInput {
+  fullName: String!
+  address: String
+  profileImage: String
+  phone: String
+  dateOfBirth: DateTime
+  bio: String
+  geoLocation: GeoLocationInput
+  gender: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input GeoLocationInput {
+  type: String!
+  coordinates: [Float!]!
 }
