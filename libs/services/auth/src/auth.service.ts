@@ -26,6 +26,7 @@ import {
   EmailInput,
   GoogleSignInInput,
   GoogleSignUpInput,
+  AuthProvider,
 } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
@@ -482,21 +483,26 @@ export class AuthService {
     try {
       const { token, deviceId } = googleSignUpInput;
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
+      console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignUp ~ socialUser:", socialUser)
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
       let user: UserDocument = await this.userRepository.findByEmail(socialUser.email);
       if (!user) {
         const verificationCode = GenerateRandomDigit(userOtpSalt);
+        console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignUp ~ verificationCode:", verificationCode)
         const sendMail = await this.mailService.sendUserConfirmation(
           socialUser.email,
           verificationCode,
         );
+        console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignUp ~ sendMail:", sendMail)
         if (sendMail) {
           user = await this.userRepository.create({
             email: socialUser.email,
             phone: '',
             verified: false,
+            authProvider: AuthProvider.GOOGLE,
+            authProviderId: socialUser.providerId,
           });
           await this.userDetailsRepository.create({
             userId: user._id,
@@ -532,7 +538,9 @@ export class AuthService {
   async googleSignIn(googleSignInInput: GoogleSignInInput) {
     try {
       const { token, device } = googleSignInInput;
+      
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
+      console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignIn ~ socialUser:", socialUser)
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }

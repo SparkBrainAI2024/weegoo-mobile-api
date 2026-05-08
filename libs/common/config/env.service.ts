@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
  */
 @Injectable()
 export class EnvService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   /**
    * Get a string environment variable with a default value
@@ -146,5 +146,123 @@ export class EnvService {
    */
   getHost(): string {
     return this.getString('HOST', '0.0.0.0');
+  }
+
+  getGoogleClientId(): string {
+    return this.getString('GOOGLE_CLIENT_ID', '');
+  }
+
+  getGoogleClientSecret(): string {
+    return this.getString('GOOGLE_CLIENT_SECRET', '');
+  }
+
+  // ==========================================
+  // AWS-specific helper methods
+  // ==========================================
+
+  /**
+   * Get AWS access key ID
+   */
+  getAwsAccessKeyId(): string {
+    return this.getString('AWS_ACCESS_KEY_ID', '');
+  }
+
+  /**
+   * Get AWS S3 secret key
+   */
+  getAwsS3SecretKey(): string {
+    return this.getString('AWS_S3_SECRET_KEY', '');
+  }
+
+  /**
+   * Get S3 bucket name
+   */
+  getS3BucketName(): string {
+    return this.getString('S3_BUCKET_NAME', '');
+  }
+
+  /**
+   * Get AWS region
+   */
+  getAwsRegion(): string {
+    return this.getString('AWS_REGION', '');
+  }
+
+  /**
+   * Get AWS S3 upload prefix
+   */
+  getAwsS3UploadPrefix(): string {
+    return this.getString('AWS_S3_UPLOAD_PREFIX', '');
+  }
+
+  // ==========================================
+  // Support Email helper methods
+  // ==========================================
+
+  /**
+   * Get support email address
+   */
+  getSupportEmail(): string {
+    return this.getString('SUPPORT_EMAIL', '');
+  }
+
+  /**
+   * Get support email auth
+   */
+  getSupportEmailAuth(): string {
+    return this.getString('SUPPORT_EMAIL_AUTH', '');
+  }
+
+  // ==========================================
+  // Google Maps helper methods
+  // ==========================================
+
+  /**
+   * Get Google Maps API key
+   */
+  getGoogleMapApiKey(): string {
+    return this.getString('GOOGLE_MAP_API_KEY', '');
+  }
+
+  // ==========================================
+  // Database URL helper methods
+  // ==========================================
+
+  /**
+   * Get PostgreSQL database URL
+   */
+  getDatabaseUrl(): string {
+    return this.getString('DATABASE_URL', 'mongodb+srv://wegoo_dev:ooqrkhzkRwqNLZ2P@cluster0.yewgjxh.mongodb.net/wegoo_dev');
+  }
+
+  /**
+   * Get test database URL
+   */
+  getDatabaseUrlTest(): string {
+    return this.getString('DATABASE_URL_TEST', 'mongodb+srv://wegoo_dev:ooqrkhzkRwqNLZ2P@cluster0.yewgjxh.mongodb.net/wegoo_dev');
+  }
+
+  // ==========================================
+  // Production URL helper methods
+  // ==========================================
+
+  /**
+   * Get production URL
+   */
+  getProductionUrl(): string {
+    return this.getString('PRODUCTION_URL', '');
+  }
+
+  getMailHost(): string {
+    return this.getString('MAIL_HOST', '');
+  }
+  getMailPort(): number {
+    return this.getNumber('MAIL_PORT', 587);
+  }
+  getMailUser(): string {
+    return this.getString('MAIL_USER', '');
+  }
+  getMailPass(): string {
+    return this.getString('MAIL_PASS', '');
   }
 }

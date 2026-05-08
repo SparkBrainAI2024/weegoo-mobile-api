@@ -11,13 +11,12 @@ import { join } from "path";
 import { envConfiguration, HealthResolver } from "@libs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
-import { SocialAuthModule } from "@libs/services/social-auth";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ".env",
+      envFilePath: "apps/api/.env",
       load: [envConfiguration],
     }),
     MongooseModule.forRootAsync({
@@ -40,23 +39,6 @@ import { SocialAuthModule } from "@libs/services/social-auth";
             })
           : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
       ],
-    }),
-    SocialAuthModule.forRootAsync({
-      useFactory: () => ({
-        google: {
-          clientId: process.env.GOOGLE_CLIENT_ID || '',
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-          redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
-          scope: [],
-        },
-        facebook: {
-          appId: process.env.FACEBOOK_APP_ID || '',
-          appSecret: process.env.FACEBOOK_APP_SECRET || '',
-          redirectUri: process.env.FACEBOOK_REDIRECT_URI || '',
-          scope: [],
-        },
-      }),
-      inject: [],
     }),
     AuthModule,
     UserModule,

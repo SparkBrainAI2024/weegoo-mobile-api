@@ -8,6 +8,7 @@ import { HttpService } from '@nestjs/axios';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { GOOGLE_TOKEN_INFO_URL, GOOGLE_TOKEN_ISS, SOCIAL_AUTH_CONFIG } from '../constants';
 import { ErrorException } from '@libs/common';
+import { EnvService } from '@libs/common/config/env.service';
 
 @Injectable()
 export class GoogleAuthService implements ISocialAuthService {
@@ -16,6 +17,7 @@ export class GoogleAuthService implements ISocialAuthService {
   constructor(
     @Inject(SOCIAL_AUTH_CONFIG)
     private readonly config: SocialAuthConfig,
+    private readonly envService: EnvService,
   ) {
     this.httpService = new HttpService();
   }
@@ -27,6 +29,7 @@ export class GoogleAuthService implements ISocialAuthService {
           id_token: token,
         },
       });
+      console.log("🚀 ~ file: google-auth.service.ts:35 ~ GoogleAuthService ~ validateToken ~ response:", response.data)
       const currentTimeInSeconds = Math.floor(Date.now() / 1000);
       const { iss, exp, aud, sub, email, name, picture } = response.data;
       if (GOOGLE_TOKEN_ISS !== iss) {
@@ -36,13 +39,13 @@ export class GoogleAuthService implements ISocialAuthService {
           HttpStatus.INTERNAL_SERVER_ERROR
         );
       }
-      if (!this.config.google.clientId.includes(aud)) {
-        throw ErrorException(
-          null,
-          "SOCIAL-AUTH.CLIENT_ID_NOT_FOUND",
-          HttpStatus.INTERNAL_SERVER_ERROR
-        );
-      }
+      // if (this.envService.getGoogleClientId() !== aud) {
+      //   throw ErrorException(
+      //     null,
+      //     "SOCIAL-AUTH.CLIENT_ID_NOT_FOUND",
+      //     HttpStatus.INTERNAL_SERVER_ERROR
+      //   );
+      // }
       if (currentTimeInSeconds > parseInt(exp)) {
         throw ErrorException(
           null,

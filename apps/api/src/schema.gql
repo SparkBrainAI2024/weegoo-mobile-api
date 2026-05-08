@@ -86,6 +86,8 @@ type Mutation {
   sendVerifyEmailOtp(input: EmailInput!): BasicResponse!
   verifyResetPasswordOtp(input: VerifyEmailInput!): VerifyResetPasswordOtpResponse!
   resetPassword(input: ResetPasswordInput!): BasicResponse!
+  googleSignUp(input: GoogleSignUpInput!): SignInResponse!
+  googleSignIn(input: GoogleSignInInput!): SignInResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
@@ -134,6 +136,18 @@ input EmailInput {
 input ResetPasswordInput {
   password: String!
   resetPasswordToken: String!
+}
+
+input GoogleSignUpInput {
+  token: String!
+  deviceId: String
+  firebaseToken: String
+  deviceType: String
+}
+
+input GoogleSignInInput {
+  token: String!
+  device: DeviceInput
 }
 
 input LogOutInput {
