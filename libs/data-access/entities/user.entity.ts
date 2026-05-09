@@ -11,13 +11,13 @@ export class User extends BaseEntity {
   @Field(() => String)
   fullName: string;
 
-  @Prop({ required: true, type: String, enum: AuthProvider, index: true })
+  @Prop({ required: true, type: String, enum: AuthProvider, index: true,default: AuthProvider.EMAIL })
   @Field(() => AuthProvider)
   authProvider: AuthProvider;
 
-  @Prop({ required: true, type: String, index: true })
+  @Prop({ required: false, type: String, index: true })
   @Field(() => String)
-  authProviderId: string;
+  authProviderId?: string;
 
   @Prop({ required: false, type: String })
   password: string;

@@ -14,6 +14,10 @@ export class UserRepository extends BaseRepository<UserDocument> {
     return this.findOne({ email });
   }
 
+  findByPhone(phone: string) {
+    return this.findOne({ phone });
+  }
+
   userCounts() {
     try {
       return this.model.countDocuments()

@@ -10,7 +10,7 @@ export class MailService {
       to: email,
       from: '"Ride Hailing App" <no-reply@ride-hailing.com>',
       subject: "Welcome to Ride Hailing App! Confirm your Email",
-      template: "./verify",
+      template: "./templates/verify",
       context: {
         email: email,
         otp,
@@ -23,7 +23,7 @@ export class MailService {
       to: email,
       from: '"Ride Hailing App" <no-reply@ride-hailing.com>',
       subject: "Reset Your Password",
-      template: "./resetPassword",
+      template: "./templates/resetPassword",
       context: {
         email: email,
         otp,

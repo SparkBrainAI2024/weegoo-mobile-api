@@ -50,4 +50,18 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
 
     }
 
+    async sendPhoneVerificationOtp(userId: Types.ObjectId, otp: number) {
+        try {
+            await this.model.findOneAndDelete({ type: verificationType.PHONE, userId, otp })
+            return await this.create({
+                type: verificationType.PHONE,
+                userId: userId,
+                otp,
+                createdAt: UTCTime()
+            })
+        } catch (e) {
+            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }

@@ -27,6 +27,9 @@ import {
   GoogleSignInInput,
   GoogleSignUpInput,
   AuthProvider,
+  PhoneSignUpInput,
+  PhoneSignInInput,
+  VerifyPhoneInput,
 } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
@@ -186,6 +189,7 @@ export class AuthService {
   }
 
   async signup(createUserInput: EmailSignUpInput, lang: string) {
+    
     try {
       const { email, fullName, gender, phone } = createUserInput;
       const userExistWithThisEmail = await this.userRepository.findByEmail(email);
@@ -309,6 +313,130 @@ export class AuthService {
       return result;
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Phone Signup - sends OTP to phone for verification
+  // TODO: Implement phone sending code in later phase
+  async phoneSignUp(phoneSignUpInput: PhoneSignUpInput, lang: string) {
+    try {
+      const { phone } = phoneSignUpInput;
+      const userExistWithThisPhone = await this.userRepository.findByPhone(phone);
+      if (userExistWithThisPhone?.password) {
+        ErrorException(null, "USER.USED_PHONE", HttpStatus.BAD_REQUEST);
+      }
+      const verificationCode = GenerateRandomDigit(userOtpSalt);
+      const userTokenData = {
+        phone: phone,
+        type: tokenTypes.accessToken,
+      };
+      const userToken = await generateToken(userTokenData, this.envService.getJwtSecretKey(), {
+        expiresIn: this.envService.getAccessTokenLife(),
+      });
+      if (userExistWithThisPhone) {
+        // TODO: Implement phone SMS sending in later phase
+        // await this.smsService.sendVerificationSms(phone, verificationCode);
+        await this.userVerificationRepository.sendPhoneVerificationOtp(
+          userExistWithThisPhone._id,
+          verificationCode,
+        );
+        return {
+          message: Message(lang, "USER.USER_CREATED"),
+          success: true,
+          userToken,
+        };
+      }
+      // TODO: Implement phone SMS sending in later phase
+      // await this.smsService.sendVerificationSms(phone, verificationCode);
+      const user: UserDocument = await this.userRepository.create({
+        phone,
+      });
+      await this.userVerificationRepository.sendPhoneVerificationOtp(
+        user._id,
+        verificationCode,
+      );
+      return {
+        message: Message(lang, "USER.USER_CREATED"),
+        success: true,
+        userToken,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // Phone Signin - validates phone and sends OTP
+  // TODO: Implement phone sending code in later phase
+  async phoneSignIn(phoneSignInInput: PhoneSignInInput, lang: string) {
+    try {
+      const { phone, device } = phoneSignInInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      if (user.suspended) {
+        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      }
+      const verificationCode = GenerateRandomDigit(userOtpSalt);
+      // TODO: Implement phone SMS sending in later phase
+      // await this.smsService.sendVerificationSms(phone, verificationCode);
+      await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
+      const userTokenData = {
+        phone: phone,
+        type: tokenTypes.accessToken,
+      };
+      const userToken = await generateToken(userTokenData, this.envService.getJwtSecretKey(), {
+        expiresIn: this.envService.getAccessTokenLife(),
+      });
+      return {
+        message: Message(lang, "USER.OTP_SEND"),
+        success: true,
+        userToken,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // Verify Phone OTP
+  async verifyPhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
+    try {
+      const { phone, otp } = verifyPhoneInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      const verification = await this.userVerificationRepository.findOne({
+        userId: user._id,
+        otp,
+        type: verificationType.PHONE,
+      });
+      if (!verification) {
+        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+      }
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { verified: true },
+      );
+      await this.userVerificationRepository.deleteOtpById(verification._id);
+      return {
+        message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
+        success: true,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

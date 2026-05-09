@@ -5,8 +5,6 @@ export interface AppEnv {
 
   // Database
   DB_CONNECTION_URL: string;
-  DATABASE_URL: string;
-  DATABASE_URL_TEST: string;
 
   // JWT
   JWT_SECRET_KEY: string;
@@ -52,10 +50,7 @@ export default (): AppEnv => ({
 
   // Database
   DB_CONNECTION_URL: process.env.DB_CONNECTION_URL || 'mongodb://localhost:27017/ride_hailing',
-  DATABASE_URL: process.env.DATABASE_URL || 'postgres://username:password@localhost:5432/ride_hailing_db',
-  DATABASE_URL_TEST: process.env.DATABASE_URL_TEST || 'postgres://username:password@localhost:5432/ride_hailing_test_db',
-
-  // JWT
+ // JWT
   JWT_SECRET_KEY: process.env.JWT_SECRET_KEY || process.env.JWT_SECRET || 'your_jwt_secret',
   JWT_SECRET: process.env.JWT_SECRET || 'your_jwt_secret',
   JWT_EXPIRATION: process.env.JWT_EXPIRATION || '1h',

@@ -9,7 +9,7 @@ import { envConfiguration, HealthResolver } from '@libs/common';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', load: [envConfiguration] }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: 'apps/admin-api/.env', load: [envConfiguration] }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
