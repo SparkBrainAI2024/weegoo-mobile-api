@@ -17,6 +17,9 @@ import {
   BasicResponse,
   GoogleSignInInput,
   GoogleSignUpInput,
+  PhoneSignUpInput,
+  PhoneSignInInput,
+  VerifyPhoneInput,
 } from "@libs/data-access";
 
 @Resolver()
@@ -87,5 +90,37 @@ export class AuthResolver {
   @Mutation(() => SignInResponse)
   googleSignIn(@Args("input") input: GoogleSignInInput) {
     return this.authService.googleSignIn(input);
+  }
+
+  @Mutation(() => SignUpResponse)
+  phoneSignUp(
+    @Args("input") input: PhoneSignUpInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.phoneSignUp(input, lang);
+  }
+
+  @Mutation(() => SignInResponse)
+  phoneSignIn(
+    @Args("input") input: PhoneSignInInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.phoneSignIn(input, lang);
+  }
+
+  @Mutation(() => BasicResponse)
+  verifyPhone(
+    @Args("input") input: VerifyPhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.verifyPhone(input, lang);
+  }
+
+  @Mutation(() => VerifyResetPasswordOtpResponse)
+  verifyResetPasswordPhoneOtp(
+    @Args("input") input: VerifyPhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.verifyResetPasswordPhoneOTP(input, lang);
   }
 }

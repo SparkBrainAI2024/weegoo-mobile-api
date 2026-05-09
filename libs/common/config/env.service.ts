@@ -232,15 +232,9 @@ export class EnvService {
    * Get PostgreSQL database URL
    */
   getDatabaseUrl(): string {
-    return this.getString('DATABASE_URL', 'mongodb+srv://wegoo_dev:ooqrkhzkRwqNLZ2P@cluster0.yewgjxh.mongodb.net/wegoo_dev');
+    return this.getString('DB_CONNECTION_URL');
   }
 
-  /**
-   * Get test database URL
-   */
-  getDatabaseUrlTest(): string {
-    return this.getString('DATABASE_URL_TEST', 'mongodb+srv://wegoo_dev:ooqrkhzkRwqNLZ2P@cluster0.yewgjxh.mongodb.net/wegoo_dev');
-  }
 
   // ==========================================
   // Production URL helper methods

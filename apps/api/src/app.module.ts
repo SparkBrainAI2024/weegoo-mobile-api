@@ -22,7 +22,7 @@ import { UserModule } from "./modules/user/user.module";
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>("DB_CONNECTION_URL"),
+        uri: configService.get<string>('DB_CONNECTION_URL'),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({

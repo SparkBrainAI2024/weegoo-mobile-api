@@ -11,7 +11,7 @@ import { UserModule } from "./modules/user/user.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env', load: [envConfiguration] }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: 'apps/driver-api/.env', load: [envConfiguration] }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -27,9 +27,9 @@ import { UserModule } from "./modules/user/user.module";
         // Install a landing page plugin based on NODE_ENV
         process.env.NODE_ENV === 'production'
           ? ApolloServerPluginLandingPageProductionDefault({
-              graphRef: 'admin-api@current',
-              footer: false,
-            })
+            graphRef: 'admin-api@current',
+            footer: false,
+          })
           : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
       ],
     }),

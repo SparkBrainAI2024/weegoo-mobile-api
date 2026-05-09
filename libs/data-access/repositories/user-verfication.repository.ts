@@ -7,6 +7,7 @@ import { verificationType } from '../enums/user.enum';
 import { ErrorException } from '@libs/common/exceptions';
 import { UserVerification, UserVerificationDocument } from '../entities/user-verfication.entity';
 import { UTCTime } from '@libs/common/utils/datetime';
+import { toMongoId } from '@libs/common';
 
 @Injectable()
 export class UserVerificationRepository extends BaseRepository<UserVerificationDocument> {
@@ -48,6 +49,20 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
             ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
+    }
+
+    async sendPhoneVerificationOtp(userId: Types.ObjectId, otp: number) {
+        try {
+            await this.model.findOneAndDelete({ type: verificationType.PHONE, userId, otp })
+            return await this.create({
+                type: verificationType.PHONE,
+                userId: toMongoId(userId.toString()),
+                otp,
+                createdAt: UTCTime()
+            })
+        } catch (e) {
+            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
 }

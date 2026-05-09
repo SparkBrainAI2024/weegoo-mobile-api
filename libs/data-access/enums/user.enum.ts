@@ -21,6 +21,8 @@ export enum GenderEnum {
 export enum verificationType {
   EMAIL = "EMAIL",
   PHONE = "PHONE",
+  GOOGLE = "GOOGLE",
+  APPLE = "APPLE",
 }
 
 export enum deviceType {
@@ -30,7 +32,7 @@ export enum deviceType {
 }
 
 export enum AuthProvider {
-  EMAIL = 'email',
+  PHONE = 'phone',
   GOOGLE = 'google',
   APPLE = 'apple',
 }
@@ -87,8 +89,8 @@ registerEnumType(AuthProvider, {
   name: 'AuthProvider',
   description: 'The authentication provider used by the user',
   valuesMap: {
-    EMAIL: {
-      description: 'User authenticated via email and password',
+    PHONE: {
+      description: 'User authenticated via phone number',
     },
     GOOGLE: {
       description: 'User authenticated via Google OAuth',

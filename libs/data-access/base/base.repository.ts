@@ -85,6 +85,7 @@ export class BaseRepository<T extends Document> {
     options?: QueryOptions<T> | null,
   ): Promise<T | null> {
     options = this.mergePopulateOptions(options, populate);
+    console.log("🚀 ~ file: base.repository.ts:122 ~ BaseRepository ~ findOne ~ options:", filter)
     return this.model.findOne(filter, projection, options);
   }
 

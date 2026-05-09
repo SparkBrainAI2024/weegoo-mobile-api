@@ -8,7 +8,7 @@ import { BaseEntity } from "../base/base.entity";
 export type UserVerificationDocument = HydratedDocument<UserVerification>;
 
 @ObjectType()
-@Schema()
+@Schema({ timestamps: true })
 export class UserVerification extends BaseEntity {
   @Field(() => ID)
   @Prop({ type: Types.ObjectId, ref: "User" })

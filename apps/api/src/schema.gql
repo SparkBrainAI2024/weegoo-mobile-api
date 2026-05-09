@@ -13,7 +13,7 @@ type BasicResponse {
 }
 
 type CoreUserDetailsResponse {
-  email: String!
+  email: String
   verified: Boolean!
   suspended: Boolean!
   profileCompleted: Boolean!
@@ -89,6 +89,10 @@ type Mutation {
   resetPassword(input: ResetPasswordInput!): BasicResponse!
   googleSignUp(input: GoogleSignUpInput!): SignInResponse!
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
+  phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
+  phoneSignIn(input: PhoneSignInInput!): SignInResponse!
+  verifyPhone(input: VerifyPhoneInput!): BasicResponse!
+  verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
@@ -150,6 +154,20 @@ input GoogleSignUpInput {
 input GoogleSignInInput {
   token: String!
   device: DeviceInput
+}
+
+input PhoneSignUpInput {
+  phone: String!
+}
+
+input PhoneSignInInput {
+  phone: String!
+  device: DeviceInput
+}
+
+input VerifyPhoneInput {
+  phone: String!
+  otp: String!
 }
 
 input LogOutInput {

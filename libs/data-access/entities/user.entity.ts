@@ -11,20 +11,20 @@ export class User extends BaseEntity {
   @Field(() => String)
   fullName: string;
 
-  @Prop({ required: true, type: String, enum: AuthProvider, index: true })
+  @Prop({ required: true, type: String, enum: AuthProvider, index: true,default: AuthProvider.PHONE })
   @Field(() => AuthProvider)
   authProvider: AuthProvider;
 
-  @Prop({ required: true, type: String, index: true })
+  @Prop({ required: false, type: String, index: true })
   @Field(() => String)
-  authProviderId: string;
+  authProviderId?: string;
 
   @Prop({ required: false, type: String })
   password: string;
 
-  @Prop({ required: true, unique: true, type: String })
+  @Prop({ required: false, unique: true, type: String })
   @Field(() => String)
-  email: string;
+  email?: string;
 
   @Prop({ required: true, type: String, enum: UserStatus, default: UserStatus.INACTIVE })
   @Field(() => UserStatus)
@@ -52,8 +52,8 @@ export class User extends BaseEntity {
   @Prop({ default: null })
   lastLogin?: Date;
 
-  @Field({ nullable: true })
-  @Prop()
+  @Field(()=>String, { nullable: true })
+  @Prop({ required: false, unique: true, type: String })
   phone?: string;
 
   @Field(() => language, { defaultValue: language.EN })

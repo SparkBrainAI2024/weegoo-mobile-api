@@ -19,27 +19,27 @@ export class UserDetails extends BaseEntity {
   userId: Types.ObjectId;
 
   @Field()
-  @Prop({ required: true })
-  fullName: string;
+  @Prop({ required: false, type: String })
+  fullName?: string;
 
   @Field({ nullable: true })
-  @Prop()
+  @Prop({ required: false, type: String })
   address?: string;
 
   @Field({ nullable: true })
-  @Prop()
+  @Prop({ required: false, type: String })
   profileImage?: string;
 
   @Field({ nullable: true })
-  @Prop({ type: Date, default: null })
+  @Prop({ required: false, type: Date, default: null })
   dateOfBirth?: Date;
 
   @Field({ nullable: true })
-  @Prop()
+  @Prop({ required: false, type: String })
   bio?: string;
 
   @Field(() => GeoLocation, { nullable: true })
-  @Prop({ type: Object, default: {} })
+  @Prop({ required: false, type: Object, default: {} })
   geoLocation?: GeoLocation;
 
   @Field(() => GenderEnum, { defaultValue: GenderEnum.UNPUBLISHED })
@@ -48,7 +48,7 @@ export class UserDetails extends BaseEntity {
     enum: GenderEnum,
     default: GenderEnum.UNPUBLISHED,
   })
-  gender: string;
+  gender?: string;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 

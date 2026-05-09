@@ -12,11 +12,11 @@ export class DeviceRepository extends BaseRepository<DeviceDocument> {
     super(_model);
   }
  async findByUserId(userId: string) {
-    return await this.findOne({ userId });
+    return await this.model.findOne({ userId });
   }
 
   async findByDeviceId(deviceId: string) {
-    return await this.findOne({ deviceId });
+    return await this.model.findOne({ deviceId });
   }
 
   async addDevice(
@@ -25,7 +25,7 @@ export class DeviceRepository extends BaseRepository<DeviceDocument> {
     firebaseToken: string,
     deviceType: string | null
   ) {
-    return await this.create({
+    return await this.model.create({
       userId,
       deviceId,
       firebaseToken,
@@ -34,9 +34,9 @@ export class DeviceRepository extends BaseRepository<DeviceDocument> {
   }
 
   async logout(userId: string, deviceId: string) {
-    const device = await this.findOne({ userId, deviceId });
+    const device = await this.model.findOne({ userId, deviceId });
     if (!device)
       ErrorException(null, "USER.DEVICE_NOT_FOUND", HttpStatus.BAD_REQUEST);
-    return this.deleteOne({ userId, deviceId });
+    return this.model.deleteOne({ userId, deviceId });
   }
 }
