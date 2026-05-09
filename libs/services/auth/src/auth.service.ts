@@ -62,6 +62,7 @@ export type UserDetailsResponse = {
   gender: string;
   createdAt: Date;
   geoLocation: any;
+  userId: Types.ObjectId;
 };
 
 @Injectable()
@@ -122,6 +123,7 @@ export class AuthService {
       gender: userDetails.gender,
       createdAt: userDetails.createdAt,
       geoLocation: userDetails?.geoLocation?.type ? userDetails.geoLocation : null,
+      userId: userDetails.userId,
     };
   }
 
@@ -351,6 +353,9 @@ export class AuthService {
       const user: UserDocument = await this.userRepository.create({
         phone,
       });
+      await this.userDetailsRepository.create({
+          userId: user._id,
+      });
       await this.userVerificationRepository.sendPhoneVerificationOtp(
         user._id,
         verificationCode,
@@ -369,34 +374,33 @@ export class AuthService {
     }
   }
 
-  // Phone Signin - validates phone and sends OTP
-  // TODO: Implement phone sending code in later phase
+  // Phone Signin - validates phone and returns sign in result
+  // TODO: Implement phone SMS sending for OTP verification in later phase
   async phoneSignIn(phoneSignInInput: PhoneSignInInput, lang: string) {
     try {
       const { phone, device } = phoneSignInInput;
+      console.log( phone)
       const user: UserDocument = await this.userRepository.findByPhone(phone);
+      console.log("🚀 ~ file: auth.service.ts:322 ~ AuthService ~ phoneSignIn ~ user:", user)
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
       if (user.suspended) {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
-      const verificationCode = GenerateRandomDigit(userOtpSalt);
-      // TODO: Implement phone SMS sending in later phase
-      // await this.smsService.sendVerificationSms(phone, verificationCode);
-      await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
-      const userTokenData = {
-        phone: phone,
-        type: tokenTypes.accessToken,
-      };
-      const userToken = await generateToken(userTokenData, this.envService.getJwtSecretKey(), {
-        expiresIn: this.envService.getAccessTokenLife(),
-      });
-      return {
-        message: Message(lang, "USER.OTP_SEND"),
-        success: true,
-        userToken,
-      };
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { lastLogin: UTCTime() },
+      );
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone);
+      console.log(device);
+      await this.registerDeviceIfProvided(user._id, device);
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      return result;
     } catch (e) {
       ErrorException(
         e,

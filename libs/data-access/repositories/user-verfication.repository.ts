@@ -7,6 +7,7 @@ import { verificationType } from '../enums/user.enum';
 import { ErrorException } from '@libs/common/exceptions';
 import { UserVerification, UserVerificationDocument } from '../entities/user-verfication.entity';
 import { UTCTime } from '@libs/common/utils/datetime';
+import { toMongoId } from '@libs/common';
 
 @Injectable()
 export class UserVerificationRepository extends BaseRepository<UserVerificationDocument> {
@@ -55,7 +56,7 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
             await this.model.findOneAndDelete({ type: verificationType.PHONE, userId, otp })
             return await this.create({
                 type: verificationType.PHONE,
-                userId: userId,
+                userId: toMongoId(userId.toString()),
                 otp,
                 createdAt: UTCTime()
             })

@@ -10,7 +10,7 @@ export class UserDetailsRepository extends BaseRepository<UserDetailsDocument> {
         super(_model);
     }
     findByEmail(email: string) {
-        return this.findOne({ email });
+        return this.model.findOne({ email });
     }
 
 }

@@ -20,6 +20,9 @@ export class Device extends BaseEntity{
     userId: Types.ObjectId;
 
     @Field(() => String)
+     @Prop({
+        type: String,
+    })
     deviceId: string;
 
     @Field({ nullable: true })

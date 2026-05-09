@@ -11,11 +11,11 @@ export class UserRepository extends BaseRepository<UserDocument> {
     super(_model);
   }
   findByEmail(email: string) {
-    return this.findOne({ email });
+    return this.model.findOne({ email });
   }
 
   findByPhone(phone: string) {
-    return this.findOne({ phone });
+    return this.model.findOne({ phone });
   }
 
   userCounts() {

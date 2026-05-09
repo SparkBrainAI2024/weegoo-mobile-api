@@ -2,8 +2,8 @@ import { Field, ObjectType } from "@nestjs/graphql";
 
 @ObjectType()
 export class CoreUserDetailsResponse {
-  @Field()
-  email: string;
+  @Field({ nullable: true })
+  email?: string;
 
   @Field()
   verified: boolean;

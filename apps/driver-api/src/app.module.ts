@@ -2,21 +2,20 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageLocalDefault, ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { join } from 'path';
 import { envConfiguration, HealthResolver } from '@libs/common';
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
-import { EnvService } from '@libs/common/config/env.service';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: 'apps/driver-api/.env', load: [envConfiguration] }),
     MongooseModule.forRootAsync({
-      inject: [EnvService],
-      useFactory: (envService: EnvService) => ({
-        uri: envService.getDatabaseUrl(),
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('DB_CONNECTION_URL'),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({

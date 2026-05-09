@@ -18,5 +18,13 @@ export const StringToObjectId = (id) => {
     return new mongoose.Types.ObjectId(id);
 };
 export const GenerateRandomDigit = (length: number) => {
-    return Math.floor(Math.pow(10, length - 1) + Math.random() * (Math.pow(10, length) - Math.pow(10, length - 1) - 1));
+    // In development mode, return a fixed test code '12345'
+    if (process.env.APP_ENV === 'production') {
+        return Math.floor(Math.pow(10, length - 1) + Math.random() * (Math.pow(10, length) - Math.pow(10, length - 1) - 1));
+
+    }
+    return 12345;
+
+    // In production/other modes, generate actual random digit
+
 }

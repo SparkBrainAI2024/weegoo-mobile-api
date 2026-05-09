@@ -11,7 +11,6 @@ import { join } from "path";
 import { envConfiguration, HealthResolver } from "@libs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
-import { EnvService } from "@libs/common/config/env.service";
 
 @Module({
   imports: [
@@ -21,9 +20,9 @@ import { EnvService } from "@libs/common/config/env.service";
       load: [envConfiguration],
     }),
     MongooseModule.forRootAsync({
-      inject: [EnvService],
-      useFactory: (envService: EnvService) => ({
-        uri: envService.getDatabaseUrl(),
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('DB_CONNECTION_URL'),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
