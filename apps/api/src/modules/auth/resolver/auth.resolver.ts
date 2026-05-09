@@ -115,4 +115,12 @@ export class AuthResolver {
   ) {
     return this.authService.verifyPhone(input, lang);
   }
+
+  @Mutation(() => VerifyResetPasswordOtpResponse)
+  verifyResetPasswordPhoneOtp(
+    @Args("input") input: VerifyPhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.verifyResetPasswordPhoneOTP(input, lang);
+  }
 }

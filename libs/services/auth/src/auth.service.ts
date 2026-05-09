@@ -535,6 +535,45 @@ export class AuthService {
     }
   }
 
+  async verifyResetPasswordPhoneOTP(verifyPhoneInput: VerifyPhoneInput, lang: string) {
+    try {
+      const { phone, otp } = verifyPhoneInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      const verification = await this.userVerificationRepository.findOne({
+        userId: user._id,
+        otp,
+        type: verificationType.PHONE,
+      });
+      if (!verification) {
+        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+      }
+      const resetPasswordToken = await generateToken(
+        {
+          id: user._id,
+          phone: user.phone,
+          type: tokenTypes.resetPasswordToken,
+        },
+        this.envService.getJwtSecretKey(),
+        { expiresIn: this.envService.getResetPasswordTokenLife() },
+      );
+      await this.userVerificationRepository.deleteOtpById(verification._id);
+      return {
+        message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
+        success: true,
+        resetPasswordToken,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async loginWithRefreshToken(refreshTokenInput: string) {
     try {
       const verifiedToken = await verifyToken(
