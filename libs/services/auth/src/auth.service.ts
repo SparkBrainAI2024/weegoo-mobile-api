@@ -398,7 +398,6 @@ export class AuthService {
         { lastLogin: UTCTime() },
       );
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone);
-      console.log(device);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
