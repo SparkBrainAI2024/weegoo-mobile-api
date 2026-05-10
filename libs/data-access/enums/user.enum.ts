@@ -54,6 +54,24 @@ export enum bookingStatus {
   UNAVAILABLE = "UNAVAILABLE",
 }
 
+export enum ridePreference {
+  SCHEDULED = "SCHEDULED",
+  INSTANT = "INSTANT",
+  BOTH='BOTH',
+}
+
+registerEnumType(ridePreference, {
+  name: 'RidePreference',
+  description: 'The preference for booking a ride',
+  valuesMap: {
+    SCHEDULED: {
+      description: 'The ride is scheduled for a later time',  
+    },
+    INSTANT: {
+      description: 'The ride is requested for immediate pickup',
+    },
+  },
+});
 
 registerEnumType(UserStatus, {
   name: 'UserStatus',

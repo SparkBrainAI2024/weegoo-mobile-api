@@ -85,6 +85,7 @@ type Mutation {
   signIn(input: EmailSignInInput!): SignInResponse!
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
   sendVerifyEmailOtp(input: EmailInput!): BasicResponse!
+  sendVerifyPhoneOtp(input: PhoneInput!): BasicResponse!
   verifyResetPasswordOtp(input: VerifyEmailInput!): VerifyResetPasswordOtpResponse!
   resetPassword(input: ResetPasswordInput!): BasicResponse!
   googleSignUp(input: GoogleSignUpInput!): SignInResponse!
@@ -97,6 +98,7 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
@@ -137,6 +139,10 @@ input RefreshTokenInput {
 
 input EmailInput {
   email: String!
+}
+
+input PhoneInput {
+  phone: String!
 }
 
 input ResetPasswordInput {
@@ -181,6 +187,10 @@ input ChangePasswordInput {
 
 input ChangeLanguageInput {
   language: String!
+}
+
+input UpdatePhoneInput {
+  phone: String!
 }
 
 input CreateUserDetailsInput {
