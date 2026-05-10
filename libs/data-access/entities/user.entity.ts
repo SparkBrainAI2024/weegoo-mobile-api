@@ -22,7 +22,7 @@ export class User extends BaseEntity {
   @Prop({ required: false, type: String })
   password: string;
 
-  @Prop({ required: false, unique: true, type: String })
+  @Prop({ required: false, unique: true, sparse: true, type: String })
   @Field(() => String)
   email?: string;
 
@@ -53,7 +53,7 @@ export class User extends BaseEntity {
   lastLogin?: Date;
 
   @Field(()=>String, { nullable: true })
-  @Prop({ required: false, unique: true, type: String })
+  @Prop({ required: false, unique: true,sparse:true, type: String })
   phone?: string;
 
   @Field(() => language, { defaultValue: language.EN })
