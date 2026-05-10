@@ -11,6 +11,10 @@ export class PhoneSignInInput {
     message: "USER.INVALID_PHONE",
   })
   phone: string;
+  
+  @Field()
+  @IsNotEmpty()
+  password: string;
 
   @Field(() => DeviceInput, { nullable: true })
   device?: DeviceInput;

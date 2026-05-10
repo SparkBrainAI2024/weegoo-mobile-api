@@ -191,6 +191,27 @@ export class AuthService {
     return { user, userDetails };
   }
 
+    private async validateUserForSignInPhone(phone: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
+    const user = await this.userRepository.findByPhone(phone);
+    if (!user) {
+      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
+    }
+    const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+    if (!userDetails) {
+      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
+    }
+    if (password !== undefined) {
+      const checkPassword = await comparePassword(password, user.password);
+      if (!checkPassword) {
+        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
+      }
+    }
+    if (user.suspended) {
+      ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+    }
+    return { user, userDetails };
+  }
+
   async signup(createUserInput: EmailSignUpInput, lang: string) {
     
     try {
@@ -379,9 +400,8 @@ export class AuthService {
   // TODO: Implement phone SMS sending for OTP verification in later phase
   async phoneSignIn(phoneSignInInput: PhoneSignInInput, lang: string) {
     try {
-      const { phone, device } = phoneSignInInput;
-      console.log( phone)
-      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      const { phone, device, password } = phoneSignInInput;
+      const { user, userDetails } = await this.validateUserForSignInPhone(phone, password);
       console.log("🚀 ~ file: auth.service.ts:322 ~ AuthService ~ phoneSignIn ~ user:", user)
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -389,8 +409,7 @@ export class AuthService {
       if (user.suspended) {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
-      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
-      if (!userDetails) {
+     if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
       await this.userRepository.updateOne(
