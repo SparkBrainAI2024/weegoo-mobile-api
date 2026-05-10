@@ -37,8 +37,14 @@ export class SocialAuthModule {
 
     return {
       module: SocialAuthModule,
-      imports: [HttpModule, ...(options.imports || [])],
-      providers: [SocialAuthService, configProvider, googleProvider,EnvService],
+      imports: [
+        HttpModule.register({
+          timeout: 5000,
+          maxRedirects: 5,
+        }),
+        ...(options.imports || []),
+      ],
+      providers: [SocialAuthService, configProvider, googleProvider, EnvService],
       exports: [SocialAuthService],
     };
   }
