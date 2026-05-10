@@ -13,7 +13,7 @@ type BasicResponse {
 }
 
 type CoreUserDetailsResponse {
-  email: String!
+  email: String
   verified: Boolean!
   suspended: Boolean!
   profileCompleted: Boolean!
@@ -85,14 +85,20 @@ type Mutation {
   signIn(input: EmailSignInInput!): SignInResponse!
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
   sendVerifyEmailOtp(input: EmailInput!): BasicResponse!
+  sendVerifyPhoneOtp(input: PhoneInput!): BasicResponse!
   verifyResetPasswordOtp(input: VerifyEmailInput!): VerifyResetPasswordOtpResponse!
   resetPassword(input: ResetPasswordInput!): BasicResponse!
   googleSignUp(input: GoogleSignUpInput!): SignInResponse!
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
+  phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
+  phoneSignIn(input: PhoneSignInInput!): SignInResponse!
+  verifyPhone(input: VerifyPhoneInput!): BasicResponse!
+  verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
@@ -135,6 +141,10 @@ input EmailInput {
   email: String!
 }
 
+input PhoneInput {
+  phone: String!
+}
+
 input ResetPasswordInput {
   password: String!
   resetPasswordToken: String!
@@ -152,6 +162,21 @@ input GoogleSignInInput {
   device: DeviceInput
 }
 
+input PhoneSignUpInput {
+  phone: String!
+}
+
+input PhoneSignInInput {
+  phone: String!
+  password: String!
+  device: DeviceInput
+}
+
+input VerifyPhoneInput {
+  phone: String!
+  otp: String!
+}
+
 input LogOutInput {
   deviceId: String!
 }
@@ -163,6 +188,10 @@ input ChangePasswordInput {
 
 input ChangeLanguageInput {
   language: String!
+}
+
+input UpdatePhoneInput {
+  phone: String!
 }
 
 input CreateUserDetailsInput {

@@ -191,7 +191,7 @@ export class AuthService {
     return { user, userDetails };
   }
 
-    private async validateUserForSignInPhone(phone: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
+  private async validateUserForSignInPhone(phone: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
     const user = await this.userRepository.findByPhone(phone);
     if (!user) {
       ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
@@ -200,11 +200,13 @@ export class AuthService {
     if (!userDetails) {
       ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
     }
-    if (password !== undefined) {
-      const checkPassword = await comparePassword(password, user.password);
+    if (password && user?.password) {
+      const checkPassword = await comparePassword(password, user?.password || '');
       if (!checkPassword) {
         ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
       }
+    } else {
+      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.BAD_REQUEST);
     }
     if (user.suspended) {
       ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
@@ -213,7 +215,7 @@ export class AuthService {
   }
 
   async signup(createUserInput: EmailSignUpInput, lang: string) {
-    
+
     try {
       const { email, fullName, gender, phone } = createUserInput;
       const userExistWithThisEmail = await this.userRepository.findByEmail(email);
@@ -376,7 +378,7 @@ export class AuthService {
         phone,
       });
       await this.userDetailsRepository.create({
-          userId: user._id,
+        userId: user._id,
       });
       await this.userVerificationRepository.sendPhoneVerificationOtp(
         user._id,
@@ -402,14 +404,13 @@ export class AuthService {
     try {
       const { phone, device, password } = phoneSignInInput;
       const { user, userDetails } = await this.validateUserForSignInPhone(phone, password);
-      console.log("🚀 ~ file: auth.service.ts:322 ~ AuthService ~ phoneSignIn ~ user:", user)
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
       if (user.suspended) {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
-     if (!userDetails) {
+      if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
       await this.userRepository.updateOne(
@@ -421,6 +422,7 @@ export class AuthService {
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
+      console.log("🚀 ~ file: auth.service.ts:322 ~ AuthService ~ phoneSignIn ~ e:", e)
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -752,7 +754,7 @@ export class AuthService {
   async googleSignIn(googleSignInInput: GoogleSignInInput) {
     try {
       const { token, device } = googleSignInInput;
-      
+
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
       console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignIn ~ socialUser:", socialUser)
       if (!socialUser.email) {
