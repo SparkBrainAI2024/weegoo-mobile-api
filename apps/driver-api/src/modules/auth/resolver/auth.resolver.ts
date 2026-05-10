@@ -102,7 +102,7 @@ export class AuthResolver {
     return this.authService.googleSignIn(input);
   }
 
-  @Mutation(() => SignUpResponse)
+  @Mutation(() => SignInResponse)
   phoneSignUp(
     @Args("input") input: PhoneSignUpInput,
     @CurrentLang() lang: string,
@@ -110,7 +110,7 @@ export class AuthResolver {
     return this.authService.phoneSignUp(input, lang);
   }
 
-  @Mutation(() => SignUpResponse)
+  @Mutation(() => SignInResponse)
   phoneSignIn(
     @Args("input") input: PhoneSignInInput,
     @CurrentLang() lang: string,
