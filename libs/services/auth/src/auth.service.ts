@@ -24,6 +24,7 @@ import {
   UserDetailsDocument,
   verificationType,
   EmailInput,
+  PhoneInput,
   GoogleSignInInput,
   GoogleSignUpInput,
   AuthProvider,
@@ -343,7 +344,7 @@ export class AuthService {
           verificationCode,
         );
         return {
-          message: Message(lang, "USER.USER_CREATED"),
+          message: Message(lang, "USER.USER_CREATED_PHONE"),
           success: true,
           userToken,
         };
@@ -361,7 +362,7 @@ export class AuthService {
         verificationCode,
       );
       return {
-        message: Message(lang, "USER.USER_CREATED"),
+        message: Message(lang, "USER.USER_CREATED_PHONE"),
         success: true,
         userToken,
       };
@@ -498,6 +499,30 @@ export class AuthService {
         message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
         success: true,
       };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async sendVerifyPhoneOtp(sendOtpInput: PhoneInput, lang: string) {
+    try {
+      const { phone } = sendOtpInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      const verificationCode = GenerateRandomDigit(userOtpSalt);
+      // TODO: Implement phone SMS sending in later phase
+      // await this.smsService.sendVerificationSms(phone, verificationCode);
+      await this.userVerificationRepository.sendPhoneVerificationOtp(
+        user._id,
+        verificationCode,
+      );
+      return { message: Message(lang, "USER.OTP_SEND"), success: true };
     } catch (e) {
       ErrorException(
         e,

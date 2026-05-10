@@ -10,6 +10,7 @@ import {
   RefreshTokenInput,
   ResetPasswordInput,
   EmailInput,
+  PhoneInput,
   SetPasswordInput,
   EmailSignInInput,
   EmailSignUpInput,
@@ -64,6 +65,14 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.sendVerifyEmailOtp(input, lang);
+  }
+
+  @Mutation(() => BasicResponse)
+  sendVerifyPhoneOtp(
+    @Args("input") input: PhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.sendVerifyPhoneOtp(input, lang);
   }
 
   @Mutation(() => VerifyResetPasswordOtpResponse)

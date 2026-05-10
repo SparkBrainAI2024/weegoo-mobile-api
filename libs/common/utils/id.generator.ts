@@ -19,7 +19,7 @@ export const StringToObjectId = (id) => {
 };
 export const GenerateRandomDigit = (length: number) => {
     // In development mode, return a fixed test code '12345'
-    if (process.env.APP_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production') {
         return Math.floor(Math.pow(10, length - 1) + Math.random() * (Math.pow(10, length) - Math.pow(10, length - 1) - 1));
 
     }
