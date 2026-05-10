@@ -24,9 +24,9 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
 
     async sendEmailVerificationOtp(userId: Types.ObjectId, otp: number) {
         try {
-            await this.model.findOneAndDelete({ type: verificationType.EMAIL, userId, otp })
+            await this.model.findOneAndDelete({ type: verificationType.VERIFICATION_EMAIL, userId, otp })
             return await this.create({
-                type: verificationType.EMAIL,
+                type: verificationType.VERIFICATION_EMAIL,
                 userId: userId,
                 otp,
                 createdAt: UTCTime()
@@ -38,9 +38,9 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
     }
     async sendResetPasswordOtp(userId: Types.ObjectId, otp: number) {
         try {
-            await this.model.findOneAndDelete({ type: verificationType.EMAIL, userId, otp })
+            await this.model.findOneAndDelete({ type: verificationType.RESET_PASSWORD, userId, otp })
             return await this.create({
-                type: verificationType.EMAIL,
+                type: verificationType.RESET_PASSWORD,
                 userId: userId,
                 otp,
                 createdAt: UTCTime()
@@ -53,9 +53,9 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
 
     async sendPhoneVerificationOtp(userId: Types.ObjectId, otp: number) {
         try {
-            await this.model.findOneAndDelete({ type: verificationType.PHONE, userId, otp })
+            await this.model.findOneAndDelete({ type: verificationType.VERIFICATION_EMAIL, userId, otp })
             return await this.create({
-                type: verificationType.PHONE,
+                type: verificationType.VERIFICATION_EMAIL,
                 userId: toMongoId(userId.toString()),
                 otp,
                 createdAt: UTCTime()

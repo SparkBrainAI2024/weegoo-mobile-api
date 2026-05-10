@@ -11,13 +11,13 @@ import {
 } from "@libs/data-access";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
-import { UserService } from "@libs/services/user/user.service";
+import { UserService } from "../user.service";
 
 
 @Resolver()
 @UseGuards(AuthGuard)
 export class UserResolver {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
   @Mutation(() => BasicResponse)
   logOut(

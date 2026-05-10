@@ -1,7 +1,10 @@
-import { comparePassword, ErrorException, hashPassword, passwordSalt } from "@libs/common";
-import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput } from "@libs/data-access";
+import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes } from "@libs/common";
+import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput, UserTokenMetaRepository, SetPasswordInput } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
+import { EnvService } from "@libs/common/config/env.service";
+import { generateMongoDbId } from "@libs/common/utils/id.generator";
+import { generateToken } from "@libs/common/utils/jwt";
 import { Types } from "mongoose";
 
 @Injectable()
@@ -10,11 +13,60 @@ export class UserService {
         private readonly userRepository: UserRepository,
         private readonly deviceRepository: DeviceRepository,
         private readonly userVerificationRepository: UserVerificationRepository,
-        private readonly userDetailsRepository: UserDetailsRepository
+        private readonly userDetailsRepository: UserDetailsRepository,
+        private readonly userTokenMetaRepository: UserTokenMetaRepository,
+        private readonly envService: EnvService,
     ) { }
-    async logOut(deviceId: string, userId: string, lang) {
+
+    private async createAuthTokens(
+        userId: Types.ObjectId | string,
+        email: string,
+        deviceId: string = null,
+    ): Promise<{ accessToken: string; refreshToken: string }> {
+        const accessTokenJti = generateMongoDbId();
+        const refreshTokenJti = generateMongoDbId();
+
+        const accessTokenData = {
+            id: userId,
+            email,
+            jti: accessTokenJti,
+            grant: 'access',
+            type: tokenTypes.accessToken,
+            deviceId,
+        };
+        const refreshTokenData = {
+            id: userId,
+            email,
+            jti: refreshTokenJti,
+            grant: 'refresh_token',
+            type: tokenTypes.refreshToken,
+            deviceId,
+        };
+
+        const [accessToken, refreshToken] = await Promise.all([
+            generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
+                expiresIn: this.envService.getAccessTokenLife(),
+            }),
+            generateToken(refreshTokenData, this.envService.getJwtSecretKey(), {
+                expiresIn: this.envService.getRefreshTokenLife(),
+            }),
+        ]);
+
+        await this.userTokenMetaRepository.createSessionMeta(
+            typeof userId === 'string' ? new Types.ObjectId(userId) : userId as Types.ObjectId,
+            deviceId,
+            accessTokenJti.toString(),
+            refreshTokenJti.toString(),
+            email || '',
+        );
+
+        return { accessToken, refreshToken };
+    }
+
+    async logOut(deviceId: string, userId: string, lang: string) {
         try {
             await this.deviceRepository.logout(userId, deviceId);
+            await this.userTokenMetaRepository.deleteByUserAndDevice(userId, deviceId);
             return { message: Message(lang, "USER.LOGGED_OUT"), success: true };
         } catch (e) {
             ErrorException(
@@ -24,6 +76,42 @@ export class UserService {
             );
         }
     }
+
+    async setPassword(setPasswordInput: SetPasswordInput, lang: string) {
+        try {
+            const { password, confirmPassword, email, device } = setPasswordInput;
+            if (password !== confirmPassword) {
+                ErrorException(null, "USER.PASSWORD_CONFIRM_PASSWORD_NOT_MATCH", HttpStatus.BAD_REQUEST);
+            }
+
+            const user: UserDocument = await this.userRepository.findByEmail(email);
+            if (!user) {
+                ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
+            }
+
+            await this.userRepository.updateOne(
+                { _id: user._id },
+                { password: await hashPassword(password, passwordSalt) },
+            );
+
+            if (device) {
+                await this.deviceRepository.addDevice(user._id, device.deviceId, device.firebaseToken, device.deviceType);
+            }
+
+            const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, device?.deviceId);
+            const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+            
+            return {
+                user: { _id: user._id, email: user.email, phone: user.phone, verified: user.verified, language: user.language, suspended: user.suspended, profileCompleted: user.profileCompleted, loginAs: user.loginAs },
+                userDetails,
+                accessToken,
+                refreshToken,
+            };
+        } catch (e) {
+            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 
     async changePassword(
         changePasswordInput: ChangePasswordInput,

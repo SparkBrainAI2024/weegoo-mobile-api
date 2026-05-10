@@ -81,7 +81,7 @@ type Query {
 type Mutation {
   signUp(input: EmailSignUpInput!): SignUpResponse!
   setPassword(input: SetPasswordInput!): SignInResponse!
-  verifyEmail(input: VerifyEmailInput!): BasicResponse!
+  verifyEmail(input: VerifyEmailInput!): SignInResponse!
   signIn(input: EmailSignInInput!): SignInResponse!
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
   sendVerifyEmailOtp(input: EmailInput!): BasicResponse!
@@ -92,7 +92,7 @@ type Mutation {
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!
-  verifyPhone(input: VerifyPhoneInput!): BasicResponse!
+  verifyPhone(input: VerifyPhoneInput!): SignInResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!

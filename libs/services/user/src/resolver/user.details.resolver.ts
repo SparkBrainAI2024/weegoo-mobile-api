@@ -1,7 +1,7 @@
 import { CurrentLang, CurrentUser } from "@libs/common";
 import { CreateUserDetailsInput, UserDetailsResponse } from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
-import { UserDetailsService } from "@libs/services/user/user.details.services";
+import { UserDetailsService } from "../user.details.services";
 import { UseGuards } from "@nestjs/common";
 import { Resolver, Query, Mutation, Args } from "@nestjs/graphql";
 

@@ -1,5 +1,5 @@
 import { Field, InputType } from "@nestjs/graphql";
-import { Matches,MinLength,MaxLength,IsNotEmpty } from "class-validator";
+import { Matches,MinLength,MaxLength,IsNotEmpty, IsEmail } from "class-validator";
 import { passwordRegex } from "@libs/common/constants";
 import { DeviceInput } from "./device.input";
 
@@ -7,8 +7,8 @@ import { DeviceInput } from "./device.input";
 @InputType()
 export class SetPasswordInput {
   @Field()
-  @IsNotEmpty()
-  userToken: string;
+  @IsEmail()
+  email: string;
 
   @Field()
   @IsNotEmpty({ message: "USER.REQUIRED_PASSWORD" })

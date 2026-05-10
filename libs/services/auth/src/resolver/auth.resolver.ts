@@ -2,7 +2,8 @@ import { Resolver, Mutation, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { LangGuard } from "@libs/guards/guard";
 import { CurrentLang } from "@libs/common";
-import { AuthService } from "@libs/services/auth";
+import { AuthService } from "../auth.service";
+import { UserService } from "@libs/services/user/user.service";
 import {
   SignInResponse,
   SignUpResponse,
@@ -11,7 +12,6 @@ import {
   ResetPasswordInput,
   EmailInput,
   PhoneInput,
-  UpdatePhoneInput,
   SetPasswordInput,
   EmailSignInInput,
   EmailSignUpInput,
@@ -27,7 +27,10 @@ import {
 @Resolver()
 @UseGuards(LangGuard)
 export class AuthResolver {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService
+  ) {}
 
   @Mutation(() => SignUpResponse)
   signUp(@Args("input") input: EmailSignUpInput, @CurrentLang() lang: string) {
@@ -39,10 +42,10 @@ export class AuthResolver {
     @Args("input") input: SetPasswordInput,
     @CurrentLang() lang: string,
   ) {
-    return this.authService.setPassword(input, lang);
+    return this.userService.setPassword(input, lang);
   }
 
-  @Mutation(() => BasicResponse)
+  @Mutation(() => SignInResponse)
   verifyEmail(
     @Args("input") input: VerifyEmailInput,
     @CurrentLang() lang: string,
@@ -118,7 +121,7 @@ export class AuthResolver {
     return this.authService.phoneSignIn(input, lang);
   }
 
-  @Mutation(() => BasicResponse)
+  @Mutation(() => SignInResponse)
   verifyPhone(
     @Args("input") input: VerifyPhoneInput,
     @CurrentLang() lang: string,

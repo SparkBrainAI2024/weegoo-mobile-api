@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
-import { AuthResolver } from "./resolver/auth.resolver";
 import { UserAuthModule } from "@libs/services/auth/auth.module";
+import { AuthResolver } from "@libs/services/auth";
 
 @Module({
   imports: [
