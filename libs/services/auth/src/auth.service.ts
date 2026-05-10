@@ -715,7 +715,7 @@ export class AuthService {
         if (sendMail) {
           user = await this.userRepository.create({
             email: socialUser.email,
-            phone: '',
+            phone: null,
             verified: false,
             authProvider: AuthProvider.GOOGLE,
             authProviderId: socialUser.providerId,
