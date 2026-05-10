@@ -175,6 +175,9 @@ export class AuthService {
     if (!user) {
       ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
     }
+     if (!user.verified) {
+      ErrorException(null, "USER.EMAIL_NOT_VERIFIED", HttpStatus.UNAUTHORIZED);
+    }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
       ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
