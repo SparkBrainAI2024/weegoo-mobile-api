@@ -11,6 +11,7 @@ import {
   ResetPasswordInput,
   EmailInput,
   PhoneInput,
+  UpdatePhoneInput,
   SetPasswordInput,
   EmailSignInInput,
   EmailSignUpInput,

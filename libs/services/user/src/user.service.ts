@@ -1,7 +1,8 @@
 import { comparePassword, ErrorException, hashPassword, passwordSalt } from "@libs/common";
-import { ChangePasswordInput, DeviceRepository, language, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput } from "@libs/data-access";
+import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
+import { Types } from "mongoose";
 
 @Injectable()
 export class UserService {
@@ -140,6 +141,32 @@ export class UserService {
                 e,
                 "COMMON.INTERNAL_SERVER_ERROR",
                 HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    async updatePhone(updatePhoneInput: UpdatePhoneInput, userId: Types.ObjectId, lang: string) {
+        try {
+            const { phone } = updatePhoneInput;
+            const currentUser: UserDocument = await this.userRepository.findById(userId);
+            if (!currentUser) {
+                ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+            }
+            // Check if phone already exists for another user
+            const existingUser: UserDocument = await this.userRepository.findByPhone(phone);
+            if (existingUser && existingUser._id.toString() !== userId.toString()) {
+                ErrorException(null, "USER.PHONE_ALREADY_EXISTS", HttpStatus.CONFLICT);
+            }
+            // Update the phone number
+            await this.userRepository.updateOne(
+                { _id: userId },
+                { phone },
+            );
+            return { message: Message(lang, "USER.PHONE_UPDATED_SUCCESSFULLY"), success: true };
+        } catch (e) {
+            ErrorException(
+                e,
+                "COMMON.INTERNAL_SERVER_ERROR",
+                HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }

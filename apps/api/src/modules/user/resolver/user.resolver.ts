@@ -6,7 +6,8 @@ import {
   LogOutInput,
   VerifyEmailInput,
   UserDetailEntity,
-  BasicResponse
+  BasicResponse,
+  UpdatePhoneInput
 } from "@libs/data-access";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
@@ -16,7 +17,7 @@ import { UserService } from "@libs/services/user/user.service";
 @Resolver()
 @UseGuards(AuthGuard)
 export class UserResolver {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @Mutation(() => BasicResponse)
   logOut(
@@ -56,5 +57,15 @@ export class UserResolver {
   @Query(() => UserDetailEntity)
   getUser(@CurrentUser() user) {
     return this.userService.getUserById(user._id);
+  }
+
+  @Mutation(() => BasicResponse)
+  @UseGuards(AuthGuard)
+  updatePhone(
+    @Args("input") input: UpdatePhoneInput,
+    @CurrentUser() user,
+    @CurrentLang() lang: string,
+  ) {
+    return this.userService.updatePhone(input, user._id, lang);
   }
 }
