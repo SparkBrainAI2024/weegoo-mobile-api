@@ -28,7 +28,7 @@ export class UserDetailsService {
       if (!details)
         return await this.userDetailsRepository.create({ userId: toMongoId(userId), ...input });
 
-      const updatedUser = await this.userDetailsRepository.updateOne(
+      await this.userDetailsRepository.updateOne(
         { userId: toMongoId(userId) },
         { ...input },
       );
@@ -41,10 +41,15 @@ export class UserDetailsService {
       const updatedCoreUser = await this.userRepository.findOne({
         _id: toMongoId(userId),
       });
+
+      const updatedUserDetails = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
       return {
         email: updatedCoreUser.email,
         phone: updatedCoreUser.phone,
-        ...updatedUser.toObject(),
+        ...updatedUserDetails.toObject(),
       };
     } catch (e) {
       ErrorException(
