@@ -78,16 +78,19 @@ export class AuthService {
     private readonly socialAuthService: SocialAuthService,
   ) { }
 
-  private async createAuthTokens(userId: Types.ObjectId | string, email: string): Promise<{ accessToken: string; refreshToken: string }> {
+  private async createAuthTokens(userId: Types.ObjectId | string, email: string, roles: string[]): Promise<{ accessToken: string; refreshToken: string }> {
+    
     const accessTokenData = {
       id: userId,
       email,
+      roles,        
       sessionId: generateMongoDbId(),
       type: tokenTypes.accessToken,
     };
     const refreshTokenData = {
       id: userId,
       email,
+      roles,
       type: tokenTypes.refreshToken,
     };
     const [accessToken, refreshToken] = await Promise.all([
@@ -188,6 +191,9 @@ export class AuthService {
     if (user.suspended) {
       ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
     }
+    if(user.roles.length === 0){
+      ErrorException(null, "USER.NO_ROLE_ASSIGNED", HttpStatus.UNAUTHORIZED);
+    }
     return { user, userDetails };
   }
 
@@ -286,7 +292,7 @@ export class AuthService {
         { password: await hashPassword(password, passwordSalt) },
       );
       await this.registerDeviceIfProvided(user._id, device);
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles);
       const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
       if (!userDetails) {
         ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
@@ -310,7 +316,7 @@ export class AuthService {
         { _id: user._id },
         { lastLogin: UTCTime() },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -397,7 +403,7 @@ export class AuthService {
         { _id: user._id },
         { lastLogin: UTCTime() },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, user.roles);
       console.log(device);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
@@ -627,7 +633,7 @@ export class AuthService {
         { _id: user._id },
         { lastLogin: UTCTime() },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email,user.roles);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
@@ -719,7 +725,7 @@ export class AuthService {
       }
       const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken: null, deviceType: null });
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email,user.roles);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
@@ -745,7 +751,7 @@ export class AuthService {
         { _id: user._id },
         { lastLogin: UTCTime() },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email,user.roles);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;

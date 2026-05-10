@@ -33,6 +33,7 @@ async function bootstrap() {
       "X-Requested-With",
       "Accept",
       "Origin",
+      "lang"
     ],
     credentials: true,
   });
@@ -53,14 +54,13 @@ async function bootstrap() {
     prefix: "/files/",
   });
 
-  await app.init();
 
   return app;
 }
 
 // For traditional server deployment (Railway, Heroku, etc.)
 bootstrap().then((app) => {
-  const port = Number(process.env.PORT) || 3001;
+  const port = 8000
   app.listen(port, "0.0.0.0", () => {
     console.log(`🚀 Admin API running on port ${port}`);
   });

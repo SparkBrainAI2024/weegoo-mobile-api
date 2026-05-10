@@ -59,4 +59,5 @@ export const USER = {
   MIN_GEOLOCATION_COORDINATES:
     "GeoLocation must contain at least two numeric values [longitude, latitude].",
   USER_NOT_COMPLETE: "User details not complete.",
+  NO_ROLE_ASSIGNED: "No role assigned to the user.",
 };
