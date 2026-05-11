@@ -11,6 +11,7 @@ import {
   ResetPasswordInput,
   EmailInput,
   PhoneInput,
+  UpdatePhoneInput,
   SetPasswordInput,
   EmailSignInInput,
   EmailSignUpInput,
@@ -109,7 +110,7 @@ export class AuthResolver {
     return this.authService.phoneSignUp(input, lang);
   }
 
-  @Mutation(() => SignUpResponse)
+  @Mutation(() => SignInResponse)
   phoneSignIn(
     @Args("input") input: PhoneSignInInput,
     @CurrentLang() lang: string,

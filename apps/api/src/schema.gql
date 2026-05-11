@@ -98,6 +98,7 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
@@ -186,6 +187,10 @@ input ChangePasswordInput {
 
 input ChangeLanguageInput {
   language: String!
+}
+
+input UpdatePhoneInput {
+  phone: String!
 }
 
 input CreateUserDetailsInput {

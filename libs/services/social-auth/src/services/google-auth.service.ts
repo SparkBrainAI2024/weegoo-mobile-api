@@ -28,6 +28,7 @@ export class GoogleAuthService implements ISocialAuthService {
         params: {
           id_token: token,
         },
+        timeout: 5000,
       });
       console.log("🚀 ~ file: google-auth.service.ts:35 ~ GoogleAuthService ~ validateToken ~ response:", response.data)
       const currentTimeInSeconds = Math.floor(Date.now() / 1000);

@@ -3,6 +3,7 @@ export const USER = {
   USED_EMAIL: "This email is already used.",
   INVALID_EMAIL: "Invalid email.",
   REQUIRED_PASSWORD: "Password is required.",
+  PASSWORD_NOT_SET: "Password is not set.",
   MIN_PASSWORD: "Password must be at least 8 characters.",
   MAX_PASSWORD: "Password most not exceed 20 characters.",
   INVALID_PASSWORD_INPUT:

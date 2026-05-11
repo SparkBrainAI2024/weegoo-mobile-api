@@ -9,19 +9,26 @@ export class UserDetailsService {
   constructor(
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly userRepository: UserRepository,
-  ) {}
+  ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
     try {
       const user = await this.userRepository.findOne({ _id: userId });
+
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      if (input.phone) {
+        if (await this.userRepository.findByPhone(input.phone)) {
+          ErrorException(null, "USER.PHONE_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
+        }
+        await this.userRepository.updateById(toMongoId(userId), { phone: input.phone });
       }
       const details = await this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
       if (!details)
         return await this.userDetailsRepository.create({ userId: toMongoId(userId), ...input });
 
-      const updatedUser = await this.userDetailsRepository.updateOne(
+      await this.userDetailsRepository.updateOne(
         { userId: toMongoId(userId) },
         { ...input },
       );
@@ -31,18 +38,18 @@ export class UserDetailsService {
         { profileCompleted: true },
       );
 
-
-      if (input.phone) {
-        await this.userRepository.updateById(toMongoId(userId), { phone: input.phone });
-      }
-
       const updatedCoreUser = await this.userRepository.findOne({
         _id: toMongoId(userId),
       });
+
+      const updatedUserDetails = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
       return {
         email: updatedCoreUser.email,
         phone: updatedCoreUser.phone,
-        ...updatedUser.toObject(),
+        ...updatedUserDetails.toObject(),
       };
     } catch (e) {
       ErrorException(

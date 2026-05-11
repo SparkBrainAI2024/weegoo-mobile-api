@@ -53,6 +53,7 @@ export * from './dtos/input/logout-input';
 export * from './dtos/input/phone-signup-input';
 export * from './dtos/input/phone-signin.input';
 export * from './dtos/input/phone-input';
+export * from './dtos/input/update-phone.input';
 export * from './dtos/input/verify-phone.input';
 
 // dtos - response
