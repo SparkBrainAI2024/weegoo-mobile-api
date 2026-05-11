@@ -1,6 +1,7 @@
 export const USER = {
   CAN_NOT_SEND_MAIL: "Unable to send email.",
   USED_EMAIL: "This email is already used.",
+  USED_PHONE: "This phone number is already used.",
   INVALID_EMAIL: "Invalid email.",
   REQUIRED_PASSWORD: "Password is required.",
   PASSWORD_NOT_SET: "Password is not set.",
@@ -60,4 +61,6 @@ export const USER = {
   MIN_GEOLOCATION_COORDINATES:
     "GeoLocation must contain at least two numeric values [longitude, latitude].",
   USER_NOT_COMPLETE: "User details not complete.",
+  ALREADY_VERIFIED_CHECK_PROFILE:
+    "Email already verified, change details from your profile.",
 };

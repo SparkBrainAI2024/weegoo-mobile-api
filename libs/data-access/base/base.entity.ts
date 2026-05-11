@@ -1,4 +1,5 @@
 import { Field, ObjectType } from '@nestjs/graphql';
+import { Prop } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 
 @ObjectType({ isAbstract: true })
@@ -7,14 +8,18 @@ export class BaseEntity {
   _id: Types.ObjectId;
 
   @Field(() => Date)
+  @Prop({ type: Date, default: Date.now })
   createdAt?: Date;
 
   @Field(() => Date)
+  @Prop({ type: Date, default: Date.now })
   updatedAt?: Date;
 
   @Field(() => Date, { nullable: true })
+  @Prop({ type: Date })
   deletedAt?: Date;
 
   @Field(() => Boolean, { nullable: true, defaultValue: false })
+  @Prop({ type: Boolean, default: false })
   deleted?: boolean;
 }

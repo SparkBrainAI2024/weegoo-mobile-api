@@ -12,9 +12,6 @@ import {
   ResetPasswordInput,
   EmailInput,
   PhoneInput,
-  SetPasswordInput,
-  EmailSignInInput,
-  EmailSignUpInput,
   VerifyEmailInput,
   BasicResponse,
   GoogleSignInInput,
@@ -22,6 +19,7 @@ import {
   PhoneSignUpInput,
   PhoneSignInInput,
   VerifyPhoneInput,
+  UpdatePhoneInput,
 } from "@libs/data-access";
 
 @Resolver()
@@ -32,30 +30,12 @@ export class AuthResolver {
     private readonly userService: UserService
   ) {}
 
-  @Mutation(() => SignUpResponse)
-  signUp(@Args("input") input: EmailSignUpInput, @CurrentLang() lang: string) {
-    return this.authService.signup(input, lang);
-  }
-
-  @Mutation(() => SignInResponse)
-  setPassword(
-    @Args("input") input: SetPasswordInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.userService.setPassword(input, lang);
-  }
-
   @Mutation(() => SignInResponse)
   verifyEmail(
     @Args("input") input: VerifyEmailInput,
     @CurrentLang() lang: string,
   ) {
     return this.authService.verifyEmail(input, lang);
-  }
-
-  @Mutation(() => SignInResponse)
-  async signIn(@Args("input") input: EmailSignInInput) {
-    return this.authService.signIn(input);
   }
 
   @Mutation(() => SignInResponse)
@@ -135,5 +115,13 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.verifyResetPasswordPhoneOTP(input, lang);
+  }
+
+  @Mutation(() => BasicResponse)
+  updatePhone(
+    @Args("input") input: UpdatePhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.updatePhone(input, lang);
   }
 }

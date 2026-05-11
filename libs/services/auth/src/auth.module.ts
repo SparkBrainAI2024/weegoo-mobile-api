@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { MailService } from '@libs/services/mail';
 import { EnvService } from '@libs/common/config/env.service';
 import { SocialAuthModule } from '@libs/services/social-auth';
+import { UserService } from '@libs/services/user/user.service';
 import { SocialAuthConfig } from '@libs/common/config/env.config.interface';
 
 import {
@@ -22,6 +23,9 @@ import {
   UserDetails,
   Device,
   DeviceSchema,
+  UserTokenMeta,
+  UserTokenMetaSchema,
+  UserTokenMetaRepository,
 } from '@libs/data-access';
 
 export interface AuthModuleOptions {
@@ -44,6 +48,7 @@ export class UserAuthModule {
           { name: UserVerification.name, schema: UserVerificationSchema },
           { name: UserDetails.name, schema: UserDetailsSchema },
           { name: Device.name, schema: DeviceSchema },
+          { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
         ]),
 
         // ✅ Mailer properly configured using global ConfigService
@@ -114,22 +119,26 @@ export class UserAuthModule {
 
       providers: [
         AuthService,
+        UserService,
         MailService,
         EnvService,
         UserRepository,
         UserVerificationRepository,
         DeviceRepository,
         UserDetailsRepository,
+        UserTokenMetaRepository,
         ...providers,
       ],
 
       exports: [
         AuthService,
+        UserService,
         MailService,
         UserRepository,
         UserVerificationRepository,
         DeviceRepository,
         UserDetailsRepository,
+        UserTokenMetaRepository,
         MongooseModule,
         EnvService,
         SocialAuthModule,

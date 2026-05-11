@@ -53,7 +53,9 @@ type SignInResponse {
 type SignUpResponse {
   message: String!
   success: Boolean!
-  userToken: String
+  verificationToken: String
+  currentTime: Int
+  expiresBy: Int
 }
 
 type VerifyResetPasswordOtpResponse {
@@ -79,10 +81,7 @@ type Query {
 }
 
 type Mutation {
-  signUp(input: EmailSignUpInput!): SignUpResponse!
-  setPassword(input: SetPasswordInput!): SignInResponse!
-  verifyEmail(input: VerifyEmailInput!): BasicResponse!
-  signIn(input: EmailSignInInput!): SignInResponse!
+  verifyEmail(input: VerifyEmailInput!): SignInResponse!
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
   sendVerifyEmailOtp(input: EmailInput!): BasicResponse!
   sendVerifyPhoneOtp(input: PhoneInput!): BasicResponse!
@@ -92,45 +91,20 @@ type Mutation {
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!
-  verifyPhone(input: VerifyPhoneInput!): BasicResponse!
+  verifyPhone(input: VerifyPhoneInput!): SignInResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
-  updatePhone(input: UpdatePhoneInput!): BasicResponse!
+  setPassword(input: SetPasswordInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
-}
-
-input EmailSignUpInput {
-  email: String!
-  fullName: String!
-  phone: String!
-  gender: GenderEnum!
-}
-
-input SetPasswordInput {
-  userToken: String!
-  password: String!
-  confirmPassword: String!
-  device: DeviceInput
-}
-
-input DeviceInput {
-  deviceId: String!
-  firebaseToken: String!
-  deviceType: String!
 }
 
 input VerifyEmailInput {
   email: String!
   otp: String!
-}
-
-input EmailSignInInput {
-  email: String!
-  password: String!
-  device: DeviceInput
 }
 
 input RefreshTokenInput {
@@ -143,6 +117,12 @@ input EmailInput {
 
 input PhoneInput {
   phone: String!
+  type: VerificationType
+}
+
+enum VerificationType {
+  VERIFICATION_EMAIL
+  RESET_PASSWORD
 }
 
 input ResetPasswordInput {
@@ -162,18 +142,31 @@ input GoogleSignInInput {
   device: DeviceInput
 }
 
+input DeviceInput {
+  deviceId: String!
+  firebaseToken: String!
+  deviceType: String!
+}
+
 input PhoneSignUpInput {
   phone: String!
 }
 
 input PhoneSignInInput {
   phone: String!
+  password: String!
   device: DeviceInput
 }
 
 input VerifyPhoneInput {
   phone: String!
   otp: String!
+  device: DeviceInput
+}
+
+input UpdatePhoneInput {
+  phone: String!
+  email: String!
 }
 
 input LogOutInput {
@@ -189,8 +182,8 @@ input ChangeLanguageInput {
   language: String!
 }
 
-input UpdatePhoneInput {
-  phone: String!
+input SetPasswordInput {
+  password: String!
 }
 
 input CreateUserDetailsInput {

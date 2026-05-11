@@ -1,4 +1,4 @@
-import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes } from "@libs/common";
+import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes, toMongoId, toMongoObjectId } from "@libs/common";
 import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput, UserTokenMetaRepository, SetPasswordInput } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
@@ -77,14 +77,11 @@ export class UserService {
         }
     }
 
-    async setPassword(setPasswordInput: SetPasswordInput, lang: string) {
+    async setPassword(userId: string, setPasswordInput: SetPasswordInput, lang: string) {
         try {
-            const { password, confirmPassword, email, device } = setPasswordInput;
-            if (password !== confirmPassword) {
-                ErrorException(null, "USER.PASSWORD_CONFIRM_PASSWORD_NOT_MATCH", HttpStatus.BAD_REQUEST);
-            }
+            const { password } = setPasswordInput;
 
-            const user: UserDocument = await this.userRepository.findByEmail(email);
+            const user: UserDocument = await this.userRepository.findById(toMongoId(userId));
             if (!user) {
                 ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
             }
@@ -94,18 +91,9 @@ export class UserService {
                 { password: await hashPassword(password, passwordSalt) },
             );
 
-            if (device) {
-                await this.deviceRepository.addDevice(user._id, device.deviceId, device.firebaseToken, device.deviceType);
-            }
-
-            const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, device?.deviceId);
-            const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
-            
             return {
-                user: { _id: user._id, email: user.email, phone: user.phone, verified: user.verified, language: user.language, suspended: user.suspended, profileCompleted: user.profileCompleted, loginAs: user.loginAs },
-                userDetails,
-                accessToken,
-                refreshToken,
+                message: Message(lang, "USER.PASSWORD_SET_SUCCESS"),
+                success: true
             };
         } catch (e) {
             ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -150,7 +138,7 @@ export class UserService {
                 {
                     _id: userId,
                 },
-                { lanugage: language }
+                { language: language }
             );
             return {
                 message: Message(language, "USER.LANGUAGE_UPDATED"),
@@ -215,7 +203,7 @@ export class UserService {
             const code = await this.userVerificationRepository.findOne({
                 userId: user._id,
                 otp: otp,
-                type: verificationType.EMAIL,
+                type: verificationType.VERIFICATION_EMAIL,
             });
             if (!code) {
                 ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
@@ -229,32 +217,6 @@ export class UserService {
                 e,
                 "COMMON.INTERNAL_SERVER_ERROR",
                 HttpStatus.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
-    async updatePhone(updatePhoneInput: UpdatePhoneInput, userId: Types.ObjectId, lang: string) {
-        try {
-            const { phone } = updatePhoneInput;
-            const currentUser: UserDocument = await this.userRepository.findById(userId);
-            if (!currentUser) {
-                ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-            }
-            // Check if phone already exists for another user
-            const existingUser: UserDocument = await this.userRepository.findByPhone(phone);
-            if (existingUser && existingUser._id.toString() !== userId.toString()) {
-                ErrorException(null, "USER.PHONE_ALREADY_EXISTS", HttpStatus.CONFLICT);
-            }
-            // Update the phone number
-            await this.userRepository.updateOne(
-                { _id: userId },
-                { phone },
-            );
-            return { message: Message(lang, "USER.PHONE_UPDATED_SUCCESSFULLY"), success: true };
-        } catch (e) {
-            ErrorException(
-                e,
-                "COMMON.INTERNAL_SERVER_ERROR",
-                HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }

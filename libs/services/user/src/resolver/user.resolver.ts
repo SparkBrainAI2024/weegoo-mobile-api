@@ -7,7 +7,7 @@ import {
   VerifyEmailInput,
   UserDetailEntity,
   BasicResponse,
-  UpdatePhoneInput
+  SetPasswordInput,
 } from "@libs/data-access";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
@@ -54,18 +54,18 @@ export class UserResolver {
     return this.userService.verifyChangeEmailOTP(input, lang, user._id);
   }
 
+  @Mutation(() => BasicResponse)
+  setPassword(
+    @Args("input") input: SetPasswordInput,
+    @CurrentUser() user,
+    @CurrentLang() lang: string,
+  ) {
+    return this.userService.setPassword(user._id, input, lang);
+  }
+
   @Query(() => UserDetailEntity)
   getUser(@CurrentUser() user) {
     return this.userService.getUserById(user._id);
   }
 
-  @Mutation(() => BasicResponse)
-  @UseGuards(AuthGuard)
-  updatePhone(
-    @Args("input") input: UpdatePhoneInput,
-    @CurrentUser() user,
-    @CurrentLang() lang: string,
-  ) {
-    return this.userService.updatePhone(input, user._id, lang);
-  }
 }

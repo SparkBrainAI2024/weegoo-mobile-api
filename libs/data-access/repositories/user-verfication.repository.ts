@@ -65,4 +65,18 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
         }
     }
 
+    async sendOtp(userId: Types.ObjectId, otp: number, type: string) {
+        try {
+            await this.model.deleteMany({ type, userId });
+            return await this.create({
+                type,
+                userId: toMongoId(userId.toString()),
+                otp,
+                createdAt: UTCTime()
+            });
+        } catch (e) {
+            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }
