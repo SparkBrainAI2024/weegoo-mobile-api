@@ -9,8 +9,6 @@ constructor(private readonly authService: AuthService) {}
 
  @Mutation(() => SignInResponse)
   async signIn(@Args("input") input: EmailSignInInput) {
-    console.log(input,"input");
-    
-    return this.authService.signIn(input);
+        return this.authService.signIn(input);
   }
 }
