@@ -61,9 +61,7 @@ export class GoogleAuthService implements ISocialAuthService {
         picture,
       };
     } catch (error) {
-      if (error instanceof ServerError) {
-        throw error; // Re-throw custom ServerError
-      }
+      console.log("🚀 ~ file: google-auth.service.ts:70 ~ GoogleAuthService ~ validateToken ~ error:", error)
       throw ErrorException(
         error,
         "SOCIAL-AUTH.AUTH_CONFIG_NOT_FOUND",

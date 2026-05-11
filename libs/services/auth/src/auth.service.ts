@@ -30,10 +30,12 @@ import {
   VerifyPhoneInput,
   UpdatePhoneInput,
   VerifyEmailInput,
+  BasicResponse,
 } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
 import { SocialAuthService } from "@libs/services/social-auth";
+import { toMongoId } from "@libs/common";
 
 export interface SignInResult {
   user: UserResponse;
@@ -65,6 +67,8 @@ export type UserDetailsResponse = {
   userId: Types.ObjectId;
 };
 
+const MAX_PHONE_UPDATE_LIMIT = 3;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -92,7 +96,7 @@ export class AuthService {
 
   private async createAuthTokens(
     userId: Types.ObjectId | string,
-    email: string,
+    identifier: string,
     deviceId: string = null,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessTokenJti = generateMongoDbId();
@@ -100,7 +104,7 @@ export class AuthService {
 
     const accessTokenData = {
       id: userId,
-      email,
+      identifier,
       jti: accessTokenJti,
       grant: 'access',
       type: tokenTypes.accessToken,
@@ -108,7 +112,7 @@ export class AuthService {
     };
     const refreshTokenData = {
       id: userId,
-      email,
+      identifier,
       jti: refreshTokenJti,
       grant: 'refresh_token',
       type: tokenTypes.refreshToken,
@@ -129,7 +133,7 @@ export class AuthService {
       deviceId,
       accessTokenJti.toString(),
       refreshTokenJti.toString(),
-      email || '',
+      identifier || '',
     );
 
     return { accessToken, refreshToken };
@@ -345,6 +349,20 @@ export class AuthService {
         );
       }
 
+      // Requirement: Track update threshold
+      const currentUpdateCount = (user as any).phoneUpdateCount || 0;
+      if (currentUpdateCount >= MAX_PHONE_UPDATE_LIMIT) {
+        await this.userRepository.updateOne(
+          { _id: user._id },
+          { suspended: true },
+        );
+        ErrorException(
+          null,
+          "USER.SUSPENDED_TOO_MANY_UPDATES",
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
       // Requirement: Check if previous OTP is not expired
       const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_EMAIL);
       if (validOtp) {
@@ -352,7 +370,10 @@ export class AuthService {
       }
 
       // Requirement: If not verified and previous code expired, update phone and send new code
-      await this.userRepository.updateOne({ _id: user._id }, { phone });
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { phone, phoneUpdateCount: currentUpdateCount + 1 },
+      );
       const verificationCode = GenerateRandomDigit(userOtpSalt);
       
       // TODO: Implement phone SMS sending in later phase
@@ -629,13 +650,29 @@ export class AuthService {
       if (verifiedToken.type !== tokenTypes.refreshToken) {
         ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
       }
+
+      // Verify the session/JTI exists in the database for security (Refresh Token Rotation)
+      const session = await this.userTokenMetaRepository.findOne({
+        userId: toMongoId(verifiedToken.id),
+        refreshTokenJti: verifiedToken.jti,
+        deviceId: verifiedToken.deviceId,
+      });
+
+      if (!session) {
+        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.UNAUTHORIZED);
+      }
+
       const user: UserDocument = await this.userRepository.findOne({
         _id: verifiedToken.id,
       });
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
+      }
+
       const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({
         userId: user._id,
       });
-      if (!user || !userDetails) {
+      if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
       }
       if (user.suspended) {
@@ -645,10 +682,16 @@ export class AuthService {
         { _id: user._id },
         { lastLogin: UTCTime() },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, verifiedToken.deviceId);
+
+      // Use email or phone as the identifier for token generation
+      const identifier = user.email || user.phone;
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, verifiedToken.deviceId);
+      
+      // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
+      console.log("🚀 ~ file: auth.service.ts:410 ~ AuthService ~ loginWithRefreshToken ~ e:", e)
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -693,7 +736,7 @@ export class AuthService {
     }
   }
 
-  async googleSignUp(googleSignUpInput: GoogleSignUpInput, lang: string) {
+  async googleSignUp(googleSignUpInput: GoogleSignUpInput, lang: string): Promise<BasicResponse> {
     try {
       const { token, deviceId } = googleSignUpInput;
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
@@ -706,7 +749,7 @@ export class AuthService {
         user = await this.userRepository.create({
           email: socialUser.email,
           phone: null,
-          verified: true,
+          verified: false,
           authProvider: AuthProvider.GOOGLE,
           authProviderId: socialUser.providerId,
         });
@@ -716,12 +759,19 @@ export class AuthService {
           profileImage: socialUser.picture || '',
         });
       }
-      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
-      await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken: null, deviceType: null });
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, deviceId);
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
-      return result;
+
+      await this.registerDeviceIfProvided(user._id, {
+        deviceId,
+        firebaseToken: null,
+        deviceType: null,
+      });
+
+      return {
+        message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
+        success: true,
+      };
     } catch (e) {
+      console.log("🚀 ~ file: auth.service.ts:382 ~ AuthService ~ googleSignUp ~ e:", e)
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",

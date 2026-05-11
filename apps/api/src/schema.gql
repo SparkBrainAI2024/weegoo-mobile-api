@@ -84,7 +84,7 @@ type Mutation {
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
   sendVerifyPhoneOtp(input: PhoneInput!): BasicResponse!
   resetPassword(input: ResetPasswordInput!): BasicResponse!
-  googleSignUp(input: GoogleSignUpInput!): SignInResponse!
+  googleSignUp(input: GoogleSignUpInput!): BasicResponse!
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!

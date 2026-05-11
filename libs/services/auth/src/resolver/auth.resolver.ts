@@ -75,7 +75,7 @@ export class AuthResolver {
     return this.authService.resetPassword(input, lang);
   }
 
-  @Mutation(() => SignInResponse)
+  @Mutation(() => BasicResponse)
   googleSignUp(@Args("input") input: GoogleSignUpInput, @CurrentLang() lang: string) {
     return this.authService.googleSignUp(input, lang);
   }

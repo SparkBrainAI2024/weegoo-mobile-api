@@ -63,4 +63,6 @@ export const USER = {
   USER_NOT_COMPLETE: "User details not complete.",
   ALREADY_VERIFIED_CHECK_PROFILE:
     "Email already verified, change details from your profile.",
+  GOOGLE_SIGNUP_SUCCESS:
+    "User is created successfully. To verify user please add phone number we will send you otp on sms",
 };
