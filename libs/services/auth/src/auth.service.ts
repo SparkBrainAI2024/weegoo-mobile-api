@@ -67,7 +67,7 @@ export type UserDetailsResponse = {
   userId: Types.ObjectId;
 };
 
-const MAX_PHONE_UPDATE_LIMIT = 3;
+const MAX_PHONE_UPDATE_LIMIT = 5;
 
 @Injectable()
 export class AuthService {
@@ -338,6 +338,15 @@ export class AuthService {
       const user = await this.userRepository.findByEmail(email);
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // Requirement: Only accessible to social auth providers (Google or Apple)
+      if (user.authProvider !== AuthProvider.GOOGLE && user.authProvider !== AuthProvider.APPLE) {
+        ErrorException(
+          null,
+          "COMMON.UNAUTHORIZED",
+          HttpStatus.FORBIDDEN,
+        );
       }
 
       // Requirement: If verified, show specific message
