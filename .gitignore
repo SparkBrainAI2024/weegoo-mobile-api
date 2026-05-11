@@ -4,3 +4,5 @@ dist
 files
 src/schema.gql
 .history
+.claude
+.kilo
