@@ -1,7 +1,10 @@
-import { comparePassword, ErrorException, hashPassword, passwordSalt } from "@libs/common";
-import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput } from "@libs/data-access";
+import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes, toMongoId, toMongoObjectId } from "@libs/common";
+import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput, UserTokenMetaRepository, SetPasswordInput } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
+import { EnvService } from "@libs/common/config/env.service";
+import { generateMongoDbId } from "@libs/common/utils/id.generator";
+import { generateToken } from "@libs/common/utils/jwt";
 import { Types } from "mongoose";
 
 @Injectable()
@@ -10,11 +13,60 @@ export class UserService {
         private readonly userRepository: UserRepository,
         private readonly deviceRepository: DeviceRepository,
         private readonly userVerificationRepository: UserVerificationRepository,
-        private readonly userDetailsRepository: UserDetailsRepository
+        private readonly userDetailsRepository: UserDetailsRepository,
+        private readonly userTokenMetaRepository: UserTokenMetaRepository,
+        private readonly envService: EnvService,
     ) { }
-    async logOut(deviceId: string, userId: string, lang) {
+
+    private async createAuthTokens(
+        userId: Types.ObjectId | string,
+        email: string,
+        deviceId: string = null,
+    ): Promise<{ accessToken: string; refreshToken: string }> {
+        const accessTokenJti = generateMongoDbId();
+        const refreshTokenJti = generateMongoDbId();
+
+        const accessTokenData = {
+            id: userId,
+            email,
+            jti: accessTokenJti,
+            grant: 'access',
+            type: tokenTypes.accessToken,
+            deviceId,
+        };
+        const refreshTokenData = {
+            id: userId,
+            email,
+            jti: refreshTokenJti,
+            grant: 'refresh_token',
+            type: tokenTypes.refreshToken,
+            deviceId,
+        };
+
+        const [accessToken, refreshToken] = await Promise.all([
+            generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
+                expiresIn: this.envService.getAccessTokenLife(),
+            }),
+            generateToken(refreshTokenData, this.envService.getJwtSecretKey(), {
+                expiresIn: this.envService.getRefreshTokenLife(),
+            }),
+        ]);
+
+        await this.userTokenMetaRepository.createSessionMeta(
+            typeof userId === 'string' ? new Types.ObjectId(userId) : userId as Types.ObjectId,
+            deviceId,
+            accessTokenJti.toString(),
+            refreshTokenJti.toString(),
+            email || '',
+        );
+
+        return { accessToken, refreshToken };
+    }
+
+    async logOut(deviceId: string, userId: string, lang: string) {
         try {
             await this.deviceRepository.logout(userId, deviceId);
+            await this.userTokenMetaRepository.deleteByUserAndDevice(userId, deviceId);
             return { message: Message(lang, "USER.LOGGED_OUT"), success: true };
         } catch (e) {
             ErrorException(
@@ -24,6 +76,30 @@ export class UserService {
             );
         }
     }
+
+    async setPassword(userId: string, setPasswordInput: SetPasswordInput, lang: string) {
+        try {
+            const { password } = setPasswordInput;
+
+            const user: UserDocument = await this.userRepository.findById(toMongoId(userId));
+            if (!user) {
+                ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
+            }
+
+            await this.userRepository.updateOne(
+                { _id: user._id },
+                { password: await hashPassword(password, passwordSalt) },
+            );
+
+            return {
+                message: Message(lang, "USER.PASSWORD_SET_SUCCESS"),
+                success: true
+            };
+        } catch (e) {
+            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
 
     async changePassword(
         changePasswordInput: ChangePasswordInput,
@@ -62,7 +138,7 @@ export class UserService {
                 {
                     _id: userId,
                 },
-                { lanugage: language }
+                { language: language }
             );
             return {
                 message: Message(language, "USER.LANGUAGE_UPDATED"),
@@ -127,7 +203,7 @@ export class UserService {
             const code = await this.userVerificationRepository.findOne({
                 userId: user._id,
                 otp: otp,
-                type: verificationType.EMAIL,
+                type: verificationType.VERIFICATION_EMAIL,
             });
             if (!code) {
                 ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
@@ -141,32 +217,6 @@ export class UserService {
                 e,
                 "COMMON.INTERNAL_SERVER_ERROR",
                 HttpStatus.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
-    async updatePhone(updatePhoneInput: UpdatePhoneInput, userId: Types.ObjectId, lang: string) {
-        try {
-            const { phone } = updatePhoneInput;
-            const currentUser: UserDocument = await this.userRepository.findById(userId);
-            if (!currentUser) {
-                ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-            }
-            // Check if phone already exists for another user
-            const existingUser: UserDocument = await this.userRepository.findByPhone(phone);
-            if (existingUser && existingUser._id.toString() !== userId.toString()) {
-                ErrorException(null, "USER.PHONE_ALREADY_EXISTS", HttpStatus.CONFLICT);
-            }
-            // Update the phone number
-            await this.userRepository.updateOne(
-                { _id: userId },
-                { phone },
-            );
-            return { message: Message(lang, "USER.PHONE_UPDATED_SUCCESSFULLY"), success: true };
-        } catch (e) {
-            ErrorException(
-                e,
-                "COMMON.INTERNAL_SERVER_ERROR",
-                HttpStatus.INTERNAL_SERVER_ERROR,
             );
         }
     }

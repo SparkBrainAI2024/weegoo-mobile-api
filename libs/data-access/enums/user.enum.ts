@@ -19,10 +19,8 @@ export enum GenderEnum {
 }
 
 export enum verificationType {
-  EMAIL = "EMAIL",
-  PHONE = "PHONE",
-  GOOGLE = "GOOGLE",
-  APPLE = "APPLE",
+  VERIFICATION_EMAIL = "VERIFICATION_EMAIL",
+  RESET_PASSWORD = "RESET_PASSWORD",
 }
 
 export enum deviceType {

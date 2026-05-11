@@ -1,4 +1,4 @@
-import { Field, ObjectType } from "@nestjs/graphql";
+import { Field, Int, ObjectType } from "@nestjs/graphql";
 
 @ObjectType()
 export class SignUpResponse {
@@ -9,5 +9,11 @@ export class SignUpResponse {
   success: boolean;
 
   @Field({ nullable: true })
-  userToken?: string;
+  verificationToken?: string;
+
+  @Field(() => Int, { nullable: true })
+  currentTime?: number;
+
+  @Field(() => Int, { nullable: true })
+  expiresBy?: number;
 }

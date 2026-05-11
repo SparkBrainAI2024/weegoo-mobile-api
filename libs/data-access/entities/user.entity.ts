@@ -26,15 +26,14 @@ export class User extends BaseEntity {
   @Field(() => String)
   email?: string;
 
-  @Prop({ required: true, type: String, enum: UserStatus, default: UserStatus.INACTIVE })
-  @Field(() => UserStatus)
-  status: UserStatus;
-
   @Prop({ type: Date, default: null })
   lastResetLinkSentAt?: Date;
 
   @Prop({ type: Number, default: 0 })
   invalidLoginAttempts: number;
+
+  @Prop({ type: Number, default: 0 })
+  phoneUpdateCount: number;
 
   @Field({ defaultValue: false })
   @Prop({ default: false })

@@ -22,7 +22,7 @@ export class UserVerification extends BaseEntity {
   @Prop({
     type: String,
     enum: verificationType,
-    default: verificationType.EMAIL,
+    default: verificationType.VERIFICATION_EMAIL,
   })
   type: string;
 }

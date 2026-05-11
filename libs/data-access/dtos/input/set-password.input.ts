@@ -7,23 +7,9 @@ import { DeviceInput } from "./device.input";
 @InputType()
 export class SetPasswordInput {
   @Field()
-  @IsNotEmpty()
-  userToken: string;
-
-  @Field()
   @IsNotEmpty({ message: "USER.REQUIRED_PASSWORD" })
   @MinLength(8, { message: "USER.MIN_PASSWORD" })
   @MaxLength(20, { message: "USER.MAX_PASSWORD" })
   @Matches(passwordRegex, { message: "USER.INVALID_PASSWORD_INPUT" })
   password: string;
-
-  @Field()
-  @IsNotEmpty({ message: "USER.REQUIRED_PASSWORD" })
-  @MinLength(8, { message: "USER.MIN_PASSWORD" })
-  @MaxLength(20, { message: "USER.MAX_PASSWORD" })
-  @Matches(passwordRegex, { message: "USER.INVALID_PASSWORD_INPUT" })
-  confirmPassword: string;
-
-  @Field(() => DeviceInput, { nullable: true })
-  device?: DeviceInput;
 }

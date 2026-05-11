@@ -2,71 +2,54 @@ import { Resolver, Mutation, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { LangGuard } from "@libs/guards/guard";
 import { CurrentLang } from "@libs/common";
-import { AuthService } from "@libs/services/auth";
+import { AuthService } from "../auth.service";
+import { UserService } from "@libs/services/user/user.service";
 import {
   SignInResponse,
   SignUpResponse,
   VerifyResetPasswordOtpResponse,
   RefreshTokenInput,
   ResetPasswordInput,
-  EmailInput,
+  // EmailInput,
   PhoneInput,
-  UpdatePhoneInput,
-  SetPasswordInput,
-  EmailSignInInput,
-  EmailSignUpInput,
-  VerifyEmailInput,
+  // VerifyEmailInput,
   BasicResponse,
   GoogleSignInInput,
   GoogleSignUpInput,
   PhoneSignUpInput,
   PhoneSignInInput,
   VerifyPhoneInput,
+  UpdatePhoneInput,
 } from "@libs/data-access";
 
 @Resolver()
 @UseGuards(LangGuard)
 export class AuthResolver {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService
+  ) { }
 
-  @Mutation(() => SignUpResponse)
-  signUp(@Args("input") input: EmailSignUpInput, @CurrentLang() lang: string) {
-    return this.authService.signup(input, lang);
-  }
-
-  @Mutation(() => SignInResponse)
-  setPassword(
-    @Args("input") input: SetPasswordInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.authService.setPassword(input, lang);
-  }
-
-  @Mutation(() => BasicResponse)
-  verifyEmail(
-    @Args("input") input: VerifyEmailInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.authService.verifyEmail(input, lang);
-  }
-
-  @Mutation(() => SignInResponse)
-  async signIn(@Args("input") input: EmailSignInInput) {
-    return this.authService.signIn(input);
-  }
+  // @Mutation(() => SignInResponse)
+  // verifyEmail(
+  //   @Args("input") input: VerifyEmailInput,
+  //   @CurrentLang() lang: string,
+  // ) {
+  //   return this.authService.verifyEmail(input, lang);
+  // }
 
   @Mutation(() => SignInResponse)
   loginWithRefreshToken(@Args("input") input: RefreshTokenInput) {
     return this.authService.loginWithRefreshToken(input.refreshToken);
   }
 
-  @Mutation(() => BasicResponse)
-  sendVerifyEmailOtp(
-    @Args("input") input: EmailInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.authService.sendVerifyEmailOtp(input, lang);
-  }
+  // @Mutation(() => BasicResponse)
+  // sendVerifyEmailOtp(
+  //   @Args("input") input: EmailInput,
+  //   @CurrentLang() lang: string,
+  // ) {
+  //   return this.authService.sendVerifyEmailOtp(input, lang);
+  // }
 
   @Mutation(() => BasicResponse)
   sendVerifyPhoneOtp(
@@ -76,13 +59,13 @@ export class AuthResolver {
     return this.authService.sendVerifyPhoneOtp(input, lang);
   }
 
-  @Mutation(() => VerifyResetPasswordOtpResponse)
-  verifyResetPasswordOtp(
-    @Args("input") input: VerifyEmailInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.authService.verifyResetPasswordOTP(input, lang);
-  }
+  // @Mutation(() => VerifyResetPasswordOtpResponse)
+  // verifyResetPasswordOtp(
+  //   @Args("input") input: VerifyEmailInput,
+  //   @CurrentLang() lang: string,
+  // ) {
+  //   return this.authService.verifyResetPasswordOTP(input, lang);
+  // }
 
   @Mutation(() => BasicResponse)
   resetPassword(
@@ -92,7 +75,7 @@ export class AuthResolver {
     return this.authService.resetPassword(input, lang);
   }
 
-  @Mutation(() => SignInResponse)
+  @Mutation(() => BasicResponse)
   googleSignUp(@Args("input") input: GoogleSignUpInput, @CurrentLang() lang: string) {
     return this.authService.googleSignUp(input, lang);
   }
@@ -118,7 +101,7 @@ export class AuthResolver {
     return this.authService.phoneSignIn(input, lang);
   }
 
-  @Mutation(() => BasicResponse)
+  @Mutation(() => SignInResponse)
   verifyPhone(
     @Args("input") input: VerifyPhoneInput,
     @CurrentLang() lang: string,
@@ -132,5 +115,13 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.verifyResetPasswordPhoneOTP(input, lang);
+  }
+
+  @Mutation(() => BasicResponse)
+  updatePhone(
+    @Args("input") input: UpdatePhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.updatePhone(input, lang);
   }
 }

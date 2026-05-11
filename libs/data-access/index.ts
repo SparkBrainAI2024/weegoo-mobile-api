@@ -10,12 +10,14 @@ export * from './entities/user.entity';
 export * from './entities/user-verfication.entity';
 export * from './entities/device.entity';
 export * from './entities/user-details.entity';
+export * from './entities/user-token-meta.entity';
 
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
 export * from './repositories/device.repository';
 export * from './repositories/user-detail.repository';
+export * from './repositories/user-token-meta.repository';
 
 //enums
 export * from './enums/user.enum';

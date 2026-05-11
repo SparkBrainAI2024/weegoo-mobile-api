@@ -1,9 +1,8 @@
 import { Module } from "@nestjs/common";
 import { UserServiceModule } from "@libs/services/user/user.module";
-import { UserResolver } from "./resolver/user.resolver";
+import { UserResolver, UserDetailsResolver } from "@libs/services/user";
 import { EnvService } from "@libs/common/config/env.service";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
-import { UserDetailsResolver } from "./resolver/user.details.resolver";
 
 @Module({
     imports: [

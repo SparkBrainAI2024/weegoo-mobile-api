@@ -1,6 +1,6 @@
 import { phoneRegex } from "@libs/common/constants";
 import { Field, InputType } from "@nestjs/graphql";
-import { IsNotEmpty, Matches } from "class-validator";
+import { IsEmail, IsNotEmpty, Matches } from "class-validator";
 
 @InputType()
 export class UpdatePhoneInput {
@@ -10,4 +10,8 @@ export class UpdatePhoneInput {
     message: "USER.INVALID_PHONE",
   })
   phone: string;
+
+   @Field()
+    @IsEmail()
+    email: string;
 }

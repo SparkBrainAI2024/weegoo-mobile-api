@@ -1,6 +1,7 @@
 import { phoneRegex } from "@libs/common/constants";
+import { verificationType } from "@libs/data-access";
 import { Field, InputType } from "@nestjs/graphql";
-import {IsNotEmpty, Matches } from "class-validator";
+import { IsEnum, IsNotEmpty, IsOptional, Matches } from "class-validator";
 @InputType()
 export class PhoneSignUpInput {
   @Field()
