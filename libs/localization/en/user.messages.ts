@@ -70,4 +70,6 @@ export const USER = {
     "Email already verified, change details from your profile.",
   GOOGLE_SIGNUP_SUCCESS:
     "User is created successfully. To verify user please add phone number we will send you otp on sms",
+  SET_PASSWORD_TO_LOGIN:
+    "Please set your password to login into the app.",
 };

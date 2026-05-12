@@ -1,6 +1,7 @@
 export const USER = {
   CAN_NOT_SEND_MAIL: "इमेल पठाउन सकिएन।",
   USED_EMAIL: "यो इमेल पहिले नै प्रयोग भइसकेको छ।",
+  USED_PHONE: "यो फोन नम्बर पहिले नै प्रयोग भइसकेको छ।",
   INVALID_EMAIL: "अवैध इमेल।",
   REQUIRED_PASSWORD: "पासवर्ड आवश्यक छ।",
   MIN_PASSWORD: "पासवर्ड कम्तीमा ८ अक्षरको हुनुपर्छ।",
@@ -61,4 +62,6 @@ export const USER = {
   MIN_GEOLOCATION_COORDINATES:
     "GeoLocation मा कम्तीमा दुई अंक [longitude, latitude] हुनुपर्छ।",
   USER_NOT_COMPLETE: "प्रयोगकर्ता विवरण पूरा भएको छैन।",
+  SET_PASSWORD_TO_LOGIN:
+    "एपमा लगइन गर्न कृपया आफ्नो पासवर्ड सेट गर्नुहोस्।",
 };

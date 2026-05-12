@@ -53,16 +53,7 @@ export class UserResolver {
   ) {
     return this.userService.verifyChangeEmailOTP(input, lang, user._id);
   }
-
-  @Mutation(() => BasicResponse)
-  setPassword(
-    @Args("input") input: SetPasswordInput,
-    @CurrentUser() user,
-    @CurrentLang() lang: string,
-  ) {
-    return this.userService.setPassword(user._id, input, lang);
-  }
-
+  
   @Query(() => UserDetailEntity)
   getUser(@CurrentUser() user) {
     return this.userService.getUserById(user._id);

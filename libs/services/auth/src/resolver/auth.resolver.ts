@@ -7,6 +7,8 @@ import { UserService } from "@libs/services/user/user.service";
 import {
   SignInResponse,
   SignUpResponse,
+  SetPasswordResponse,
+  SetPasswordInput,
   VerifyResetPasswordOtpResponse,
   RefreshTokenInput,
   ResetPasswordInput,
@@ -101,12 +103,20 @@ export class AuthResolver {
     return this.authService.phoneSignIn(input, lang);
   }
 
-  @Mutation(() => SignInResponse)
+  @Mutation(() => SignUpResponse)
   verifyPhone(
     @Args("input") input: VerifyPhoneInput,
     @CurrentLang() lang: string,
   ) {
     return this.authService.verifyPhone(input, lang);
+  }
+
+  @Mutation(() => SetPasswordResponse)
+  setPassword(
+    @Args("input") input: SetPasswordInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.setPassword(input, lang);
   }
 
   @Mutation(() => VerifyResetPasswordOtpResponse)

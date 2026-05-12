@@ -77,30 +77,6 @@ export class UserService {
         }
     }
 
-    async setPassword(userId: string, setPasswordInput: SetPasswordInput, lang: string) {
-        try {
-            const { password } = setPasswordInput;
-
-            const user: UserDocument = await this.userRepository.findById(toMongoId(userId));
-            if (!user) {
-                ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
-            }
-
-            await this.userRepository.updateOne(
-                { _id: user._id },
-                { password: await hashPassword(password, passwordSalt) },
-            );
-
-            return {
-                message: Message(lang, "USER.PASSWORD_SET_SUCCESS"),
-                success: true
-            };
-        } catch (e) {
-            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-
     async changePassword(
         changePasswordInput: ChangePasswordInput,
         userId: string,

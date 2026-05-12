@@ -92,6 +92,14 @@ type SignUpResponse {
   success: Boolean!
   currentTime: Int
   expiresBy: Int
+  verificationToken: String
+}
+
+type SetPasswordResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
 }
 
 type VerifyResetPasswordOtpResponse {
@@ -124,14 +132,14 @@ type Mutation {
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!
-  verifyPhone(input: VerifyPhoneInput!): SignInResponse!
+  verifyPhone(input: VerifyPhoneInput!): SignUpResponse!
+  setPassword(input: SetPasswordInput!): SetPasswordResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   updatePhone(input: UpdatePhoneInput!): BasicResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
-  setPassword(input: SetPasswordInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
@@ -185,6 +193,11 @@ input PhoneSignInInput {
 input VerifyPhoneInput {
   phone: String!
   otp: String!
+}
+
+input SetPasswordInput {
+  password: String!
+  verificationToken: String!
   device: DeviceInput
 }
 
@@ -209,10 +222,6 @@ input ChangeLanguageInput {
 input VerifyEmailInput {
   email: String!
   otp: String!
-}
-
-input SetPasswordInput {
-  password: String!
 }
 
 input CreateUserDetailsInput {

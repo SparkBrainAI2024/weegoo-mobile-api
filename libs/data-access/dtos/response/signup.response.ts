@@ -13,4 +13,7 @@ export class SignUpResponse {
 
   @Field(() => Int, { nullable: true })
   expiresBy?: number;
-} 
+
+  @Field({ nullable: true })
+  verificationToken?: string;
+}

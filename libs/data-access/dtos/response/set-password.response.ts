@@ -4,6 +4,12 @@ import { UserDetailsResponse } from "./user-detail.response";
 
 @ObjectType()
 export class SetPasswordResponse {
+  @Field()
+  accessToken: string;
+
+  @Field()
+  refreshToken: string;
+
   @Field(() => CoreUserDetailsResponse)
   user: CoreUserDetailsResponse;
 

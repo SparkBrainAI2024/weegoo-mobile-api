@@ -12,6 +12,7 @@ import { passwordSalt, tokenTypes, userOtpSalt, userOtpExpiredTime } from "@libs
 import { MailService } from "@libs/services/mail";
 import {
   ResetPasswordInput,
+  SetPasswordInput,
   DeviceRepository,
   UserRepository,
   UserVerificationRepository,
@@ -265,14 +266,42 @@ export class AuthService {
     try {
       const { phone } = phoneSignUpInput;
       const userExistWithThisPhone = await this.userRepository.findByPhone(phone);
-      if (userExistWithThisPhone?.verified) {
-        ErrorException(null, "USER.USED_PHONE", HttpStatus.BAD_REQUEST);
-      }
 
       const currentTime = Math.floor(Date.now() / 1000);
       const expiresBy = userOtpExpiredTime;
 
       if (userExistWithThisPhone) {
+        // If user is verified
+        if (userExistWithThisPhone.verified) {
+          // If password is not set, generate verification token for first-time password setup
+          if (!userExistWithThisPhone.password) {
+            const verificationToken = await generateToken(
+              {
+                id: userExistWithThisPhone._id,
+                phone: userExistWithThisPhone.phone,
+                type: tokenTypes.setPasswordToken,
+              },
+              this.envService.getJwtSecretKey(),
+              { expiresIn: this.envService.getResetPasswordTokenLife() },
+            );
+            return {
+              message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
+              success: true,
+              currentTime,
+              expiresBy,
+              verificationToken,
+            };
+          }
+          // If password is already set, prompt user to sign in
+          return {
+            message: Message(lang, "USER.USED_PHONE"),
+            success: true,
+            currentTime,
+            expiresBy,
+          };
+        }
+
+        // User exists but not verified - OTP flow
         // Check if there's a valid non-expired OTP
         const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_EMAIL);
 
@@ -430,7 +459,7 @@ export class AuthService {
   // Verify Phone OTP
   async verifyPhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
     try {
-      const { phone, otp, device } = verifyPhoneInput;
+      const { phone, otp } = verifyPhoneInput;
       const user: UserDocument = await this.userRepository.findByPhone(phone);
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -449,16 +478,34 @@ export class AuthService {
       );
       await this.userVerificationRepository.deleteOtpById(verification._id);
 
-      await this.registerDeviceIfProvided(user._id, device);
+      // If password is not set, generate verification token for first-time password setup
+      if (!user.password) {
+        const verificationToken = await generateToken(
+          {
+            id: user._id,
+            phone: user.phone,
+            type: tokenTypes.setPasswordToken,
+          },
+          this.envService.getJwtSecretKey(),
+          { expiresIn: this.envService.getResetPasswordTokenLife() },
+        );
 
-      // Generate and return auth tokens after verification
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, device?.deviceId);
-      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
-      if (!userDetails) {
-        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+        const currentTime = Math.floor(Date.now() / 1000);
+        const expiresBy = userOtpExpiredTime;
+
+        return {
+          message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
+          success: true,
+          currentTime,
+          expiresBy,
+          verificationToken,
+        };
       }
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
-      return result;
+
+      return {
+        message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
+        success: true,
+      };
     } catch (e) {
       ErrorException(
         e,
@@ -701,6 +748,55 @@ export class AuthService {
       return result;
     } catch (e) {
       console.log("🚀 ~ file: auth.service.ts:410 ~ AuthService ~ loginWithRefreshToken ~ e:", e)
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async setPassword(setPasswordInput: SetPasswordInput, lang: string) {
+    try {
+      const { password, verificationToken, device } = setPasswordInput;
+      const verifiedToken = await verifyToken(
+        verificationToken,
+        this.envService.getJwtSecretKey(),
+      );
+      if (!verifiedToken) {
+        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
+      }
+      if (verifiedToken.type !== tokenTypes.setPasswordToken) {
+        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
+      }
+      const user: UserDocument = await this.userRepository.findOne({
+        _id: verifiedToken.id,
+      });
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
+      }
+      if (user.suspended) {
+        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      }
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { password: await hashPassword(password, passwordSalt) },
+      );
+
+      // Register device if provided
+      await this.registerDeviceIfProvided(user._id, device);
+
+      // Generate auth tokens
+      const identifier = user.email || user.phone;
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, device?.deviceId);
+
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      return this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+    } catch (e) {
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",

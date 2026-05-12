@@ -1,7 +1,6 @@
 import { phoneRegex, userOtpSalt } from "@libs/common/constants";
 import { Field, InputType } from "@nestjs/graphql";
 import { IsNotEmpty, Length, Matches } from "class-validator";
-import { DeviceInput } from "./device.input";
 
 @InputType()
 export class VerifyPhoneInput {
@@ -16,7 +15,4 @@ export class VerifyPhoneInput {
   @Length(4, userOtpSalt.toString().length)
   @Matches(/^\d+$/, { message: "USER.INVALID_OTP" })
   otp: string;
-
- @Field(() => DeviceInput, { nullable: true })
-  device?: DeviceInput;
 }
