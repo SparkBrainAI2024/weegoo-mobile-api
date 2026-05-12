@@ -65,6 +65,7 @@ bootstrap().then((app) => {
     console.log(`🚀 API running on port ${port}`);
   });
 }).catch((err) => {
+  console.log('Error during app bootstrap:', err);
   console.error('Failed to bootstrap app:', err);
   process.exit(1);
 });
