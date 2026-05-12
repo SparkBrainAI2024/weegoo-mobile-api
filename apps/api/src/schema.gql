@@ -102,6 +102,15 @@ type SetPasswordResponse {
   userDetails: UserDetailsResponse!
 }
 
+type VerifyGooglePhoneResponse {
+  message: String!
+  success: Boolean!
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
+}
+
 type VerifyResetPasswordOtpResponse {
   message: String!
   success: Boolean!
@@ -133,6 +142,7 @@ type Mutation {
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!
   verifyPhone(input: VerifyPhoneInput!): SignUpResponse!
+  verifyGooglePhone(input: VerifyPhoneInput!): VerifyGooglePhoneResponse!
   setPassword(input: SetPasswordInput!): SetPasswordResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   updatePhone(input: UpdatePhoneInput!): BasicResponse!

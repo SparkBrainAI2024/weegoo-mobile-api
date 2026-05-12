@@ -72,4 +72,6 @@ export const USER = {
     "User is created successfully. To verify user please add phone number we will send you otp on sms",
   SET_PASSWORD_TO_LOGIN:
     "Please set your password to login into the app.",
+  PHONE_VERIFIED_SUCCESS:
+    "Phone number verified successfully.",
 };

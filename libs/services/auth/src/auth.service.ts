@@ -465,11 +465,14 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
+       if (user.authProvider !== AuthProvider.GOOGLE && user.authProvider !== AuthProvider.APPLE) {
+        ErrorException(null, "COMMON.UNAUTHORIZED", HttpStatus.FORBIDDEN);
+      }
+
       // If user is already verified, return message
       if (user.verified) {
         return { message: Message(lang, "USER.USER_ALREADY_VERIFIED"), success: true };
       }
-
       const verification = await this.userVerificationRepository.findOne({
         userId: user._id,
         otp,
@@ -521,65 +524,65 @@ export class AuthService {
     }
   }
 
+  // Verify Google Phone OTP - only for Google auth provider users
+  async verifyGooglePhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
+    try {
+      const { phone, otp } = verifyPhoneInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // Only allow Google auth provider users
+      if (user.authProvider !== AuthProvider.GOOGLE) {
+        ErrorException(null, "COMMON.UNAUTHORIZED", HttpStatus.FORBIDDEN);
+      }
+
+      if (user.verified) {
+        ErrorException(null, "USER.USER_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
+      }
+
+      const verification = await this.userVerificationRepository.findOne({
+        userId: user._id,
+        otp,
+        type: verificationType.VERIFICATION_PHONE,
+      });
+      if (!verification) {
+        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+      }
+
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { verified: true },
+      );
+      await this.userVerificationRepository.deleteOtpById(verification._id);
+
+      // Generate auth tokens
+      const identifier = user.email || user.phone;
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier);
+
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+
+      return {
+        ...result,
+        message: Message(lang, "USER.PHONE_VERIFIED_SUCCESS"),
+        success: true,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // async sendVerifyEmailOtp(sendOtpInput: EmailInput, lang: string) {
-  //   try {
-  //     const { email } = sendOtpInput;
-  //     const user: UserDocument = await this.userRepository.findByEmail(email);
-  //     if (!user) {
-  //       ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-  //     }
-
-  //     // Check if there's a valid non-expired OTP
-  //     const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_EMAIL);
-
-  //     if (validOtp) {
-  //       // OTP still valid, return message without sending new code
-  //       return { message: Message(lang, "USER.OTP_SEND"), success: true };
-  //     }
-
-  //     // OTP expired or doesn't exist, send new code
-  //     const verificationCode = GenerateRandomDigit(userOtpSalt);
-  //     const sendMail = await this.mailService.sendUserConfirmation(
-  //       email,
-  //       verificationCode,
-  //     );
-  //     if (sendMail) {
-  //       await this.userVerificationRepository.sendEmailVerificationOtp(
-  //         user._id,
-  //         verificationCode,
-  //       );
-  //       return { message: Message(lang, "USER.OTP_SEND"), success: true };
-  //     } else {
-  //       ErrorException(
-  //         null,
-  //         "USER.CAN_NOT_SEND_MAIL",
-  //         HttpStatus.INTERNAL_SERVER_ERROR,
-  //       );
-  //     }
-  //   } catch (e) {
-  //     ErrorException(
-  //       e,
-  //       "COMMON.INTERNAL_SERVER_ERROR",
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }
-
-  // async verifyEmail(verifyEmaillInput: VerifyEmailInput, lang: string) {
-  //   try {
-  //     const { email, otp } = verifyEmaillInput;
-  //     const { user, verification } = await this.verifyOtpForUser(email, otp);
-  //     if (user.verified) {
-  //       ErrorException(
-  //         null,
-  //         "USER.USER_ALREADY_VERIFIED",
-  //         HttpStatus.BAD_REQUEST,
-  //       );
-  //     }
-  //     await this.userRepository.updateOne(
-  //       { _id: user._id },
-  //       { verified: true },
-  //     );
   //     await this.userVerificationRepository.deleteOtpById(verification._id);
 
   //     const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);

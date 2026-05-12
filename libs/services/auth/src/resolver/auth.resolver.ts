@@ -10,6 +10,7 @@ import {
   SignUpResponse,
   SetPasswordResponse,
   SetPasswordInput,
+  VerifyGooglePhoneResponse,
   VerifyResetPasswordOtpResponse,
   RefreshTokenInput,
   ResetPasswordInput,
@@ -110,6 +111,14 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.verifyPhone(input, lang);
+  }
+
+  @Mutation(() => VerifyGooglePhoneResponse)
+  verifyGooglePhone(
+    @Args("input") input: VerifyPhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.verifyGooglePhone(input, lang);
   }
 
   @UseGuards(SetPasswordGuard)
