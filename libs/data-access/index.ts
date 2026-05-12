@@ -22,6 +22,8 @@ export * from './repositories/user-token-meta.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
+export * from './enums/vehicle.enum';
+
 
 //interfaces
 export * from './interfaces/pagination.interface';

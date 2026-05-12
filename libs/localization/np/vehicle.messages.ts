@@ -1,0 +1,14 @@
+export const VEHICLE = {
+  REGISTERED: "सवारी साधन सफलतापूर्वक दर्ता भयो।",
+  NUMBER_PLATE_ALREADY_EXISTS: "यो नम्बर प्लेट भएको सवारी साधन पहिले नै दर्ता छ।",
+  INVALID_TYPE: "सवारी साधनको प्रकार अमान्य छ।",
+  IMAGE_URL_REQUIRED: "सवारी साधनको फोटो URL आवश्यक छ।",
+  IMAGE_URL_INVALID: "सवारी साधनको फोटो URL अमान्य छ।",
+  MODEL_REQUIRED: "सवारी साधनको मोडेल आवश्यक छ।",
+  MODEL_INVALID: "सवारी साधनको मोडेल अमान्य छ।",
+  YEAR_INVALID: "सवारी साधनको वर्ष अमान्य छ।",
+  NUMBER_PLATE_REQUIRED: "सवारी साधनको नम्बर प्लेट आवश्यक छ।",
+  NUMBER_PLATE_INVALID: "सवारी साधनको नम्बर प्लेट अमान्य छ।",
+  COLOR_REQUIRED: "सवारी साधनको रंग आवश्यक छ।",
+  COLOR_INVALID: "सवारी साधनको रंग अमान्य छ।",
+};

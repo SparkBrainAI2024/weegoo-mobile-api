@@ -8,6 +8,7 @@ import { join } from 'path';
 import { envConfiguration, HealthResolver } from '@libs/common';
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
+import { VehicleModule } from './modules/vehicle/vehicle.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { UserModule } from "./modules/user/user.module";
     }),
     AuthModule,
     UserModule,
+    VehicleModule,
   ],
   providers: [HealthResolver],
 })
