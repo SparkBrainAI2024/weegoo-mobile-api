@@ -88,7 +88,7 @@ export class AuthService {
       userId,
       type,
     });
-    if (verification && !isOtpExpired(verification.createdAt,userOtpExpiredTime)) {
+    if (verification && !isOtpExpired(verification.createdAt, userOtpExpiredTime)) {
       return verification;
     }
     return null;
@@ -217,7 +217,7 @@ export class AuthService {
     if (!user) {
       ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
     }
-     if (!user.verified) {
+    if (!user.verified) {
       ErrorException(null, "USER.EMAIL_NOT_VERIFIED", HttpStatus.UNAUTHORIZED);
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
@@ -384,7 +384,7 @@ export class AuthService {
         { phone, phoneUpdateCount: currentUpdateCount + 1 },
       );
       const verificationCode = GenerateRandomDigit(userOtpSalt);
-      
+
       // TODO: Implement phone SMS sending in later phase
       await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
 
@@ -448,9 +448,9 @@ export class AuthService {
         { verified: true },
       );
       await this.userVerificationRepository.deleteOtpById(verification._id);
-      
+
       await this.registerDeviceIfProvided(user._id, device);
-      
+
       // Generate and return auth tokens after verification
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, device?.deviceId);
       const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
@@ -478,7 +478,7 @@ export class AuthService {
 
   //     // Check if there's a valid non-expired OTP
   //     const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_EMAIL);
-      
+
   //     if (validOtp) {
   //       // OTP still valid, return message without sending new code
   //       return { message: Message(lang, "USER.OTP_SEND"), success: true };
@@ -528,7 +528,7 @@ export class AuthService {
   //       { verified: true },
   //     );
   //     await this.userVerificationRepository.deleteOtpById(verification._id);
-      
+
   //     const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
   //     const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
   //     if (!userDetails) {
@@ -555,7 +555,7 @@ export class AuthService {
 
       // Check if there's a valid non-expired OTP
       const validOtp = await this.hasValidOtp(user._id, type);
-      
+
       if (validOtp) {
         // OTP still valid, return message without sending new code
         return { message: Message(lang, "USER.OTP_SEND"), success: true };
@@ -695,7 +695,7 @@ export class AuthService {
       // Use email or phone as the identifier for token generation
       const identifier = user.email || user.phone;
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, verifiedToken.deviceId);
-      
+
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -753,7 +753,15 @@ export class AuthService {
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
-      let user: UserDocument = await this.userRepository.findByEmail(socialUser.email);
+      let user: UserDocument = await this.userRepository.findOne({
+        $and: [
+          { email: socialUser.email },
+          {
+            authProvider: AuthProvider.GOOGLE,
+            authProviderId: socialUser.providerId,
+          },
+        ]
+      },);
       if (!user) {
         user = await this.userRepository.create({
           email: socialUser.email,
