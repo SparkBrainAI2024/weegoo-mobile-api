@@ -139,7 +139,6 @@ type Mutation {
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
-  verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
@@ -153,8 +152,9 @@ input PhoneInput {
 }
 
 enum VerificationType {
-  VERIFICATION_EMAIL
+  VERIFICATION_PHONE
   RESET_PASSWORD
+  VERIFICATION_EMAIL
 }
 
 input ResetPasswordInput {
@@ -197,7 +197,6 @@ input VerifyPhoneInput {
 
 input SetPasswordInput {
   password: String!
-  verificationToken: String!
   device: DeviceInput
 }
 
@@ -217,11 +216,6 @@ input ChangePasswordInput {
 
 input ChangeLanguageInput {
   language: String!
-}
-
-input VerifyEmailInput {
-  email: String!
-  otp: String!
 }
 
 input CreateUserDetailsInput {

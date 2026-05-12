@@ -184,7 +184,7 @@ export class AuthService {
   private async verifyOtpForUser(
     email: string,
     otp: string,
-    type: string = verificationType.VERIFICATION_EMAIL,
+    type: string = verificationType.VERIFICATION_PHONE,
   ): Promise<{ user: UserDocument; verification: any }> {
     const user: UserDocument = await this.userRepository.findByEmail(email);
     if (!user) {
@@ -303,7 +303,7 @@ export class AuthService {
 
         // User exists but not verified - OTP flow
         // Check if there's a valid non-expired OTP
-        const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_EMAIL);
+        const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
 
         if (validOtp) {
           // OTP still valid, just return message without sending new code
@@ -402,7 +402,7 @@ export class AuthService {
       }
 
       // Requirement: Check if previous OTP is not expired
-      const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_EMAIL);
+      const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_PHONE);
       if (validOtp) {
         return { message: Message(lang, "USER.OTP_SEND"), success: true };
       }
@@ -464,10 +464,16 @@ export class AuthService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
+
+      // If user is already verified, return message
+      if (user.verified) {
+        return { message: Message(lang, "USER.USER_ALREADY_VERIFIED"), success: true };
+      }
+
       const verification = await this.userVerificationRepository.findOne({
         userId: user._id,
         otp,
-        type: verificationType.VERIFICATION_EMAIL,
+        type: verificationType.VERIFICATION_PHONE,
       });
       if (!verification) {
         ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
@@ -594,10 +600,15 @@ export class AuthService {
 
   async sendVerifyPhoneOtp(sendOtpInput: PhoneInput, lang: string) {
     try {
-      const { phone, type = verificationType.VERIFICATION_EMAIL } = sendOtpInput;
+      const { phone, type = verificationType.VERIFICATION_PHONE } = sendOtpInput;
       const user: UserDocument = await this.userRepository.findByPhone(phone);
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // If user is already verified, return message without sending OTP
+      if (user.verified) {
+        return { message: Message(lang, "USER.USER_ALREADY_VERIFIED"), success: true };
       }
 
       // Check if there's a valid non-expired OTP
@@ -756,28 +767,14 @@ export class AuthService {
     }
   }
 
-  async setPassword(setPasswordInput: SetPasswordInput, lang: string) {
+  async setPassword(setPasswordInput: SetPasswordInput, user: UserDocument, lang: string) {
     try {
-      const { password, verificationToken, device } = setPasswordInput;
-      const verifiedToken = await verifyToken(
-        verificationToken,
-        this.envService.getJwtSecretKey(),
-      );
-      if (!verifiedToken) {
-        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
-      }
-      if (verifiedToken.type !== tokenTypes.setPasswordToken) {
-        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
-      }
-      const user: UserDocument = await this.userRepository.findOne({
-        _id: verifiedToken.id,
-      });
-      if (!user) {
-        ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
-      }
+      const { password, device } = setPasswordInput;
+
       if (user.suspended) {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
+
       await this.userRepository.updateOne(
         { _id: user._id },
         { password: await hashPassword(password, passwordSalt) },

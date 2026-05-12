@@ -13,10 +13,6 @@ export class SetPasswordInput {
   @Matches(passwordRegex, { message: "USER.INVALID_PASSWORD_INPUT" })
   password: string;
 
-  @Field()
-  @IsNotEmpty()
-  verificationToken: string;
-
   @Field(() => DeviceInput, { nullable: true })
   device?: DeviceInput;
 }

@@ -1,7 +1,8 @@
 import { Resolver, Mutation, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { LangGuard } from "@libs/guards/guard";
-import { CurrentLang } from "@libs/common";
+import { SetPasswordGuard } from "@libs/guards/set-password.guard";
+import { CurrentLang, CurrentVerificationUser } from "@libs/common";
 import { AuthService } from "../auth.service";
 import { UserService } from "@libs/services/user/user.service";
 import {
@@ -111,12 +112,14 @@ export class AuthResolver {
     return this.authService.verifyPhone(input, lang);
   }
 
+  @UseGuards(SetPasswordGuard)
   @Mutation(() => SetPasswordResponse)
   setPassword(
     @Args("input") input: SetPasswordInput,
+    @CurrentVerificationUser() user: any,
     @CurrentLang() lang: string,
   ) {
-    return this.authService.setPassword(input, lang);
+    return this.authService.setPassword(input, user, lang);
   }
 
   @Mutation(() => VerifyResetPasswordOtpResponse)

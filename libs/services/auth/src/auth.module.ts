@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { MailerModule } from '@nestjs-modules/mailer';
 
 import { AuthService } from './auth.service';
+import { SetPasswordGuard } from '@libs/guards/set-password.guard';
 import { MailService } from '@libs/services/mail';
 import { EnvService } from '@libs/common/config/env.service';
 import { SocialAuthModule } from '@libs/services/social-auth';
@@ -122,6 +123,7 @@ export class UserAuthModule {
         UserService,
         MailService,
         EnvService,
+        SetPasswordGuard,
         UserRepository,
         UserVerificationRepository,
         DeviceRepository,
@@ -134,6 +136,7 @@ export class UserAuthModule {
         AuthService,
         UserService,
         MailService,
+        SetPasswordGuard,
         UserRepository,
         UserVerificationRepository,
         DeviceRepository,
