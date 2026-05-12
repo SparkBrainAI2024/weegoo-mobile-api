@@ -747,7 +747,7 @@ export class AuthService {
 
   async googleSignUp(googleSignUpInput: GoogleSignUpInput, lang: string): Promise<BasicResponse> {
     try {
-      const { token, deviceId } = googleSignUpInput;
+      const { token, deviceId, firebaseToken, deviceType } = googleSignUpInput;
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
       console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignUp ~ socialUser:", socialUser)
       if (!socialUser.email) {
@@ -762,6 +762,11 @@ export class AuthService {
           },
         ]
       },);
+      await this.registerDeviceIfProvided(user._id, {
+        deviceId,
+        firebaseToken: firebaseToken,
+        deviceType: deviceType,
+      });
       if (!user) {
         user = await this.userRepository.create({
           email: socialUser.email,
@@ -774,18 +779,16 @@ export class AuthService {
           fullName: socialUser.name || '',
           profileImage: socialUser.picture || '',
         });
+        return {
+          message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
+          success: true,
+        };
+      } else {
+        return {
+          message: Message(lang, "USER.USED_EMAIL"),
+          success: true,
+        };
       }
-
-      await this.registerDeviceIfProvided(user._id, {
-        deviceId,
-        firebaseToken: null,
-        deviceType: null,
-      });
-
-      return {
-        message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
-        success: true,
-      };
     } catch (e) {
       console.log("🚀 ~ file: auth.service.ts:382 ~ AuthService ~ googleSignUp ~ e:", e)
       ErrorException(
