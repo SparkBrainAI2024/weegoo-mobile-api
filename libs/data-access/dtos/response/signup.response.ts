@@ -8,12 +8,12 @@ export class SignUpResponse {
   @Field()
   success: boolean;
 
-  @Field({ nullable: true })
-  verificationToken?: string;
-
   @Field(() => Int, { nullable: true })
   currentTime?: number;
 
   @Field(() => Int, { nullable: true })
   expiresBy?: number;
+
+  @Field({ nullable: true })
+  verificationToken?: string;
 }

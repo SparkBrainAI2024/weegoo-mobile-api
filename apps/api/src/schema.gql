@@ -28,11 +28,14 @@ type UserDetailsResponse {
   fullName: String
   gender: GenderEnum
   address: String
-  phone: String
   email: String
   profileImage: String
   dateOfBirth: String
   bio: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
   createdAt: String
 }
 
@@ -41,6 +44,40 @@ enum GenderEnum {
   FEMALE
   OTHERS
   UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
+}
+
+"""The provinces of Nepal"""
+enum ProvinceEnum {
+  """Province No. 1 (Koshi)"""
+  PROVINCE_1
+
+  """Province No. 2 (Madhesh)"""
+  PROVINCE_2
+
+  """Bagmati Province"""
+  BAGMATI
+
+  """Gandaki Province"""
+  GANDAKI
+
+  """Lumbini Province"""
+  LUMBINI
+
+  """Karnali Province"""
+  KARNALI
+
+  """Sudurpashchim Province"""
+  SUDURPASHCHIM
 }
 
 type SignInResponse {
@@ -53,9 +90,16 @@ type SignInResponse {
 type SignUpResponse {
   message: String!
   success: Boolean!
-  verificationToken: String
   currentTime: Int
   expiresBy: Int
+  verificationToken: String
+}
+
+type SetPasswordResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
 }
 
 type VerifyResetPasswordOtpResponse {
@@ -88,14 +132,13 @@ type Mutation {
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!
-  verifyPhone(input: VerifyPhoneInput!): SignInResponse!
+  verifyPhone(input: VerifyPhoneInput!): SignUpResponse!
+  setPassword(input: SetPasswordInput!): SetPasswordResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   updatePhone(input: UpdatePhoneInput!): BasicResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
-  verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
-  setPassword(input: SetPasswordInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
 }
 
@@ -109,8 +152,9 @@ input PhoneInput {
 }
 
 enum VerificationType {
-  VERIFICATION_EMAIL
+  VERIFICATION_PHONE
   RESET_PASSWORD
+  VERIFICATION_EMAIL
 }
 
 input ResetPasswordInput {
@@ -149,6 +193,10 @@ input PhoneSignInInput {
 input VerifyPhoneInput {
   phone: String!
   otp: String!
+}
+
+input SetPasswordInput {
+  password: String!
   device: DeviceInput
 }
 
@@ -170,24 +218,19 @@ input ChangeLanguageInput {
   language: String!
 }
 
-input VerifyEmailInput {
-  email: String!
-  otp: String!
-}
-
-input SetPasswordInput {
-  password: String!
-}
-
 input CreateUserDetailsInput {
   fullName: String!
   address: String
   profileImage: String
-  phone: String
+  email: String
   dateOfBirth: DateTime
   bio: String
   geoLocation: GeoLocationInput
   gender: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
 }
 
 """

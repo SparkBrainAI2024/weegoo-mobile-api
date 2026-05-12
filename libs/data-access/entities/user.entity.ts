@@ -11,7 +11,7 @@ export class User extends BaseEntity {
   @Field(() => String)
   fullName: string;
 
-  @Prop({ required: true, type: String, enum: AuthProvider, index: true,default: AuthProvider.PHONE })
+  @Prop({ required: true, type: String, enum: AuthProvider, index: true, default: AuthProvider.PHONE })
   @Field(() => AuthProvider)
   authProvider: AuthProvider;
 
@@ -51,10 +51,14 @@ export class User extends BaseEntity {
   @Prop({ default: null })
   lastLogin?: Date;
 
-  @Field(()=>String, { nullable: true })
-  @Prop({ required: false, unique: true,sparse:true, type: String })
+  @Field(() => String, { nullable: true })
+  @Prop({
+    required: false,
+    unique: true,
+    type: String,
+  })
+  
   phone?: string;
-
   @Field(() => language, { defaultValue: language.EN })
   @Prop({ type: String, enum: language, default: language.EN })
   language: string;

@@ -1,6 +1,7 @@
 export const USER = {
   CAN_NOT_SEND_MAIL: "इमेल पठाउन सकिएन।",
   USED_EMAIL: "यो इमेल पहिले नै प्रयोग भइसकेको छ।",
+  USED_PHONE: "यो फोन नम्बर पहिले नै प्रयोग भइसकेको छ।",
   INVALID_EMAIL: "अवैध इमेल।",
   REQUIRED_PASSWORD: "पासवर्ड आवश्यक छ।",
   MIN_PASSWORD: "पासवर्ड कम्तीमा ८ अक्षरको हुनुपर्छ।",
@@ -45,6 +46,11 @@ export const USER = {
   INVALID_DOB: "कृपया जन्म मिति YYYY-MM-DD ढाँचामा सही तरिकाले लेख्नुहोस्।",
   INVALID_BIO: "बायो अवैध ढाँचामा छ।",
   INVALID_GENDER: "लिङ्ग मान अवैध छ।",
+  INVALID_RIDE_PREFERENCE: "राइड प्राथमिकता मान अवैध छ।",
+  INVALID_DISTRICT: "जिल्ला मान अवैध छ।",
+  INVALID_STREET_NAME: "सडक नाम अवैध छ।",
+  INVALID_PROVINCE: "प्रदेश मान अवैध छ।",
+  EMAIL_ALREADY_EXISTS: "यो इमेल अर्को प्रयोगकर्ताद्वारा पहिले नै प्रयोग भइसकेको छ।",
   REQUIRED_GEOLOCATION_TYPE: "GeoLocation प्रकार आवश्यक छ।",
   INVALID_GEOLOCATION_TYPE:
     "GeoLocation प्रकार 'Point' हुनुपर्छ र मान्य स्ट्रिङ हुनुपर्छ।",
@@ -56,4 +62,6 @@ export const USER = {
   MIN_GEOLOCATION_COORDINATES:
     "GeoLocation मा कम्तीमा दुई अंक [longitude, latitude] हुनुपर्छ।",
   USER_NOT_COMPLETE: "प्रयोगकर्ता विवरण पूरा भएको छैन।",
+  SET_PASSWORD_TO_LOGIN:
+    "एपमा लगइन गर्न कृपया आफ्नो पासवर्ड सेट गर्नुहोस्।",
 };

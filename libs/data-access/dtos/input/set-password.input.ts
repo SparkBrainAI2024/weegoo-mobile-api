@@ -12,4 +12,7 @@ export class SetPasswordInput {
   @MaxLength(20, { message: "USER.MAX_PASSWORD" })
   @Matches(passwordRegex, { message: "USER.INVALID_PASSWORD_INPUT" })
   password: string;
+
+  @Field(() => DeviceInput, { nullable: true })
+  device?: DeviceInput;
 }
