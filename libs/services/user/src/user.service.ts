@@ -160,40 +160,40 @@ export class UserService {
         }
     }
 
-    async verifyChangeEmailOTP(
-        verifyOTPlInput: VerifyEmailInput,
-        lang: string,
-        userId
-    ) {
-        try {
-            const { email, otp } = verifyOTPlInput;
-            const user: UserDocument = await this.userRepository.findOne({
-                _id: userId,
-            });
-            if (!user) {
-                ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-            }
-            if (user.suspended) {
-                ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-            }
-            const code = await this.userVerificationRepository.findOne({
-                userId: user._id,
-                otp: otp,
-                type: verificationType.VERIFICATION_EMAIL,
-            });
-            if (!code) {
-                ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
-            }
-            await this.userVerificationRepository.deleteOtpById(code._id);
+    // async verifyChangeEmailOTP(
+    //     verifyOTPlInput: VerifyEmailInput,
+    //     lang: string,
+    //     userId
+    // ) {
+    //     try {
+    //         const { email, otp } = verifyOTPlInput;
+    //         const user: UserDocument = await this.userRepository.findOne({
+    //             _id: userId,
+    //         });
+    //         if (!user) {
+    //             ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+    //         }
+    //         if (user.suspended) {
+    //             ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+    //         }
+    //         const code = await this.userVerificationRepository.findOne({
+    //             userId: user._id,
+    //             otp: otp,
+    //             type: verificationType.VERIFICATION_EMAIL,
+    //         });
+    //         if (!code) {
+    //             ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+    //         }
+    //         await this.userVerificationRepository.deleteOtpById(code._id);
 
-            await this.userRepository.updateOne({ _id: userId }, { email });
-            return { message: Message(lang, "USER.CHANGED_EMAIL"), success: true };
-        } catch (e) {
-            ErrorException(
-                e,
-                "COMMON.INTERNAL_SERVER_ERROR",
-                HttpStatus.INTERNAL_SERVER_ERROR
-            );
-        }
-    }
+    //         await this.userRepository.updateOne({ _id: userId }, { email });
+    //         return { message: Message(lang, "USER.CHANGED_EMAIL"), success: true };
+    //     } catch (e) {
+    //         ErrorException(
+    //             e,
+    //             "COMMON.INTERNAL_SERVER_ERROR",
+    //             HttpStatus.INTERNAL_SERVER_ERROR
+    //         );
+    //     }
+    // }
 }
