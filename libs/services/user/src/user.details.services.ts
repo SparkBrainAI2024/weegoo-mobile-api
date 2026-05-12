@@ -18,11 +18,11 @@ export class UserDetailsService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
-      if (input.phone) {
-        if (await this.userRepository.findByPhone(input.phone)) {
-          ErrorException(null, "USER.PHONE_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
+      if (input.email) {
+        if (await this.userRepository.findByEmail(input.email)) {
+          ErrorException(null, "USER.EMAIL_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
         }
-        await this.userRepository.updateById(toMongoId(userId), { phone: input.phone });
+        await this.userRepository.updateById(toMongoId(userId), { email: input.email });
       }
       const details = await this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
       if (!details)
@@ -48,7 +48,6 @@ export class UserDetailsService {
 
       return {
         email: updatedCoreUser.email,
-        phone: updatedCoreUser.phone,
         ...updatedUserDetails.toObject(),
       };
     } catch (e) {
@@ -72,7 +71,7 @@ export class UserDetailsService {
       if (!details)
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
 
-      return { email: user.email, phone: user.phone, ...details.toObject() };
+      return { email: user.email, ...details.toObject() };
     } catch (e) {
       ErrorException(
         e,

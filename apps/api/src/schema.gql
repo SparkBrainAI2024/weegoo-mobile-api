@@ -28,11 +28,14 @@ type UserDetailsResponse {
   fullName: String
   gender: GenderEnum
   address: String
-  phone: String
   email: String
   profileImage: String
   dateOfBirth: String
   bio: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
   createdAt: String
 }
 
@@ -41,6 +44,40 @@ enum GenderEnum {
   FEMALE
   OTHERS
   UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
+}
+
+"""The provinces of Nepal"""
+enum ProvinceEnum {
+  """Province No. 1 (Koshi)"""
+  PROVINCE_1
+
+  """Province No. 2 (Madhesh)"""
+  PROVINCE_2
+
+  """Bagmati Province"""
+  BAGMATI
+
+  """Gandaki Province"""
+  GANDAKI
+
+  """Lumbini Province"""
+  LUMBINI
+
+  """Karnali Province"""
+  KARNALI
+
+  """Sudurpashchim Province"""
+  SUDURPASHCHIM
 }
 
 type SignInResponse {
@@ -182,11 +219,15 @@ input CreateUserDetailsInput {
   fullName: String!
   address: String
   profileImage: String
-  phone: String
+  email: String
   dateOfBirth: DateTime
   bio: String
   geoLocation: GeoLocationInput
   gender: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
 }
 
 """

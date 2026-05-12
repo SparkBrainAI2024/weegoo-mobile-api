@@ -4,14 +4,14 @@ import {
   IsOptional,
   IsString,
   IsEnum,
-  IsPhoneNumber,
+  IsEmail,
   ValidateNested,
   MinLength,
   MaxLength,
   IsDate,
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
-import { GenderEnum } from "@libs/data-access/enums/user.enum";
+import { GenderEnum, ridePreference, ProvinceEnum } from "@libs/data-access/enums/user.enum";
 import { IsValidDate } from "@libs/common/decorators/validation/date-of-birth.decorator";
 import { GeoLocationInput } from "./geo-location.input";
 
@@ -36,8 +36,8 @@ export class CreateUserDetailsInput {
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsPhoneNumber(null, { message: "USER.INVALID_PHONE" })
-  phone?: string;
+  @IsEmail({}, { message: "USER.INVALID_EMAIL" })
+  email?: string;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -61,4 +61,24 @@ export class CreateUserDetailsInput {
   @IsOptional()
   @IsEnum(GenderEnum, { message: "USER.INVALID_GENDER" })
   gender?: GenderEnum;
+
+  @Field(() => ridePreference, { nullable: true })
+  @IsOptional()
+  @IsEnum(ridePreference, { message: "USER.INVALID_RIDE_PREFERENCE" })
+  ridePreference?: ridePreference;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString({ message: "USER.INVALID_DISTRICT" })
+  district?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString({ message: "USER.INVALID_STREET_NAME" })
+  streetName?: string;
+
+  @Field(() => ProvinceEnum, { nullable: true })
+  @IsOptional()
+  @IsEnum(ProvinceEnum, { message: "USER.INVALID_PROVINCE" })
+  province?: ProvinceEnum;
 }

@@ -45,6 +45,11 @@ export const USER = {
   INVALID_DOB: "कृपया जन्म मिति YYYY-MM-DD ढाँचामा सही तरिकाले लेख्नुहोस्।",
   INVALID_BIO: "बायो अवैध ढाँचामा छ।",
   INVALID_GENDER: "लिङ्ग मान अवैध छ।",
+  INVALID_RIDE_PREFERENCE: "राइड प्राथमिकता मान अवैध छ।",
+  INVALID_DISTRICT: "जिल्ला मान अवैध छ।",
+  INVALID_STREET_NAME: "सडक नाम अवैध छ।",
+  INVALID_PROVINCE: "प्रदेश मान अवैध छ।",
+  EMAIL_ALREADY_EXISTS: "यो इमेल अर्को प्रयोगकर्ताद्वारा पहिले नै प्रयोग भइसकेको छ।",
   REQUIRED_GEOLOCATION_TYPE: "GeoLocation प्रकार आवश्यक छ।",
   INVALID_GEOLOCATION_TYPE:
     "GeoLocation प्रकार 'Point' हुनुपर्छ र मान्य स्ट्रिङ हुनुपर्छ।",
