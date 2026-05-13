@@ -39,6 +39,14 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
     }
   }
 
+  async deleteByAccessTokenJti(accessTokenJti: string) {
+    try {
+      return await this.model.deleteOne({ accessTokenJti });
+    } catch (e) {
+      ErrorException(e, 'COMMON.INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   async createSessionMeta(
     userId: Types.ObjectId,
     deviceId: string,

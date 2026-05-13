@@ -14,8 +14,8 @@ export class UserTokenMeta extends BaseEntity {
   userId: Types.ObjectId;
 
   @Field()
-  @Prop({ type: String, required: true })
-  refreshTokenJti: string;
+  @Prop({ type: String, required: false })
+  refreshTokenJti?: string;
 
   @Field()
   @Prop({ type: String, required: true })
