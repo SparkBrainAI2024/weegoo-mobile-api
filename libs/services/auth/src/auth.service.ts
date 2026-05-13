@@ -66,6 +66,11 @@ export type UserDetailsResponse = {
   createdAt: Date;
   geoLocation: any;
   userId: Types.ObjectId;
+  province?: string;
+  district?: string;
+  streetName?: string;
+  ridePreference?: string;
+  _id?:string;
 };
 
 const MAX_PHONE_UPDATE_LIMIT = 5;
@@ -174,6 +179,11 @@ export class AuthService {
       createdAt: userDetails.createdAt,
       geoLocation: userDetails?.geoLocation?.type ? userDetails.geoLocation : null,
       userId: userDetails.userId,
+      province:userDetails?.province || null,
+      district:userDetails?.district || null,
+      streetName:userDetails?.streetName || null,
+      ridePreference:userDetails?.ridePreference || null,
+      _id:userDetails._id.toString() || null,
     };
   }
 
@@ -244,6 +254,7 @@ export class AuthService {
     if (user.suspended) {
       ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
     }
+    console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ validateUserForSignIn ~ user:", userDetails)
     return { user, userDetails };
   }
 
