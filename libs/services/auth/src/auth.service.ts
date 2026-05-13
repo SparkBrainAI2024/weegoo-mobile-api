@@ -465,8 +465,8 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-       if (user.authProvider !== AuthProvider.GOOGLE && user.authProvider !== AuthProvider.APPLE) {
-        ErrorException(null, "COMMON.UNAUTHORIZED", HttpStatus.FORBIDDEN);
+       if (user.authProvider === AuthProvider.GOOGLE || user.authProvider === AuthProvider.APPLE) {
+        ErrorException(null, "COMMON.VERIFY_PHONE_UNKNOWN_PROVIDER", HttpStatus.FORBIDDEN);
       }
 
       // If user is already verified, return message
@@ -535,7 +535,7 @@ export class AuthService {
 
       // Only allow Google auth provider users
       if (user.authProvider !== AuthProvider.GOOGLE) {
-        ErrorException(null, "COMMON.UNAUTHORIZED", HttpStatus.FORBIDDEN);
+        ErrorException(null, "COMMON.VERIFY_PHONE_UNKNOWN_PROVIDER", HttpStatus.FORBIDDEN);
       }
 
       if (user.verified) {
