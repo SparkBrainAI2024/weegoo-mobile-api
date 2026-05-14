@@ -9,6 +9,9 @@ import { envConfiguration, HealthResolver } from '@libs/common';
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
 import { VehicleModule } from './modules/vehicle/vehicle.module';
+import { CleanupModule } from './modules/cleanup/cleanup.module';
+import { DriverDocumentModule } from './modules/driver-document/driver-document.module';
+import { UploadCenterModule } from '@libs/services/upload-center/src';
 
 @Module({
   imports: [
@@ -37,6 +40,9 @@ import { VehicleModule } from './modules/vehicle/vehicle.module';
     AuthModule,
     UserModule,
     VehicleModule,
+    CleanupModule,
+    DriverDocumentModule,
+    UploadCenterModule
   ],
   providers: [HealthResolver],
 })
