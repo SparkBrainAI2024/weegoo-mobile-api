@@ -8,6 +8,7 @@ import { SetPasswordGuard } from '@libs/guards/set-password.guard';
 import { MailService } from '@libs/services/mail';
 import { EnvService } from '@libs/common/config/env.service';
 import { SocialAuthModule } from '@libs/services/social-auth';
+import { AuthGuard } from '@libs/guards/guard';
 import { UserService } from '@libs/services/user/user.service';
 import { SocialAuthConfig } from '@libs/common/config/env.config.interface';
 
@@ -27,18 +28,20 @@ import {
   UserTokenMeta,
   UserTokenMetaSchema,
   UserTokenMetaRepository,
+  roles,
 } from '@libs/data-access';
 
 export interface AuthModuleOptions {
   imports?: any[];
   providers?: Provider[];
   socialAuthConfig?: SocialAuthConfig;
+  defaultRole?: string;
 }
 
 @Module({})
 export class UserAuthModule {
   static forRoot(options: AuthModuleOptions = {}): DynamicModule {
-    const { imports = [], providers = [], socialAuthConfig } = options;
+    const { imports = [], providers = [], socialAuthConfig, defaultRole } = options;
 
     return {
       module: UserAuthModule,
@@ -120,6 +123,11 @@ export class UserAuthModule {
 
       providers: [
         AuthService,
+        AuthGuard,
+        {
+          provide: 'AUTH_DEFAULT_ROLE',
+          useValue: defaultRole || roles.USER,
+        },
         UserService,
         MailService,
         EnvService,
@@ -134,6 +142,8 @@ export class UserAuthModule {
 
       exports: [
         AuthService,
+        AuthGuard,
+        'AUTH_DEFAULT_ROLE',
         UserService,
         MailService,
         SetPasswordGuard,

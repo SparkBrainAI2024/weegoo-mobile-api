@@ -5,6 +5,7 @@ export enum TokenGrantType {
   REFRESH_TOKEN = 'refresh_token',
   PASSWORD_RESET = 'password_reset',
   IMPERSONATION = 'impersonation',
+  SET_PASSWORD = 'set_password',
 }
 
 registerEnumType(TokenGrantType, {
