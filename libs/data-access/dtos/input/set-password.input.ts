@@ -1,7 +1,8 @@
 import { Field, InputType } from "@nestjs/graphql";
-import { Matches,MinLength,MaxLength,IsNotEmpty } from "class-validator";
+import { Matches, MinLength, MaxLength, IsNotEmpty, IsOptional, ValidateNested } from "class-validator";
 import { passwordRegex } from "@libs/common/constants";
 import { DeviceInput } from "./device.input";
+import { Type } from "class-transformer";
 
 
 @InputType()
@@ -14,5 +15,8 @@ export class SetPasswordInput {
   password: string;
 
   @Field(() => DeviceInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DeviceInput)
   device?: DeviceInput;
 }
