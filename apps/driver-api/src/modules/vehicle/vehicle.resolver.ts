@@ -6,7 +6,7 @@ import { VehicleService } from "./vehicle.service";
 import { Vehicle } from "./entities/vehicle.entity";
 import { GetMyVehiclesResponse, VehicleRegistrationResponse } from "./response/vehicle-registration.response";
 import { RegisterVehicleInput } from "./input/create-vehicle.input";
-import { UpdateVehicleImageInput } from "./input/update-vehicle-image.input";
+import { EditVehicleInput } from "./input/update-vehicle.input";
 
 
 
@@ -25,15 +25,15 @@ export class VehicleResolver {
     return this.vehicleService.registerVehicle(user._id, input, lang);
   }
 
-    @Mutation(() => VehicleRegistrationResponse)
-  async updateVehicleImage(
-    @CurrentUser() user: { _id: string },
-    @Args("input") input: UpdateVehicleImageInput,
-    @CurrentLang() lang: string,
-  ): Promise<VehicleRegistrationResponse> {
-    return this.vehicleService.updateVehicleImage(user._id, input, lang);
-  }
-
+@Mutation(() => VehicleRegistrationResponse)
+async editVehicle(
+  @CurrentUser() user: { _id: string },
+  @CurrentLang() lang: string,
+  @Args("vehicleId") vehicleId: string,      // ← separate arg
+  @Args("input") input: EditVehicleInput,
+) {
+  return this.vehicleService.editVehicle(user._id, vehicleId, input, lang);
+}
   @Query(() => GetMyVehiclesResponse)
   async myVehicles(
     @CurrentUser() user: { _id: string },@CurrentLang() lang: string,

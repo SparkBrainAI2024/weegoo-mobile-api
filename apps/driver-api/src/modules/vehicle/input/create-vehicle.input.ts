@@ -46,8 +46,8 @@ export class RegisterVehicleInput {
   @IsString({ message: "VEHICLE.COLOR_INVALID" })
   color: string;
 
-    @Field({ nullable: true })
-  @IsOptional()
+    @Field({  description: "S3 key for the vehicle image.", })
+  @IsNotEmpty()
   @IsString()
-  imageS3Key?: string;
+  imageS3Key: string;
 }

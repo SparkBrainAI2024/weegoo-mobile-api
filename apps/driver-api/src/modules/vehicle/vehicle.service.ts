@@ -5,7 +5,7 @@ import { VehicleRepository } from "./repository/vehicle.repository";
 import { RegisterVehicleInput } from "./input/create-vehicle.input";
 import { Message } from "@libs/localization";
 import { ImageStatus } from "@libs/data-access/enums/upload.enum";
-import { UpdateVehicleImageInput } from "./input/update-vehicle-image.input";
+import { EditVehicleInput } from "./input/update-vehicle.input";
 import { Vehicle } from "./entities/vehicle.entity";
 import { S3Service } from "@libs/s3/s3.service";
 
@@ -43,58 +43,31 @@ export class VehicleService {
     }
   }
 
-   async updateVehicleImage(
-    driverId: string,
-    input: UpdateVehicleImageInput,
-    lang: string,
-  ) {
-    try {
-      const vehicle = await this.vehicleRepository.findOne({
-        _id: new Types.ObjectId(input.vehicleId),
-        driverId: new Types.ObjectId(driverId),
-      });
 
-      if (!vehicle) {
-        ErrorException(
-          null,
-          "VEHICLE.NOT_FOUND",
-          HttpStatus.NOT_FOUND,
-        );
-      }
+  async editVehicle(driverId: string, vehicleId: string, input: EditVehicleInput, lang: string) {
 
-      // Mark old ACTIVE images as INACTIVE
-      vehicle.images = vehicle.images.map((img) =>
-        img.status === ImageStatus.ACTIVE
-          ? {
-              ...img,
-              status: ImageStatus.INACTIVE,
-            }
-          : img,
-      );
-
-      // Add new ACTIVE image
-      vehicle.images.push({
-        s3Key: input.s3Key,
-        status: ImageStatus.ACTIVE,
-        createdAt: new Date(),
-      });
-
-      await vehicle.save();
-
-      return {
-        success: true,
-        message: Message(lang, "VEHICLE.IMAGE_UPDATED"),
-        vehicle,
-      };
-    } catch (e) {
-      ErrorException(
-        e,
-        "COMMON.INTERNAL_SERVER_ERROR",
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+    //check vehicle exists and belongs to driver
+  const vehicleOfDriver = await this.vehicleRepository.findById(new Types.ObjectId(vehicleId));
+  if (!vehicleOfDriver || vehicleOfDriver.driverId.toString() !== driverId) {
+    ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
   }
-    // ─── Get vehicles by driver ───────────────────────────────────────────────────
+  // Check plate belongs to someone ELSE, not this vehicle
+  const existing = await this.vehicleRepository.findByNumberPlate(input.numberPlate);
+  if (existing && existing._id.toString() !== vehicleId) {
+    ErrorException(null, "VEHICLE.NUMBER_PLATE_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
+  }
+
+  const vehicle = await this.vehicleRepository.update(new Types.ObjectId(vehicleId), {
+    ...input,
+  });
+
+  return {
+    message: Message(lang, "VEHICLE.UPDATED"),
+    success: true,
+    vehicle,
+  };
+}
+  
   async getVehiclesByDriver(driverId: string, lang: string) {
     try {
       const vehicles = await this.vehicleRepository.find({
