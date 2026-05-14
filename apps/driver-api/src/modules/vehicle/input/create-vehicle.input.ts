@@ -1,6 +1,6 @@
 import { VehicleType } from "@libs/data-access";
 import { Field, InputType, Int } from "@nestjs/graphql";
-import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min } from "class-validator";
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class-validator";
 
 @InputType()
 export class RegisterVehicleInput {
@@ -45,4 +45,9 @@ export class RegisterVehicleInput {
   @IsNotEmpty({ message: "VEHICLE.COLOR_REQUIRED" })
   @IsString({ message: "VEHICLE.COLOR_INVALID" })
   color: string;
+
+    @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  imageS3Key?: string;
 }

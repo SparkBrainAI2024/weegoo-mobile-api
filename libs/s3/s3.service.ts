@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { UploadPurpose } from '@libs/data-access/enums/upload.enum';
 import { ALLOWED_CONTENT_TYPES_BY_PURPOSE, CONTENT_TYPE_TO_EXT, DEFAULT_UPLOAD_EXPIRES_SECONDS } from './s3.constants';
@@ -59,6 +59,10 @@ export class S3Service {
     }
     const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     return getSignedUrl(this.client, cmd, { expiresIn });
+  }
+
+   async deleteObject(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
 }

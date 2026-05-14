@@ -13,5 +13,6 @@ import { EnvService } from '@libs/common/config/env.service';
   { name: Vehicle.name, schema: VehicleSchema },
 ]),UserPersistenceModule],
   providers: [VehicleResolver, VehicleService, VehicleRepository, EnvService],
+  exports: [VehicleService],
 })
 export class VehicleModule {}

@@ -2,7 +2,7 @@ import { Field, Int, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "@libs/data-access/base/base.entity";
-import { VehicleType } from "@libs/data-access";
+import { VehicleImage, VehicleImageSchema } from "./vehicle-image.embedded";
 
 export type VehicleDocument = HydratedDocument<Vehicle>;
 
@@ -10,35 +10,33 @@ export type VehicleDocument = HydratedDocument<Vehicle>;
 @Schema({ timestamps: true })
 export class Vehicle extends BaseEntity {
   @Field(() => String)
-  @Prop({ type: Types.ObjectId, required: true, index: true, ref: "User" })
+  @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
   driverId: Types.ObjectId;
 
-  @Field(() => String)
-  @Prop({ type: String, required: true, trim: true })
-  imageUrl: string;
+  @Field()
+  @Prop({ type: String, required: true })
+  make: string;
 
-  @Field(() => VehicleType)
-  @Prop({ type: String, enum: VehicleType, required: true, index: true })
-  vehicleType: VehicleType;
-
-  @Field(() => String)
-  @Prop({ type: String, required: true, trim: true })
+  @Field()
+  @Prop({ type: String, required: true })
   vehicleModel: string;
 
   @Field(() => Int)
-  @Prop({ type: Number, required: true, min: 1900 })
+  @Prop({ type: Number, required: true })
   year: number;
 
-  @Field(() => String)
-  @Prop({ type: String, required: true, trim: true, unique: true, index: true })
+  @Field()
+  @Prop({ type: String, required: true })
+  color: string;
+
+  @Field()
+  @Prop({ type: String, required: true, unique: true })
   numberPlate: string;
 
-  @Field(() => String)
-  @Prop({ type: String, required: true, trim: true })
-  color: string;
+  // All vehicle images embedded — ACTIVE = current, INACTIVE = pending midnight deletion
+  @Field(() => [VehicleImage])
+  @Prop({ type: [VehicleImageSchema], default: [] })
+  images: VehicleImage[];
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);
-
-VehicleSchema.index({ driverId: 1, vehicleType: 1 });
-VehicleSchema.index({ numberPlate: 1 }, { unique: true });
