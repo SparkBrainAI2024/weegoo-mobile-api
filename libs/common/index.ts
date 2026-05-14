@@ -7,6 +7,8 @@ export * from './constants';
 
 // decorators
 export * from './decorators/header.decorators';
+export * from './decorators/current-verification-user.decorator';
+export * from './decorators/current-verification-token-data.decorator';
 export * from './decorators/role.decorator';
 export * from './decorators/step.decorator';
 export * from './decorators/swagger.decorators';

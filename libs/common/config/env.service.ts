@@ -88,7 +88,7 @@ export class EnvService {
    * Get reset password token expiration time
    */
   getResetPasswordTokenLife(): string {
-    return this.getString('RESET_PASSWORD_TOKEN_LIFE', '10m');
+    return this.getString('RESET_PASSWORD_TOKEN_LIFE', '2m');
   }
 
   /**

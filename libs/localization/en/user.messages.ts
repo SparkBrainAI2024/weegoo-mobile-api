@@ -50,6 +50,11 @@ export const USER = {
   INVALID_DOB: "Please provide a valid date of birth in YYYY-MM-DD format.",
   INVALID_BIO: "Invalid bio format.",
   INVALID_GENDER: "Invalid gender value.",
+  INVALID_RIDE_PREFERENCE: "Invalid ride preference value.",
+  INVALID_DISTRICT: "Invalid district value.",
+  INVALID_STREET_NAME: "Invalid street name value.",
+  INVALID_PROVINCE: "Invalid province value.",
+  EMAIL_ALREADY_EXISTS: "This email is already used by another user.",
   REQUIRED_GEOLOCATION_TYPE: "GeoLocation type is required.",
   INVALID_GEOLOCATION_TYPE:
     "GeoLocation type must be 'Point' and must be a valid string.",
@@ -65,4 +70,8 @@ export const USER = {
     "Email already verified, change details from your profile.",
   GOOGLE_SIGNUP_SUCCESS:
     "User is created successfully. To verify user please add phone number we will send you otp on sms",
+  SET_PASSWORD_TO_LOGIN:
+    "Please set your password to login into the app.",
+  PHONE_VERIFIED_SUCCESS:
+    "Phone number verified successfully.",
 };

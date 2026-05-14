@@ -53,9 +53,9 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
 
     async sendPhoneVerificationOtp(userId: Types.ObjectId, otp: number) {
         try {
-            await this.model.findOneAndDelete({ type: verificationType.VERIFICATION_EMAIL, userId, otp })
+            await this.model.findOneAndDelete({ type: verificationType.VERIFICATION_PHONE, userId, otp })
             return await this.create({
-                type: verificationType.VERIFICATION_EMAIL,
+                type: verificationType.VERIFICATION_PHONE,
                 userId: toMongoId(userId.toString()),
                 otp,
                 createdAt: UTCTime()

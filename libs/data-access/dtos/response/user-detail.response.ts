@@ -1,4 +1,4 @@
-import { GenderEnum } from "@libs/data-access/enums/user.enum";
+import { GenderEnum, ridePreference, ProvinceEnum } from "@libs/data-access/enums/user.enum";
 import { Field, ObjectType } from "@nestjs/graphql";
 @ObjectType()
 export class UserDetailsResponse {
@@ -18,9 +18,6 @@ export class UserDetailsResponse {
   address?: string;
 
   @Field({ nullable: true })
-  phone?: string;
-
-  @Field({ nullable: true })
   email?: string;
 
   @Field({ nullable: true })
@@ -31,6 +28,18 @@ export class UserDetailsResponse {
 
   @Field({ nullable: true })
   bio?: string;
+
+  @Field(() => ridePreference, { nullable: true })
+  ridePreference?: ridePreference;
+
+  @Field({ nullable: true })
+  district?: string;
+
+  @Field({ nullable: true })
+  streetName?: string;
+
+  @Field(() => ProvinceEnum, { nullable: true })
+  province?: ProvinceEnum;
 
   @Field({ nullable: true })
   createdAt?: string;

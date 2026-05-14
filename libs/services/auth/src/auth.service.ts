@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { ErrorException } from "@libs/common/exceptions";
 import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
 import { isOtpExpired, UTCTime } from "@libs/common/utils/datetime";
+import * as Jwt from 'jsonwebtoken';
 import {
   generateMongoDbId,
   GenerateRandomDigit,
@@ -12,6 +13,7 @@ import { passwordSalt, tokenTypes, userOtpSalt, userOtpExpiredTime } from "@libs
 import { MailService } from "@libs/services/mail";
 import {
   ResetPasswordInput,
+  SetPasswordInput,
   DeviceRepository,
   UserRepository,
   UserVerificationRepository,
@@ -20,7 +22,6 @@ import {
   UserDetailsRepository,
   UserDetailsDocument,
   verificationType,
-  EmailInput,
   PhoneInput,
   GoogleSignInInput,
   GoogleSignUpInput,
@@ -65,6 +66,11 @@ export type UserDetailsResponse = {
   createdAt: Date;
   geoLocation: any;
   userId: Types.ObjectId;
+  province?: string;
+  district?: string;
+  streetName?: string;
+  ridePreference?: string;
+  _id?:string;
 };
 
 const MAX_PHONE_UPDATE_LIMIT = 5;
@@ -92,6 +98,16 @@ export class AuthService {
       return verification;
     }
     return null;
+  }
+
+  // Helper to extract the token expiry timestamp from a JWT
+  private getTokenExpiryFromJwt(token: string): number {
+    try {
+      const decoded: any = Jwt.decode(token);
+      return decoded?.exp || 0;
+    } catch {
+      return 0;
+    }
   }
 
   private async createAuthTokens(
@@ -163,6 +179,11 @@ export class AuthService {
       createdAt: userDetails.createdAt,
       geoLocation: userDetails?.geoLocation?.type ? userDetails.geoLocation : null,
       userId: userDetails.userId,
+      province:userDetails?.province || null,
+      district:userDetails?.district || null,
+      streetName:userDetails?.streetName || null,
+      ridePreference:userDetails?.ridePreference || null,
+      _id:userDetails._id.toString() || null,
     };
   }
 
@@ -183,7 +204,7 @@ export class AuthService {
   private async verifyOtpForUser(
     email: string,
     otp: string,
-    type: string = verificationType.VERIFICATION_EMAIL,
+    type: string = verificationType.VERIFICATION_PHONE,
   ): Promise<{ user: UserDocument; verification: any }> {
     const user: UserDocument = await this.userRepository.findByEmail(email);
     if (!user) {
@@ -233,6 +254,7 @@ export class AuthService {
     if (user.suspended) {
       ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
     }
+    console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ validateUserForSignIn ~ user:", userDetails)
     return { user, userDetails };
   }
 
@@ -265,30 +287,79 @@ export class AuthService {
     try {
       const { phone } = phoneSignUpInput;
       const userExistWithThisPhone = await this.userRepository.findByPhone(phone);
-      if (userExistWithThisPhone?.verified) {
-        ErrorException(null, "USER.USED_PHONE", HttpStatus.BAD_REQUEST);
-      }
-
-      const currentTime = Math.floor(Date.now() / 1000);
-      const expiresBy = userOtpExpiredTime;
 
       if (userExistWithThisPhone) {
+        // If user is verified
+        if (userExistWithThisPhone.verified) {
+          // If password is not set
+          if (!userExistWithThisPhone.password) {
+            const existingTokenMeta = await this.userTokenMetaRepository.findOne({
+              userId: userExistWithThisPhone._id,
+              accessTokenJti: { $ne: '' },
+              refreshTokenJti: '',
+            });
+            console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ existingTokenMeta:", existingTokenMeta  )
+            if (existingTokenMeta?.email) {
+              // Decode the stored token to check if it's still valid
+              const decoded: any = Jwt.decode(existingTokenMeta.email);
+              console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ decoded:", decoded  )
+              if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
+                // Token is still valid, re-send it
+                return {
+                  message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
+                  success: true,
+                  currentTime: Math.floor(Date.now() / 1000),
+                  expiresBy: decoded.exp,
+                  verificationToken: existingTokenMeta.email,
+                };
+              }
+              // Token expired, clean up the stale entry
+              await this.userTokenMetaRepository.deleteByAccessTokenJti(existingTokenMeta.accessTokenJti);
+            }
+            // Generate new verification token
+               const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
+              if (validOtp) {
+                return {
+                  message: Message(lang, "USER.OTP_ALREADY_SENT"),
+                  success: true,
+                  currentTime: Math.floor(Date.now() / 1000),
+                  expiresBy: userOtpExpiredTime,
+                };
+              }
+              // Send new OTP
+              const verificationCode = GenerateRandomDigit(userOtpSalt);
+              await this.userVerificationRepository.sendPhoneVerificationOtp(
+                userExistWithThisPhone._id,
+                verificationCode,
+              );
+              return {
+                message: Message(lang, "USER.USER_CREATED_PHONE"),
+                success: true,
+                currentTime: Math.floor(Date.now() / 1000),
+                expiresBy: userOtpExpiredTime,
+              };
+          }
+          // If password is already set, prompt user to sign in
+          ErrorException('', "USER.USED_PHONE", HttpStatus.BAD_REQUEST); {
+           
+          };
+        }
+
+        // User exists but not verified - OTP flow
         // Check if there's a valid non-expired OTP
-        const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_EMAIL);
+        const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
 
         if (validOtp) {
           // OTP still valid, just return message without sending new code
           return {
-            message: Message(lang, "USER.USER_CREATED_PHONE"),
+            message: Message(lang, "USER.OTP_ALREADY_SENT"),
             success: true,
-            currentTime,
-            expiresBy,
+            currentTime: Math.floor(Date.now() / 1000),
+            expiresBy: userOtpExpiredTime,
           };
         }
 
         // OTP expired or doesn't exist, send new code
-        // TODO: Implement phone SMS sending in later phase
-        // await this.smsService.sendVerificationSms(phone, verificationCode);
         const verificationCode = GenerateRandomDigit(userOtpSalt);
         await this.userVerificationRepository.sendPhoneVerificationOtp(
           userExistWithThisPhone._id,
@@ -297,14 +368,12 @@ export class AuthService {
         return {
           message: Message(lang, "USER.USER_CREATED_PHONE"),
           success: true,
-          currentTime,
-          expiresBy,
+          currentTime: Math.floor(Date.now() / 1000),
+          expiresBy: userOtpExpiredTime,
         };
       }
 
       // New user signup
-      // TODO: Implement phone SMS sending in later phase
-      // await this.smsService.sendVerificationSms(phone, verificationCode);
       const verificationCode = GenerateRandomDigit(userOtpSalt);
       const user: UserDocument = await this.userRepository.create({
         phone,
@@ -319,11 +388,11 @@ export class AuthService {
       return {
         message: Message(lang, "USER.USER_CREATED_PHONE"),
         success: true,
-        currentTime,
-        expiresBy,
+        currentTime: Math.floor(Date.now() / 1000),
+        expiresBy: userOtpExpiredTime,
       };
     } catch (e) {
-      console.log("🚀 ~ file: auth.service.ts:295 ~ AuthService ~ phoneSignUp ~ e:", e)
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ e:", e)
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -373,7 +442,7 @@ export class AuthService {
       }
 
       // Requirement: Check if previous OTP is not expired
-      const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_EMAIL);
+      const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_PHONE);
       if (validOtp) {
         return { message: Message(lang, "USER.OTP_SEND"), success: true };
       }
@@ -395,7 +464,6 @@ export class AuthService {
   }
 
   // Phone Signin - validates phone and returns sign in result
-  // TODO: Implement phone SMS sending for OTP verification in later phase
   async phoneSignIn(phoneSignInInput: PhoneSignInInput, lang: string) {
     try {
       const { phone, device, password } = phoneSignInInput;
@@ -418,7 +486,7 @@ export class AuthService {
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
-      console.log("🚀 ~ file: auth.service.ts:322 ~ AuthService ~ phoneSignIn ~ e:", e)
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignIn ~ e:", e)
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -427,38 +495,79 @@ export class AuthService {
     }
   }
 
-  // Verify Phone OTP
+      // Verify Phone OTP
   async verifyPhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
     try {
-      const { phone, otp, device } = verifyPhoneInput;
+      const { phone, otp } = verifyPhoneInput;
       const user: UserDocument = await this.userRepository.findByPhone(phone);
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
+
+       if (user.authProvider === AuthProvider.GOOGLE || user.authProvider === AuthProvider.APPLE) {
+        ErrorException(null, "COMMON.VERIFY_PHONE_UNKNOWN_PROVIDER", HttpStatus.FORBIDDEN);
+      }
+
+      // If user is already verified AND has password, return message
+      if (user.verified && user.password) {
+        return { message: Message(lang, "USER.USER_ALREADY_VERIFIED"), success: true };
+      }
+
       const verification = await this.userVerificationRepository.findOne({
         userId: user._id,
         otp,
-        type: verificationType.VERIFICATION_EMAIL,
+        type: verificationType.VERIFICATION_PHONE,
       });
       if (!verification) {
         ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
       }
+
+      // Set verified to true (for new users or re-verification)
       await this.userRepository.updateOne(
         { _id: user._id },
         { verified: true },
       );
       await this.userVerificationRepository.deleteOtpById(verification._id);
 
-      await this.registerDeviceIfProvided(user._id, device);
+      // If password is not set, generate verification token for first-time password setup
+      if (!user.password) {
+        const verificationTokenJti = generateMongoDbId();
+        const verificationToken = await generateToken(
+          {
+            id: user._id,
+            phone: user.phone,
+            jti: verificationTokenJti,
+            type: tokenTypes.setPasswordToken,
+          },
+          this.envService.getJwtSecretKey(),
+          { expiresIn: this.envService.getResetPasswordTokenLife() },
+        );
 
-      // Generate and return auth tokens after verification
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, device?.deviceId);
-      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
-      if (!userDetails) {
-        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+        // Store the verification token JTI in user-token-meta for server-side validation
+        await this.userTokenMetaRepository.create({
+          userId: user._id,
+          accessTokenJti: verificationTokenJti.toString(),
+          refreshTokenJti: '',
+          deviceId: null,
+          email: verificationToken as string,
+        });
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const expiresBy = this.getTokenExpiryFromJwt(verificationToken as string);
+
+        return {
+          message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
+          success: true,
+          currentTime,
+          expiresBy,
+          verificationToken,
+        };
       }
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
-      return result;
+
+      return {
+        message: Message(lang, "USER.USER_VERIFICATION_SUCCESS"),
+        success: true,
+      };
     } catch (e) {
       ErrorException(
         e,
@@ -468,86 +577,67 @@ export class AuthService {
     }
   }
 
-  // async sendVerifyEmailOtp(sendOtpInput: EmailInput, lang: string) {
-  //   try {
-  //     const { email } = sendOtpInput;
-  //     const user: UserDocument = await this.userRepository.findByEmail(email);
-  //     if (!user) {
-  //       ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-  //     }
+  // Verify Google Phone OTP - only for Google auth provider users
+  async verifyGooglePhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
+    try {
+      const { phone, otp } = verifyPhoneInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
 
-  //     // Check if there's a valid non-expired OTP
-  //     const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_EMAIL);
+      // Only allow Google auth provider users
+      if (user.authProvider !== AuthProvider.GOOGLE) {
+        ErrorException(null, "COMMON.VERIFY_PHONE_UNKNOWN_PROVIDER", HttpStatus.FORBIDDEN);
+      }
 
-  //     if (validOtp) {
-  //       // OTP still valid, return message without sending new code
-  //       return { message: Message(lang, "USER.OTP_SEND"), success: true };
-  //     }
+      if (user.verified) {
+        ErrorException(null, "USER.USER_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
+      }
 
-  //     // OTP expired or doesn't exist, send new code
-  //     const verificationCode = GenerateRandomDigit(userOtpSalt);
-  //     const sendMail = await this.mailService.sendUserConfirmation(
-  //       email,
-  //       verificationCode,
-  //     );
-  //     if (sendMail) {
-  //       await this.userVerificationRepository.sendEmailVerificationOtp(
-  //         user._id,
-  //         verificationCode,
-  //       );
-  //       return { message: Message(lang, "USER.OTP_SEND"), success: true };
-  //     } else {
-  //       ErrorException(
-  //         null,
-  //         "USER.CAN_NOT_SEND_MAIL",
-  //         HttpStatus.INTERNAL_SERVER_ERROR,
-  //       );
-  //     }
-  //   } catch (e) {
-  //     ErrorException(
-  //       e,
-  //       "COMMON.INTERNAL_SERVER_ERROR",
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }
+      const verification = await this.userVerificationRepository.findOne({
+        userId: user._id,
+        otp,
+        type: verificationType.VERIFICATION_PHONE,
+      });
+      if (!verification) {
+        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+      }
 
-  // async verifyEmail(verifyEmaillInput: VerifyEmailInput, lang: string) {
-  //   try {
-  //     const { email, otp } = verifyEmaillInput;
-  //     const { user, verification } = await this.verifyOtpForUser(email, otp);
-  //     if (user.verified) {
-  //       ErrorException(
-  //         null,
-  //         "USER.USER_ALREADY_VERIFIED",
-  //         HttpStatus.BAD_REQUEST,
-  //       );
-  //     }
-  //     await this.userRepository.updateOne(
-  //       { _id: user._id },
-  //       { verified: true },
-  //     );
-  //     await this.userVerificationRepository.deleteOtpById(verification._id);
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { verified: true },
+      );
+      await this.userVerificationRepository.deleteOtpById(verification._id);
 
-  //     const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email);
-  //     const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
-  //     if (!userDetails) {
-  //       ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
-  //     }
-  //     const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
-  //     return result;
-  //   } catch (e) {
-  //     ErrorException(
-  //       e,
-  //       "COMMON.INTERNAL_SERVER_ERROR",
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }
+      // Generate auth tokens
+      const identifier = user.email || user.phone;
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier);
+
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+
+      return {
+        ...result,
+        message: Message(lang, "USER.PHONE_VERIFIED_SUCCESS"),
+        success: true,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   async sendVerifyPhoneOtp(sendOtpInput: PhoneInput, lang: string) {
     try {
-      const { phone, type = verificationType.VERIFICATION_EMAIL } = sendOtpInput;
+      const { phone, type = verificationType.VERIFICATION_PHONE } = sendOtpInput;
       const user: UserDocument = await this.userRepository.findByPhone(phone);
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -700,7 +790,52 @@ export class AuthService {
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
-      console.log("🚀 ~ file: auth.service.ts:410 ~ AuthService ~ loginWithRefreshToken ~ e:", e)
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ loginWithRefreshToken ~ e:", e)
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async setPassword(setPasswordInput: SetPasswordInput, user: UserDocument, lang: string, verificationTokenData?: any) {
+    try {
+      const { password, device } = setPasswordInput;
+
+      if (user.suspended) {
+        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      }
+
+      // Verify the JTI from the token exists in user-token-meta (server-side check)
+      if (verificationTokenData?.jti) {
+        const storedToken = await this.userTokenMetaRepository.findByAccessTokenJti(verificationTokenData.jti);
+        if (!storedToken) {
+          ErrorException(null, "USER.VERIFICATION_TOKEN_EXPIRED", HttpStatus.BAD_REQUEST);
+        }
+        // Delete the stored JTI after successful validation (one-time use)
+        await this.userTokenMetaRepository.deleteByAccessTokenJti(verificationTokenData.jti);
+      }
+
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { password: await hashPassword(password, passwordSalt) },
+      );
+
+      // Register device if provided
+      await this.registerDeviceIfProvided(user._id, device);
+
+      // Generate auth tokens
+      const identifier = user.email || user.phone;
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, device?.deviceId);
+
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      return this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+    } catch (e) {
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -747,9 +882,8 @@ export class AuthService {
 
   async googleSignUp(googleSignUpInput: GoogleSignUpInput, lang: string): Promise<BasicResponse> {
     try {
-      const { token, deviceId } = googleSignUpInput;
+      const { token, deviceId, firebaseToken, deviceType } = googleSignUpInput;
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
-      console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignUp ~ socialUser:", socialUser)
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
@@ -774,20 +908,20 @@ export class AuthService {
           fullName: socialUser.name || '',
           profileImage: socialUser.picture || '',
         });
+       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
+        return {
+          message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
+          success: true,
+        };
+      } else {
+       ErrorException(
+        null,
+        "USER.USED_EMAIL",
+        HttpStatus.BAD_REQUEST,
+      );
       }
-
-      await this.registerDeviceIfProvided(user._id, {
-        deviceId,
-        firebaseToken: null,
-        deviceType: null,
-      });
-
-      return {
-        message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
-        success: true,
-      };
     } catch (e) {
-      console.log("🚀 ~ file: auth.service.ts:382 ~ AuthService ~ googleSignUp ~ e:", e)
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ googleSignUp ~ e:", e)
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -801,7 +935,6 @@ export class AuthService {
       const { token, device } = googleSignInInput;
 
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
-      console.log("🚀 ~ file: auth.service.ts:333 ~ AuthService ~ googleSignIn ~ socialUser:", socialUser)
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }

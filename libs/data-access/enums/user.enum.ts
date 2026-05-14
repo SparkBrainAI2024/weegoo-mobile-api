@@ -19,8 +19,9 @@ export enum GenderEnum {
 }
 
 export enum verificationType {
-  VERIFICATION_EMAIL = "VERIFICATION_EMAIL",
+  VERIFICATION_PHONE = "VERIFICATION_PHONE",
   RESET_PASSWORD = "RESET_PASSWORD",
+  VERIFICATION_EMAIL = "VERIFICATION_EMAIL",
 }
 
 export enum deviceType {
@@ -58,6 +59,16 @@ export enum ridePreference {
   BOTH='BOTH',
 }
 
+export enum ProvinceEnum {
+  PROVINCE_1 = "PROVINCE_1",
+  PROVINCE_2 = "PROVINCE_2",
+  BAGMATI = "BAGMATI",
+  GANDAKI = "GANDAKI",
+  LUMBINI = "LUMBINI",
+  KARNALI = "KARNALI",
+  SUDURPASHCHIM = "SUDURPASHCHIM",
+}
+
 registerEnumType(ridePreference, {
   name: 'RidePreference',
   description: 'The preference for booking a ride',
@@ -67,6 +78,34 @@ registerEnumType(ridePreference, {
     },
     INSTANT: {
       description: 'The ride is requested for immediate pickup',
+    },
+  },
+});
+
+registerEnumType(ProvinceEnum, {
+  name: 'ProvinceEnum',
+  description: 'The provinces of Nepal',
+  valuesMap: {
+    PROVINCE_1: {
+      description: 'Province No. 1 (Koshi)',
+    },
+    PROVINCE_2: {
+      description: 'Province No. 2 (Madhesh)',
+    },
+    BAGMATI: {
+      description: 'Bagmati Province',
+    },
+    GANDAKI: {
+      description: 'Gandaki Province',
+    },
+    LUMBINI: {
+      description: 'Lumbini Province',
+    },
+    KARNALI: {
+      description: 'Karnali Province',
+    },
+    SUDURPASHCHIM: {
+      description: 'Sudurpashchim Province',
     },
   },
 });

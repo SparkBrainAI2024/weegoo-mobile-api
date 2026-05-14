@@ -3,7 +3,13 @@ import { CoreUserDetailsResponse } from "./core-user-details.response";
 import { UserDetailsResponse } from "./user-detail.response";
 
 @ObjectType()
-export class SetPasswordResponse {
+export class VerifyGooglePhoneResponse {
+  @Field()
+  message: string;
+
+  @Field()
+  success: boolean;
+
   @Field()
   accessToken: string;
 
