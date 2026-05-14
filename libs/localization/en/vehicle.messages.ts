@@ -11,4 +11,7 @@ export const VEHICLE = {
   NUMBER_PLATE_INVALID: "Invalid vehicle number plate.",
   COLOR_REQUIRED: "Vehicle color is required.",
   COLOR_INVALID: "Invalid vehicle color.",
+  NOT_FOUND: "Vehicle not found.",
+  UPDATED: "Vehicle updated successfully.",
+  DELETED: "Vehicle deleted successfully.",
 };
