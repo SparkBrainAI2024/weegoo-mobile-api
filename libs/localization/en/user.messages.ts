@@ -73,4 +73,8 @@ export const USER = {
   SET_PASSWORD_TO_LOGIN:
     "Please set your password to login into the app.",
   NO_ROLE_ASSIGNED: "No role assigned to the user.",
+  PHONE_VERIFIED_SUCCESS:
+    "Phone number verified successfully.",
+  USER_ALREADY_REGISTERED_AS_CUSTOMER:
+    "User already registered.Please login.",
 };

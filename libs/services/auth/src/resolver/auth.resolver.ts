@@ -2,7 +2,11 @@ import { Resolver, Mutation, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { LangGuard } from "@libs/guards/guard";
 import { SetPasswordGuard } from "@libs/guards/set-password.guard";
-import { CurrentLang, CurrentVerificationUser } from "@libs/common";
+import {
+  CurrentLang,
+  CurrentVerificationUser,
+  CurrentVerificationTokenData,
+} from "@libs/common";
 import { AuthService } from "../auth.service";
 import { UserService } from "@libs/services/user/user.service";
 import {
@@ -10,6 +14,7 @@ import {
   SignUpResponse,
   SetPasswordResponse,
   SetPasswordInput,
+  VerifyGooglePhoneResponse,
   VerifyResetPasswordOtpResponse,
   RefreshTokenInput,
   ResetPasswordInput,
@@ -109,7 +114,16 @@ export class AuthResolver {
     @Args("input") input: VerifyPhoneInput,
     @CurrentLang() lang: string,
   ) {
+    console.log("input", input);
     return this.authService.verifyPhone(input, lang);
+  }
+
+  @Mutation(() => VerifyGooglePhoneResponse)
+  verifyGooglePhone(
+    @Args("input") input: VerifyPhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.verifyGooglePhone(input, lang);
   }
 
   @UseGuards(SetPasswordGuard)
@@ -117,9 +131,10 @@ export class AuthResolver {
   setPassword(
     @Args("input") input: SetPasswordInput,
     @CurrentVerificationUser() user: any,
+    @CurrentVerificationTokenData() verificationTokenData: any,
     @CurrentLang() lang: string,
   ) {
-    return this.authService.setPassword(input, user, lang);
+    return this.authService.setPassword(input, user, lang, verificationTokenData);
   }
 
   @Mutation(() => VerifyResetPasswordOtpResponse)

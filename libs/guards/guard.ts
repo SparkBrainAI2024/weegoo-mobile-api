@@ -8,13 +8,11 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { AUTHORIZATION_HEADER, LANG_HEADER, tokenTypes } from "@libs/common/constants";
-import { User, UserDocument } from "@libs/data-access";
+import { User, UserDocument, UserTokenMetaRepository } from "@libs/data-access";
 import { verifyToken } from "@libs/common";
 import { GqlExecutionContext } from "@nestjs/graphql";
 import { EnvService } from "@libs/common/config/env.service";
 import { language } from "@libs/data-access";
-
-
 
 function extractBearerToken(request: any): string | null {
   const authorization = request?.headers?.[AUTHORIZATION_HEADER];
@@ -35,6 +33,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    private readonly userTokenMetaRepository: UserTokenMetaRepository,
     private readonly envService: EnvService,
   ) { }
 
@@ -63,6 +62,16 @@ export class AuthGuard implements CanActivate {
           HttpStatus.UNAUTHORIZED,
         );
       }
+
+      // Match JTI existence in database
+      const tokenMeta = await this.userTokenMetaRepository.findByAccessTokenJti(isVerifiedToken.jti);
+      if (!tokenMeta) {
+        throw new HttpException(
+          "COMMON.INVALID_TOKEN",
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
       if (isVerifiedToken.sessionId) {
         request.sessionId = isVerifiedToken.sessionId;
       } else {

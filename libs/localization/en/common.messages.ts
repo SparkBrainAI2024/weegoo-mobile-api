@@ -13,4 +13,5 @@ export const COMMON = {
   INTERNAL_SERVER_ERROR: "Something went wrong. Please try again later.",
   INVALID_FILE_TYPE: "Invalid file type.",
   INVALID_FILE_SIZE: "Invalid file size.",
+  VERIFY_PHONE_UNKNOWN_PROVIDER: "You can not verify wrong provider  code.Please use the phone code sent to your phone number from same provider.",
 };

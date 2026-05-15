@@ -3,6 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { TokenGrantType } from "../enums/token.enum";
+import { roles } from "../enums/user.enum";
 
 export type UserTokenMetaDocument = HydratedDocument<UserTokenMeta>;
 
@@ -14,8 +15,8 @@ export class UserTokenMeta extends BaseEntity {
   userId: Types.ObjectId;
 
   @Field()
-  @Prop({ type: String, required: true })
-  refreshTokenJti: string;
+  @Prop({ type: String, required: false })
+  refreshTokenJti?: string;
 
   @Field()
   @Prop({ type: String, required: true })
@@ -32,6 +33,10 @@ export class UserTokenMeta extends BaseEntity {
   @Field({ nullable: true })
   @Prop({ type: String, default: null })
   email?: string;
+
+  @Field(() => roles, { nullable: true })
+  @Prop({ type: String, enum: roles, default: roles.USER })
+  role: string;
 }
 
 export const UserTokenMetaSchema = SchemaFactory.createForClass(UserTokenMeta);

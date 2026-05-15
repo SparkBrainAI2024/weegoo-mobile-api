@@ -2,13 +2,12 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
 import {
   NestExpressApplication,
-  ExpressAdapter,
 } from "@nestjs/platform-express";
 import { join } from "path";
 import compression from "compression";
 import helmet from "helmet";
-import express from "express";
-import { HttpExceptionFilter } from "@libs/common";
+import { HttpExceptionFilter, TrimPipe } from "@libs/common";
+import { ValidationPipe } from "@nestjs/common";
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
@@ -32,6 +31,11 @@ async function bootstrap() {
     ],
     credentials: true,
   });
+    // ✅ ADD THIS
+    app.useGlobalPipes(
+      new TrimPipe(),
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
 
   app.setGlobalPrefix("api");
   app.useGlobalFilters(new HttpExceptionFilter());

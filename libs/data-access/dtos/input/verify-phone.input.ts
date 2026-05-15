@@ -12,7 +12,7 @@ export class VerifyPhoneInput {
   phone: string;
 
   @Field()
-  @Length(4, userOtpSalt.toString().length)
+  @Length(4, userOtpSalt)
   @Matches(/^\d+$/, { message: "USER.INVALID_OTP" })
   otp: string;
 }

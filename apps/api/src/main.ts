@@ -8,7 +8,8 @@ import { join } from "path";
 import compression from "compression";
 import helmet from "helmet";
 import express from "express";
-import { HttpExceptionFilter } from "@libs/common";
+import { HttpExceptionFilter, TrimPipe } from "@libs/common";
+import { ValidationPipe } from "@nestjs/common";
 
 async function bootstrap() {
   const server = express();
@@ -18,6 +19,12 @@ async function bootstrap() {
     AppModule,
     new ExpressAdapter(server),
     appOptions,
+  );
+
+  // ✅ ADD THIS
+  app.useGlobalPipes(
+    new TrimPipe(),
+    new ValidationPipe({ transform: true, whitelist: true,forbidNonWhitelisted:true }),
   );
 
   app.enableCors({
@@ -70,7 +77,6 @@ bootstrap().then((app) => {
   process.exit(1);
 });
 
-// For serverless deployment (keep for backward compatibility)
 export default async function handler(req, res) {
   const app = await bootstrap();
   const expressApp = app.getHttpAdapter().getInstance();
