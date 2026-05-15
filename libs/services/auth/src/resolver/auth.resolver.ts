@@ -114,6 +114,7 @@ export class AuthResolver {
     @Args("input") input: VerifyPhoneInput,
     @CurrentLang() lang: string,
   ) {
+    console.log("input", input);
     return this.authService.verifyPhone(input, lang);
   }
 
