@@ -190,6 +190,17 @@ type DocumentViewUrlResponse {
   expiresInSeconds: Int!
 }
 
+type RequestUploadResponse {
+  uploadUrl: String!
+  s3Key: String!
+  expiresInSeconds: Int!
+}
+
+type ConfirmUploadResponse {
+  success: Boolean!
+  message: String!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
@@ -220,6 +231,8 @@ type Mutation {
   editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
   upsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocument!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
+  requestUpload(input: RequestUploadInput!): RequestUploadResponse!
+  confirmUpload(input: ConfirmUploadInput!): ConfirmUploadResponse!
 }
 
 input RefreshTokenInput {
@@ -375,4 +388,14 @@ input UpsertDocumentFileInput {
 
 input SubmitDocumentForReviewInput {
   documentType: String!
+}
+
+input RequestUploadInput {
+  purpose: String!
+  contentType: String!
+}
+
+input ConfirmUploadInput {
+  s3Key: String!
+  purpose: String!
 }
