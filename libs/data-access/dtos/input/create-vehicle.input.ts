@@ -4,15 +4,10 @@ import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class
 
 @InputType()
 export class RegisterVehicleInput {
-  @Field({
-    description: "Public image URL for the vehicle (stored as string).",
-  })
-  @IsNotEmpty({ message: "VEHICLE.IMAGE_URL_REQUIRED" })
-  @IsString({ message: "VEHICLE.IMAGE_URL_INVALID" })
-  imageUrl: string;
+  
 
   @Field(() => VehicleType, {
-    description: "Vehicle type enum: CAR, MOTORBIKE, or SCOOTER.",
+    description: "Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER.",
   })
   @IsEnum(VehicleType, { message: "VEHICLE.INVALID_TYPE" })
   vehicleType: VehicleType;
