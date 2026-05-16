@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
-import { ErrorException } from "@libs/common";
+import { ErrorException, REQUIRED_SIDES } from "@libs/common";
 import { S3Service } from "@libs/s3";
 
 import {
@@ -12,11 +12,10 @@ import {
 import { DocumentFileStatus } from "@libs/data-access/enums/upload.enum";
 
 
-import { UpsertDocumentFileInput } from "./dto/upsert-document-file.input";
 import { SubmitDocumentForReviewInput } from "../../../../../libs/data-access/dtos/input/submit-for-review.input";
 import { DriverDocumentRepository } from "../../../../../libs/data-access/repositories/driver-document.repository";
-import { DriverDocumentBundleStatus, DriverDocumentSide, DriverDocumentType } from "@driver-api/enums/driver-document.enum";
-import { REQUIRED_SIDES } from "@driver-api/constants/required-sides.constant";
+import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-document-file.input";
+import { DriverDocumentBundleStatus, DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
 
 
 

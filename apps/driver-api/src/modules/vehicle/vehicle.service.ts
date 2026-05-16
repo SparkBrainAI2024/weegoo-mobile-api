@@ -146,4 +146,23 @@ vehicleExists.images.push({
     }
   }
 
+  async getVehicle(vehicleId: string, driverId: string, lang: string) {
+  try {
+    const vehicle = await this.vehicleRepository.findOne({
+      _id:      new Types.ObjectId(vehicleId),
+      driverId: new Types.ObjectId(driverId),
+    });
+    if (!vehicle) {
+      ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
+    }
+    return {
+      message: Message(lang, "VEHICLE.FETCHED"),
+      success: true,
+      vehicle,
+    };
+  } catch (e) {
+    ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+}
+
 }

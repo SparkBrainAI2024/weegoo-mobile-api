@@ -6,6 +6,7 @@ import { VehicleService } from "./vehicle.service";
 import { RegisterVehicleInput } from "../../../../../libs/data-access/dtos/input/create-vehicle.input";
 import { EditVehicleInput } from "../../../../../libs/data-access/dtos/input/update-vehicle.input";
 import { GetMyVehiclesResponse, VehicleRegistrationResponse } from "@libs/data-access/dtos/response/vehicle-registration.response";
+import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 
 
 
@@ -39,4 +40,12 @@ async editVehicle(
   ): Promise<GetMyVehiclesResponse> {
     return this.vehicleService.getVehiclesByDriver(user._id, lang);
   }
+
+  @Query(() => Vehicle)
+async getVehicle(
+  @CurrentUser() user: { _id: string },
+  @Args("vehicleId") vehicleId: string,
+): Promise<Vehicle> {
+  return this.vehicleService.getVehicle(vehicleId, user._id);
+}
 }
