@@ -3,7 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "@libs/data-access/base/base.entity";
 import { DocumentFile, DocumentFileSchema } from "./document-file.embedded";
-import { DriverDocumentBundleStatus, DriverDocumentType } from "@driver-api/enums/driver-document.enum";
+import { DriverDocumentBundleStatus, DriverDocumentType } from "../enums/driver-document.enum";
 
 export type DriverDocumentDocument = HydratedDocument<DriverDocument>;
 

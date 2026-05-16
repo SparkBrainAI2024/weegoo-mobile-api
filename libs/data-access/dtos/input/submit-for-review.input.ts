@@ -1,4 +1,4 @@
-import { DriverDocumentType } from "@driver-api/enums/driver-document.enum";
+import { DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
 import { Field, InputType } from "@nestjs/graphql";
 import { IsEnum } from "class-validator";
 

@@ -4,10 +4,10 @@ import { AuthGuard } from "@libs/guards/guard";
 import { CurrentUser } from "@libs/common";
 import { Field, Int, ObjectType } from "@nestjs/graphql";
 import { DriverDocument } from "../../../../../../libs/data-access/entities/driver-document.entity";
-import { UpsertDocumentFileInput } from "../dto/upsert-document-file.input";
 import { DriverDocumentService } from "../driver-document.service";
 import { SubmitDocumentForReviewInput } from "../../../../../../libs/data-access/dtos/input/submit-for-review.input";
-import { DriverDocumentSide, DriverDocumentType } from "@driver-api/enums/driver-document.enum";
+import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-document-file.input";
+import { DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
 
 @ObjectType()
 class DocumentViewUrlResponse {

@@ -1,4 +1,4 @@
-import { DriverDocumentSide, DriverDocumentType } from "../enums/driver-document.enum";
+import { DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
 
 export const REQUIRED_SIDES: Record<DriverDocumentType, DriverDocumentSide[]> = {
   [DriverDocumentType.NATIONAL_ID]:     [DriverDocumentSide.FRONT, DriverDocumentSide.BACK],

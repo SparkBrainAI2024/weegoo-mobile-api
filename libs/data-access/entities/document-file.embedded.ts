@@ -1,6 +1,6 @@
 import { Field, ObjectType } from "@nestjs/graphql";
 import { DocumentFileStatus } from "@libs/data-access/enums/upload.enum";
-import { DriverDocumentSide } from "@driver-api/enums/driver-document.enum";
+import { DriverDocumentSide } from "../enums/driver-document.enum";
 
 @ObjectType()
 export class DocumentFile {

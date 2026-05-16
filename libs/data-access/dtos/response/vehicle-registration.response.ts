@@ -1,6 +1,6 @@
 import { Field, ObjectType } from "@nestjs/graphql";
-import { Vehicle } from "../entities/vehicle.entity";
 import { BasicResponse } from "@libs/data-access";
+import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 
 @ObjectType()
 export class VehicleRegistrationResponse {
