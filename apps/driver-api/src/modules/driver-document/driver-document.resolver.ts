@@ -1,6 +1,6 @@
 import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
 import { DriverDocumentService } from './driver-document.service';
-import { DriverDocument } from './entities/driver-document.entity';
+import { DriverDocument } from '../../../../../libs/data-access/entities/driver-document.entity';
 import { CreateDriverDocumentInput } from './dto/create-driver-document.input';
 import { UpdateDriverDocumentInput } from './dto/update-driver-document.input';
 
