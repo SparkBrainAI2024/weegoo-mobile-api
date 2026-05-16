@@ -1,9 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Types } from "mongoose";
-import { DriverDocument, DriverDocumentDocument } from "../../../../../libs/data-access/entities/driver-document.entity";
-import { DriverDocumentBundleStatus, DriverDocumentType } from "@driver-api/enums/driver-document.enum";
+import { DriverDocument, DriverDocumentDocument } from "../entities/driver-document.entity";
 import { BaseModel, BaseRepository } from "@libs/data-access";
+import { DriverDocumentBundleStatus, DriverDocumentType } from "../enums/driver-document.enum";
 
 @Injectable()
 export class DriverDocumentRepository extends BaseRepository<DriverDocumentDocument> {

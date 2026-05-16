@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { Types } from "mongoose";
 import { ErrorException } from "@libs/common";
-import { VehicleRepository } from "./repository/vehicle.repository";
+import { VehicleRepository } from "../../../../../libs/data-access/repositories/vehicle.repository";
 import { RegisterVehicleInput } from "./input/create-vehicle.input";
 import { Message } from "@libs/localization";
 import { ImageStatus } from "@libs/data-access/enums/upload.enum";

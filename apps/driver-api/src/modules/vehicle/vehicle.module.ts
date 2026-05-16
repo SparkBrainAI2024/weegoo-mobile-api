@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { VehicleService } from './vehicle.service';
 import { VehicleResolver } from './vehicle.resolver';
-import { VehicleRepository } from './repository/vehicle.repository';
+import { VehicleRepository } from '../../../../../libs/data-access/repositories/vehicle.repository';
 import { Vehicle, VehicleSchema } from './entities/vehicle.entity';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
