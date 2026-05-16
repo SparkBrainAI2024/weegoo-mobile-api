@@ -6,8 +6,8 @@ import { RegisterVehicleInput } from "../../../../../libs/data-access/dtos/input
 import { Message } from "@libs/localization";
 import { ImageStatus } from "@libs/data-access/enums/upload.enum";
 import { EditVehicleInput } from "../../../../../libs/data-access/dtos/input/update-vehicle.input";
-import { Vehicle } from "./entities/vehicle.entity";
 import { S3Service } from "@libs/s3/s3.service";
+import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 
 
 @Injectable()

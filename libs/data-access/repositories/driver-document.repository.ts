@@ -41,4 +41,8 @@ export class DriverDocumentRepository extends BaseRepository<DriverDocumentDocum
       status: DriverDocumentBundleStatus.DRAFT,
     });
   }
+
+  save(doc: DriverDocumentDocument) {
+  return doc.save();
+}
 }

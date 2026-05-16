@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { VehicleService } from './vehicle.service';
-import { VehicleResolver } from './vehicle.resolver';
+import { VehicleResolver } from './resolver/vehicle.resolver';
 import { VehicleRepository } from '../../../../../libs/data-access/repositories/vehicle.repository';
 import { Vehicle, VehicleSchema } from './entities/vehicle.entity';
 import { MongooseModule } from '@nestjs/mongoose';

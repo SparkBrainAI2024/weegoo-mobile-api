@@ -235,7 +235,7 @@ export class DriverDocumentService {
     documentId: string;
     adminId: string;
   }) {
-    const doc = await this.repository.findById(params.documentId);
+    const doc = await this.repository.findById(new Types.ObjectId(params.documentId));
 
     if (!doc) {
       ErrorException(
@@ -260,7 +260,7 @@ export class DriverDocumentService {
     adminId: string;
     rejectionReason: string;
   }) {
-    const doc = await this.repository.findById(params.documentId);
+    const doc = await this.repository.findById(new Types.ObjectId(params.documentId));
 
     if (!doc) {
       ErrorException(
