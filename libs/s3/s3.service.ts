@@ -65,4 +65,8 @@ export class S3Service {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
+  getPublicUrl(s3Key: string): string {
+  return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${s3Key}`;
+}
+
 }
