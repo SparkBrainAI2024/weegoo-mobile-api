@@ -44,32 +44,41 @@ export class VehicleService {
   }
 
 
-  async editVehicle(driverId: string, vehicleId: string, input: EditVehicleInput, lang: string) {
-
-    //check vehicle exists and belongs to driver
+async editVehicle(driverId: string, vehicleId: string, input: EditVehicleInput, lang: string) {
+  // Check vehicle exists and belongs to driver
   const vehicleExists = await this.vehicleRepository.findById(new Types.ObjectId(vehicleId));
   if (!vehicleExists || vehicleExists.driverId.toString() !== driverId) {
     ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
   }
-  // Check plate belongs to someone ELSE, not this vehicle
-  if (vehicleExists && vehicleExists._id.toString() !== vehicleId) {
-    ErrorException(null, "VEHICLE.NUMBER_PLATE_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
-  }
-  vehicleExists.images = vehicleExists.images.map((img) =>
-  img.status === ImageStatus.ACTIVE
-    ? { ...img, status: ImageStatus.INACTIVE }
-    : img
-);
 
-// push new one as active
-vehicleExists.images.push({
-  s3Key:     input.imageS3Key,
-  status:    ImageStatus.ACTIVE,
-  createdAt: new Date(),
-});
+  // Check plate belongs to someone ELSE, not this vehicle
+  if (input.numberPlate) {
+    const plateExists = await this.vehicleRepository.findOne({
+      numberPlate: input.numberPlate,
+      _id: { $ne: new Types.ObjectId(vehicleId) },
+    });
+    if (plateExists) {
+      ErrorException(null, "VEHICLE.NUMBER_PLATE_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  // If new image provided, deactivate old ones and push new active image
+  if (input.imageS3Key) {
+    vehicleExists.images = vehicleExists.images.map((img) =>
+      img.status === ImageStatus.ACTIVE
+        ? { ...img, status: ImageStatus.INACTIVE }
+        : img
+    );
+    vehicleExists.images.push({
+      s3Key:     input.imageS3Key,
+      status:    ImageStatus.ACTIVE,
+      createdAt: new Date(),
+    });
+  }
 
   const vehicle = await this.vehicleRepository.update(new Types.ObjectId(vehicleId), {
     ...input,
+    images: vehicleExists.images,
   });
 
   return {
