@@ -145,7 +145,7 @@ type Vehicle {
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
-  make: String!
+  vehicleType: String!
   vehicleModel: String!
   year: Int!
   color: String!
@@ -332,10 +332,7 @@ input GeoLocationInput {
 }
 
 input RegisterVehicleInput {
-  """Public image URL for the vehicle (stored as string)."""
-  imageUrl: String!
-
-  """Vehicle type enum: CAR, MOTORBIKE, or SCOOTER."""
+  """Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER."""
   vehicleType: VehicleType!
 
   """Vehicle model name, for example: Honda City."""

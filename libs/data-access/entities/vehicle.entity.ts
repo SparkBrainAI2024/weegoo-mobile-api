@@ -13,9 +13,10 @@ export class Vehicle extends BaseEntity {
   @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
   driverId: Types.ObjectId;
 
-  @Field()
-  @Prop({ type: String, required: true })
-  make: string;
+
+  @Field(() => String)
+  @Prop({ type: String, required: true, enum: ["CAR", "MOTORBIKE", "SCOOTER"] })
+  vehicleType: string;
 
   @Field()
   @Prop({ type: String, required: true })
