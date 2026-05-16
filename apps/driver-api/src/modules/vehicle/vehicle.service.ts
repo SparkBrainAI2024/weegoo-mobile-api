@@ -155,9 +155,12 @@ async getVehicle(vehicleId: string, driverId: string, lang: string) {
       ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
 
-    const vehicleData = vehicle.toObject() as any;
-if (vehicleData.images && vehicleData.images.length > 0 && vehicleData.images.some(img => img.status === ImageStatus.ACTIVE)) {      
-  vehicleData.imageUrl = this.s3.getPublicUrl(vehicleData.imageS3Key);
+    const {images,...vehicleData} = vehicle.toObject() as any;
+
+if (vehicleData.images && vehicleData.images.length > 0 && vehicleData.images.some(img => img.status === ImageStatus.ACTIVE)) {     
+  const activeImage = vehicleData.images.find(img => img.status === ImageStatus.ACTIVE); 
+  vehicleData.imageUrl = this.s3.getPublicUrl(activeImage.s3Key);
+  vehicleData.imageS3Key = activeImage.s3Key;
     }
 
     return {
