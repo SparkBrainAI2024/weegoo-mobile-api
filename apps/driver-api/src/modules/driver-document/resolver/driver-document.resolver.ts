@@ -6,7 +6,7 @@ import { Field, Int, ObjectType } from "@nestjs/graphql";
 import { DriverDocument } from "../../../../../../libs/data-access/entities/driver-document.entity";
 import { UpsertDocumentFileInput } from "../dto/upsert-document-file.input";
 import { DriverDocumentService } from "../driver-document.service";
-import { SubmitDocumentForReviewInput } from "../dto/submit-for-review.input";
+import { SubmitDocumentForReviewInput } from "../../../../../../libs/data-access/dtos/input/submit-for-review.input";
 import { DriverDocumentSide, DriverDocumentType } from "@driver-api/enums/driver-document.enum";
 
 @ObjectType()

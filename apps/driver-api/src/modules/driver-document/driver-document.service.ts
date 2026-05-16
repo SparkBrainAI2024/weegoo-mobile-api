@@ -13,7 +13,7 @@ import { DocumentFileStatus } from "@libs/data-access/enums/upload.enum";
 
 
 import { UpsertDocumentFileInput } from "./dto/upsert-document-file.input";
-import { SubmitDocumentForReviewInput } from "./dto/submit-for-review.input";
+import { SubmitDocumentForReviewInput } from "../../../../../libs/data-access/dtos/input/submit-for-review.input";
 import { DriverDocumentRepository } from "../../../../../libs/data-access/repositories/driver-document.repository";
 import { DriverDocumentBundleStatus, DriverDocumentSide, DriverDocumentType } from "@driver-api/enums/driver-document.enum";
 import { REQUIRED_SIDES } from "@driver-api/constants/required-sides.constant";
