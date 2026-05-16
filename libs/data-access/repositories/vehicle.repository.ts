@@ -2,8 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { BaseModel } from "@libs/data-access/base/base.model";
 import { BaseRepository } from "@libs/data-access/base/base.repository";
-import { Vehicle, VehicleDocument } from "../../../apps/driver-api/src/modules/vehicle/entities/vehicle.entity";
 import { Types } from "mongoose";
+import { Vehicle, VehicleDocument } from "../entities/vehicle.entity";
 
 @Injectable()
 export class VehicleRepository extends BaseRepository<VehicleDocument> {

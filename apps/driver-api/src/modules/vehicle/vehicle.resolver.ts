@@ -3,10 +3,9 @@ import { UseGuards } from "@nestjs/common";
 import { AuthGuard, LangGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
 import { VehicleService } from "./vehicle.service";
-import { Vehicle } from "./entities/vehicle.entity";
-import { GetMyVehiclesResponse, VehicleRegistrationResponse } from "./response/vehicle-registration.response";
-import { RegisterVehicleInput } from "./input/create-vehicle.input";
-import { EditVehicleInput } from "./input/update-vehicle.input";
+import { RegisterVehicleInput } from "../../../../../libs/data-access/dtos/input/create-vehicle.input";
+import { EditVehicleInput } from "../../../../../libs/data-access/dtos/input/update-vehicle.input";
+import { GetMyVehiclesResponse, VehicleRegistrationResponse } from "@libs/data-access/dtos/response/vehicle-registration.response";
 
 
 

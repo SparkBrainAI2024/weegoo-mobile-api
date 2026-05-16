@@ -2,10 +2,10 @@ import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { Types } from "mongoose";
 import { ErrorException } from "@libs/common";
 import { VehicleRepository } from "../../../../../libs/data-access/repositories/vehicle.repository";
-import { RegisterVehicleInput } from "./input/create-vehicle.input";
+import { RegisterVehicleInput } from "../../../../../libs/data-access/dtos/input/create-vehicle.input";
 import { Message } from "@libs/localization";
 import { ImageStatus } from "@libs/data-access/enums/upload.enum";
-import { EditVehicleInput } from "./input/update-vehicle.input";
+import { EditVehicleInput } from "../../../../../libs/data-access/dtos/input/update-vehicle.input";
 import { Vehicle } from "./entities/vehicle.entity";
 import { S3Service } from "@libs/s3/s3.service";
 
