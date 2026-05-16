@@ -1,6 +1,7 @@
 import { phoneRegex } from "@libs/common/constants";
 import { Field, InputType } from "@nestjs/graphql";
-import { IsNotEmpty, Matches } from "class-validator";
+import { IsNotEmpty, IsOptional, Matches, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 import { DeviceInput } from "./device.input";
 
 @InputType()
@@ -17,5 +18,8 @@ export class PhoneSignInInput {
   password: string;
 
   @Field(() => DeviceInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DeviceInput)
   device?: DeviceInput;
 }

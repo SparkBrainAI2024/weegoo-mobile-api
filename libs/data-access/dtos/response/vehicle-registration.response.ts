@@ -14,8 +14,8 @@ export class VehicleRegistrationResponse {
   vehicle?: Vehicle;
 }
 
-@ObjectType()
-export class GetMyVehiclesResponse extends BasicResponse{
-  @Field()
-  vehicles: Vehicle[];
-}
+// @ObjectType()
+// export class GetMyVehiclesResponse extends BasicResponse{
+//   @Field()
+//   vehicles: Vehicle[];
+// }

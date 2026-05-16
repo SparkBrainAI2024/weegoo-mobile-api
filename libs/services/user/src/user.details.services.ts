@@ -18,7 +18,7 @@ export class UserDetailsService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
-      if (input.email) {
+      if (input.email && input.email !== user.email) {
         if (await this.userRepository.findByEmail(input.email)) {
           ErrorException(null, "USER.EMAIL_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
         }

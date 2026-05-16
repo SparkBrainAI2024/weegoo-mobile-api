@@ -1,18 +1,25 @@
 import { Field, InputType } from "@nestjs/graphql";
-import { IsNotEmpty } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 @InputType()
 export class GoogleSignUpInput {
-  @Field()
-  @IsNotEmpty()
+  @Field(() => String)
+  @IsString()
+  @IsNotEmpty({ message: "Token is required" })
   token: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
   deviceId?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
   firebaseToken?: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
   deviceType?: string;
 }

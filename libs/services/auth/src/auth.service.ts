@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable, Inject } from "@nestjs/common";
 import { Types } from "mongoose";
 import { ErrorException } from "@libs/common/exceptions";
 import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
@@ -31,7 +31,9 @@ import {
   VerifyPhoneInput,
   UpdatePhoneInput,
   VerifyEmailInput,
+  roles,
   BasicResponse,
+  TokenGrantType,
 } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
@@ -70,7 +72,7 @@ export type UserDetailsResponse = {
   district?: string;
   streetName?: string;
   ridePreference?: string;
-  _id?:string;
+  _id?: string;
 };
 
 const MAX_PHONE_UPDATE_LIMIT = 5;
@@ -78,6 +80,7 @@ const MAX_PHONE_UPDATE_LIMIT = 5;
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject('AUTH_DEFAULT_ROLE') private readonly defaultRole: string,
     private readonly userRepository: UserRepository,
     private readonly userVerificationRepository: UserVerificationRepository,
     private readonly userTokenMetaRepository: UserTokenMetaRepository,
@@ -125,6 +128,7 @@ export class AuthService {
       grant: 'access',
       type: tokenTypes.accessToken,
       deviceId,
+      role: this.defaultRole,
     };
     const refreshTokenData = {
       id: userId,
@@ -133,6 +137,7 @@ export class AuthService {
       grant: 'refresh_token',
       type: tokenTypes.refreshToken,
       deviceId,
+      role: this.defaultRole,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -150,6 +155,7 @@ export class AuthService {
       accessTokenJti.toString(),
       refreshTokenJti.toString(),
       identifier || '',
+      this.defaultRole,
     );
 
     return { accessToken, refreshToken };
@@ -179,11 +185,11 @@ export class AuthService {
       createdAt: userDetails.createdAt,
       geoLocation: userDetails?.geoLocation?.type ? userDetails.geoLocation : null,
       userId: userDetails.userId,
-      province:userDetails?.province || null,
-      district:userDetails?.district || null,
-      streetName:userDetails?.streetName || null,
-      ridePreference:userDetails?.ridePreference || null,
-      _id:userDetails._id.toString() || null,
+      province: userDetails?.province || null,
+      district: userDetails?.district || null,
+      streetName: userDetails?.streetName || null,
+      ridePreference: userDetails?.ridePreference || null,
+      _id: userDetails._id.toString() || null,
     };
   }
 
@@ -291,18 +297,20 @@ export class AuthService {
       if (userExistWithThisPhone) {
         // If user is verified
         if (userExistWithThisPhone.verified) {
+
           // If password is not set
           if (!userExistWithThisPhone.password) {
             const existingTokenMeta = await this.userTokenMetaRepository.findOne({
               userId: userExistWithThisPhone._id,
               accessTokenJti: { $ne: '' },
               refreshTokenJti: '',
+              grant: TokenGrantType.SET_PASSWORD,
             });
-            console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ existingTokenMeta:", existingTokenMeta  )
+            console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ existingTokenMeta:", existingTokenMeta)
             if (existingTokenMeta?.email) {
               // Decode the stored token to check if it's still valid
               const decoded: any = Jwt.decode(existingTokenMeta.email);
-              console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ decoded:", decoded  )
+              console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ decoded:", decoded)
               if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
                 // Token is still valid, re-send it
                 return {
@@ -317,31 +325,35 @@ export class AuthService {
               await this.userTokenMetaRepository.deleteByAccessTokenJti(existingTokenMeta.accessTokenJti);
             }
             // Generate new verification token
-               const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
-              if (validOtp) {
-                return {
-                  message: Message(lang, "USER.OTP_ALREADY_SENT"),
-                  success: true,
-                  currentTime: Math.floor(Date.now() / 1000),
-                  expiresBy: userOtpExpiredTime,
-                };
-              }
-              // Send new OTP
-              const verificationCode = GenerateRandomDigit(userOtpSalt);
-              await this.userVerificationRepository.sendPhoneVerificationOtp(
-                userExistWithThisPhone._id,
-                verificationCode,
-              );
+            const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
+            if (validOtp) {
               return {
-                message: Message(lang, "USER.USER_CREATED_PHONE"),
+                message: Message(lang, "USER.OTP_ALREADY_SENT"),
                 success: true,
                 currentTime: Math.floor(Date.now() / 1000),
                 expiresBy: userOtpExpiredTime,
               };
+            }
+            // Send new OTP
+            const verificationCode = GenerateRandomDigit(userOtpSalt);
+            await this.userVerificationRepository.sendPhoneVerificationOtp(
+              userExistWithThisPhone._id,
+              verificationCode,
+            );
+            return {
+              message: Message(lang, "USER.USER_CREATED_PHONE"),
+              success: true,
+              currentTime: Math.floor(Date.now() / 1000),
+              expiresBy: userOtpExpiredTime,
+            };
           }
-          // If password is already set, prompt user to sign in
-          ErrorException('', "USER.USED_PHONE", HttpStatus.BAD_REQUEST); {
-           
+
+          else {
+            if (!userExistWithThisPhone.roles.includes(this.defaultRole)) {
+              ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
+            } // If password is already set, prompt user to sign in
+            else ErrorException('', "USER.USED_PHONE", HttpStatus.BAD_REQUEST);
+
           };
         }
 
@@ -375,8 +387,10 @@ export class AuthService {
 
       // New user signup
       const verificationCode = GenerateRandomDigit(userOtpSalt);
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])],this.defaultRole)
       const user: UserDocument = await this.userRepository.create({
         phone,
+        roles: [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])]
       });
       await this.userDetailsRepository.create({
         userId: user._id,
@@ -477,10 +491,26 @@ export class AuthService {
       if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
+
+      // Add role if not present and set loginAs
+      const updatedRoles = user.roles?.includes(this.defaultRole)
+        ? user.roles
+        : [...(user.roles || []), this.defaultRole];
+
+      // Clear previous token meta if device is provided
+      if (device?.deviceId) {
+        await this.userTokenMetaRepository.deleteByUser(user._id.toString());
+      }
+
       await this.userRepository.updateOne(
         { _id: user._id },
-        { lastLogin: UTCTime() },
+        {
+          lastLogin: UTCTime(),
+          loginAs: this.defaultRole,
+          roles: updatedRoles,
+        },
       );
+
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
@@ -495,7 +525,7 @@ export class AuthService {
     }
   }
 
-      // Verify Phone OTP
+  // Verify Phone OTP
   async verifyPhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
     try {
       const { phone, otp } = verifyPhoneInput;
@@ -504,7 +534,7 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-       if (user.authProvider === AuthProvider.GOOGLE || user.authProvider === AuthProvider.APPLE) {
+      if (user.authProvider === AuthProvider.GOOGLE || user.authProvider === AuthProvider.APPLE) {
         ErrorException(null, "COMMON.VERIFY_PHONE_UNKNOWN_PROVIDER", HttpStatus.FORBIDDEN);
       }
 
@@ -550,6 +580,8 @@ export class AuthService {
           refreshTokenJti: '',
           deviceId: null,
           email: verificationToken as string,
+          role: this.defaultRole,
+          grant:TokenGrantType.SET_PASSWORD,
         });
 
         const currentTime = Math.floor(Date.now() / 1000);
@@ -777,9 +809,24 @@ export class AuthService {
       if (user.suspended) {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
+
+      // Add role if not present and set loginAs
+      const updatedRoles = user.roles?.includes(this.defaultRole)
+        ? user.roles
+        : [...(user.roles || []), this.defaultRole];
+
+      // Clear previous token meta if device is provided
+      if (verifiedToken.deviceId) {
+        await this.userTokenMetaRepository.deleteByUserAndDevice(user._id.toString(), verifiedToken.deviceId);
+      }
+
       await this.userRepository.updateOne(
         { _id: user._id },
-        { lastLogin: UTCTime() },
+        { 
+          lastLogin: UTCTime(),
+          loginAs: this.defaultRole,
+          roles: updatedRoles,
+        },
       );
 
       // Use email or phone as the identifier for token generation
@@ -817,9 +864,25 @@ export class AuthService {
         await this.userTokenMetaRepository.deleteByAccessTokenJti(verificationTokenData.jti);
       }
 
+      // Add role if not present and set loginAs
+      const updatedRoles = user.roles?.includes(this.defaultRole)
+        ? user.roles
+        : [...(user.roles || []), this.defaultRole];
+
+      // Clear previous token meta if device is provided
+      if (device?.deviceId) {
+        await this.userTokenMetaRepository.deleteByUserAndDevice(user._id.toString(), device.deviceId);
+      }
+
       await this.userRepository.updateOne(
         { _id: user._id },
-        { password: await hashPassword(password, passwordSalt) },
+        { 
+          password: await hashPassword(password, passwordSalt),
+          loginAs: this.defaultRole, 
+          lastLoginAt: UTCTime(), 
+          verified: true,
+          roles: updatedRoles,
+        },
       );
 
       // Register device if provided
@@ -887,39 +950,32 @@ export class AuthService {
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
-      let user: UserDocument = await this.userRepository.findOne({
-        $and: [
-          { email: socialUser.email },
-          {
-            authProvider: AuthProvider.GOOGLE,
-            authProviderId: socialUser.providerId,
-          },
-        ]
-      },);
-      if (!user) {
-        user = await this.userRepository.create({
-          email: socialUser.email,
-          verified: false,
-          authProvider: AuthProvider.GOOGLE,
-          authProviderId: socialUser.providerId,
-        });
-        await this.userDetailsRepository.create({
-          userId: user._id,
-          fullName: socialUser.name || '',
-          profileImage: socialUser.picture || '',
-        });
-       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
-        return {
-          message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
-          success: true,
-        };
-      } else {
-       ErrorException(
-        null,
-        "USER.USED_EMAIL",
-        HttpStatus.BAD_REQUEST,
-      );
+      const existingUser = await this.userRepository.findByEmail(socialUser.email);
+      if (existingUser) {
+        if (existingUser.verified && !existingUser.roles.includes(this.defaultRole)) {
+          ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
+        } else {
+          ErrorException(null, "USER.USED_EMAIL", HttpStatus.BAD_REQUEST);
+        }
       }
+      const user = await this.userRepository.create({
+        email: socialUser.email,
+        verified: false,
+        authProvider: AuthProvider.GOOGLE,
+        authProviderId: socialUser.providerId,
+        roles: [...new Set([...existingUser?.roles||[], this.defaultRole])]
+
+      });
+      await this.userDetailsRepository.create({
+        userId: user._id,
+        fullName: socialUser.name || '',
+        profileImage: socialUser.picture || '',
+      });
+      await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
+      return {
+        message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
+        success: true,
+      };
     } catch (e) {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ googleSignUp ~ e:", e)
       ErrorException(
@@ -939,9 +995,24 @@ export class AuthService {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
       const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
+
+      // Add role if not present and set loginAs
+      const updatedRoles = user.roles?.includes(this.defaultRole)
+        ? user.roles
+        : [...(user.roles || []), this.defaultRole];
+
+      // Clear previous token meta if device is provided
+      if (device?.deviceId) {
+        await this.userTokenMetaRepository.deleteByUser(user._id.toString());
+      }
+
       await this.userRepository.updateOne(
         { _id: user._id },
-        { lastLogin: UTCTime() },
+        { 
+          lastLogin: UTCTime(),
+          loginAs: this.defaultRole,
+          roles: updatedRoles,
+        },
       );
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);

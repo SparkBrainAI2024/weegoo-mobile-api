@@ -74,4 +74,6 @@ export const USER = {
     "Please set your password to login into the app.",
   PHONE_VERIFIED_SUCCESS:
     "Phone number verified successfully.",
+  USER_ALREADY_REGISTERED_AS_CUSTOMER:
+    "User already registered.Please login.",
 };

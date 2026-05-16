@@ -28,11 +28,14 @@ type UserDetailsResponse {
   fullName: String
   gender: GenderEnum
   address: String
-  phone: String
   email: String
   profileImage: String
   dateOfBirth: String
   bio: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
   createdAt: String
 }
 
@@ -41,6 +44,40 @@ enum GenderEnum {
   FEMALE
   OTHERS
   UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
+}
+
+"""The provinces of Nepal"""
+enum ProvinceEnum {
+  """Province No. 1 (Koshi)"""
+  PROVINCE_1
+
+  """Province No. 2 (Madhesh)"""
+  PROVINCE_2
+
+  """Bagmati Province"""
+  BAGMATI
+
+  """Gandaki Province"""
+  GANDAKI
+
+  """Lumbini Province"""
+  LUMBINI
+
+  """Karnali Province"""
+  KARNALI
+
+  """Sudurpashchim Province"""
+  SUDURPASHCHIM
 }
 
 type SignInResponse {
@@ -53,9 +90,25 @@ type SignInResponse {
 type SignUpResponse {
   message: String!
   success: Boolean!
-  verificationToken: String
   currentTime: Int
   expiresBy: Int
+  verificationToken: String
+}
+
+type SetPasswordResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
+}
+
+type VerifyGooglePhoneResponse {
+  message: String!
+  success: Boolean!
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
 }
 
 type VerifyResetPasswordOtpResponse {
@@ -74,19 +127,10 @@ type UserDetailEntity {
   userDetails: UserDetailsResponse!
 }
 
-type Vehicle {
-  _id: String!
+type VehicleImage {
+  s3Key: String!
+  status: String!
   createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
-  deleted: Boolean
-  driverId: String!
-  imageUrl: String!
-  vehicleType: VehicleType!
-  vehicleModel: String!
-  year: Int!
-  numberPlate: String!
-  color: String!
 }
 
 """
@@ -94,10 +138,19 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
-enum VehicleType {
-  CAR
-  MOTORBIKE
-  SCOOTER
+type Vehicle {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  make: String!
+  vehicleModel: String!
+  year: Int!
+  color: String!
+  numberPlate: String!
+  images: [VehicleImage!]!
 }
 
 type VehicleRegistrationResponse {
@@ -106,10 +159,44 @@ type VehicleRegistrationResponse {
   vehicle: Vehicle
 }
 
+type DocumentFile {
+  side: String!
+  s3Key: String!
+  isActive: Boolean!
+  status: String!
+  verifiedBy: String
+  verifiedAt: DateTime
+  createdAt: DateTime!
+}
+
+type DriverDocument {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  type: String!
+  files: [DocumentFile!]!
+  status: String!
+  reviewedBy: String
+  reviewedAt: DateTime
+  rejectionReason: String
+  submittedAt: DateTime
+}
+
+type DocumentViewUrlResponse {
+  url: String!
+  expiresInSeconds: Int!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
   getUserDetails: UserDetailsResponse!
+  getVehicle(vehicleId: String!): Vehicle!
+  myDriverDocuments: [DriverDocument!]!
+  driverDocumentFileViewUrl(documentType: String!, side: String!): DocumentViewUrlResponse!
 }
 
 type Mutation {
@@ -120,16 +207,19 @@ type Mutation {
   googleSignIn(input: GoogleSignInInput!): SignInResponse!
   phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
   phoneSignIn(input: PhoneSignInInput!): SignInResponse!
-  verifyPhone(input: VerifyPhoneInput!): SignInResponse!
+  verifyPhone(input: VerifyPhoneInput!): SignUpResponse!
+  verifyGooglePhone(input: VerifyPhoneInput!): VerifyGooglePhoneResponse!
+  setPassword(input: SetPasswordInput!): SetPasswordResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
   updatePhone(input: UpdatePhoneInput!): BasicResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
-  verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
-  setPassword(input: SetPasswordInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
+  editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
+  upsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocument!
+  submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
 }
 
 input RefreshTokenInput {
@@ -142,8 +232,9 @@ input PhoneInput {
 }
 
 enum VerificationType {
-  VERIFICATION_EMAIL
+  VERIFICATION_PHONE
   RESET_PASSWORD
+  VERIFICATION_EMAIL
 }
 
 input ResetPasswordInput {
@@ -182,6 +273,10 @@ input PhoneSignInInput {
 input VerifyPhoneInput {
   phone: String!
   otp: String!
+}
+
+input SetPasswordInput {
+  password: String!
   device: DeviceInput
 }
 
@@ -203,24 +298,19 @@ input ChangeLanguageInput {
   language: String!
 }
 
-input VerifyEmailInput {
-  email: String!
-  otp: String!
-}
-
-input SetPasswordInput {
-  password: String!
-}
-
 input CreateUserDetailsInput {
   fullName: String!
   address: String
   profileImage: String
-  phone: String
+  email: String
   dateOfBirth: DateTime
   bio: String
   geoLocation: GeoLocationInput
   gender: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
 }
 
 input GeoLocationInput {
@@ -246,4 +336,43 @@ input RegisterVehicleInput {
 
   """Vehicle color, for example: White, Red, Black."""
   color: String!
+
+  """S3 key for the vehicle image."""
+  imageS3Key: String!
+}
+
+enum VehicleType {
+  CAR
+  MOTORBIKE
+  SCOOTER
+}
+
+input EditVehicleInput {
+  """S3 key for the new vehicle image."""
+  imageS3Key: String
+
+  """Vehicle type: CAR, MOTORBIKE, or SCOOTER."""
+  vehicleType: VehicleType
+
+  """Vehicle model name, for example: Honda City."""
+  vehicleModel: String
+
+  """Manufacturing year of the vehicle."""
+  year: Int
+
+  """Number plate (must be unique across other vehicles)."""
+  numberPlate: String
+
+  """Vehicle color, for example: White, Red, Black."""
+  color: String
+}
+
+input UpsertDocumentFileInput {
+  documentType: String!
+  side: String!
+  s3Key: String!
+}
+
+input SubmitDocumentForReviewInput {
+  documentType: String!
 }
