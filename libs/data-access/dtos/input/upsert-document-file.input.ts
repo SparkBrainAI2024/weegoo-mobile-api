@@ -4,11 +4,11 @@ import { IsEnum, IsNotEmpty, IsString } from "class-validator";
 
 @InputType()
 export class UpsertDocumentFileInput {
-  @Field(() => String)
+  @Field(() => DriverDocumentType)
   @IsEnum(DriverDocumentType)
   documentType: DriverDocumentType;
 
-  @Field(() => String)
+  @Field(() => DriverDocumentSide)
   @IsEnum(DriverDocumentSide)
   side: DriverDocumentSide;
 

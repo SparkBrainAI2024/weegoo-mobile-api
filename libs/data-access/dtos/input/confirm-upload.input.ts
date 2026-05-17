@@ -9,7 +9,9 @@ export class ConfirmUploadInput {
   @IsNotEmpty()
   s3Key: string;
 
-  @Field(() => String)
-  @IsEnum(UploadPurpose)
+  @Field(() => UploadPurpose,{
+    description:"Purpose for uploading, namely national id, blue book and others"
+  })
+  @IsEnum(UploadPurpose, { message: "DOCUMENT.INVALID_TYPE" })
   purpose: UploadPurpose;
 }

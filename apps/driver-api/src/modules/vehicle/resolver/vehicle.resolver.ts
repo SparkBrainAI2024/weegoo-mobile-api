@@ -30,7 +30,7 @@ export class VehicleResolver {
 async editVehicle(
   @CurrentUser() user: { _id: string },
   @CurrentLang() lang: string,
-  @Args("vehicleId") vehicleId: string,      // ← separate arg
+  @Args("vehicleId") vehicleId: string,      // ← separate 
   @Args("input") input: EditVehicleInput,
 ) {
   return this.vehicleService.editVehicle(user._id, vehicleId, input, lang);

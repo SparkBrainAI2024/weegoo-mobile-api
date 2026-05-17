@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
-import { ErrorException, REQUIRED_SIDES } from "@libs/common";
+import { deactivateSideFiles, ErrorException, findActiveFileBySide, REQUIRED_SIDES } from "@libs/common";
 import { S3Service } from "@libs/s3";
 
 import {
@@ -52,14 +52,7 @@ export class DriverDocumentService {
     }
 
     // mark previous active side inactive
-    doc.files = doc.files.map((f) =>
-      f.side === input.side && f.isActive
-        ? {
-            ...f,
-            isActive: false,
-          }
-        : f,
-    );
+doc.files = deactivateSideFiles(doc.files, input.side);
 
     // add new active file
     doc.files.push({
@@ -207,9 +200,8 @@ export class DriverDocumentService {
       );
     }
 
-    const file = doc.files.find(
-      (f) => f.side === params.side && f.isActive,
-    );
+  
+    const file = findActiveFileBySide(doc, params.side);
 
     if (!file) {
       ErrorException(

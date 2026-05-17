@@ -4,7 +4,7 @@ import { DriverDocumentSide } from "../enums/driver-document.enum";
 
 @ObjectType()
 export class DocumentFile {
-  @Field(() => String)
+  @Field(() => DriverDocumentSide)
   side: DriverDocumentSide;
 
   @Field()
@@ -13,7 +13,7 @@ export class DocumentFile {
   @Field()
   isActive: boolean;         // true = current, false = pending midnight deletion
 
-  @Field(() => String)
+  @Field(() => DocumentFileStatus)
   status: DocumentFileStatus; // PENDING | VERIFIED | REJECTED
 
   @Field(() => String, { nullable: true })

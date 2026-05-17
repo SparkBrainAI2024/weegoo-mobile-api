@@ -7,7 +7,7 @@ export class VehicleImage {
   @Field()
   s3Key: string;
 
-  @Field(() => String)
+  @Field(() => ImageStatus)
   status: ImageStatus;    // ACTIVE | INACTIVE
 
   @Field()

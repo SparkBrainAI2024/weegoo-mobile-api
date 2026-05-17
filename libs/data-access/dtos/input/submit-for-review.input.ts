@@ -4,7 +4,7 @@ import { IsEnum } from "class-validator";
 
 @InputType()
 export class SubmitDocumentForReviewInput {
-  @Field(() => String)
+  @Field(() => DriverDocumentType)
   @IsEnum(DriverDocumentType)
   documentType: DriverDocumentType;
 }
