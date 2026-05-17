@@ -24,7 +24,7 @@ async function bootstrap() {
     origin: [
       "https://ridehailing.com",
       "https://www.ridehailing.com",
-      "http://localhost:3000",
+      "http://localhost:3001",
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [

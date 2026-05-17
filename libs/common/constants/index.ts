@@ -15,3 +15,4 @@ export const tokenTypes = {
   setPasswordToken: "set_password_token",
 };
 export const allowedFileExtensions = ["jpg", "jpeg", "png", "webp"];
+export * from "./required-sides.constant";
