@@ -60,8 +60,8 @@ export enum ridePreference {
 }
 
 export enum ProvinceEnum {
-  PROVINCE_1 = "PROVINCE_1",
-  PROVINCE_2 = "PROVINCE_2",
+  PROVINCE_1 = "KOSHI",
+  PROVINCE_2 = "MADESH",
   BAGMATI = "BAGMATI",
   GANDAKI = "GANDAKI",
   LUMBINI = "LUMBINI",

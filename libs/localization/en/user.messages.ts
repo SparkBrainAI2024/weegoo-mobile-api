@@ -47,6 +47,7 @@ export const USER = {
   INVALID_ADDRESS: "Invalid address format.",
   INVALID_PROFILE_IMAGE: "Invalid profile image URL format.",
   INVALID_PHONE: "Please provide a valid phone number.",
+  PHONE_NOT_FOUND: "Phone number not found. Please sign up.",
   INVALID_DOB: "Please provide a valid date of birth in YYYY-MM-DD format.",
   INVALID_BIO: "Invalid bio format.",
   INVALID_GENDER: "Invalid gender value.",

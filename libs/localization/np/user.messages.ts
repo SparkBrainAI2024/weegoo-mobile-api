@@ -43,6 +43,7 @@ export const USER = {
   INVALID_ADDRESS: "ठेगाना अवैध छ। कृपया सही ढाँचामा लेख्नुहोस्।",
   INVALID_PROFILE_IMAGE: "प्रोफाइल छविको URL अवैध छ।",
   INVALID_PHONE: "कृपया मान्य फोन नम्बर लेख्नुहोस्।",
+  PHONE_NOT_FOUND: "फोन नम्बर फेला परेन। कृपया साइन अप गर्नुहोस्।",
   INVALID_DOB: "कृपया जन्म मिति YYYY-MM-DD ढाँचामा सही तरिकाले लेख्नुहोस्।",
   INVALID_BIO: "बायो अवैध ढाँचामा छ।",
   INVALID_GENDER: "लिङ्ग मान अवैध छ।",
