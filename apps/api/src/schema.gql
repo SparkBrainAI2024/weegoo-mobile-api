@@ -88,11 +88,11 @@ type SignInResponse {
 }
 
 type SignUpResponse {
-  message: String!
-  success: Boolean!
   currentTime: Int
   expiresBy: Int
   verificationToken: String
+  message: String!
+  success: Boolean!
 }
 
 type SetPasswordResponse {
@@ -127,6 +127,14 @@ type UserDetailEntity {
   userDetails: UserDetailsResponse!
 }
 
+type BasicExpirationResponse {
+  currentTime: Int
+  expiresBy: Int
+  verificationToken: String
+  message: String!
+  success: Boolean!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
@@ -135,7 +143,7 @@ type Query {
 
 type Mutation {
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
-  sendVerifyPhoneOtp(input: PhoneInput!): BasicResponse!
+  sendVerifyPhoneOtp(input: PhoneInput!): BasicExpirationResponse!
   resetPassword(input: ResetPasswordInput!): BasicResponse!
   googleSignUp(input: GoogleSignUpInput!): BasicResponse!
   googleSignIn(input: GoogleSignInInput!): SignInResponse!

@@ -1,19 +1,11 @@
 import { Field, Int, ObjectType } from "@nestjs/graphql";
+import { ExpirationResponse } from "./expiration.response";
 
 @ObjectType()
-export class SignUpResponse {
+export class SignUpResponse  extends ExpirationResponse {
   @Field()
   message: string;
 
   @Field()
   success: boolean;
-
-  @Field(() => Int, { nullable: true })
-  currentTime?: number;
-
-  @Field(() => Int, { nullable: true })
-  expiresBy?: number;
-
-  @Field({ nullable: true })
-  verificationToken?: string;
 }

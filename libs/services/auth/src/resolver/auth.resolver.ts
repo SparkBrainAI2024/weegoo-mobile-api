@@ -28,6 +28,7 @@ import {
   PhoneSignInInput,
   VerifyPhoneInput,
   UpdatePhoneInput,
+  BasicExpirationResponse,
 } from "@libs/data-access";
 
 @Resolver()
@@ -59,7 +60,7 @@ export class AuthResolver {
   //   return this.authService.sendVerifyEmailOtp(input, lang);
   // }
 
-  @Mutation(() => BasicResponse)
+  @Mutation(() => BasicExpirationResponse)
   sendVerifyPhoneOtp(
     @Args("input") input: PhoneInput,
     @CurrentLang() lang: string,
