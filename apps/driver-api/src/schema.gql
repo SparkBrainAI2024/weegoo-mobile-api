@@ -129,8 +129,13 @@ type UserDetailEntity {
 
 type VehicleImage {
   s3Key: String!
-  status: String!
+  status: ImageStatus!
   createdAt: DateTime!
+}
+
+enum ImageStatus {
+  ACTIVE
+  INACTIVE
 }
 
 """
@@ -145,12 +150,18 @@ type Vehicle {
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
-  vehicleType: String!
+  vehicleType: VehicleType!
   vehicleModel: String!
   year: Int!
   color: String!
   numberPlate: String!
   images: [VehicleImage!]!
+}
+
+enum VehicleType {
+  CAR
+  MOTORBIKE
+  SCOOTER
 }
 
 type VehicleRegistrationResponse {
@@ -160,13 +171,27 @@ type VehicleRegistrationResponse {
 }
 
 type DocumentFile {
-  side: String!
+  side: DriverDocumentSide!
   s3Key: String!
   isActive: Boolean!
-  status: String!
+  status: DocumentFileStatus!
   verifiedBy: String
   verifiedAt: DateTime
   createdAt: DateTime!
+}
+
+enum DriverDocumentSide {
+  FRONT
+  BACK
+  VEHICLE_INFO_PAGE
+  TAX_CLEARANCE_PAGE
+}
+
+enum DocumentFileStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REUPLOAD_REQUESTED
 }
 
 type DriverDocument {
@@ -351,12 +376,6 @@ input RegisterVehicleInput {
   imageS3Key: String!
 }
 
-enum VehicleType {
-  CAR
-  MOTORBIKE
-  SCOOTER
-}
-
 input EditVehicleInput {
   """S3 key for the new vehicle image."""
   imageS3Key: String
@@ -378,13 +397,19 @@ input EditVehicleInput {
 }
 
 input UpsertDocumentFileInput {
-  documentType: String!
-  side: String!
+  documentType: DriverDocumentType!
+  side: DriverDocumentSide!
   s3Key: String!
 }
 
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
 input SubmitDocumentForReviewInput {
-  documentType: String!
+  documentType: DriverDocumentType!
 }
 
 input RequestUploadInput {
@@ -394,5 +419,15 @@ input RequestUploadInput {
 
 input ConfirmUploadInput {
   s3Key: String!
-  purpose: String!
+
+  """Purpose for uploading, namely national id, blue book and others"""
+  purpose: UploadPurpose!
+}
+
+enum UploadPurpose {
+  USER_PROFILE_IMAGE
+  VEHICLE_IMAGE
+  DRIVER_LICENSE
+  DRIVER_BLUEBOOK
+  DRIVER_NATIONAL_ID
 }

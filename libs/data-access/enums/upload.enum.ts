@@ -1,3 +1,5 @@
+import { registerEnumType } from "@nestjs/graphql";
+
 export enum UploadPurpose {
   USER_PROFILE_IMAGE = "USER_PROFILE_IMAGE",
   VEHICLE_IMAGE      = "VEHICLE_IMAGE",
@@ -12,8 +14,12 @@ export enum ImageStatus {
 }
 
 export enum DocumentFileStatus {
-  PENDING  = "PENDING",
-  VERIFIED = "VERIFIED",
-  REJECTED = "REJECTED",
+  PENDING            = "PENDING",
+  VERIFIED           = "VERIFIED",
+  REJECTED           = "REJECTED",
   REUPLOAD_REQUESTED = "REUPLOAD_REQUESTED",
 }
+
+registerEnumType(UploadPurpose,       { name: "UploadPurpose"       });
+registerEnumType(ImageStatus,         { name: "ImageStatus"         });
+registerEnumType(DocumentFileStatus,  { name: "DocumentFileStatus"  });

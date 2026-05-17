@@ -1,3 +1,7 @@
+// apps/driver-api/src/modules/driver-document/enums/driver-document.enum.ts
+
+import { registerEnumType } from "@nestjs/graphql";
+
 export enum DriverDocumentType {
   NATIONAL_ID      = "NATIONAL_ID",
   DRIVING_LICENSE  = "DRIVING_LICENSE",
@@ -17,3 +21,7 @@ export enum DriverDocumentBundleStatus {
   APPROVED       = "APPROVED",
   REJECTED       = "REJECTED",
 }
+
+registerEnumType(DriverDocumentType,         { name: "DriverDocumentType"         });
+registerEnumType(DriverDocumentSide,         { name: "DriverDocumentSide"         });
+registerEnumType(DriverDocumentBundleStatus, { name: "DriverDocumentBundleStatus" });
