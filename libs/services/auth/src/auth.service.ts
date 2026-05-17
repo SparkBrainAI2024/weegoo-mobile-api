@@ -39,6 +39,13 @@ import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
 import { SocialAuthService } from "@libs/services/social-auth";
 import { toMongoId } from "@libs/common";
+import { 
+  getCurrentTimestamp, 
+  getRemainingTime, 
+  getOtpThrottledResponse, 
+  getOtpSentResponse, 
+  getUpdatedRoles 
+} from "@libs/common/utils/auth.utils";
 
 export interface SignInResult {
   user: UserResponse;
@@ -103,6 +110,12 @@ export class AuthService {
     return null;
   }
 
+  private async clearUserSession(userId: string, deviceId?: string) {
+    if (deviceId) {
+      await this.userTokenMetaRepository.deleteByUserAndDevice(userId, deviceId);
+    }
+  }
+
   // Helper to extract the token expiry timestamp from a JWT
   private getTokenExpiryFromJwt(token: string): number {
     try {
@@ -116,6 +129,7 @@ export class AuthService {
   private async createAuthTokens(
     userId: Types.ObjectId | string,
     identifier: string,
+    roles: string[] = [],
     deviceId: string = null,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessTokenJti = generateMongoDbId();
@@ -133,8 +147,6 @@ export class AuthService {
     const refreshTokenData = {
       id: userId,
       identifier,
-      jti: refreshTokenJti,
-      grant: 'refresh_token',
       type: tokenTypes.refreshToken,
       deviceId,
       role: this.defaultRole,
@@ -267,7 +279,7 @@ export class AuthService {
   private async validateUserForSignInPhone(phone: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
     const user = await this.userRepository.findByPhone(phone);
     if (!user) {
-      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.PHONE_NOT_FOUND", HttpStatus.UNAUTHORIZED);
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
@@ -279,13 +291,34 @@ export class AuthService {
         ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
       }
     } else {
-      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.BAD_REQUEST);
+      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.UNAUTHORIZED);
     }
     if (user.suspended) {
       ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
     }
     return { user, userDetails };
   }
+
+  
+
+  
+
+  // async signIn(signInInput: EmailSignInInput) {
+  //   try {
+  //     const { email, password, device } = signInInput;
+  //     const { user, userDetails } = await this.validateUserForSignIn(email, password);
+  //     await this.userRepository.updateOne(
+  //       { _id: user._id },
+  //       { lastLogin: UTCTime() },
+  //     );
+  //     const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles);
+  //     await this.registerDeviceIfProvided(user._id, device);
+  //     const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+  //     return result;
+  //   } catch (e) {
+  //     ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+  //   }
+  // }
 
   // Phone Signup - sends OTP to phone for verification
   // TODO: Implement phone sending code in later phase
@@ -306,12 +339,10 @@ export class AuthService {
               refreshTokenJti: '',
               grant: TokenGrantType.SET_PASSWORD,
             });
-            console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ existingTokenMeta:", existingTokenMeta)
             if (existingTokenMeta?.email) {
               // Decode the stored token to check if it's still valid
               const decoded: any = Jwt.decode(existingTokenMeta.email);
-              console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ decoded:", decoded)
-              if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
+               if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
                 // Token is still valid, re-send it
                 return {
                   message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
@@ -327,12 +358,7 @@ export class AuthService {
             // Generate new verification token
             const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
             if (validOtp) {
-              return {
-                message: Message(lang, "USER.OTP_ALREADY_SENT"),
-                success: true,
-                currentTime: Math.floor(Date.now() / 1000),
-                expiresBy: userOtpExpiredTime,
-              };
+              return getOtpThrottledResponse(lang, validOtp.createdAt);
             }
             // Send new OTP
             const verificationCode = GenerateRandomDigit(userOtpSalt);
@@ -340,12 +366,7 @@ export class AuthService {
               userExistWithThisPhone._id,
               verificationCode,
             );
-            return {
-              message: Message(lang, "USER.USER_CREATED_PHONE"),
-              success: true,
-              currentTime: Math.floor(Date.now() / 1000),
-              expiresBy: userOtpExpiredTime,
-            };
+            return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
           }
 
           else {
@@ -363,12 +384,7 @@ export class AuthService {
 
         if (validOtp) {
           // OTP still valid, just return message without sending new code
-          return {
-            message: Message(lang, "USER.OTP_ALREADY_SENT"),
-            success: true,
-            currentTime: Math.floor(Date.now() / 1000),
-            expiresBy: userOtpExpiredTime,
-          };
+          return getOtpThrottledResponse(lang, validOtp.createdAt);
         }
 
         // OTP expired or doesn't exist, send new code
@@ -377,12 +393,7 @@ export class AuthService {
           userExistWithThisPhone._id,
           verificationCode,
         );
-        return {
-          message: Message(lang, "USER.USER_CREATED_PHONE"),
-          success: true,
-          currentTime: Math.floor(Date.now() / 1000),
-          expiresBy: userOtpExpiredTime,
-        };
+        return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
       }
 
       // New user signup
@@ -390,7 +401,7 @@ export class AuthService {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])],this.defaultRole)
       const user: UserDocument = await this.userRepository.create({
         phone,
-        roles: [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])]
+        roles: getUpdatedRoles(userExistWithThisPhone?.roles, this.defaultRole)
       });
       await this.userDetailsRepository.create({
         userId: user._id,
@@ -399,12 +410,7 @@ export class AuthService {
         user._id,
         verificationCode,
       );
-      return {
-        message: Message(lang, "USER.USER_CREATED_PHONE"),
-        success: true,
-        currentTime: Math.floor(Date.now() / 1000),
-        expiresBy: userOtpExpiredTime,
-      };
+      return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
     } catch (e) {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ e:", e)
       ErrorException(
@@ -458,7 +464,7 @@ export class AuthService {
       // Requirement: Check if previous OTP is not expired
       const validOtp = await this.hasValidOtp(user._id, verificationType.VERIFICATION_PHONE);
       if (validOtp) {
-        return { message: Message(lang, "USER.OTP_SEND"), success: true };
+        return getOtpThrottledResponse(lang, validOtp.createdAt) as any;
       }
 
       // Requirement: If not verified and previous code expired, update phone and send new code
@@ -493,14 +499,10 @@ export class AuthService {
       }
 
       // Add role if not present and set loginAs
-      const updatedRoles = user.roles?.includes(this.defaultRole)
-        ? user.roles
-        : [...(user.roles || []), this.defaultRole];
+      const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
-      // Clear previous token meta if device is provided
-      if (device?.deviceId) {
-        await this.userTokenMetaRepository.deleteByUser(user._id.toString());
-      }
+      // Clear previous token meta
+      await this.clearUserSession(user._id.toString(), device?.deviceId);
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -511,7 +513,7 @@ export class AuthService {
         },
       );
 
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone,updatedRoles, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -679,8 +681,7 @@ export class AuthService {
       const validOtp = await this.hasValidOtp(user._id, type);
 
       if (validOtp) {
-        // OTP still valid, return message without sending new code
-        return { message: Message(lang, "USER.OTP_SEND"), success: true };
+        return getOtpThrottledResponse(lang, validOtp.createdAt);
       }
 
       // OTP expired or doesn't exist, send new code
@@ -692,7 +693,7 @@ export class AuthService {
         verificationCode,
         type,
       );
-      return { message: Message(lang, "USER.OTP_SEND"), success: true };
+      return getOtpSentResponse(lang);
     } catch (e) {
       ErrorException(
         e,
@@ -811,14 +812,10 @@ export class AuthService {
       }
 
       // Add role if not present and set loginAs
-      const updatedRoles = user.roles?.includes(this.defaultRole)
-        ? user.roles
-        : [...(user.roles || []), this.defaultRole];
+      const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
-      // Clear previous token meta if device is provided
-      if (verifiedToken.deviceId) {
-        await this.userTokenMetaRepository.deleteByUserAndDevice(user._id.toString(), verifiedToken.deviceId);
-      }
+      // Clear previous token meta
+      await this.clearUserSession(user._id.toString(), verifiedToken.deviceId);
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -831,8 +828,8 @@ export class AuthService {
 
       // Use email or phone as the identifier for token generation
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, verifiedToken.deviceId);
-
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier,user.roles, verifiedToken.deviceId);
+      
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -865,14 +862,10 @@ export class AuthService {
       }
 
       // Add role if not present and set loginAs
-      const updatedRoles = user.roles?.includes(this.defaultRole)
-        ? user.roles
-        : [...(user.roles || []), this.defaultRole];
+      const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
-      // Clear previous token meta if device is provided
-      if (device?.deviceId) {
-        await this.userTokenMetaRepository.deleteByUserAndDevice(user._id.toString(), device.deviceId);
-      }
+      // Clear previous token meta
+      await this.clearUserSession(user._id.toString(), device?.deviceId);
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -890,7 +883,7 @@ export class AuthService {
 
       // Generate auth tokens
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, updatedRoles, device?.deviceId);
 
       const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
       if (!userDetails) {
@@ -954,6 +947,11 @@ export class AuthService {
       if (existingUser) {
         if (existingUser.verified && !existingUser.roles.includes(this.defaultRole)) {
           ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
+        } else if (!existingUser.verified) {
+          const validOtp = await this.hasValidOtp(existingUser._id, verificationType.VERIFICATION_PHONE);
+          if (validOtp) {
+            return getOtpThrottledResponse(lang, validOtp.createdAt) as any;
+          }
         } else {
           ErrorException(null, "USER.USED_EMAIL", HttpStatus.BAD_REQUEST);
         }
@@ -963,7 +961,7 @@ export class AuthService {
         verified: false,
         authProvider: AuthProvider.GOOGLE,
         authProviderId: socialUser.providerId,
-        roles: [...new Set([...existingUser?.roles||[], this.defaultRole])]
+        roles: getUpdatedRoles(existingUser?.roles, this.defaultRole)
 
       });
       await this.userDetailsRepository.create({
@@ -997,14 +995,10 @@ export class AuthService {
       const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
 
       // Add role if not present and set loginAs
-      const updatedRoles = user.roles?.includes(this.defaultRole)
-        ? user.roles
-        : [...(user.roles || []), this.defaultRole];
+      const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
-      // Clear previous token meta if device is provided
-      if (device?.deviceId) {
-        await this.userTokenMetaRepository.deleteByUser(user._id.toString());
-      }
+      // Clear previous token meta
+      await this.clearUserSession(user._id.toString(), device?.deviceId);
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -1014,7 +1008,7 @@ export class AuthService {
           roles: updatedRoles,
         },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles,device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;

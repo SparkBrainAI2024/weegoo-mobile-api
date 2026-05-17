@@ -31,6 +31,7 @@ export * from './utils/datetime';
 export * from './utils/handle.file';
 export * from './utils/id.generator';
 export * from './utils/jwt';
+export * from './utils/auth.utils';
 
 //pipes
 export * from './pipe/trim.pipe';

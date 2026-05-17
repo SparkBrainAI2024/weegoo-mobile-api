@@ -2,6 +2,126 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type GeoLocation {
+  type: String!
+  coordinates: [Float!]!
+}
+
+type BasicResponse {
+  message: String!
+  success: Boolean!
+}
+
+type CoreUserDetailsResponse {
+  email: String
+  verified: Boolean!
+  suspended: Boolean!
+  profileCompleted: Boolean!
+  _id: String!
+  language: String!
+  phone: String
+}
+
+type UserDetailsResponse {
+  _id: String
+  userId: String
+  fullName: String
+  gender: GenderEnum
+  address: String
+  phone: String
+  email: String
+  profileImage: String
+  dateOfBirth: String
+  bio: String
+  createdAt: String
+}
+
+enum GenderEnum {
+  MALE
+  FEMALE
+  OTHERS
+  UNPUBLISHED
+}
+
+type SignInResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
+}
+
+type UserDetailEntity {
+  _id: String!
+  email: String!
+  verified: Boolean!
+  suspended: Boolean!
+  language: String!
+  loginAs: String!
+  userDetails: UserDetailsResponse!
+}
+
 type Query {
   health: String!
+  getUser: UserDetailEntity!
+  getUserDetails: UserDetailsResponse!
+}
+
+type Mutation {
+  signIn(input: EmailSignInInput!): SignInResponse!
+  logOut(input: LogOutInput!): BasicResponse!
+  changePassword(input: ChangePasswordInput!): BasicResponse!
+  changeLanguage(input: ChangeLanguageInput!): BasicResponse!
+  verifyChangeEmailOTP(input: VerifyEmailInput!): BasicResponse!
+  updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
+}
+
+input EmailSignInInput {
+  email: String!
+  password: String!
+  device: DeviceInput
+}
+
+input DeviceInput {
+  deviceId: String!
+  firebaseToken: String!
+  deviceType: String!
+}
+
+input LogOutInput {
+  deviceId: String!
+}
+
+input ChangePasswordInput {
+  oldPassword: String!
+  newPassword: String!
+}
+
+input ChangeLanguageInput {
+  language: String!
+}
+
+input VerifyEmailInput {
+  email: String!
+  otp: String!
+}
+
+input CreateUserDetailsInput {
+  fullName: String!
+  address: String
+  profileImage: String
+  phone: String
+  dateOfBirth: DateTime
+  bio: String
+  geoLocation: GeoLocationInput
+  gender: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input GeoLocationInput {
+  type: String!
+  coordinates: [Float!]!
 }

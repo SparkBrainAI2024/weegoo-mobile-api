@@ -47,6 +47,7 @@ export const USER = {
   INVALID_ADDRESS: "Invalid address format.",
   INVALID_PROFILE_IMAGE: "Invalid profile image URL format.",
   INVALID_PHONE: "Please provide a valid phone number.",
+  PHONE_NOT_FOUND: "Phone number not found. Please sign up.",
   INVALID_DOB: "Please provide a valid date of birth in YYYY-MM-DD format.",
   INVALID_BIO: "Invalid bio format.",
   INVALID_GENDER: "Invalid gender value.",
@@ -72,6 +73,7 @@ export const USER = {
     "User is created successfully. To verify user please add phone number we will send you otp on sms",
   SET_PASSWORD_TO_LOGIN:
     "Please set your password to login into the app.",
+  NO_ROLE_ASSIGNED: "No role assigned to the user.",
   PHONE_VERIFIED_SUCCESS:
     "Phone number verified successfully.",
   USER_ALREADY_REGISTERED_AS_CUSTOMER:
