@@ -1,8 +1,8 @@
-import { Field, Int, ObjectType } from "@nestjs/graphql";
+import { Field, ObjectType } from "@nestjs/graphql";
 import { ExpirationResponse } from "./expiration.response";
 
 @ObjectType()
-export class SignUpResponse  extends ExpirationResponse {
+export class BasicExpirationResponse extends ExpirationResponse {
   @Field()
   message: string;
 
