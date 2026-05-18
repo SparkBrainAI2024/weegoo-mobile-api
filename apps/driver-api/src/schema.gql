@@ -233,7 +233,13 @@ type Query {
   getUserDetails: UserDetailsResponse!
   getVehicle(vehicleId: String!): Vehicle!
   myDriverDocuments: [DriverDocument!]!
-  driverDocumentFileViewUrl(documentType: String!, side: String!): DocumentViewUrlResponse!
+  driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
+}
+
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
 }
 
 type Mutation {
@@ -400,12 +406,6 @@ input UpsertDocumentFileInput {
   documentType: DriverDocumentType!
   side: DriverDocumentSide!
   s3Key: String!
-}
-
-enum DriverDocumentType {
-  NATIONAL_ID
-  DRIVING_LICENSE
-  BLUEBOOK
 }
 
 input SubmitDocumentForReviewInput {
