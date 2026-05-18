@@ -18,6 +18,8 @@ import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-doc
 import { DriverDocumentBundleStatus, DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
 import { Message } from "@libs/localization";
 import { BasicResponse } from "@libs/data-access/dtos/response/basic.response";
+import { log } from "console";
+import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
 
 
 
@@ -33,7 +35,7 @@ async upsertDocumentFile(
     driverId: string,
     input: UpsertDocumentFileInput,
     lang: string,
-  ): Promise<BasicResponse> {
+  ): Promise<DriverDocumentConfirmUploadResponse> {
     try {
       // Check if there is an entry for the doctype for the driver
       let doc = await this.repository.findByDriverAndType(
@@ -81,13 +83,16 @@ async upsertDocumentFile(
         doc.status = DriverDocumentBundleStatus.DRAFT;
       }
 
-      await this.repository.save(doc);
+     const document =  await this.repository.save(doc);
 
       return {
+        driverDocument: document,
         success: true,
         message: Message(lang, "DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS"),
       };
     } catch (e) {
+      console.log(e);
+      
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",

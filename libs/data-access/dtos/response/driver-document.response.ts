@@ -8,7 +8,7 @@ export class DriverDocumentResponse {
   _id?: string;
 
   @Field(() => DriverDocumentType, { nullable: true })
-  type?: DocumentType;
+  type?: DriverDocumentType;
 
   @Field(() => [DriverDocumentFileResponse], { nullable: true })
   files?: DriverDocumentFileResponse[];

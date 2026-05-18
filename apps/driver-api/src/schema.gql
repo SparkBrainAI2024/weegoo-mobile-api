@@ -210,6 +210,12 @@ type DriverDocument {
   submittedAt: DateTime
 }
 
+type DriverDocumentConfirmUploadResponse {
+  message: String!
+  success: Boolean!
+  driverDocument: DriverDocument!
+}
+
 type DocumentViewUrlResponse {
   url: String!
   expiresInSeconds: Int!
@@ -249,7 +255,7 @@ type Mutation {
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
   editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
-  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocument!
+  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   requestUpload(input: RequestUploadInput!): RequestUploadResponse!
 }

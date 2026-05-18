@@ -21,7 +21,7 @@ class DocumentViewUrlResponse {
 export class DriverDocumentResolver {
   constructor(private readonly driverDocService: DriverDocumentService) {}
 
-  @Mutation(() => DriverDocument)
+  @Mutation(() => DriverDocumentConfirmUploadResponse)
   async confirmUpsertDocumentFile(
     @CurrentUser() user: { _id: string },
     @CurrentLang() lang: string,
