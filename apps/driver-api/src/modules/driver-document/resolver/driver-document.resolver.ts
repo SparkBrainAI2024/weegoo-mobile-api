@@ -22,7 +22,7 @@ export class DriverDocumentResolver {
   constructor(private readonly driverDocService: DriverDocumentService) {}
 
   @Mutation(() => DriverDocument)
-  async upsertDocumentFile(
+  async confirmUpsertDocumentFile(
     @CurrentUser() user: { _id: string },
     @CurrentLang() lang: string,
     @Args("input") input: UpsertDocumentFileInput,
