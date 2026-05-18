@@ -7,8 +7,8 @@ export class AuthResolver{
 
 constructor(private readonly authService: AuthService) {}
 
- @Mutation(() => SignInResponse)
-  async signIn(@Args("input") input: EmailSignInInput) {
-        return this.authService.signIn(input);
-  }
+//  @Mutation(() => SignInResponse)
+//   async signIn(@Args("input") input: EmailSignInInput) {
+//         return this.authService.signIn(input);
+//   }
 }

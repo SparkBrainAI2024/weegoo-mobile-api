@@ -44,14 +44,14 @@ export class UserResolver {
     return this.userService.changeLanguage(input.language, user._id);
   }
 
-  @Mutation(() => BasicResponse)
-  verifyChangeEmailOTP(
-    @Args("input") input: VerifyEmailInput,
-    @CurrentUser() user,
-    @CurrentLang() lang: string,
-  ) {
-    return this.userService.verifyChangeEmailOTP(input, lang, user._id);
-  }
+  // @Mutation(() => BasicResponse)
+  // verifyChangeEmailOTP(
+  //   @Args("input") input: VerifyEmailInput,
+  //   @CurrentUser() user,
+  //   @CurrentLang() lang: string,
+  // ) {
+  //   return this.userService.verifyChangeEmailOTP(input, lang, user._id);
+  // }
 
   @Query(() => UserDetailEntity)
   getUser(@CurrentUser() user) {
