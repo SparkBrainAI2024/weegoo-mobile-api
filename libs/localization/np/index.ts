@@ -3,6 +3,7 @@ import { USER } from "./user.messages";
 import { SOCIAL_AUTH } from "./social-auth.message";
 import { VEHICLE } from "./vehicle.messages";
 import { UPLOAD } from "./upload.messages";
+import { DRIVER_DOCUMENT } from "./driver-document.messages";
 
 export const np_messages = {
   COMMON,
@@ -10,4 +11,5 @@ export const np_messages = {
   SOCIAL_AUTH,
   VEHICLE,
   UPLOAD,
+  DRIVER_DOCUMENT
 };

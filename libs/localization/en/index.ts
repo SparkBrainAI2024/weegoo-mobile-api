@@ -4,6 +4,7 @@ import { S3 } from "./s3.messages";
 import { SOCIAL_AUTH } from "./social-auth.message";
 import { VEHICLE } from "./vehicle.messages";
 import { UPLOAD } from "./upload.messages";
+import { DRIVER_DOCUMENT } from "./driver-document.messages";
 
 export const en_messages = {
   COMMON,
@@ -11,5 +12,6 @@ export const en_messages = {
   S3,
   SOCIAL_AUTH,
   VEHICLE,
-  UPLOAD
+  UPLOAD,
+  DRIVER_DOCUMENT
 };
