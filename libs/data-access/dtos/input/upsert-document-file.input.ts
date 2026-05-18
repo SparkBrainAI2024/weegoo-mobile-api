@@ -1,4 +1,5 @@
 import { DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
+import { IsValidDocumentSide } from "@libs/data-access/validator/driver-document-type-side.validator";
 import { Field, InputType } from "@nestjs/graphql";
 import { IsEnum, IsNotEmpty, IsString } from "class-validator";
 
@@ -10,6 +11,7 @@ export class UpsertDocumentFileInput {
 
   @Field(() => DriverDocumentSide)
   @IsEnum(DriverDocumentSide)
+  @IsValidDocumentSide()             
   side: DriverDocumentSide;
 
   @Field()
