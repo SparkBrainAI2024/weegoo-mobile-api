@@ -407,6 +407,14 @@ input SubmitDocumentForReviewInput {
 }
 
 input RequestUploadInput {
-  purpose: String!
+  purpose: UploadPurpose!
   contentType: String!
+}
+
+enum UploadPurpose {
+  USER_PROFILE_IMAGE
+  VEHICLE_IMAGE
+  DRIVER_LICENSE
+  DRIVER_BLUEBOOK
+  DRIVER_NATIONAL_ID
 }
