@@ -3,9 +3,9 @@ import { registerEnumType } from "@nestjs/graphql";
 export enum UploadPurpose {
   USER_PROFILE_IMAGE = "USER_PROFILE_IMAGE",
   VEHICLE_IMAGE      = "VEHICLE_IMAGE",
-  DRIVER_LICENSE     = "DRIVER_LICENSE",
-  DRIVER_BLUEBOOK    = "DRIVER_BLUEBOOK",
-  DRIVER_NATIONAL_ID = "DRIVER_NATIONAL_ID",
+  LICENSE     = "LICENSE",
+  BLUEBOOK    = "BLUEBOOK",
+  NATIONAL_ID = "NATIONAL_ID",
 }
 
 export enum ImageStatus {
