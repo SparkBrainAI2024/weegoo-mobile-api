@@ -48,8 +48,8 @@ export class DriverDocumentResolver {
   @Query(() => DocumentViewUrlResponse)
   async driverDocumentFileViewUrl(
     @CurrentUser() user: { _id: string },
-    @Args("documentType", { type: () => String }) documentType: DriverDocumentType,
-    @Args("side",         { type: () => String }) side: DriverDocumentSide,
+    @Args("documentType", { type: () => DriverDocumentType }) documentType: DriverDocumentType,
+    @Args("side",         { type: () => DriverDocumentSide }) side: DriverDocumentSide,
   ): Promise<DocumentViewUrlResponse> {
     return this.driverDocService.getDocumentViewUrl({
       driverId: user._id,
