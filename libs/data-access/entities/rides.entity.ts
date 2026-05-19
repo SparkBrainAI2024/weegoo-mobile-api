@@ -1,5 +1,4 @@
 import { Field, ObjectType } from "@nestjs/graphql";
-import { AuthProvider, language, roles, UserStatus } from "../enums/user.enum";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Types } from "mongoose";
@@ -51,42 +50,51 @@ export class Rides extends BaseEntity {
     rideUUId: string;
 
     @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false,default:0 })
+    @Prop({ type: Number, required: false, default: 0 })
     estimatedTimeInMinutes?: number;
 
     @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false,default:0 })
+    @Prop({ type: Number, required: false, default: 0 })
     estimatedFare?: number;
 
-    @Field(()=>Date,{nullable:true})
-    @Prop({ type: Date, required: false })  
-    rideStartedAt?:Date;
+    @Field(() => Date, { nullable: true })
+    @Prop({ type: Date, required: false })
+    rideStartedAt?: Date;
 
-    @Field(()=>Date,{nullable:true})
-    @Prop({ type: Date, required: false })  
-    rideCompletedAt?:Date;
+    @Field(() => Date, { nullable: true })
+    @Prop({ type: Date, required: false })
+    rideCompletedAt?: Date;
 
     @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false,default:0 })
+    @Prop({ type: Number, required: false, default: 0 })
     distanceInKm?: number;
-    
+
     @Field(() => Fare, { nullable: true })
     @Prop({ type: Fare, required: false })
-    fare?:Fare
+    fare?: Fare
 
     @Field(() => PaymentDetails, { nullable: true })
     @Prop({ type: PaymentDetails, required: false })
     paymentDetails?: PaymentDetails;
 
     @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false,default:0 })
+    @Prop({ type: Number, required: false, default: 0 })
     timeToReachRiderInMinutes?: number;
 
     @Field(() => Date, { nullable: true })
     @Prop({ type: Date, required: false })
     timeToReachRider?: Date;
 
-    @Field(()=>String)
-     @Prop({ type: Types.ObjectId, required: true, ref: "Vehicle", index: true })
+    @Field(() => String)
+    @Prop({ type: Types.ObjectId, required: true, ref: "Vehicle", index: true })
     vehicleId: Types.ObjectId;
 }
+export type RidesDocument = HydratedDocument<Rides>;
+export const RidesSchema = SchemaFactory.createForClass(Rides);
+
+export const ridesModel = {
+    name: Rides.name,
+    schema: RidesSchema,
+};
+
+RidesSchema.index({ deleted: 1, deletedAt: 1 });

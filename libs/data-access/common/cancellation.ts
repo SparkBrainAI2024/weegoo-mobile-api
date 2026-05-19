@@ -17,7 +17,14 @@ export class Cancellation {
   @Prop({ type: Date, required: true })
   cancelledAt: Date;
 
+
+  //To Do store the reason id and other if other is selected then store the reason in another field.
   @Field(() => String, { nullable: true })
   @Prop({ type: String, required: false })
   cancellationReason?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false })
+  cancellationOtherReason?: string;
+  
 }

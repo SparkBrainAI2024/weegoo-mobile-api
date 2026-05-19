@@ -23,6 +23,9 @@ export * from './repositories/user-verfication.repository';
 export * from './repositories/device.repository';
 export * from './repositories/user-detail.repository';
 export * from './repositories/user-token-meta.repository';
+export * from './repositories/rides.repository';
+export * from './repositories/vehicle.repository';
+export * from './repositories/driver-document.repository';
 
 //enums
 export * from './enums/user.enum';
@@ -30,6 +33,7 @@ export * from './enums/token.enum';
 export * from './enums/vehicle.enum';
 export * from './enums/rides.enum';
 export * from './enums/cancellation.enum';
+export * from './enums/payment.enum';
 
 
 //interfaces
@@ -41,6 +45,8 @@ export * from './common/geo.location';
 export * from './common/phone';
 export * from './common/cancellation';
 export * from './common/ride.location';
+export * from './common/fare';
+export * from './common/payment-details';
 
 
 //plugins
