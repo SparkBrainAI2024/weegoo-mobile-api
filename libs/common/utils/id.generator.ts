@@ -1,4 +1,10 @@
 import mongoose from "mongoose"
+import { customAlphabet } from "nanoid";
+
+export const nanoid = customAlphabet(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+    11,
+);
 
 
 export const generateNanoId = (type?: string) => {

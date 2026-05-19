@@ -11,6 +11,11 @@ export * from './entities/user-verfication.entity';
 export * from './entities/device.entity';
 export * from './entities/user-details.entity';
 export * from './entities/user-token-meta.entity';
+export * from './entities/rides.entity';
+export * from './entities/vehicle.entity';
+export * from './entities/vehicle-image.embedded';
+export * from './entities/driver-document.entity';
+export * from './entities/document-file.embedded';
 
 //repositories
 export * from './repositories/user.repository';
@@ -23,6 +28,8 @@ export * from './repositories/user-token-meta.repository';
 export * from './enums/user.enum';
 export * from './enums/token.enum';
 export * from './enums/vehicle.enum';
+export * from './enums/rides.enum';
+export * from './enums/cancellation.enum';
 
 
 //interfaces
@@ -32,6 +39,9 @@ export * from './interfaces/jwt-payload.interface';
 //common
 export * from './common/geo.location';
 export * from './common/phone';
+export * from './common/cancellation';
+export * from './common/ride.location';
+
 
 //plugins
 export * from './plugins/mongoose.plugin';
