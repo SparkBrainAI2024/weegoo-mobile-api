@@ -4,7 +4,7 @@ import { UploadPurpose } from "../../enums/upload.enum";
 
 @InputType()
 export class RequestUploadInput {
-  @Field(() => String)
+  @Field(() => UploadPurpose)
   @IsEnum(UploadPurpose)
   purpose: UploadPurpose;
 

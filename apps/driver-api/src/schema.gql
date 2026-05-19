@@ -210,6 +210,12 @@ type DriverDocument {
   submittedAt: DateTime
 }
 
+type DriverDocumentConfirmUploadResponse {
+  message: String!
+  success: Boolean!
+  driverDocument: DriverDocument!
+}
+
 type DocumentViewUrlResponse {
   url: String!
   expiresInSeconds: Int!
@@ -219,11 +225,6 @@ type RequestUploadResponse {
   uploadUrl: String!
   s3Key: String!
   expiresInSeconds: Int!
-}
-
-type ConfirmUploadResponse {
-  success: Boolean!
-  message: String!
 }
 
 type Query {
@@ -254,10 +255,9 @@ type Mutation {
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
   editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
-  upsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocument!
+  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   requestUpload(input: RequestUploadInput!): RequestUploadResponse!
-  confirmUpload(input: ConfirmUploadInput!): ConfirmUploadResponse!
 }
 
 input RefreshTokenInput {
@@ -413,15 +413,8 @@ input SubmitDocumentForReviewInput {
 }
 
 input RequestUploadInput {
-  purpose: String!
-  contentType: String!
-}
-
-input ConfirmUploadInput {
-  s3Key: String!
-
-  """Purpose for uploading, namely national id, blue book and others"""
   purpose: UploadPurpose!
+  contentType: String!
 }
 
 enum UploadPurpose {

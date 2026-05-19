@@ -16,6 +16,10 @@ import { SubmitDocumentForReviewInput } from "../../../../../libs/data-access/dt
 import { DriverDocumentRepository } from "../../../../../libs/data-access/repositories/driver-document.repository";
 import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-document-file.input";
 import { DriverDocumentBundleStatus, DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
+import { Message } from "@libs/localization";
+import { BasicResponse } from "@libs/data-access/dtos/response/basic.response";
+import { log } from "console";
+import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
 
 
 
@@ -27,51 +31,74 @@ export class DriverDocumentService {
   ) {}
 
   // ─── Upsert document ──────────────────────────────────────────────────────────
-  async upsertDocumentFile(
+async upsertDocumentFile(
     driverId: string,
     input: UpsertDocumentFileInput,
-  ) {
-    let doc = await this.repository.findByDriverAndType(
-      driverId,
-      input.documentType,
-    );
-
-    if (!doc) {
-      doc = await this.repository.createDraftDocument(
+    lang: string,
+  ): Promise<DriverDocumentConfirmUploadResponse> {
+    try {
+      // Check if there is an entry for the doctype for the driver
+      let doc = await this.repository.findByDriverAndType(
         driverId,
         input.documentType,
       );
-    }
 
-    if (doc.status === DriverDocumentBundleStatus.APPROVED) {
+      // If not, create draft with empty files array
+      if (!doc) {
+        doc = await this.repository.createDraftDocument(
+          driverId,
+          input.documentType,
+        );
+      }
+
+      // If all sides are approved, the document will have APPROVED status.
+      // In that case we should not allow upload of a new file without admin
+      // rejecting the document first and the driver re-uploading with changes.
+      if (doc.status === DriverDocumentBundleStatus.APPROVED) {
+        ErrorException(
+          null,
+          "DRIVER_DOCUMENT.ALREADY_APPROVED",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // There is an array of files for each side. We mark the previous active
+      // file for the given side as inactive, then push the new file as active.
+      // This preserves the full upload history per side.
+      doc.files = deactivateSideFiles(doc.files, input.side);
+
+      doc.files.push({
+        side: input.side,
+        s3Key: input.s3Key,
+        isActive: true,
+        status: DocumentFileStatus.PENDING,
+        verifiedBy: null,
+        verifiedAt: null,
+        createdAt: new Date(),
+      });
+
+      // If the document was previously rejected, reset to DRAFT so it
+      // re-enters the admin review queue.
+      if (doc.status === DriverDocumentBundleStatus.REJECTED) {
+        doc.status = DriverDocumentBundleStatus.DRAFT;
+      }
+
+     const document =  await this.repository.save(doc);
+
+      return {
+        driverDocument: document,
+        success: true,
+        message: Message(lang, "DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS"),
+      };
+    } catch (e) {
+      console.log(e);
+      
       ErrorException(
-        null,
-        "DRIVER_DOCUMENT.ALREADY_APPROVED",
-        HttpStatus.BAD_REQUEST,
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
-
-    // mark previous active side inactive
-doc.files = deactivateSideFiles(doc.files, input.side);
-
-    // add new active file
-    doc.files.push({
-      side: input.side,
-      s3Key: input.s3Key,
-      isActive: true,
-      status: DocumentFileStatus.PENDING,
-      verifiedBy: null,
-      verifiedAt: null,
-      createdAt: new Date(),
-    });
-
-    if (doc.status === DriverDocumentBundleStatus.REJECTED) {
-      doc.status = DriverDocumentBundleStatus.DRAFT;
-    }
-
-    await this.repository.save(doc);
-
-    return doc;
   }
 
   // ─── Submit for review ────────────────────────────────────────────────────────

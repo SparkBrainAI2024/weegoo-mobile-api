@@ -34,43 +34,5 @@ export class UploadCenterResolver {
     });
   }
 
-  // ─── STEP 2 (client): PUT file to S3 directly — no server involvement ────────
 
-  // ─── STEP 3: Confirm — image-only, no form data ──────────────────────────────
-  // Vehicle image is NOT handled here — it goes through registerVehicle mutation
-  // which includes form data alongside the s3Key
-  @Mutation(() => ConfirmUploadResponse)
-  async confirmUpload(
-    @CurrentUser() user: { _id: string },
-    @Args("input") input: ConfirmUploadInput,
-  ): Promise<ConfirmUploadResponse> {
-    const { s3Key, purpose } = input;
-
-    switch (purpose) {
-      case UploadPurpose.USER_PROFILE_IMAGE:
-       //TODO: await this.userDetails.updateProfileImage(user._id, s3Key);
-        // break;
-
-      case UploadPurpose.DRIVER_LICENSE:
-      case UploadPurpose.DRIVER_BLUEBOOK:
-      case UploadPurpose.DRIVER_NATIONAL_ID:
-        // These need side info — handled by upsertDocumentFile, not here
-        // confirmUpload for documents should not be called directly
-        // keeping this for completeness but throwing a clear error
-        throw new Error(
-          "Use upsertDocumentFile mutation for driver document uploads",
-        );
-
-      case UploadPurpose.VEHICLE_IMAGE:
-        // Vehicle image must go through registerVehicle or updateVehicleImage
-        throw new Error(
-          "Use registerVehicle or updateVehicleImage mutation for vehicle images",
-        );
-
-      default:
-        throw new Error(`Unhandled upload purpose: ${purpose}`);
-    }
-
-    return { success: true, message: "Upload confirmed successfully" };
-  }
 }
