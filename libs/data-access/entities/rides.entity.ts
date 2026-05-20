@@ -51,7 +51,7 @@ export class Rides extends BaseEntity {
         type: String, 
         required: true, 
         unique: true, 
-        default: () => "RIDE-" + nanoid() 
+        default: () => "WG-" + nanoid() 
     })
     rideUUId: string;
 
@@ -91,7 +91,6 @@ export class Rides extends BaseEntity {
     @Prop({ type: Date, required: false })
     timeToReachPassenger?: Date;
 
-    @Field(() => String)
     @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
     vehicleId: Types.ObjectId;
 

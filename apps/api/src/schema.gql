@@ -155,7 +155,6 @@ type Rides {
   paymentDetails: PaymentDetails
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
-  vehicleId: String!
   vehicle: Vehicle
 }
 

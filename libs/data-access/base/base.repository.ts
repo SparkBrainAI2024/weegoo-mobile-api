@@ -377,6 +377,7 @@ export class BaseRepository<T extends Document> {
 
     // Manual Pagination implementation to avoid "model.paginate is not a function" errors
     const total = await this.model.countDocuments(filter);
+    console.log("🚀 ~ file: base.repository.ts:263 ~ BaseRepository ~ paginate ~ filter:", filter)
     const data = await this.model.find(filter, null, {
       ...options,
       skip: request.page * request.limit,

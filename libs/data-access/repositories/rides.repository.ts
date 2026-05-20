@@ -103,16 +103,19 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     // Populate vehicle data to include model and type/name
     const populateOptions = {
       path: "vehicleId",
-      select: "vehicleModel vehicleType numberPlate color",
     };
+    console.log("filter in repository:", filter);
 
     // Apply pagination with the constructed filter and vehicle population
     const result = await this.paginate(paginationInput, populateOptions as any, filter);
-
+    console.log("result in repository:", result);
     // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
     result.data = result.data.map((ride: any) => {
       if (ride.vehicleId && typeof ride.vehicleId === 'object') {
+        console.log("Populated vehicle data:", ride.vehicleId);
         ride.vehicle = ride.vehicleId;
+        ride.vechicleId = ride.vehicleId._id;
+        delete ride.vehicleId;// Keep the original vehicleId for reference
       }
       return ride;
     });
