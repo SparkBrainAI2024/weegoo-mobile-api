@@ -254,23 +254,23 @@ export class AuthService {
   private async validateUserForSignIn(email: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.NOT_FOUND);
     }
     if (!user.verified) {
-      ErrorException(null, "USER.EMAIL_NOT_VERIFIED", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.EMAIL_NOT_VERIFIED", HttpStatus.NOT_FOUND);
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
-      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.NOT_FOUND);
     }
     if (password !== undefined) {
       const checkPassword = await comparePassword(password, user.password);
       if (!checkPassword) {
-        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
+        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
       }
     }
     if (user.suspended) {
-      ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.SUSPENDED", HttpStatus.FORBIDDEN);
     }
     console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ validateUserForSignIn ~ user:", userDetails)
     return { user, userDetails };
@@ -279,22 +279,22 @@ export class AuthService {
   private async validateUserForSignInPhone(phone: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
     const user = await this.userRepository.findByPhone(phone);
     if (!user) {
-      ErrorException(null, "USER.PHONE_NOT_FOUND", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.PHONE_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
-      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.NOT_FOUND);
     }
     if (password && user?.password) {
       const checkPassword = await comparePassword(password, user?.password || '');
       if (!checkPassword) {
-        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
+        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
       }
     } else {
-      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.NOT_FOUND);
     }
     if (user.suspended) {
-      ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.SUSPENDED", HttpStatus.FORBIDDEN);
     }
     return { user, userDetails };
   }
@@ -434,7 +434,7 @@ export class AuthService {
         ErrorException(
           null,
           "COMMON.UNAUTHORIZED",
-          HttpStatus.FORBIDDEN,
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -477,7 +477,7 @@ export class AuthService {
       // TODO: Implement phone SMS sending in later phase
       await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
 
-      return { message: Message(lang, "USER.OTP_SEND"), success: true };
+      return getOtpSentResponse(lang,'USER.OTP_SEND')
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }
