@@ -374,8 +374,28 @@ export class BaseRepository<T extends Document> {
     }
 
     options = this.mergePopulateOptions(options, populate);
-    // Ensure pageInfo is defined and has the necessary properties
-    return await this.model.paginate(request, filter, options);
+
+    // Manual Pagination implementation to avoid "model.paginate is not a function" errors
+    const total = await this.model.countDocuments(filter);
+    const data = await this.model.find(filter, null, {
+      ...options,
+      skip: request.page * request.limit,
+      limit: request.limit,
+      sort: request.sort as any,
+    });
+
+    return {
+      data,
+      pagination: {
+        total,
+        page: request.page,
+        limit: request.limit,
+        hasNextPage: (request.page + 1) * request.limit < total,
+        hasPreviousPage: request.page > 0,
+        nextPage: (request.page + 1) * request.limit < total ? request.page + 1 : undefined,
+        previousPage: request.page > 0 ? request.page - 1 : undefined,
+      },
+    };
   }
 
   /**

@@ -78,6 +78,7 @@ type Fare {
   trafficCongestionAmount: Float!
   distanceAmount: Float!
   totalAmount: Float!
+  noOfPassengers: Float!
 }
 
 type PaymentDetails {
@@ -96,6 +97,38 @@ enum PaymentMethodEnum {
 
   """Payment method is wallet"""
   WALLET
+}
+
+type VehicleImage {
+  s3Key: String!
+  status: ImageStatus!
+  createdAt: DateTime!
+}
+
+enum ImageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+type Vehicle {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  vehicleType: VehicleType!
+  vehicleModel: String!
+  year: Int!
+  color: String!
+  numberPlate: String!
+  images: [VehicleImage!]!
+}
+
+enum VehicleType {
+  CAR
+  MOTORBIKE
+  SCOOTER
 }
 
 type Rides {
@@ -123,6 +156,7 @@ type Rides {
   timeToReachRiderInMinutes: Float
   timeToReachRider: DateTime
   vehicleId: String!
+  vehicle: Vehicle
 }
 
 """Types of rides"""
@@ -150,17 +184,6 @@ enum RideStatus {
 
   """Ride is cancelled"""
   CANCELLED
-}
-
-type VehicleImage {
-  s3Key: String!
-  status: ImageStatus!
-  createdAt: DateTime!
-}
-
-enum ImageStatus {
-  ACTIVE
-  INACTIVE
 }
 
 type DocumentFile {
@@ -344,6 +367,7 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
+  generateSampleRides: [Rides!]!
 }
 
 input RefreshTokenInput {

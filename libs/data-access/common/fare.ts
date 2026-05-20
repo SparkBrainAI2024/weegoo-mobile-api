@@ -3,24 +3,29 @@ import { Prop } from "@nestjs/mongoose";
 import { ApiProperty } from "@nestjs/swagger";
 @ObjectType()
 export class Fare {
-    @Field(()=>Number)
+    @Field(() => Number)
     @Prop({ type: Number, default: 0, required: true })
     @ApiProperty({ nullable: false })
     baseAmount: Number;
 
-    @Field(()=>Number)
+    @Field(() => Number)
     @Prop({ type: Number, default: 0, required: true })
     @ApiProperty({ nullable: false })
     trafficCongestionAmount: Number;
 
-    @Field(()=>Number)
+    @Field(() => Number)
     @Prop({ type: Number, default: 0, required: true })
     @ApiProperty({ nullable: false })
     distanceAmount: Number;
 
-    @Field(()=>Number)
+    @Field(() => Number)
     @Prop({ type: Number, default: 0, required: true })
     @ApiProperty({ nullable: false })
     totalAmount: Number;
-      
+
+    @Field(() => Number)
+    @Prop({ type: Number, default: 0, required: true })
+    @ApiProperty({ nullable: false })
+    noOfPassengers: Number;
+
 }

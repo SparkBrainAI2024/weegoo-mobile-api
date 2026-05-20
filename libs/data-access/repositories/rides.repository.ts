@@ -8,6 +8,7 @@ import { PaginationInput } from "../base/base.input";
 import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
+import { nanoid } from "@libs/common/utils/id.generator";
 
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
@@ -16,10 +17,68 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   }
 
   /**
-   * Atomic query to fetch rides based on user role with pagination
+   * Creates a new ride with an auto-generated rideUUId using nanoid.
+   * Calculates timeToReach based on distance and booking time before saving.
+   */
+  async createRide(rideData: Partial<RidesDocument>): Promise<RidesDocument> {
+    // Logic handled by RidesSchema.pre('save')
+    const ride = await this._model.create(rideData);
+    return ride;
+  }
+
+  /**
+   * Updates ride with timing data when the ride starts.
+   * Sets rideStartedAt and recalculates estimatedFare and estimatedTimeInMinutes
+   * based on distance and booking time.
+   */
+  async startRide(rideId: Types.ObjectId, startedAt: Date, distanceInKm?: number): Promise<RidesDocument | null> {
+    const updateData: any = {
+      rideStartedAt: startedAt,
+      rideStatus: "ONGOING",
+    };
+
+    if (distanceInKm) {
+      updateData.distanceInKm = distanceInKm;
+    }
+    return this.findOneAndUpdate(
+      { _id: rideId },
+      { $set: updateData },
+      { new: true },
+    );
+  }
+
+  /**
+   * Updates ride with completion data when the ride ends.
+   * Uses rideStartedAt and rideCompletedAt to calculate actual duration,
+   * then derives estimatedTimeInMinutes and estimatedFare.
+   */
+  async completeRide(rideId: Types.ObjectId, completedAt: Date, distanceInKm?: number): Promise<RidesDocument | null> {
+    const ride = await this.findById(rideId);
+    if (!ride || !ride.rideStartedAt) {
+      return null;
+    }
+
+    const updateData: any = {
+      rideCompletedAt: completedAt,
+      rideStatus: "COMPLETED",
+    };
+
+    if (distanceInKm) {
+      updateData.distanceInKm = distanceInKm;
+    }
+
+    return this.findOneAndUpdate(
+      { _id: rideId },
+      { $set: updateData },
+      { new: true },
+    );
+  }
+
+  /**
+   * Atomic query to fetch rides based on user role with pagination.
    * - USER role: fetches rides where user is the rider (riderId)
    * - DRIVER role: fetches rides where user is the driver (driverId)
-   * - Filters by ONGOING status
+   * - Populates vehicle data to include vehicleModel and vehicleType
    * - Returns paginated results
    */
   async findRidesByUserWithPagination(
@@ -33,15 +92,31 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
 
     // Check user roles and apply appropriate filter
-    if (user.loginAs === roles.USER) {
-      // If user has USER role, fetch rides where user is the rider
+    // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
+    // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
+    if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
       filter.riderId = new Types.ObjectId(user._id);
     } else if (user.loginAs === roles.RIDER) {
-      // If user has RIDER role, fetch rides where user is the driver
       filter.driverId = new Types.ObjectId(user._id);
     }
 
-    // Apply pagination with the constructed filter
-    return this.paginate(paginationInput, undefined, filter);
+    // Populate vehicle data to include model and type/name
+    const populateOptions = {
+      path: "vehicleId",
+      select: "vehicleModel vehicleType numberPlate color",
+    };
+
+    // Apply pagination with the constructed filter and vehicle population
+    const result = await this.paginate(paginationInput, populateOptions as any, filter);
+
+    // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
+    result.data = result.data.map((ride: any) => {
+      if (ride.vehicleId && typeof ride.vehicleId === 'object') {
+        ride.vehicle = ride.vehicleId;
+      }
+      return ride;
+    });
+
+    return result;
   }
 }

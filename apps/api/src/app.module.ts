@@ -11,7 +11,7 @@ import { join } from "path";
 import { envConfiguration, HealthResolver } from "@libs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
-import { RidesModule } from "./modules/rider/rides.module";
+import { RidesModule } from "./modules/rides/rides.module";
 
 @Module({
   imports: [
