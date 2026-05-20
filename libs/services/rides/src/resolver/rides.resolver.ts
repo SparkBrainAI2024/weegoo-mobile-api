@@ -25,13 +25,22 @@ export class RidesResolver {
 
   @Mutation(() => [Rides])
   async generateSampleRides() {
-    const driverId = new Types.ObjectId('6a0db9aae2c204483832ccb4');
-    const riderId = new Types.ObjectId('6a0db5b3d4abf61482b57da0');
-    const vehicleId = new Types.ObjectId('6a09b0406ae11c2b6255d8e8');
-
+    let driverId: Types.ObjectId;
+    let passengerId: Types.ObjectId;
+    let vehicleId: Types.ObjectId;
+    if (process.env.NODE_ENV == "local") {
+      driverId = new Types.ObjectId('6a0db9aae2c204483832ccb4');
+      passengerId = new Types.ObjectId('6a0db5b3d4abf61482b57da0');
+      vehicleId = new Types.ObjectId('6a09b0406ae11c2b6255d8e8');
+    }
+    else {
+      driverId = new Types.ObjectId('6a06d72b3de33bc50cdbb438');
+      passengerId = new Types.ObjectId('6a0d17471edeeb7bb3becca5');
+      vehicleId = new Types.ObjectId('6a09b0406ae11c2b6255d8e8');
+    }
     return this.ridesService.generateSampleRides(
       driverId,
-      riderId,
+      passengerId,
       vehicleId
     );
   }

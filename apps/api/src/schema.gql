@@ -141,7 +141,7 @@ type Rides {
   bookingTime: DateTime!
   rideStatus: RideStatus!
   cancellation: Cancellation
-  riderId: String!
+  passengerId: String!
   driverId: String!
   pickupLocation: RideLocation
   dropoffLocation: RideLocation
@@ -153,8 +153,8 @@ type Rides {
   distanceInKm: Float
   fare: Fare
   paymentDetails: PaymentDetails
-  timeToReachRiderInMinutes: Float
-  timeToReachRider: DateTime
+  timeToReachPassengerInMinutes: Float
+  timeToReachPassenger: DateTime
   vehicleId: String!
   vehicle: Vehicle
 }

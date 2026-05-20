@@ -32,7 +32,7 @@ export class Rides extends BaseEntity {
 
     @Field(() => String)
     @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
-    riderId: Types.ObjectId;
+    passengerId: Types.ObjectId;
 
     @Field(() => String)
     @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
@@ -85,11 +85,11 @@ export class Rides extends BaseEntity {
 
     @Field(() => Number, { nullable: true })
     @Prop({ type: Number, required: false, default: 0 })
-    timeToReachRiderInMinutes?: number;
+    timeToReachPassengerInMinutes?: number;
 
     @Field(() => Date, { nullable: true })
     @Prop({ type: Date, required: false })
-    timeToReachRider?: Date;
+    timeToReachPassenger?: Date;
 
     @Field(() => String)
     @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
@@ -105,9 +105,9 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
   // 2. Calculate timeToReachRider (based on distance and bookingTime)
   if (this.distanceInKm && this.bookingTime) {
     // Assume avg speed of 30km/h => 2 minutes per km
-    this.timeToReachRiderInMinutes = Math.ceil(this.distanceInKm * 2);
-    this.timeToReachRider = new Date(
-      this.bookingTime.getTime() + this.timeToReachRiderInMinutes * 60000
+    this.timeToReachPassengerInMinutes = Math.ceil(this.distanceInKm * 2);
+    this.timeToReachPassenger = new Date(
+      this.bookingTime.getTime() + this.timeToReachPassengerInMinutes * 60000
     );
   }
 

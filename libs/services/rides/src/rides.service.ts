@@ -98,7 +98,7 @@ export class RidesService {
           rideType: rideType,
           bookingTime: bookingTime,
           rideStatus: rideStatus,
-          riderId: riderId,
+          passengerId: riderId,
           driverId: driverId,
           vehicleId: vehicleId,
           distanceInKm: distanceInKm,
