@@ -1,4 +1,4 @@
-import { Rides, RidesSchema, RidesRepository, UserSchema, User } from "@libs/data-access";
+import { Rides, RidesSchema, RidesRepository } from "@libs/data-access";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 
@@ -6,7 +6,6 @@ import { MongooseModule } from "@nestjs/mongoose";
     imports: [
         MongooseModule.forFeature([
             { name: Rides.name, schema: RidesSchema },
-            { name: User.name, schema: UserSchema },    
         ]),
     ],
     providers: [

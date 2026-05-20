@@ -9,13 +9,17 @@ export class RidesService {
   ) {}
 
   /**
-   * Fetches rides for a specific driver with status filtering and pagination.
+   * Fetches rides for the current user based on their role with pagination.
+   * - If user role is USER: returns rides where user is the rider
+   * - If user role is DRIVER: returns rides where user is the driver
+   * - Filters by ONGOING status
+   * - Returns paginated results
    */
   async findRides(
     user: User,
     options: PaginationInput,
   ) {
-    return []
+    return this.rideRepository.findRidesByUserWithPagination(user, options);
   }
 
   // Additional methods like findUserRides can be added here for the consumer API

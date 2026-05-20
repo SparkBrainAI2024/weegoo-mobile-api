@@ -5,7 +5,7 @@ import { CancellationByEnum } from "../enums/cancellation.enum";
 
 @ObjectType()
 export class Cancellation {
-  @Field(()=>CancellationByEnum)
+  @Field(()=> CancellationByEnum)
   @Prop({ type: String, enum: CancellationByEnum, required: true })
   cancellationBy: string;
 
