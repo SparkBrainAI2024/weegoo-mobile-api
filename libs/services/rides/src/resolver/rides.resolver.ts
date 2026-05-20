@@ -35,7 +35,7 @@ export class RidesResolver {
     }
     else {
       driverId = new Types.ObjectId('6a06d72b3de33bc50cdbb438');
-      passengerId = new Types.ObjectId('6a0d17471edeeb7bb3becca5');
+      passengerId = new Types.ObjectId('6a0767fd9c24957e2fd4cfa6');
       vehicleId = new Types.ObjectId('6a09b0406ae11c2b6255d8e8');
     }
     return this.ridesService.generateSampleRides(
