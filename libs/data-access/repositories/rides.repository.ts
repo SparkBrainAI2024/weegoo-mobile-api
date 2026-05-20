@@ -95,7 +95,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
     // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
     if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
-      filter.riderId = new Types.ObjectId(user._id);
+      filter.passengerId = new Types.ObjectId(user._id);
     } else if (user.loginAs === roles.RIDER) {
       filter.driverId = new Types.ObjectId(user._id);
     }

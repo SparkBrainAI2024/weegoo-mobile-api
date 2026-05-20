@@ -362,7 +362,7 @@ type Mutation {
   verifyGooglePhone(input: VerifyPhoneInput!): VerifyGooglePhoneResponse!
   setPassword(input: SetPasswordInput!): SetPasswordResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
-  updatePhone(input: UpdatePhoneInput!): BasicResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicExpirationResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!

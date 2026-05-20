@@ -146,7 +146,7 @@ export class AuthResolver {
     return this.authService.verifyResetPasswordPhoneOTP(input, lang);
   }
 
-  @Mutation(() => BasicResponse)
+  @Mutation(() => BasicExpirationResponse)
   updatePhone(
     @Args("input") input: UpdatePhoneInput,
     @CurrentLang() lang: string,
