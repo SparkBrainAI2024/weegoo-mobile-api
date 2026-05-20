@@ -11,6 +11,7 @@ import { join } from "path";
 import { envConfiguration, HealthResolver } from "@libs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
+import { RidesModule } from "./modules/rider/rides.module";
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { UserModule } from "./modules/user/user.module";
     }),
     AuthModule,
     UserModule,
+    RidesModule
   ],
   providers: [HealthResolver],
 })

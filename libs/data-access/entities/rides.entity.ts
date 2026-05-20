@@ -1,9 +1,8 @@
-import { Field, ObjectType } from "@nestjs/graphql";
+import { Field, ObjectType, GraphQLISODateTime } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Types } from "mongoose";
 import { RideStatus, RideTypes } from "../enums/rides.enum";
-import { DateTime } from "node_modules/graphql-scalars/typings/mocks.cjs";
 import { Cancellation } from "../common/cancellation";
 import { RideLocation } from "../common/ride.location";
 import { Fare } from "../common/fare";
@@ -17,7 +16,7 @@ export class Rides extends BaseEntity {
     @Prop({ type: String, enum: RideTypes, required: true })
     rideType: RideTypes;
 
-    @Field(() => DateTime)
+    @Field(() => GraphQLISODateTime)
     @Prop({ type: Date, required: true })
     bookingTime: Date;
 
@@ -57,11 +56,11 @@ export class Rides extends BaseEntity {
     @Prop({ type: Number, required: false, default: 0 })
     estimatedFare?: number;
 
-    @Field(() => Date, { nullable: true })
+    @Field(() => GraphQLISODateTime, { nullable: true })
     @Prop({ type: Date, required: false })
     rideStartedAt?: Date;
 
-    @Field(() => Date, { nullable: true })
+    @Field(() => GraphQLISODateTime, { nullable: true })
     @Prop({ type: Date, required: false })
     rideCompletedAt?: Date;
 
@@ -81,7 +80,7 @@ export class Rides extends BaseEntity {
     @Prop({ type: Number, required: false, default: 0 })
     timeToReachRiderInMinutes?: number;
 
-    @Field(() => Date, { nullable: true })
+    @Field(() => GraphQLISODateTime, { nullable: true })
     @Prop({ type: Date, required: false })
     timeToReachRider?: Date;
 

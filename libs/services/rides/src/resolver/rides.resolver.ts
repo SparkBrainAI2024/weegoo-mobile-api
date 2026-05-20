@@ -1,7 +1,7 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
-import { Rides, RideStatus, SortBy } from '@libs/data-access';
+import { PaginationInput, Rides, User } from '@libs/data-access';
 import { RidesService } from '../rides.service';
 import { CurrentUser } from '@libs/common';
 
@@ -13,15 +13,12 @@ export class RidesResolver {
   @Query(() => [Rides])
 
   async getAllRides(
-    @CurrentUser() driver: any,
+    @CurrentUser() driver: User,
+    @Args('input') input: PaginationInput,
   ) {
     return this.ridesService.findRides(
       driver,
-      {
-        page: 1, limit: 10, order: SortBy.asc, orderBy: 'orderStartTime', filter: {
-          rideStatus: RideStatus.ONGOING
-        }
-      },
+      input
     );
   }
 }

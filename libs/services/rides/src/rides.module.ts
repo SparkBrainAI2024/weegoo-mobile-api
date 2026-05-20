@@ -7,4 +7,4 @@ import { RidePersistentModule } from './rides-persistent.module';
   imports: [RidePersistentModule],
   providers: [RidesResolver,RidesService],
 })
-export class RidesModule {}
+export class UserRidesModule {}

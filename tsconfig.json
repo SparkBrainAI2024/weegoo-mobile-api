@@ -69,6 +69,12 @@
       "@libs/services/user/*": [
         "libs/services/user/src/*"
       ],
+      "@libs/services/rides": [
+        "libs/services/rides/src"
+      ],
+      "@libs/services/rides/*": [
+        "libs/services/rides/src/*"
+      ],
       "@libs/services/mail": [
         "libs/services/mail"
       ],
