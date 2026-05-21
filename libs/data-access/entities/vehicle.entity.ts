@@ -42,3 +42,7 @@ export class Vehicle extends BaseEntity {
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);
+export const vehicleModel = {
+    name: Vehicle.name,
+    schema: VehicleSchema,
+};

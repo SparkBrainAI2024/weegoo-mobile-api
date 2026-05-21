@@ -7,6 +7,160 @@ type GeoLocation {
   coordinates: [Float!]!
 }
 
+type Cancellation {
+  cancellationBy: CancellationByEnum!
+  userId: String!
+  cancelledAt: DateTime!
+  cancellationReason: String
+  cancellationOtherReason: String
+}
+
+"""The reason for cancellation"""
+enum CancellationByEnum {
+  """The ride was cancelled by the user themselves"""
+  SELF
+
+  """The ride was cancelled by the driver"""
+  DRIVER_CANCELLED
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type RideLocation {
+  type: String!
+  coordinates: [Float!]!
+  address: String!
+  city: String!
+  province: ProvinceEnum!
+  district: String!
+  fullAddress: String!
+}
+
+"""The provinces of Nepal"""
+enum ProvinceEnum {
+  """Province No. 1 (Koshi)"""
+  PROVINCE_1
+
+  """Province No. 2 (Madhesh)"""
+  PROVINCE_2
+
+  """Bagmati Province"""
+  BAGMATI
+
+  """Gandaki Province"""
+  GANDAKI
+
+  """Lumbini Province"""
+  LUMBINI
+
+  """Karnali Province"""
+  KARNALI
+
+  """Sudurpashchim Province"""
+  SUDURPASHCHIM
+}
+
+type Fare {
+  baseAmount: Float!
+  trafficCongestionAmount: Float!
+  distanceAmount: Float!
+  totalAmount: Float!
+  noOfPassengers: Float!
+}
+
+type PaymentDetails {
+  baseAmount: Float!
+  distanceAmount: Float!
+  totalAmount: Float!
+  noOfPassengers: Float!
+  paymentMethod: PaymentMethodEnum
+  discountAmount: Float!
+}
+
+"""Payment method for the ride"""
+enum PaymentMethodEnum {
+  """Payment method is cash"""
+  CASH
+
+  """Payment method is wallet"""
+  WALLET
+}
+
+type VehicleImage {
+  s3Key: String!
+  status: ImageStatus!
+  createdAt: DateTime!
+}
+
+enum ImageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+type Vehicle {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  vehicleType: VehicleType!
+  vehicleModel: String!
+  year: Int!
+  color: String!
+  numberPlate: String!
+  images: [VehicleImage!]!
+}
+
+enum VehicleType {
+  CAR
+  MOTORBIKE
+  SCOOTER
+}
+
+type DocumentFile {
+  side: DriverDocumentSide!
+  s3Key: String!
+  isActive: Boolean!
+  status: DocumentFileStatus!
+  verifiedBy: String
+  verifiedAt: DateTime
+  createdAt: DateTime!
+}
+
+enum DriverDocumentSide {
+  FRONT
+  BACK
+  VEHICLE_INFO_PAGE
+  TAX_CLEARANCE_PAGE
+}
+
+enum DocumentFileStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REUPLOAD_REQUESTED
+}
+
+type DriverDocument {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  type: String!
+  files: [DocumentFile!]!
+  status: String!
+  reviewedBy: String
+  reviewedAt: DateTime
+  rejectionReason: String
+  submittedAt: DateTime
+}
+
 type BasicResponse {
   message: String!
   success: Boolean!
@@ -56,30 +210,6 @@ enum RidePreference {
   BOTH
 }
 
-"""The provinces of Nepal"""
-enum ProvinceEnum {
-  """Province No. 1 (Koshi)"""
-  PROVINCE_1
-
-  """Province No. 2 (Madhesh)"""
-  PROVINCE_2
-
-  """Bagmati Province"""
-  BAGMATI
-
-  """Gandaki Province"""
-  GANDAKI
-
-  """Lumbini Province"""
-  LUMBINI
-
-  """Karnali Province"""
-  KARNALI
-
-  """Sudurpashchim Province"""
-  SUDURPASHCHIM
-}
-
 type SignInResponse {
   accessToken: String!
   refreshToken: String!
@@ -88,11 +218,11 @@ type SignInResponse {
 }
 
 type SignUpResponse {
-  message: String!
-  success: Boolean!
   currentTime: Int
   expiresBy: Int
   verificationToken: String
+  message: String!
+  success: Boolean!
 }
 
 type SetPasswordResponse {
@@ -127,87 +257,18 @@ type UserDetailEntity {
   userDetails: UserDetailsResponse!
 }
 
-type VehicleImage {
-  s3Key: String!
-  status: ImageStatus!
-  createdAt: DateTime!
-}
-
-enum ImageStatus {
-  ACTIVE
-  INACTIVE
-}
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
-
-type Vehicle {
-  _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
-  deleted: Boolean
-  driverId: String!
-  vehicleType: VehicleType!
-  vehicleModel: String!
-  year: Int!
-  color: String!
-  numberPlate: String!
-  images: [VehicleImage!]!
-}
-
-enum VehicleType {
-  CAR
-  MOTORBIKE
-  SCOOTER
+type BasicExpirationResponse {
+  currentTime: Int
+  expiresBy: Int
+  verificationToken: String
+  message: String!
+  success: Boolean!
 }
 
 type VehicleRegistrationResponse {
   message: String!
   success: Boolean!
   vehicle: Vehicle
-}
-
-type DocumentFile {
-  side: DriverDocumentSide!
-  s3Key: String!
-  isActive: Boolean!
-  status: DocumentFileStatus!
-  verifiedBy: String
-  verifiedAt: DateTime
-  createdAt: DateTime!
-}
-
-enum DriverDocumentSide {
-  FRONT
-  BACK
-  VEHICLE_INFO_PAGE
-  TAX_CLEARANCE_PAGE
-}
-
-enum DocumentFileStatus {
-  PENDING
-  VERIFIED
-  REJECTED
-  REUPLOAD_REQUESTED
-}
-
-type DriverDocument {
-  _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
-  deleted: Boolean
-  driverId: String!
-  type: String!
-  files: [DocumentFile!]!
-  status: String!
-  reviewedBy: String
-  reviewedAt: DateTime
-  rejectionReason: String
-  submittedAt: DateTime
 }
 
 type DriverDocumentConfirmUploadResponse {
@@ -238,7 +299,7 @@ type Query {
 
 type Mutation {
   loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
-  sendVerifyPhoneOtp(input: PhoneInput!): BasicResponse!
+  sendVerifyPhoneOtp(input: PhoneInput!): BasicExpirationResponse!
   resetPassword(input: ResetPasswordInput!): BasicResponse!
   googleSignUp(input: GoogleSignUpInput!): BasicResponse!
   googleSignIn(input: GoogleSignInInput!): SignInResponse!

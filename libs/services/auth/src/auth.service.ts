@@ -39,12 +39,12 @@ import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
 import { SocialAuthService } from "@libs/services/social-auth";
 import { toMongoId } from "@libs/common";
-import { 
-  getCurrentTimestamp, 
-  getRemainingTime, 
-  getOtpThrottledResponse, 
-  getOtpSentResponse, 
-  getUpdatedRoles 
+import {
+  getCurrentTimestamp,
+  getRemainingTime,
+  getOtpThrottledResponse,
+  getOtpSentResponse,
+  getUpdatedRoles
 } from "@libs/common/utils/auth.utils";
 
 export interface SignInResult {
@@ -254,23 +254,23 @@ export class AuthService {
   private async validateUserForSignIn(email: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.NOT_FOUND);
     }
     if (!user.verified) {
-      ErrorException(null, "USER.EMAIL_NOT_VERIFIED", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.EMAIL_NOT_VERIFIED", HttpStatus.NOT_FOUND);
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
-      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.NOT_FOUND);
     }
     if (password !== undefined) {
       const checkPassword = await comparePassword(password, user.password);
       if (!checkPassword) {
-        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
+        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
       }
     }
     if (user.suspended) {
-      ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.SUSPENDED", HttpStatus.FORBIDDEN);
     }
     console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ validateUserForSignIn ~ user:", userDetails)
     return { user, userDetails };
@@ -279,29 +279,29 @@ export class AuthService {
   private async validateUserForSignInPhone(phone: string, password?: string): Promise<{ user: UserDocument; userDetails: UserDetailsDocument }> {
     const user = await this.userRepository.findByPhone(phone);
     if (!user) {
-      ErrorException(null, "USER.PHONE_NOT_FOUND", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.PHONE_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
-      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.INVALID_PHONE", HttpStatus.NOT_FOUND);
     }
     if (password && user?.password) {
       const checkPassword = await comparePassword(password, user?.password || '');
       if (!checkPassword) {
-        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.UNAUTHORIZED);
+        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
       }
     } else {
-      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.NOT_FOUND);
     }
     if (user.suspended) {
-      ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
+      ErrorException(null, "USER.SUSPENDED", HttpStatus.FORBIDDEN);
     }
     return { user, userDetails };
   }
 
-  
 
-  
+
+
 
   // async signIn(signInInput: EmailSignInInput) {
   //   try {
@@ -342,7 +342,7 @@ export class AuthService {
             if (existingTokenMeta?.email) {
               // Decode the stored token to check if it's still valid
               const decoded: any = Jwt.decode(existingTokenMeta.email);
-               if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
+              if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
                 // Token is still valid, re-send it
                 return {
                   message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
@@ -398,7 +398,7 @@ export class AuthService {
 
       // New user signup
       const verificationCode = GenerateRandomDigit(userOtpSalt);
-      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])],this.defaultRole)
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])], this.defaultRole)
       const user: UserDocument = await this.userRepository.create({
         phone,
         roles: getUpdatedRoles(userExistWithThisPhone?.roles, this.defaultRole)
@@ -434,7 +434,7 @@ export class AuthService {
         ErrorException(
           null,
           "COMMON.UNAUTHORIZED",
-          HttpStatus.FORBIDDEN,
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -477,7 +477,7 @@ export class AuthService {
       // TODO: Implement phone SMS sending in later phase
       await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
 
-      return { message: Message(lang, "USER.OTP_SEND"), success: true };
+      return getOtpSentResponse(lang, 'USER.OTP_SEND')
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -513,7 +513,7 @@ export class AuthService {
         },
       );
 
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone,updatedRoles, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -583,7 +583,7 @@ export class AuthService {
           deviceId: null,
           email: verificationToken as string,
           role: this.defaultRole,
-          grant:TokenGrantType.SET_PASSWORD,
+          grant: TokenGrantType.SET_PASSWORD,
         });
 
         const currentTime = Math.floor(Date.now() / 1000);
@@ -819,7 +819,7 @@ export class AuthService {
 
       await this.userRepository.updateOne(
         { _id: user._id },
-        { 
+        {
           lastLogin: UTCTime(),
           loginAs: this.defaultRole,
           roles: updatedRoles,
@@ -828,8 +828,8 @@ export class AuthService {
 
       // Use email or phone as the identifier for token generation
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier,user.roles, verifiedToken.deviceId);
-      
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId);
+
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -869,10 +869,10 @@ export class AuthService {
 
       await this.userRepository.updateOne(
         { _id: user._id },
-        { 
+        {
           password: await hashPassword(password, passwordSalt),
-          loginAs: this.defaultRole, 
-          lastLoginAt: UTCTime(), 
+          loginAs: this.defaultRole,
+          lastLoginAt: UTCTime(),
           verified: true,
           roles: updatedRoles,
         },
@@ -951,6 +951,11 @@ export class AuthService {
           const validOtp = await this.hasValidOtp(existingUser._id, verificationType.VERIFICATION_PHONE);
           if (validOtp) {
             return getOtpThrottledResponse(lang, validOtp.createdAt) as any;
+          } else {
+            return {
+              message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
+              success: true,
+            };
           }
         } else {
           ErrorException(null, "USER.USED_EMAIL", HttpStatus.BAD_REQUEST);
@@ -1002,13 +1007,13 @@ export class AuthService {
 
       await this.userRepository.updateOne(
         { _id: user._id },
-        { 
+        {
           lastLogin: UTCTime(),
           loginAs: this.defaultRole,
           roles: updatedRoles,
         },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles,device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
