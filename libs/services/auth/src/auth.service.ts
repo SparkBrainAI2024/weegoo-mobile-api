@@ -39,12 +39,12 @@ import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
 import { SocialAuthService } from "@libs/services/social-auth";
 import { toMongoId } from "@libs/common";
-import { 
-  getCurrentTimestamp, 
-  getRemainingTime, 
-  getOtpThrottledResponse, 
-  getOtpSentResponse, 
-  getUpdatedRoles 
+import {
+  getCurrentTimestamp,
+  getRemainingTime,
+  getOtpThrottledResponse,
+  getOtpSentResponse,
+  getUpdatedRoles
 } from "@libs/common/utils/auth.utils";
 
 export interface SignInResult {
@@ -299,9 +299,9 @@ export class AuthService {
     return { user, userDetails };
   }
 
-  
 
-  
+
+
 
   // async signIn(signInInput: EmailSignInInput) {
   //   try {
@@ -342,7 +342,7 @@ export class AuthService {
             if (existingTokenMeta?.email) {
               // Decode the stored token to check if it's still valid
               const decoded: any = Jwt.decode(existingTokenMeta.email);
-               if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
+              if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000) && decoded.phone === userExistWithThisPhone.phone) {
                 // Token is still valid, re-send it
                 return {
                   message: Message(lang, "USER.SET_PASSWORD_TO_LOGIN"),
@@ -398,7 +398,7 @@ export class AuthService {
 
       // New user signup
       const verificationCode = GenerateRandomDigit(userOtpSalt);
-      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])],this.defaultRole)
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])], this.defaultRole)
       const user: UserDocument = await this.userRepository.create({
         phone,
         roles: getUpdatedRoles(userExistWithThisPhone?.roles, this.defaultRole)
@@ -477,7 +477,7 @@ export class AuthService {
       // TODO: Implement phone SMS sending in later phase
       await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
 
-      return getOtpSentResponse(lang,'USER.OTP_SEND')
+      return getOtpSentResponse(lang, 'USER.OTP_SEND')
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -513,7 +513,7 @@ export class AuthService {
         },
       );
 
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone,updatedRoles, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -583,7 +583,7 @@ export class AuthService {
           deviceId: null,
           email: verificationToken as string,
           role: this.defaultRole,
-          grant:TokenGrantType.SET_PASSWORD,
+          grant: TokenGrantType.SET_PASSWORD,
         });
 
         const currentTime = Math.floor(Date.now() / 1000);
@@ -819,7 +819,7 @@ export class AuthService {
 
       await this.userRepository.updateOne(
         { _id: user._id },
-        { 
+        {
           lastLogin: UTCTime(),
           loginAs: this.defaultRole,
           roles: updatedRoles,
@@ -828,8 +828,8 @@ export class AuthService {
 
       // Use email or phone as the identifier for token generation
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier,user.roles, verifiedToken.deviceId);
-      
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId);
+
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -869,10 +869,10 @@ export class AuthService {
 
       await this.userRepository.updateOne(
         { _id: user._id },
-        { 
+        {
           password: await hashPassword(password, passwordSalt),
-          loginAs: this.defaultRole, 
-          lastLoginAt: UTCTime(), 
+          loginAs: this.defaultRole,
+          lastLoginAt: UTCTime(),
           verified: true,
           roles: updatedRoles,
         },
@@ -951,6 +951,11 @@ export class AuthService {
           const validOtp = await this.hasValidOtp(existingUser._id, verificationType.VERIFICATION_PHONE);
           if (validOtp) {
             return getOtpThrottledResponse(lang, validOtp.createdAt) as any;
+          } else {
+            return {
+              message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
+              success: true,
+            };
           }
         } else {
           ErrorException(null, "USER.USED_EMAIL", HttpStatus.BAD_REQUEST);
@@ -1002,13 +1007,13 @@ export class AuthService {
 
       await this.userRepository.updateOne(
         { _id: user._id },
-        { 
+        {
           lastLogin: UTCTime(),
           loginAs: this.defaultRole,
           roles: updatedRoles,
         },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles,device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
