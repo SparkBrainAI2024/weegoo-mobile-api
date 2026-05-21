@@ -30,12 +30,16 @@ export class RidesResolver {
     let vehicleId: Types.ObjectId;
     if (process.env.NODE_ENV == "local") {
       driverId = new Types.ObjectId('6a0db9aae2c204483832ccb4');
+
       passengerId = new Types.ObjectId('6a0db5b3d4abf61482b57da0');
+      
       vehicleId = new Types.ObjectId('6a09b0406ae11c2b6255d8e8');
     }
     else {
       driverId = new Types.ObjectId('6a0767fd9c24957e2fd4cfa6');
+
       passengerId = new Types.ObjectId('6a0cda16e7cca165f7b0f912');
+
       vehicleId = new Types.ObjectId('6a09b0406ae11c2b6255d8e8');
     }
     return this.ridesService.generateSampleRides(
