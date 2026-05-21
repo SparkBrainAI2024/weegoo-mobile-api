@@ -1,11 +1,13 @@
 import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Injectable } from '@nestjs/common';
+import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
+    private readonly transactionService:TransactionService
   ) {}
 
   /**
@@ -125,9 +127,25 @@ export class RidesService {
           deleted: false,
         };
         const newRide = await this.rideRepository.createRide(rideData);
+        // NOW we have newRide._id
+
+
+
+        if (newRide.rideStatus === RideStatus.CONFIRMED) {
+
+
+            await this.transactionService.createRideTransactions({
+                tripId: newRide._id,
+    
+            });
+  
+
+
         generatedRides.push(newRide);
       }
     }
     return generatedRides;
   }
+
+}
 }

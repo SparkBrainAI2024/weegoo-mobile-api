@@ -35,9 +35,9 @@ registerEnumType(TransactionStatus, { name: "TransactionStatus" });
 @ObjectType()
 @Schema({ timestamps: true })
 export class Transaction extends BaseEntity {
-  @Field(() => String, { nullable: true })
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Wallet", default: null })
-  walletId?: string;
+  //TODO @Field(() => String, { nullable: true })
+  // @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Wallet", default: null })
+  // walletId?: string;
 
   @Field(() => String, { nullable: true })
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Trip", default: null })

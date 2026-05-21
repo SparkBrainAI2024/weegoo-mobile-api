@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ClientSession } from 'mongoose';
-import { WalletTransaction, WalletTransactionDocument } from './transaction.schema';
-import { TransactionDirection, TransactionType, PaymentMethod } from '../../common/enums';
+import { Transaction, TransactionDocument } from '../entities/transaction.entity';
+import { TransactionDirection, TransactionType } from '../enums/transaction.enum';
+import { PaymentMethodEnum } from '../enums/payment.enum';
 
 export interface CreateTransactionDto {
-  walletId: string;
+  // TODOwalletId: string;
   tripId?: string;
   driverId?: string;
   riderId?: string;
@@ -13,30 +14,30 @@ export interface CreateTransactionDto {
   direction: TransactionDirection;
   type: TransactionType;
   amount: number;
-  paymentMethod?: PaymentMethod;
+  paymentMethod?: PaymentMethodEnum;
   reference?: string;
 }
 
 @Injectable()
 export class TransactionRepository {
   constructor(
-    @InjectModel(WalletTransaction.name)
-    private readonly model: Model<WalletTransactionDocument>,
+    @InjectModel(Transaction.name)
+    private readonly model: Model<TransactionDocument>,
   ) {}
 
   async createMany(
     transactions: CreateTransactionDto[],
     session?: ClientSession,
-  ): Promise<WalletTransaction[]> {
+  ): Promise<Transaction[]> {
     const docs = await this.model.insertMany(transactions, { session });
-    return docs as unknown as WalletTransaction[];
+    return docs as unknown as Transaction[];
   }
 
   async findByDriverId(
     driverId: string,
     from: Date,
     to: Date,
-  ): Promise<WalletTransaction[]> {
+  ): Promise<Transaction[]> {
     return this.model.find({
       driverId,
       direction: TransactionDirection.CREDIT,
@@ -45,14 +46,14 @@ export class TransactionRepository {
     });
   }
 
-  async findByRiderId(riderId: string): Promise<WalletTransaction[]> {
+  async findByRiderId(riderId: string): Promise<Transaction[]> {
     return this.model.find({ riderId }).sort({ createdAt: -1 });
   }
 
   async findByWalletId(
     walletId: string,
     limit = 10,
-  ): Promise<WalletTransaction[]> {
+  ): Promise<Transaction[]> {
     return this.model
       .find({ walletId })
       .sort({ createdAt: -1 })
