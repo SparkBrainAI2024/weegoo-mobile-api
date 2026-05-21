@@ -2,6 +2,7 @@ import { Field, Float, ObjectType, registerEnumType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Schema as MongooseSchema } from "mongoose";
+import { TransactionStatus } from "../enums/transaction.enum";
 
 // ── Enums ──────────────────────────────────────────────────────────────────
 
@@ -22,9 +23,7 @@ export enum PaymentMethod {
   WALLET = "wallet",
 }
 
-export enum TransactionStatus {
-  COMPLETED = "completed",
-}
+
 
 registerEnumType(TransactionDirection, { name: "TransactionDirection" });
 registerEnumType(TransactionType, { name: "TransactionType" });
