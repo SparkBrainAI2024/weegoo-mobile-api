@@ -83,4 +83,17 @@ export class TransactionService {
       await session.endSession();
     }
   }
+
+    async getDriversEarningByDate(driverId: string) {
+    const result = await this.transactionRepo.earningsByDayForDriver(driverId);
+
+    return (
+      result[0] || {
+        totalCredit: 0,
+        totalDebit: 0,
+        netEarning: 0,
+      }
+    );
+  }
+
 }

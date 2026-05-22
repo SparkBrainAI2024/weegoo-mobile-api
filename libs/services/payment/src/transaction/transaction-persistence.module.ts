@@ -1,12 +1,12 @@
+import { Transaction, TransactionSchema } from '@libs/data-access/entities/transaction.entity';
+import { TransactionRepository } from '@libs/data-access/repositories/transaction.repository';
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { WalletTransaction, WalletTransactionSchema } from './transaction.schema';
-import { TransactionRepository } from './transaction.repository';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: WalletTransaction.name, schema: WalletTransactionSchema },
+      { name: Transaction.name, schema: TransactionSchema },
     ]),
   ],
   providers: [TransactionRepository],

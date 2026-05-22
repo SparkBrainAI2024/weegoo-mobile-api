@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, ClientSession } from 'mongoose';
+import { Model, ClientSession, Types } from 'mongoose';
 import { Transaction, TransactionDocument } from '../entities/transaction.entity';
 import { TransactionDirection, TransactionStatus, TransactionType } from '../enums/transaction.enum';
 import { PaymentMethodEnum } from '../enums/payment.enum';
@@ -79,28 +79,48 @@ export class TransactionRepository {
   }
 
   // driver earnings aggregated by day for chart
-  async earningsByDay(
-    driverId: string,
-    from: Date,
-    to: Date,
-  ): Promise<{ date: string; total: number }[]> {
-    return this.model.aggregate([
-      {
-        $match: {
-          driverId,
-          direction: TransactionDirection.CREDIT,
-          type: TransactionType.RIDE_PAYMENT,
-          createdAt: { $gte: from, $lte: to },
+async earningsByDayForDriver(
+  driverId: string,
+  from?: Date,
+  to?: Date,
+): Promise<{ date: string; total: number }[]> {
+  const startDate = from || new Date();
+  startDate.setHours(0, 0, 0, 0);
+
+  const endDate = to || new Date();
+  endDate.setHours(23, 59, 59, 999);
+
+  return this.model.aggregate([
+    {
+      $match: {
+        driverId: new Types.ObjectId(driverId),
+        direction: TransactionDirection.CREDIT,
+        type: TransactionType.RIDE_PAYMENT,
+        createdAt: {
+          $gte: startDate,
+          $lte: endDate,
         },
       },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          total: { $sum: '$amount' },
+    },
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+          },
         },
+        total: { $sum: "$amount" },
       },
-      { $sort: { _id: 1 } },
-      { $project: { date: '$_id', total: 1, _id: 0 } },
-    ]);
-  }
+    },
+    { $sort: { _id: 1 } },
+    {
+      $project: {
+        _id: 0,
+        date: "$_id",
+        total: 1,
+      },
+    },
+  ]);
+}
 }
