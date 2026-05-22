@@ -1,9 +1,9 @@
 import { PaymentMethodEnum } from '@libs/data-access';
-import { TransactionDirection, TransactionType } from '@libs/data-access/enums/transaction.enum';
+import { TransactionDirection, TransactionStatus, TransactionType } from '@libs/data-access/enums/transaction.enum';
 import { TransactionRepository } from '@libs/data-access/repositories/transaction.repository';
 import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 
 
 export interface RideConfirmedInput {
@@ -14,9 +14,9 @@ export interface RideConfirmedInput {
   riderId: string;
   driverId: string;
   adminId: string;
-  totalAmount: number;
+  totalFare: number;
   commission: number;
-  paymentMethod: PaymentMethodEnum;
+  paymentMethod?: PaymentMethodEnum;
 }
 
 @Injectable()
@@ -34,10 +34,10 @@ export class TransactionService {
       //TODO riderWalletId, driverWalletId, adminWalletId,
       
       riderId, driverId, adminId,
-      totalAmount, commission, paymentMethod,
+      totalFare, commission, paymentMethod,
     } = input;
 
-    const driverCredit = totalAmount - commission;
+    const driverCredit = totalFare - commission;
     const session = await this.connection.startSession();
 
     try {
@@ -48,8 +48,10 @@ export class TransactionService {
             tripId, riderId, driverId,
             direction: TransactionDirection.DEBIT,
             type: TransactionType.RIDE_PAYMENT,
-            amount: totalAmount,
+            amount: totalFare,
             paymentMethod,
+            status: TransactionStatus.PENDING
+            
           },
           {
             tripId, riderId, driverId,
@@ -57,6 +59,7 @@ export class TransactionService {
             type: TransactionType.RIDE_PAYMENT,
             amount: driverCredit,
             paymentMethod,
+            status: TransactionStatus.PENDING
           },
           {
             tripId, driverId, adminId,
@@ -64,6 +67,7 @@ export class TransactionService {
             type: TransactionType.COMMISSION,
             amount: commission,
             paymentMethod,
+            status: TransactionStatus.COMPLETED
           },
         ], session);
 

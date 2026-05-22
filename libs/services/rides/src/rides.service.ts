@@ -60,6 +60,7 @@ export class RidesService {
     driverId: Types.ObjectId,
     riderId: Types.ObjectId,
     vehicleId: Types.ObjectId,
+    adminId: Types.ObjectId,
     countPerType: number = 20, // 20 instant, 20 scheduled
   ): Promise<RidesDocument[]> {
     const generatedRides: RidesDocument[] = [];
@@ -135,8 +136,12 @@ export class RidesService {
 
 
             await this.transactionService.createRideTransactions({
-                tripId: newRide._id,
-    
+                tripId: newRide._id.toString(),
+                adminId: adminId.toString(),
+                riderId: newRide.passengerId.toString(),
+                driverId: newRide.driverId.toString(),
+                totalFare: newRide.estimatedFare,
+                commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
             });
   
 
