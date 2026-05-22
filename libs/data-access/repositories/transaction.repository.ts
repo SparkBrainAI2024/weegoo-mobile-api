@@ -79,7 +79,7 @@ export class TransactionRepository {
   }
 
   // driver earnings aggregated by day for chart
-async earningsByDayForDriver(
+async      earningsByDayForDriver                                                                                                    (
   driverId: string,
   from?: Date,
   to?: Date,

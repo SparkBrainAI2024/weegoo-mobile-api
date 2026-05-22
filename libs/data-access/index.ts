@@ -26,6 +26,7 @@ export * from './repositories/user-token-meta.repository';
 export * from './repositories/rides.repository';
 export * from './repositories/vehicle.repository';
 export * from './repositories/driver-document.repository';
+export * from './repositories/transaction.repository';
 
 //enums
 export * from './enums/user.enum';
