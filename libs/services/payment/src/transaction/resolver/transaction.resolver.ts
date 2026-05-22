@@ -10,7 +10,7 @@ import { DriverTodayEarningResponse } from '@libs/data-access/dtos/response/driv
 
 @Resolver()
 @UseGuards(AuthGuard)
-export class DriverEarningResolver {
+export class TransactionResolver {
   constructor(
     private readonly transactionService: TransactionService,
   ) {}
