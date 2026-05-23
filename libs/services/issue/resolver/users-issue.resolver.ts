@@ -1,0 +1,53 @@
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
+import { Issue } from '@libs/data-access/entities/issue.entity';
+import { IssueService } from '../issue.service';
+import { PaginationInput, User } from '@libs/data-access';
+import { CreateIssueInput } from '@libs/data-access/dtos/input/issue.input';
+import { ReportedByType } from '@libs/data-access/enums/issue.enum';
+import {roles} from '@libs/data-access/enums/user.enum'
+import { CurrentUser } from '@libs/common';
+import { AuthGuard } from '@libs/guards';
+import { PaginatedIssues } from '@libs/data-access/dtos/response/issue.response';
+
+@Resolver(() => Issue)
+export class IssueResolver {
+  constructor(private readonly issueService: IssueService) {}
+
+  @UseGuards(AuthGuard)
+  @Mutation(() => Issue)
+  async createIssue(
+    @CurrentUser() user: User,
+    @Args('input') input: CreateIssueInput,
+  ): Promise<Issue> {
+    // reportedByType derived from user role — never from input
+    const reportedByType =
+      user.roles.includes(roles.RIDER) ? ReportedByType.DRIVER : ReportedByType.PASSENGER;
+
+    return this.issueService.createIssue(
+      user._id.toString(),
+      reportedByType,
+      input.category,
+      input.issueContent,
+      input.rideId,
+    );
+  }
+
+  @UseGuards(AuthGuard)
+  @Query(() => PaginatedIssues)
+  async getMyIssues(
+    @CurrentUser() user: User,
+    @Args('pagination') pagination: PaginationInput,
+  ): Promise<PaginatedIssues> {
+    const result = await this.issueService.getMyIssues(
+      user._id.toString(),
+      pagination,
+    );
+
+    return {
+      ...result,
+      page: pagination.page,
+      limit: pagination.limit,
+    };
+  }
+}
