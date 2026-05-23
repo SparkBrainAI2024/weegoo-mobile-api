@@ -108,9 +108,10 @@ async      earningsByDayForDriver                                               
           $dateToString: {
             format: "%Y-%m-%d",
             date: "$createdAt",
+            timezone: "Asia/Kathmandu"
           },
         },
-        total: { $sum: "$amount" },
+        totalCredit: { $sum: "$amount" },
       },
     },
     { $sort: { _id: 1 } },
@@ -118,7 +119,7 @@ async      earningsByDayForDriver                                               
       $project: {
         _id: 0,
         date: "$_id",
-        total: 1,
+        totalCredit: 1,
       },
     },
   ]);
