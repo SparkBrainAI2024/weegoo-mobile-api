@@ -10,6 +10,7 @@ import { UsersIssueResolver } from "@libs/services/issue/src/resolver/users-issu
     imports: [
         IssuePersistenceModule,
         UserPersistenceModule,
+        RidePersistentModule
     ],
     providers: [
         IssueService,

@@ -358,6 +358,53 @@ type RideListWithPaginationResponse {
   pagination: Pagination!
 }
 
+type Issue {
+  _id: ID!
+  reportedBy: String!
+  reportedByType: ReportedByType!
+  rideId: String
+  category: IssueCategory!
+  issueContent: String!
+  status: IssueStatus!
+  resolvedBy: String
+  resolvedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+The type of the user who reported the issue since driver and passenger are allowed to report issues
+"""
+enum ReportedByType {
+  """The user is a passenger"""
+  PASSENGER
+
+  """The user is a driver"""
+  DRIVER
+}
+
+enum IssueCategory {
+  PAYMENT_ISSUE
+  DRIVER_BEHAVIOR
+  PASSENGER_BEHAVIOR
+  APP_BUG
+  RIDE_ISSUE
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+
+type PaginatedIssues {
+  items: [Issue!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
@@ -366,6 +413,7 @@ type Query {
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
+  getMyIssues(pagination: PaginationInput!): PaginatedIssues!
 }
 
 enum DriverDocumentType {
@@ -420,6 +468,7 @@ type Mutation {
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   requestUpload(input: RequestUploadInput!): RequestUploadResponse!
   generateSampleRides: [Rides!]!
+  createIssue(input: CreateIssueInput!): Issue!
 }
 
 input RefreshTokenInput {
@@ -579,4 +628,10 @@ enum UploadPurpose {
   DRIVER_LICENSE
   DRIVER_BLUEBOOK
   DRIVER_NATIONAL_ID
+}
+
+input CreateIssueInput {
+  rideId: String
+  category: IssueCategory!
+  issueContent: String!
 }
