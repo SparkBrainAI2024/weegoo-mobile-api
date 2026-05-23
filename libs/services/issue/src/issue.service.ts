@@ -7,8 +7,9 @@ import {
 import { IssueRepository, CreateIssueDto, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
 import { Issue } from '@libs/data-access/entities/issue.entity';
 import { IssueCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
-import { RidesRepository } from '@libs/data-access';
+import { CreateIssueResponse, RidesRepository } from '@libs/data-access';
 import { Types } from 'mongoose';
+import { Message } from '@libs/localization';
 
 // valid status transitions — no backwards movement
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
@@ -29,8 +30,9 @@ export class IssueService {
     reportedByType: ReportedByType,
     category: IssueCategory,
     issueContent: string,
+    lang:string,
     rideId?: string,
-  ): Promise<Issue> {
+  ): Promise<CreateIssueResponse> {
     // validate issueContent length
     if (!issueContent || issueContent.trim().length < 10) {
       throw new BadRequestException('Issue content must be at least 10 characters.');
@@ -59,7 +61,12 @@ export class IssueService {
       rideId,
     };
 
-    return this.issueRepo.create(data);
+    const issue = await this.issueRepo.create(data);
+    return {
+  message: Message(lang, 'ISSUE.CREATED'),
+  success: true,
+  issue,
+};
   }
 
   // passenger or driver views their own issues

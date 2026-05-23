@@ -6,9 +6,9 @@ import { PaginationInput, User } from '@libs/data-access';
 import { CreateIssueInput } from '@libs/data-access/dtos/input/create-issue.input';
 import { IssueCategory, ReportedByType } from '@libs/data-access/enums/issue.enum';
 import {roles} from '@libs/data-access/enums/user.enum'
-import { CurrentUser } from '@libs/common';
+import { CurrentLang, CurrentUser } from '@libs/common';
 import { AuthGuard } from '@libs/guards';
-import { PaginatedIssues } from '@libs/data-access/dtos/response/issue.response';
+import { CreateIssueResponse } from '@libs/data-access/dtos/response/issue.response';
 
 
 
@@ -17,11 +17,12 @@ export class UsersIssueResolver {
   constructor(private readonly issueService: IssueService) {}
 
   @UseGuards(AuthGuard)
-  @Mutation(() => Issue)
+  @Mutation(() => CreateIssueResponse)
   async createIssue(
     @CurrentUser() user: User,
+    @CurrentLang() lang, 
     @Args('input') input: CreateIssueInput,
-  ): Promise<Issue> {
+  ): Promise<CreateIssueResponse> {
     
     // reportedByType derived from user role — never from input
     const reportedByType =
@@ -32,25 +33,10 @@ export class UsersIssueResolver {
       reportedByType,
       input.category,
       input.issueContent,
+      lang,
       input.rideId,
     );
   }
 
-  @UseGuards(AuthGuard)
-  @Query(() => PaginatedIssues)
-  async getMyIssues(
-    @CurrentUser() user: User,
-    @Args('pagination') pagination: PaginationInput,
-  ): Promise<PaginatedIssues> {
-    const result = await this.issueService.getMyIssues(
-      user._id.toString(),
-      pagination,
-    );
 
-    return {
-      ...result,
-      page: pagination.page,
-      limit: pagination.limit,
-    };
-  }
 }
