@@ -75,6 +75,7 @@ export * from './dtos/input/phone-signin.input';
 export * from './dtos/input/phone-input';
 export * from './dtos/input/update-phone.input';
 export * from './dtos/input/verify-phone.input';
+export * from './dtos/input/create-issue.input'
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -88,3 +89,4 @@ export * from './dtos/response/verify-password-reset.repsonse';
 export * from './dtos/response/user-detail-response-v2';
 export * from './dtos/response/expiration.response';
 export * from './dtos/response/basic-expiration.repsonse';
+export * from './dtos/response/issue.response'

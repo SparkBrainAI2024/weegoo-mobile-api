@@ -27,8 +27,8 @@ export class Issue {
   @Prop({ type: Types.ObjectId, ref: 'Rides', default: null, index: true })
   rideId?: string;
 
-  @Field(() => IssueCategory)
-  @Prop({ required: true, type: String, enum: IssueCategory })
+  @Field(() => IssueCategory, {nullable: true})
+  @Prop({ type: String, enum: IssueCategory, default:null })
   category: IssueCategory;
 
   @Field(() => String)

@@ -1,14 +1,20 @@
-import { Field, InputType, Int } from '@nestjs/graphql';
 import { IssueCategory, IssueStatus } from '@libs/data-access/enums/issue.enum';
+import { Field, InputType, Int } from '@nestjs/graphql';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 
 @InputType()
 export class CreateIssueInput {
+  @IsOptional()
+  @IsString()
   @Field(() => String, { nullable: true })
   rideId?: string;
 
-  @Field(() => IssueCategory)
-  category: IssueCategory;
+  @IsOptional()
+  @IsEnum(IssueCategory)
+  @Field(() => IssueCategory, { nullable: true })
+  category?: IssueCategory;
 
+  @IsString()
   @Field(() => String)
   issueContent: string;
 }
@@ -43,11 +49,3 @@ export class GetAllIssuesInput {
   limit: number;
 }
 
-@InputType()
-export class PaginationInput {
-  @Field(() => Int, { defaultValue: 1 })
-  page: number;
-
-  @Field(() => Int, { defaultValue: 10 })
-  limit: number;
-}

@@ -329,41 +329,12 @@ type BasicExpirationResponse {
   success: Boolean!
 }
 
-type VehicleRegistrationResponse {
-  message: String!
-  success: Boolean!
-  vehicle: Vehicle
-}
-
-type DriverDocumentConfirmUploadResponse {
-  message: String!
-  success: Boolean!
-  driverDocument: DriverDocument!
-}
-
-type DocumentViewUrlResponse {
-  url: String!
-  expiresInSeconds: Int!
-}
-
-type RequestUploadResponse {
-  uploadUrl: String!
-  s3Key: String!
-  expiresInSeconds: Int!
-}
-
-type RideListWithPaginationResponse {
-  message: String
-  data: [Rides!]
-  pagination: Pagination!
-}
-
 type Issue {
   _id: ID!
   reportedBy: String!
   reportedByType: ReportedByType!
   rideId: String
-  category: IssueCategory!
+  category: IssueCategory
   issueContent: String!
   status: IssueStatus!
   resolvedBy: String
@@ -403,6 +374,35 @@ type PaginatedIssues {
   total: Int!
   page: Int!
   limit: Int!
+}
+
+type VehicleRegistrationResponse {
+  message: String!
+  success: Boolean!
+  vehicle: Vehicle
+}
+
+type DriverDocumentConfirmUploadResponse {
+  message: String!
+  success: Boolean!
+  driverDocument: DriverDocument!
+}
+
+type DocumentViewUrlResponse {
+  url: String!
+  expiresInSeconds: Int!
+}
+
+type RequestUploadResponse {
+  uploadUrl: String!
+  s3Key: String!
+  expiresInSeconds: Int!
+}
+
+type RideListWithPaginationResponse {
+  message: String
+  data: [Rides!]
+  pagination: Pagination!
 }
 
 type Query {
@@ -632,6 +632,6 @@ enum UploadPurpose {
 
 input CreateIssueInput {
   rideId: String
-  category: IssueCategory!
+  category: IssueCategory
   issueContent: String!
 }
