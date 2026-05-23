@@ -2,33 +2,16 @@ import { Field, Float, ObjectType, registerEnumType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Schema as MongooseSchema } from "mongoose";
-import { TransactionStatus } from "../enums/transaction.enum";
-
-// ── Enums ──────────────────────────────────────────────────────────────────
-
-export enum TransactionDirection {
-  DEBIT = "debit",
-  CREDIT = "credit",
-}
-
-export enum TransactionType {
-  RIDE_PAYMENT = "ride_payment",
-  TOPUP = "topup",
-  WITHDRAWAL = "withdrawal",
-  COMMISSION = "commission",
-}
-
-export enum PaymentMethod {
-  CASH = "cash",
-  WALLET = "wallet",
-}
+import { TransactionDirection, TransactionStatus, TransactionType } from "../enums/transaction.enum";
+import { PaymentMethodEnum } from "../enums/payment.enum";
 
 
 
-registerEnumType(TransactionDirection, { name: "TransactionDirection" });
-registerEnumType(TransactionType, { name: "TransactionType" });
-registerEnumType(PaymentMethod, { name: "PaymentMethod" });
-registerEnumType(TransactionStatus, { name: "TransactionStatus" });
+
+
+
+
+
 
 // ── Entity ─────────────────────────────────────────────────────────────────
 
@@ -63,9 +46,9 @@ export class Transaction extends BaseEntity {
   @Prop({ required: true, type: Number })
   amount: number;
 
-  @Field(() => PaymentMethod, { nullable: true })
-  @Prop({ type: String, enum: PaymentMethod, default: null })
-  paymentMethod?: PaymentMethod;
+  @Field(() => PaymentMethodEnum, { nullable: true })
+  @Prop({ type: String, enum: PaymentMethodEnum, default: null })
+  paymentMethod?: PaymentMethodEnum;
 
   @Field(() => TransactionStatus)
   @Prop({

@@ -1,21 +1,5 @@
 import { registerEnumType } from "@nestjs/graphql";
 
-export enum PaymentMethodEnum {
-    CASH = 'CASH',
-    WALLET = 'WALLET'
-}
-registerEnumType(PaymentMethodEnum, {
-    name: 'PaymentMethodEnum',
-    description: 'Payment method for the ride',
-    valuesMap: {
-        CASH: {
-            description: 'Payment method is cash',
-        },
-        WALLET: {
-            description: 'Payment method is wallet',
-        },
-    },
-}); 
 
 export enum TransactionDirection {
   DEBIT = 'DEBIT',
@@ -81,7 +65,7 @@ registerEnumType(TransactionStatus, {
 });
 
 export enum WalletUserType {
-  RIDER = 'RIDER',
+  PASSENGER = 'PASSENGER',
   DRIVER = 'DRIVER',
   ADMIN = 'ADMIN',
 }
@@ -90,8 +74,8 @@ registerEnumType(WalletUserType, {
   name: 'WalletUserType',
   description: 'Type of wallet owner',
   valuesMap: {
-    RIDER: {
-      description: 'Wallet belongs to rider',
+    PASSENGER: {
+      description: 'Wallet belongs to passenger',
     },
     DRIVER: {
       description: 'Wallet belongs to driver',
