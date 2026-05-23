@@ -11,7 +11,7 @@ import { AuthGuard } from '@libs/guards';
 import { PaginatedIssues } from '@libs/data-access/dtos/response/issue.response';
 
 @Resolver(() => Issue)
-export class IssueResolver {
+export class UsersIssueResolver {
   constructor(private readonly issueService: IssueService) {}
 
   @UseGuards(AuthGuard)

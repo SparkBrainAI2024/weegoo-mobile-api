@@ -12,6 +12,7 @@ import { envConfiguration, HealthResolver } from "@libs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
 import { RidesModule } from "./modules/rides/rides.module";
+import { IssueModule } from "./modules/issue/issue.module";
 
 @Module({
   imports: [
@@ -43,7 +44,8 @@ import { RidesModule } from "./modules/rides/rides.module";
     }),
     AuthModule,
     UserModule,
-    RidesModule
+    RidesModule,
+    IssueModule
   ],
   providers: [HealthResolver],
 })

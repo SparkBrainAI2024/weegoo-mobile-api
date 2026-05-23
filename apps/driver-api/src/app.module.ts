@@ -13,6 +13,7 @@ import { CleanupModule } from './modules/cleanup/cleanup.module';
 import { DriverDocumentModule } from './modules/driver-document/driver-document.module';
 import { UploadCenterModule } from '@libs/services/upload-center/src';
 import { RidesModule } from './modules/rides/rides.module';
+import { IssueModule } from './modules/issue/issue.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { RidesModule } from './modules/rides/rides.module';
     CleanupModule,
     DriverDocumentModule,
     UploadCenterModule,
-    RidesModule
+    RidesModule,
+    IssueModule
   ],
   providers: [HealthResolver],
 })
