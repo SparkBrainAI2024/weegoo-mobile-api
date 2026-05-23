@@ -369,11 +369,10 @@ enum IssueStatus {
   RESOLVED
 }
 
-type PaginatedIssues {
-  items: [Issue!]!
-  total: Int!
-  page: Int!
-  limit: Int!
+type CreateIssueResponse {
+  message: String!
+  success: Boolean!
+  issue: Issue
 }
 
 type VehicleRegistrationResponse {
@@ -413,7 +412,6 @@ type Query {
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
-  getMyIssues(pagination: PaginationInput!): PaginatedIssues!
 }
 
 enum DriverDocumentType {
@@ -468,7 +466,7 @@ type Mutation {
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   requestUpload(input: RequestUploadInput!): RequestUploadResponse!
   generateSampleRides: [Rides!]!
-  createIssue(input: CreateIssueInput!): Issue!
+  createIssue(input: CreateIssueInput!): CreateIssueResponse!
 }
 
 input RefreshTokenInput {
