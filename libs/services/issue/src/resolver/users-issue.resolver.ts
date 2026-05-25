@@ -9,6 +9,7 @@ import { roles } from '@libs/data-access/enums/user.enum'
 import { CurrentLang, CurrentUser } from '@libs/common';
 import { AuthGuard } from '@libs/guards';
 import { CreateIssueResponse } from '@libs/data-access/dtos/response/issue.response';
+import { IssueCategory } from '@libs/data-access/entities/issue-category.entity';
 
 @Resolver(() => Issue)
 export class UsersIssueResolver {
@@ -39,5 +40,12 @@ export class UsersIssueResolver {
   async seedIssueCategorys(): Promise<string> {
     return this.issueService.seedIssueCategorys();
   }
+
+  @Query(() => [IssueCategory])
+async getIssueCategoriesByParent(
+  @Args('parentCategory', { type: () => IssueParentCategory }) parentCategory: IssueParentCategory,
+): Promise<IssueCategory[]> {
+  return this.issueService.getCategoriesByParent(parentCategory);
+}
 
 }

@@ -11,6 +11,7 @@ import { CreateIssueResponse, IssueCategoryInput, RidesRepository } from '@libs/
 import { Types } from 'mongoose';
 import { Message } from '@libs/localization';
 import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-category.embedded';
+import { IssueCategory } from '@libs/data-access/entities/issue-category.entity';
 
 // valid status transitions — no backwards movement
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
@@ -77,6 +78,8 @@ export class IssueService {
     success: true,
     issue,
   };
+
+  
 }
 
   // passenger or driver views their own issues
@@ -131,4 +134,9 @@ async seedIssueCategorys(): Promise<string> {
 
   return 'Issue groups seeded successfully';
 }
+
+async getCategoriesByParent(parentCategory: IssueParentCategory): Promise<IssueCategory[]> {
+  return this.issueRepo.findByParentCategory(parentCategory);
+}
+
 }

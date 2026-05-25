@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Issue, IssueDocument } from '../entities/issue.entity';
-import {  IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import {  IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
 import { IssueCategory } from '../entities/issue-category.entity';
 import { CreateIssueInput } from '../dtos/input/create-issue.input';
 import { IssueCategoryEmbed } from '../entities/issue-category.embedded';
@@ -100,6 +100,10 @@ export class IssueRepository {
       { new: true },
     );
   }
+
+  async findByParentCategory(parentCategory: IssueParentCategory): Promise<IssueCategory[]> {
+  return this.issueCategoryEmbed.find({ parentCategory, isActive: true }).sort({ sortOrder: 1 }).lean();
+}
 
 async seedIssueCategorys(data: Partial<IssueCategory>[]) {
   await Promise.all(
