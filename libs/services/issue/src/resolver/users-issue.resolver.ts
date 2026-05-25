@@ -10,8 +10,6 @@ import { CurrentLang, CurrentUser } from '@libs/common';
 import { AuthGuard } from '@libs/guards';
 import { CreateIssueResponse } from '@libs/data-access/dtos/response/issue.response';
 
-export const issueCategorySeed = [{ parentCategory: IssueParentCategory.RIDE, label: 'Driver is too slow', sortOrder: 1, isActive: true }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver took wrong route', sortOrder: 2, isActive: true }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver was rude', sortOrder: 3, isActive: true }, { parentCategory: IssueParentCategory.CANCEL, label: 'Driver cancelled last minute', sortOrder: 1, isActive: true }, { parentCategory: IssueParentCategory.CANCEL, label: 'Wrong cancellation charge', sortOrder: 2, isActive: true },]
-
 @Resolver(() => Issue)
 export class UsersIssueResolver {
   constructor(private readonly issueService: IssueService) { }

@@ -329,12 +329,36 @@ type BasicExpirationResponse {
   success: Boolean!
 }
 
+type IssueCategoryEmbed {
+  parentCategory: IssueParentCategory!
+  subCategoryId: ID
+  subCategoryLabel: String
+}
+
+"""Top-level grouping for issue templates"""
+enum IssueParentCategory {
+  """Problems that occurred during a ride"""
+  RIDE
+
+  """Issues related to ride cancellations"""
+  CANCEL
+
+  """Complaints about drivers, passengers, or service"""
+  COMPLAINT
+
+  """Problems with the in-app chat feature"""
+  CHAT
+  PAYMENT
+  ACCOUNT
+  OTHER
+}
+
 type Issue {
   _id: ID!
   reportedBy: String!
   reportedByType: ReportedByType!
   rideId: String
-  category: IssueCategory
+  category: IssueCategoryEmbed
   issueContent: String!
   status: IssueStatus!
   resolvedBy: String
@@ -352,15 +376,6 @@ enum ReportedByType {
 
   """The user is a driver"""
   DRIVER
-}
-
-enum IssueCategory {
-  PAYMENT_ISSUE
-  DRIVER_BEHAVIOR
-  PASSENGER_BEHAVIOR
-  APP_BUG
-  RIDE_ISSUE
-  OTHER
 }
 
 enum IssueStatus {
@@ -467,6 +482,7 @@ type Mutation {
   requestUpload(input: RequestUploadInput!): RequestUploadResponse!
   generateSampleRides: [Rides!]!
   createIssue(input: CreateIssueInput!): CreateIssueResponse!
+  seedIssueCategorys: String!
 }
 
 input RefreshTokenInput {
@@ -629,7 +645,12 @@ enum UploadPurpose {
 }
 
 input CreateIssueInput {
+  category: IssueCategoryInput
   rideId: String
-  category: IssueCategory
   issueContent: String!
+}
+
+input IssueCategoryInput {
+  parentCategory: IssueParentCategory!
+  subCategoryId: ID
 }

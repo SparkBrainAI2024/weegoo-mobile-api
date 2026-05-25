@@ -3,9 +3,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Issue, IssueDocument } from '../entities/issue.entity';
 import {  IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
-import { IssueCategory } from '../entities/issue-group.entity';
+import { IssueCategory } from '../entities/issue-category.entity';
 import { CreateIssueInput } from '../dtos/input/create-issue.input';
-import { IssueCategoryEmbed } from '../entities/issue-group.embedded';
+import { IssueCategoryEmbed } from '../entities/issue-category.embedded';
 
 
 
@@ -23,7 +23,7 @@ export class IssueRepository {
   constructor(
     @InjectModel(Issue.name)
     private readonly model: Model<IssueDocument>,
-    private readonly issueCategoryEmbed: Model<IssueCategory>,
+    @InjectModel(IssueCategory.name) private readonly issueCategoryEmbed: Model<IssueCategory>,
   ) {}
 
   async create(data: CreateIssueInput & { category: IssueCategoryEmbed; reportedBy: string; reportedByType: ReportedByType }): Promise<Issue> {

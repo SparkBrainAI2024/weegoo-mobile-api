@@ -2,7 +2,7 @@ import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import {  IssueParentCategory, IssueStatus, ReportedByType } from '../enums/issue.enum';
-import {  IssueCategoryEmbed, IssueCategoryEmbedSchema } from './issue-group.embedded';
+import {  IssueCategoryEmbed, IssueCategoryEmbedSchema } from './issue-category.embedded';
 
 
 

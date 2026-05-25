@@ -6,12 +6,11 @@ import {
 } from '@nestjs/common';
 import { IssueRepository, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
 import { Issue } from '@libs/data-access/entities/issue.entity';
-import {  IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import {  IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
 import { CreateIssueResponse, IssueCategoryInput, RidesRepository } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Message } from '@libs/localization';
-import { issueCategorySeed } from './resolver/users-issue.resolver';
-import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-group.embedded';
+import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-category.embedded';
 
 // valid status transitions — no backwards movement
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
@@ -19,6 +18,10 @@ const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   [IssueStatus.IN_REVIEW]: [IssueStatus.RESOLVED],
   [IssueStatus.RESOLVED]: [],
 };
+
+
+export const issueCategorySeed = [{ parentCategory: IssueParentCategory.RIDE, label: 'Driver is too slow', sortOrder: 1, isActive: true }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver took wrong route', sortOrder: 2, isActive: true }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver was rude', sortOrder: 3, isActive: true }, { parentCategory: IssueParentCategory.CANCEL, label: 'Driver cancelled last minute', sortOrder: 1, isActive: true }, { parentCategory: IssueParentCategory.CANCEL, label: 'Wrong cancellation charge', sortOrder: 2, isActive: true },]
+
 
 @Injectable()
 export class IssueService {
