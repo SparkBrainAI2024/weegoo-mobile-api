@@ -14,10 +14,10 @@ export class UserDetailsRepository extends BaseRepository<UserDetailsDocument> {
         return this.model.findOne({ email });
     }
 
-    async setOnlineStatus(userId: string, isDriverOnline: boolean) {
+    async setOnlineStatus(userId: string, driverOnlineStatus: boolean) {
   return this.model.findOneAndUpdate(
     { userId: new Types.ObjectId(userId) },
-    { isDriverOnline, },
+    { driverOnlineStatus, },
     { new: true },
   );
 }

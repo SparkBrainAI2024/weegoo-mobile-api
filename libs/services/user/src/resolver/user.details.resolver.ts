@@ -28,8 +28,8 @@ export class UserDetailsResolver {
   @Mutation(() => UserDetails)
 async setDriverOnlineStatus(
   @CurrentUser() user: { _id: string },
-  @Args('isOnline') isDriverOnline: boolean,
+  @Args('isOnline') driverOnlineStatus: boolean,
 ): Promise<UserDetails> {
-  return this.userDetailsService.setOnlineStatus(user._id, isDriverOnline);
+  return this.userDetailsService.setOnlineStatus(user._id, driverOnlineStatus);
 }
 }

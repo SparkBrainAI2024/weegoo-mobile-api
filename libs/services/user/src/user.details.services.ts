@@ -81,7 +81,7 @@ export class UserDetailsService {
     }
   }
 
-  async setOnlineStatus(userId: string, isDriverOnline: boolean) {
-  return this.userDetailsRepository.setOnlineStatus(userId, isDriverOnline);
+  async setOnlineStatus(userId: string, driverOnlineStatus: boolean) {
+  return this.userDetailsRepository.setOnlineStatus(userId, driverOnlineStatus);
 }
 }

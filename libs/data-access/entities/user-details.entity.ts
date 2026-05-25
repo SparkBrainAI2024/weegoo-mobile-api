@@ -61,7 +61,7 @@ export class UserDetails extends BaseEntity {
 
   @Field({ defaultValue: false })
 @Prop({ default: false })
-isDriverOnline: boolean;
+driverOnlineStatus: boolean;
 
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
