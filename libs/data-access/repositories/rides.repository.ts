@@ -8,7 +8,7 @@ import { PaginationInput } from "../base/base.input";
 import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
-import { nanoid } from "@libs/common/utils/id.generator";
+import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
 
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
@@ -90,6 +90,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
      ...paginationInput.filter,
       deleted: false, // Exclude soft-deleted rides
     };
+
+    if(filter.rideStatus === UpcomingRideStatus){ 
+      filter.bookingTime = { $gt: new Date() }; // Only upcoming rides
+      filter.rideStatus = RideStatus.CONFIRMED; // Upcoming rides are a subset of scheduled rides
+    }
 
     // Check user roles and apply appropriate filter
     // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
