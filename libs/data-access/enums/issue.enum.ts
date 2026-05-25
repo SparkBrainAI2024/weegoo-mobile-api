@@ -5,14 +5,6 @@ export enum ReportedByType {
   DRIVER = 'DRIVER',
 }
 
-export enum IssueCategory {
-  PAYMENT_ISSUE = 'PAYMENT_ISSUE',
-  DRIVER_BEHAVIOR = 'DRIVER_BEHAVIOR',
-  PASSENGER_BEHAVIOR = 'PASSENGER_BEHAVIOR',
-  APP_BUG = 'APP_BUG',
-  RIDE_ISSUE = 'RIDE_ISSUE',
-  OTHER = 'OTHER',
-}
 
 export enum IssueStatus {
   OPEN = 'OPEN',
@@ -20,7 +12,32 @@ export enum IssueStatus {
   RESOLVED = 'RESOLVED',
 }
 
-registerEnumType(IssueCategory, { name: 'IssueCategory' });
+
+// Top-level parent categories — these are seeded, not dynamic
+export enum IssueParentCategory {
+  RIDE = 'RIDE',
+  CANCEL = 'CANCEL',
+  COMPLAINT = 'COMPLAINT',
+  CHAT = 'CHAT',
+  PAYMENT = 'PAYMENT',
+  ACCOUNT = 'ACCOUNT',
+  OTHER = 'OTHER',
+}
+ 
+
+registerEnumType(IssueParentCategory, {
+  name: 'IssueParentCategory',
+  description: 'Top-level grouping for issue templates',
+  valuesMap: {
+    RIDE: { description: 'Problems that occurred during a ride' },
+    CANCEL: { description: 'Issues related to ride cancellations' },
+    COMPLAINT: { description: 'Complaints about drivers, passengers, or service' },
+    CHAT: { description: 'Problems with the in-app chat feature' },
+
+  },
+});
+
+
 registerEnumType(IssueStatus, { name: 'IssueStatus' });
 registerEnumType(ReportedByType, {
   name: 'ReportedByType',
