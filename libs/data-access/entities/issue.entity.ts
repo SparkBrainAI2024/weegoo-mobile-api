@@ -1,7 +1,7 @@
 import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema, Types } from 'mongoose';
-import {  IssueParentCategory, IssueStatus, ReportedByType } from '../enums/issue.enum';
+import {  IssueCategoryFor, IssueParentCategory, IssueStatus, ReportedByType } from '../enums/issue.enum';
 import {  IssueCategoryEmbed, IssueCategoryEmbedSchema } from './issue-category.embedded';
 
 
@@ -44,6 +44,10 @@ category?: IssueCategoryEmbed;
   @Field(() => String, { nullable: true })
   @Prop({ type: Types.ObjectId, ref: 'AdminUser', default: null })
   resolvedBy?: string;
+
+  @Field(() => IssueCategoryFor)
+@Prop({ type: String, enum: IssueCategoryFor, default: IssueCategoryFor.BOTH })
+categoryFor: IssueCategoryFor;
 
   @Field(() => Date, { nullable: true })
   @Prop({ type: Date, default: null })

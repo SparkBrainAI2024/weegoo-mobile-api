@@ -41,11 +41,16 @@ export class UsersIssueResolver {
     return this.issueService.seedIssueCategorys();
   }
 
-  @Query(() => [IssueCategory])
+@UseGuards(AuthGuard)
+@Query(() => [IssueCategory])
 async getIssueCategoriesByParent(
+  @CurrentUser() user: User,
   @Args('parentCategory', { type: () => IssueParentCategory }) parentCategory: IssueParentCategory,
 ): Promise<IssueCategory[]> {
-  return this.issueService.getCategoriesByParent(parentCategory);
+  const reportedByType = user.roles.includes(roles.RIDER) 
+    ? ReportedByType.PASSENGER 
+    : ReportedByType.DRIVER;
+  return this.issueService.getCategoriesByParent(parentCategory, reportedByType);
 }
 
 }

@@ -348,9 +348,6 @@ enum IssueParentCategory {
 
   """Problems with the in-app chat feature"""
   CHAT
-  PAYMENT
-  ACCOUNT
-  OTHER
 }
 
 type Issue {
@@ -362,6 +359,7 @@ type Issue {
   issueContent: String!
   status: IssueStatus!
   resolvedBy: String
+  categoryFor: IssueCategoryFor!
   resolvedAt: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -382,6 +380,20 @@ enum IssueStatus {
   OPEN
   IN_REVIEW
   RESOLVED
+}
+
+"""
+Indicates whether an issue category is applicable to drivers, passengers, or both
+"""
+enum IssueCategoryFor {
+  """Category is relevant for drivers"""
+  DRIVER
+
+  """Category is relevant for passengers"""
+  PASSENGER
+
+  """Category is relevant for both drivers and passengers"""
+  BOTH
 }
 
 type CreateIssueResponse {
@@ -419,6 +431,16 @@ type RideListWithPaginationResponse {
   pagination: Pagination!
 }
 
+type IssueCategory {
+  _id: ID!
+  parentCategory: IssueParentCategory!
+  label: String!
+  sortOrder: Float!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
@@ -427,6 +449,7 @@ type Query {
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
+  getIssueCategoriesByParent(parentCategory: IssueParentCategory!): [IssueCategory!]!
 }
 
 enum DriverDocumentType {

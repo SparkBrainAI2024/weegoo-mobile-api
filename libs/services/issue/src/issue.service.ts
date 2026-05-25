@@ -132,11 +132,14 @@ export class IssueService {
 async seedIssueCategorys(): Promise<string> {
   await this.issueRepo.seedIssueCategorys(issueCategorySeed);
 
-  return 'Issue groups seeded successfully';
+  return 'Issue categories seeded successfully';
 }
 
-async getCategoriesByParent(parentCategory: IssueParentCategory): Promise<IssueCategory[]> {
-  return this.issueRepo.findByParentCategory(parentCategory);
+async getCategoriesByParent(
+  parentCategory: IssueParentCategory,
+  reportedByType: ReportedByType,
+): Promise<IssueCategory[]> {
+  return this.issueRepo.findByParentCategory(parentCategory, reportedByType);
 }
 
 }

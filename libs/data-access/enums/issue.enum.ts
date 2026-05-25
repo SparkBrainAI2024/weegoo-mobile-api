@@ -19,10 +19,24 @@ export enum IssueParentCategory {
   CANCEL = 'CANCEL',
   COMPLAINT = 'COMPLAINT',
   CHAT = 'CHAT',
-  PAYMENT = 'PAYMENT',
-  ACCOUNT = 'ACCOUNT',
-  OTHER = 'OTHER',
+ 
 }
+
+export enum IssueCategoryFor {
+  DRIVER = 'DRIVER',
+  PASSENGER = 'PASSENGER',
+  BOTH = 'BOTH',
+}
+
+registerEnumType(IssueCategoryFor, {
+  name: 'IssueCategoryFor',
+  description: 'Indicates whether an issue category is applicable to drivers, passengers, or both',
+  valuesMap: {
+    DRIVER: { description: 'Category is relevant for drivers' },
+    PASSENGER: { description: 'Category is relevant for passengers' },
+    BOTH: { description: 'Category is relevant for both drivers and passengers' },
+  },
+});
  
 
 registerEnumType(IssueParentCategory, {
