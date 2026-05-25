@@ -2,19 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Issue, IssueDocument } from '../entities/issue.entity';
-import { IssueCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import {  IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import { IssueCategory } from '../entities/issue-group.entity';
+import { CreateIssueInput } from '../dtos/input/create-issue.input';
+import { IssueCategoryEmbed } from '../entities/issue-group.embedded';
 
-export interface CreateIssueDto {
-  reportedBy: string;
-  reportedByType: ReportedByType;
-  rideId?: string;
-  category: IssueCategory;
-  issueContent: string;
-}
+
 
 export interface IssueFilters {
   status?: IssueStatus;
-  category?: IssueCategory;
 }
 
 export interface PaginationOptions {
@@ -27,9 +23,10 @@ export class IssueRepository {
   constructor(
     @InjectModel(Issue.name)
     private readonly model: Model<IssueDocument>,
+    private readonly issueCategoryEmbed: Model<IssueCategory>,
   ) {}
 
-  async create(data: CreateIssueDto): Promise<Issue> {
+  async create(data: CreateIssueInput & { category: IssueCategoryEmbed; reportedBy: string; reportedByType: ReportedByType }): Promise<Issue> {
     return this.model.create(data);
   }
 
@@ -63,7 +60,6 @@ export class IssueRepository {
 
     const query: Record<string, any> = {};
     if (filters.status) query.status = filters.status;
-    if (filters.category) query.category = filters.category;
 
     const [items, total] = await Promise.all([
       this.model
@@ -80,6 +76,10 @@ export class IssueRepository {
   async findById(issueId: string): Promise<Issue | null> {
     return this.model.findById(issueId);
   }
+
+  async findIssueCategoryById(id: string): Promise<IssueCategory | null> {
+  return this.issueCategoryEmbed.findById(id).lean();
+}
 
   async updateStatus(issueId: string, status: IssueStatus): Promise<Issue | null> {
     return this.model.findByIdAndUpdate(
@@ -100,4 +100,23 @@ export class IssueRepository {
       { new: true },
     );
   }
+
+async seedIssueCategorys(data: Partial<IssueCategory>[]) {
+  await Promise.all(
+    data.map((item) =>
+      this.issueCategoryEmbed.updateOne(
+        {
+          parentCategory: item.parentCategory,
+          label: item.label,
+        },
+        {
+          $set: item,
+        },
+        {
+          upsert: true,
+        },
+      ),
+    ),
+  );
+}
 }

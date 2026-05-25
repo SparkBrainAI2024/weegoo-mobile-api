@@ -1,21 +1,31 @@
-import { IssueCategory, IssueStatus } from '@libs/data-access/enums/issue.enum';
-import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsString, IsOptional, IsEnum } from 'class-validator';
+import {  IssueParentCategory, IssueStatus } from '@libs/data-access/enums/issue.enum';
+import { Field, ID, InputType, Int } from '@nestjs/graphql';
+import { IsString, IsOptional, IsEnum, IsMongoId, MinLength } from 'class-validator';
+
+// create-issue.input.ts
+@InputType()
+export class IssueCategoryInput {
+  @Field(() => IssueParentCategory)
+  @IsEnum(IssueParentCategory)
+  parentCategory: IssueParentCategory;
+
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  subCategoryId?: string;
+}
 
 @InputType()
 export class CreateIssueInput {
+  @Field(() => IssueCategoryInput, { nullable: true })
   @IsOptional()
-  @IsString()
+  category?: IssueCategoryInput;
+
   @Field(() => String, { nullable: true })
+  @IsOptional()
   rideId?: string;
 
-  @IsOptional()
-  @IsEnum(IssueCategory)
-  @Field(() => IssueCategory, { nullable: true })
-  category?: IssueCategory;
-
-  @IsString()
-  @Field(() => String)
+  @Field()
+  @MinLength(10)
   issueContent: string;
 }
 
@@ -39,8 +49,7 @@ export class GetAllIssuesInput {
   @Field(() => IssueStatus, { nullable: true })
   status?: IssueStatus;
 
-  @Field(() => IssueCategory, { nullable: true })
-  category?: IssueCategory;
+
 
   @Field(() => Int, { defaultValue: 1 })
   page: number;

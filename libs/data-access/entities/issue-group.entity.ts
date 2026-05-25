@@ -3,11 +3,11 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import { IssueParentCategory } from '../enums/issue.enum';
 
-export type IssueGroupDocument = IssueGroup & Document;
+export type IssueCategoryDocument = IssueCategory & Document;
 
 @ObjectType()
 @Schema({ timestamps: true })
-export class IssueGroup {
+export class IssueCategory {
   @Field(() => ID)
   _id: string;
 
@@ -38,7 +38,7 @@ export class IssueGroup {
   updatedAt: Date;
 }
 
-export const IssueGroupSchema = SchemaFactory.createForClass(IssueGroup);
+export const IssueCategorySchema = SchemaFactory.createForClass(IssueCategory);
 
-IssueGroupSchema.index({ parentCategory: 1, isActive: 1 });
-IssueGroupSchema.index({ parentCategory: 1, sortOrder: 1 });
+IssueCategorySchema.index({ parentCategory: 1, isActive: 1 });
+IssueCategorySchema.index({ parentCategory: 1, sortOrder: 1 });

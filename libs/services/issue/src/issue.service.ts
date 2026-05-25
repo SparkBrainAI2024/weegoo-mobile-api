@@ -4,12 +4,14 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { IssueRepository, CreateIssueDto, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
+import { IssueRepository, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
 import { Issue } from '@libs/data-access/entities/issue.entity';
-import { IssueCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
-import { CreateIssueResponse, RidesRepository } from '@libs/data-access';
+import {  IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import { CreateIssueResponse, IssueCategoryInput, RidesRepository } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Message } from '@libs/localization';
+import { issueCategorySeed } from './resolver/users-issue.resolver';
+import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-group.embedded';
 
 // valid status transitions — no backwards movement
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
@@ -25,49 +27,54 @@ export class IssueService {
     private readonly ridesRepo: RidesRepository,
   ) {}
 
-  async createIssue(
-    userId: string,
-    reportedByType: ReportedByType,
-    category: IssueCategory,
-    issueContent: string,
-    lang:string,
-    rideId?: string,
-  ): Promise<CreateIssueResponse> {
-    // validate issueContent length
-    if (!issueContent || issueContent.trim().length < 10) {
-      throw new BadRequestException('Issue content must be at least 10 characters.');
-    }
-
-    // if rideId provided, verify ride exists and belongs to reporting user
-    if (rideId) {
-      const ride = await this.ridesRepo.findById(new Types.ObjectId(rideId));
-      if (!ride) {
-        throw new NotFoundException('Ride not found.');
-      }
-
-      const isPassenger = ride.passengerId?.toString() === userId;
-      const isDriver = ride.driverId?.toString() === userId;
-
-      if (!isPassenger && !isDriver) {
-        throw new UnauthorizedException('You are not associated with this ride.');
-      }
-    }
-
-    const data: CreateIssueDto = {
-      reportedBy: userId,
-      reportedByType,
-      category,
-      issueContent: issueContent.trim(),
-      rideId,
-    };
-
-    const issue = await this.issueRepo.create(data);
-    return {
-  message: Message(lang, 'ISSUE.CREATED'),
-  success: true,
-  issue,
-};
+ async createIssue(
+  userId: string,
+  reportedByType: ReportedByType,
+  category: IssueCategoryInput,
+  issueContent: string,
+  lang: string,
+  rideId?: string,
+): Promise<CreateIssueResponse> {
+  if (!issueContent || issueContent.trim().length < 10) {
+    throw new BadRequestException('Issue content must be at least 10 characters.');
   }
+
+  if (rideId) {
+    const ride = await this.ridesRepo.findById(new Types.ObjectId(rideId));
+    if (!ride) throw new NotFoundException('Ride not found.');
+    const isPassenger = ride.passengerId?.toString() === userId;
+    const isDriver = ride.driverId?.toString() === userId;
+    if (!isPassenger && !isDriver) throw new UnauthorizedException('You are not associated with this ride.');
+  }
+
+  // fetch IssueCategory and build full embed
+  let categoryEmbed: IssueCategoryEmbed | null = null;
+  if (category) {
+    const group = category.subCategoryId
+      ? await this.issueRepo.findIssueCategoryById(category.subCategoryId)
+      : null;
+
+    categoryEmbed = {
+      parentCategory: category.parentCategory,
+      subCategoryId: group?._id?.toString() ?? null,
+      subCategoryLabel: group?.label ?? null,
+    };
+  }
+
+  const issue = await this.issueRepo.create({
+    reportedBy: userId,
+    reportedByType,
+    category: categoryEmbed,
+    issueContent: issueContent.trim(),
+    rideId,
+  });
+
+  return {
+    message: Message(lang, 'ISSUE.CREATED'),
+    success: true,
+    issue,
+  };
+}
 
   // passenger or driver views their own issues
   async getMyIssues(
@@ -114,4 +121,11 @@ export class IssueService {
 
     return this.issueRepo.resolve(issueId, adminId);
   }
+
+
+async seedIssueCategorys(): Promise<string> {
+  await this.issueRepo.seedIssueCategorys(issueCategorySeed);
+
+  return 'Issue groups seeded successfully';
+}
 }

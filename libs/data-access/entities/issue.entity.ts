@@ -2,7 +2,7 @@ import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import {  IssueParentCategory, IssueStatus, ReportedByType } from '../enums/issue.enum';
-import { IssueCategoryEmbed } from './issue-group.embedded';
+import {  IssueCategoryEmbed, IssueCategoryEmbedSchema } from './issue-group.embedded';
 
 
 
@@ -29,15 +29,8 @@ export class Issue {
   rideId?: string;
 
 @Field(() => IssueCategoryEmbed, { nullable: true })
-  @Prop({
-    type: {
-      parentCategory: { type: String, enum: IssueParentCategory, required: true },
-      subCategoryId: { type: MongooseSchema.Types.ObjectId, ref: 'IssueGroup', default: null },
-      subCategoryLabel: { type: String, default: null },
-    },
-    default: null,
-  })
-  category?: IssueCategoryEmbed;
+@Prop({ type: IssueCategoryEmbedSchema, default: null })
+category?: IssueCategoryEmbed;
  
   @Field(() => String)
   @Prop({ required: true, type: String, minlength: 10 })
