@@ -1,5 +1,5 @@
 import { CurrentLang, CurrentUser } from "@libs/common";
-import { CreateUserDetailsInput, UserDetailsResponse } from "@libs/data-access";
+import { CreateUserDetailsInput, UserDetails, UserDetailsResponse } from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
 import { UserDetailsService } from "../user.details.services";
 import { UseGuards } from "@nestjs/common";
@@ -24,4 +24,12 @@ export class UserDetailsResolver {
   getUserDetails(@CurrentUser() user, @CurrentLang() lang: string) {
     return this.userDetailsService.findOne(user._id, lang);
   }
+
+  @Mutation(() => UserDetails)
+async setDriverOnlineStatus(
+  @CurrentUser() user: { _id: string },
+  @Args('isOnline') isDriverOnline: boolean,
+): Promise<UserDetails> {
+  return this.userDetailsService.setOnlineStatus(user._id, isDriverOnline);
+}
 }

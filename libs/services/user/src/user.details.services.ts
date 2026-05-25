@@ -80,4 +80,8 @@ export class UserDetailsService {
       );
     }
   }
+
+  async setOnlineStatus(userId: string, isDriverOnline: boolean) {
+  return this.userDetailsRepository.setOnlineStatus(userId, isDriverOnline);
+}
 }

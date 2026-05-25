@@ -58,6 +58,11 @@ export class UserDetails extends BaseEntity {
   })
   ridePreference?: string;
 
+
+  @Field({ defaultValue: false })
+@Prop({ default: false })
+isDriverOnline: boolean;
+
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
   district?: string;
