@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
-import { CurrentUser, Roles, ROLES_KEY } from '@libs/common';
+import { CurrentUser, Roles } from '@libs/common';
 import {
     User,
     Favourites,

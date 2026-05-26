@@ -402,12 +402,6 @@ type RequestUploadResponse {
   expiresInSeconds: Int!
 }
 
-type RideListWithPaginationResponse {
-  message: String
-  data: [Rides!]
-  pagination: Pagination!
-}
-
 type Query {
   health: String!
   getUser: UserDetailEntity!
