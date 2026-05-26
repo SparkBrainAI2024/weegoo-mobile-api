@@ -189,7 +189,7 @@ type Rides {
   rideStatus: RideStatus!
   cancellation: Cancellation
   passengerId: String!
-  driverId: String!
+  driverId: String
   pickupLocation: RideLocation
   dropoffLocation: RideLocation
   rideUUId: String
@@ -230,6 +230,7 @@ enum RideStatus {
 
   """Ride is cancelled"""
   CANCELLED
+  PENDING
 }
 
 type DocumentFile {
