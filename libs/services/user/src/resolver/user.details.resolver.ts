@@ -25,11 +25,5 @@ export class UserDetailsResolver {
     return this.userDetailsService.findOne(user._id, lang);
   }
 
-  @Mutation(() => UserDetails)
-async setDriverOnlineStatus(
-  @CurrentUser() user: { _id: string },
-  @Args('isOnline') driverOnlineStatus: DriverOnlineStatus,
-): Promise<UserDetails> {
-  return this.userDetailsService.setOnlineStatus(user._id, driverOnlineStatus);
-}
+
 }
