@@ -4,7 +4,7 @@ import { Issue } from '@libs/data-access/entities/issue.entity';
 import { IssueService } from '../issue.service';
 import { User } from '@libs/data-access';
 import { CreateIssueInput } from '@libs/data-access/dtos/input/create-issue.input';
-import { IssueParentCategory, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import { CategoryAccessedByRole, IssueParentCategory, ReportedByType } from '@libs/data-access/enums/issue.enum';
 import { roles } from '@libs/data-access/enums/user.enum'
 import { CurrentLang, CurrentUser } from '@libs/common';
 import { AuthGuard } from '@libs/guards';
@@ -47,10 +47,9 @@ async getIssueCategoriesByParent(
   @CurrentUser() user: User,
   @Args('parentCategory', { type: () => IssueParentCategory }) parentCategory: IssueParentCategory,
 ): Promise<IssueCategory[]> {
-  const reportedByType = user.roles.includes(roles.RIDER) 
-    ? ReportedByType.PASSENGER 
-    : ReportedByType.DRIVER;
-  return this.issueService.getCategoriesByParent(parentCategory, reportedByType);
+  const currentUserRole = user.loginAs;
+
+  return this.issueService.getCategoriesByParent(parentCategory, currentUserRole === roles.RIDER ? CategoryAccessedByRole.DRIVER : CategoryAccessedByRole.PASSENGER);
 }
 
 }

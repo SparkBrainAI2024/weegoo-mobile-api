@@ -5,6 +5,11 @@ export enum ReportedByType {
   DRIVER = 'DRIVER',
 }
 
+export enum CategoryAccessedByRole {
+  PASSENGER = 'PASSENGER',
+  DRIVER = 'DRIVER',
+}
+
 
 export enum IssueStatus {
   OPEN = 'OPEN',
@@ -22,14 +27,14 @@ export enum IssueParentCategory {
  
 }
 
-export enum IssueCategoryFor {
+export enum IssueCategoryForRole {
   DRIVER = 'DRIVER',
   PASSENGER = 'PASSENGER',
   BOTH = 'BOTH',
 }
 
-registerEnumType(IssueCategoryFor, {
-  name: 'IssueCategoryFor',
+registerEnumType(IssueCategoryForRole, {
+  name: 'IssueCategoryForRole',
   description: 'Indicates whether an issue category is applicable to drivers, passengers, or both',
   valuesMap: {
     DRIVER: { description: 'Category is relevant for drivers' },

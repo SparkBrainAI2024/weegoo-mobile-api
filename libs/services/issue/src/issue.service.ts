@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { IssueRepository, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
 import { Issue } from '@libs/data-access/entities/issue.entity';
-import {  IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import {  CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
 import { CreateIssueResponse, IssueCategoryInput, RidesRepository } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Message } from '@libs/localization';
@@ -21,7 +21,7 @@ const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
 };
 
 
-export const issueCategorySeed = [{ parentCategory: IssueParentCategory.RIDE, label: 'Driver is too slow', sortOrder: 1, isActive: true }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver took wrong route', sortOrder: 2, isActive: true }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver was rude', sortOrder: 3, isActive: true }, { parentCategory: IssueParentCategory.CANCEL, label: 'Driver cancelled last minute', sortOrder: 1, isActive: true }, { parentCategory: IssueParentCategory.CANCEL, label: 'Wrong cancellation charge', sortOrder: 2, isActive: true },]
+export const issueCategorySeed = [{ parentCategory: IssueParentCategory.RIDE, label: 'Driver is too slow', sortOrder: 1, isActive: true, categoryForRole: IssueCategoryForRole.PASSENGER }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver took wrong route', sortOrder: 2, isActive: true, categoryForRole: IssueCategoryForRole.PASSENGER }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver was rude', sortOrder: 3, isActive: true, categoryForRole: IssueCategoryForRole.DRIVER }, { parentCategory: IssueParentCategory.COMPLAINT, label: 'Wallet was not working', sortOrder: 1, isActive: true, categoryForRole: IssueCategoryForRole.BOTH }, { parentCategory: IssueParentCategory.CANCEL, label: 'Wrong cancellation charge', sortOrder: 2, isActive: true, categoryForRole: IssueCategoryForRole.BOTH },]
 
 
 @Injectable()
@@ -82,13 +82,7 @@ export class IssueService {
   
 }
 
-  // passenger or driver views their own issues
-  async getMyIssues(
-    userId: string,
-    options: PaginationOptions,
-  ): Promise<{ items: Issue[]; total: number }> {
-    return this.issueRepo.findByReportedBy(userId, options);
-  }
+
 
   // admin views all issues with optional filters
   async getAllIssues(
@@ -130,16 +124,16 @@ export class IssueService {
 
 
 async seedIssueCategorys(): Promise<string> {
-  await this.issueRepo.seedIssueCategorys(issueCategorySeed);
+  await this.issueRepo.seedIssueCategories(issueCategorySeed);
 
   return 'Issue categories seeded successfully';
 }
 
 async getCategoriesByParent(
   parentCategory: IssueParentCategory,
-  reportedByType: ReportedByType,
+  categoryAccessedByRole: CategoryAccessedByRole,
 ): Promise<IssueCategory[]> {
-  return this.issueRepo.findByParentCategory(parentCategory, reportedByType);
+  return this.issueRepo.findByParentCategory(parentCategory, categoryAccessedByRole);
 }
 
 }

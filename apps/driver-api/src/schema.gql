@@ -359,7 +359,7 @@ type Issue {
   issueContent: String!
   status: IssueStatus!
   resolvedBy: String
-  categoryFor: IssueCategoryFor!
+  categoryFor: IssueCategoryForRole!
   resolvedAt: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -385,7 +385,7 @@ enum IssueStatus {
 """
 Indicates whether an issue category is applicable to drivers, passengers, or both
 """
-enum IssueCategoryFor {
+enum IssueCategoryForRole {
   """Category is relevant for drivers"""
   DRIVER
 

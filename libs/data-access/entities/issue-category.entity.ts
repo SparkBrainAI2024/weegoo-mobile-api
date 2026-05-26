@@ -1,7 +1,7 @@
 import { Field, ID, ObjectType } from '@nestjs/graphql';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-import { IssueParentCategory } from '../enums/issue.enum';
+import { IssueCategoryForRole, IssueParentCategory } from '../enums/issue.enum';
 
 export type IssueCategoryDocument = IssueCategory & Document;
 
@@ -15,6 +15,11 @@ export class IssueCategory {
   @Field(() => IssueParentCategory)
   @Prop({ required: true, type: String, enum: IssueParentCategory, index: true })
   parentCategory: IssueParentCategory;
+
+ @Field(() => IssueCategoryForRole)
+@Prop({ type: String, enum: IssueCategoryForRole, default: IssueCategoryForRole.BOTH })
+categoryForRole: IssueCategoryForRole;
+
 
   // Human-readable label shown in the app, e.g. "Driver took wrong route"
   @Field(() => String)

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Issue, IssueDocument } from '../entities/issue.entity';
-import {  IssueCategoryFor, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import {  CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
 import { IssueCategory } from '../entities/issue-category.entity';
 import { CreateIssueInput } from '../dtos/input/create-issue.input';
 import { IssueCategoryEmbed } from '../entities/issue-category.embedded';
@@ -30,25 +30,7 @@ export class IssueRepository {
     return this.model.create(data);
   }
 
-  // passenger or driver sees only their own issues
-  async findByReportedBy(
-    userId: string,
-    options: PaginationOptions,
-  ): Promise<{ items: Issue[]; total: number }> {
-    const { page, limit } = options;
-    const skip = (page - 1) * limit;
 
-    const [items, total] = await Promise.all([
-      this.model
-        .find({ reportedBy: userId })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      this.model.countDocuments({ reportedBy: userId }),
-    ]);
-
-    return { items, total };
-  }
 
   // admin sees all with optional filters
   async findAll(
@@ -103,16 +85,16 @@ export class IssueRepository {
 
 async findByParentCategory(
   parentCategory: IssueParentCategory,
-  reportedByType: ReportedByType,
+  categoryForRole: CategoryAccessedByRole,
 ): Promise<IssueCategory[]> {
   return this.issueCategoryEmbed.find({
     parentCategory,
     isActive: true,
-    categoryFor: { $in: [reportedByType, IssueCategoryFor.BOTH] },  // ← filter by role
+    categoryFor: { $in: [categoryForRole, IssueCategoryForRole.BOTH] },  // ← filter by role
   }).sort({ sortOrder: 1 }).lean();
 }
 
-async seedIssueCategorys(data: Partial<IssueCategory>[]) {
+async seedIssueCategories(data: Partial<IssueCategory>[]) {
   await Promise.all(
     data.map((item) =>
       this.issueCategoryEmbed.updateOne(
