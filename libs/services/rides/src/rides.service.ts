@@ -79,7 +79,7 @@ export class RidesService {
         } else if (i < 17) {
           rideStatus = RideStatus.CANCELLED;
         } else {
-          rideStatus = RideStatus.CONFIRMED; // Remaining 3 rides
+          rideStatus = RideStatus.PENDING; // Remaining 3 rides
         }
 
         const bookingTime = new Date(Date.now() - Math.random() * 3600000 * 24); // Random booking time within last 24 hours
@@ -99,7 +99,7 @@ export class RidesService {
           bookingTime: bookingTime,
           rideStatus: rideStatus,
           passengerId: riderId,
-          driverId: driverId,
+          driverId: rideStatus !== RideStatus.PENDING ? driverId :null,
           vehicleId: vehicleId,
           distanceInKm: distanceInKm,
           rideStartedAt: rideStartedAt,
