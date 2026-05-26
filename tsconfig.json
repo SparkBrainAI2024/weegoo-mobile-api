@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-   "module": "commonjs",
+    "module": "commonjs",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -21,98 +21,38 @@
 
     "paths": {
       "@libs/*": ["libs/*"],
-      "@libs/common": [
-        "libs/common"
-      ],
-      "@libs/common/*": [
-        "libs/common/*"
-      ],
-      "@libs/data-access": [
-        "libs/data-access"
-      ],
-      "@libs/data-access/*": [
-        "libs/data-access/*"
-      ],
-      "@libs/localization": [
-        "libs/localization"
-      ],
-      "@libs/localization/*": [
-        "libs/localization/*"
-      ],
-      "@libs/s3": [
-        "libs/s3"
-      ],
-      "@libs/s3/*": [
-        "libs/s3/*"
-      ],
-      "@libs/services": [
-        "libs/services"
-      ],
-      "@libs/services/*": [
-        "libs/services/*"
-      ],
-      "@libs/services/auth": [
-        "libs/services/auth/src"
-      ],
-      "@libs/services/auth/*": [
-        "libs/services/auth/src/*"
-      ],
-      "@libs/services/social-auth": [
-        "libs/services/social-auth/src"
-      ],
-      "@libs/services/social-auth/*": [
-        "libs/services/social-auth/src/*"
-      ],
-      "@libs/services/user": [
-        "libs/services/user/src"
-      ],
-      "@libs/services/user/*": [
-        "libs/services/user/src/*"
-      ],
-      "@libs/services/rides": [
-        "libs/services/rides/src"
-      ],
-      "@libs/services/rides/*": [
-        "libs/services/rides/src/*"
-      ],
-      "@libs/services/mail": [
-        "libs/services/mail"
-      ],
-      "@libs/services/mail/*": [
-        "libs/services/mail/*"
-      ],
-      "@libs/guards/": [
-        "libs/guards"
-      ],
-      "@libs/guards/*": [
-        "libs/guards/*"
-      ],
-      "@api": [
-        "apps/api/src"
-      ],
-      "@api/*": [
-        "apps/api/src/*"
-      ],
-      "@admin-api": [
-        "apps/admin-api/src"
-      ],
-      "@admin-api/*": [
-        "apps/admin-api/src/*"
-      ],
-      "@driver-api": [
-        "apps/driver-api/src"
-      ],
-      "@driver-api/*": [
-        "apps/driver-api/src/*"
-      ]
+      "@libs/common": ["libs/common"],
+      "@libs/common/*": ["libs/common/*"],
+      "@libs/data-access": ["libs/data-access"],
+      "@libs/data-access/*": ["libs/data-access/*"],
+      "@libs/localization": ["libs/localization"],
+      "@libs/localization/*": ["libs/localization/*"],
+      "@libs/s3": ["libs/s3"],
+      "@libs/s3/*": ["libs/s3/*"],
+      "@libs/services": ["libs/services"],
+      "@libs/services/*": ["libs/services/*"],
+      "@libs/services/auth": ["libs/services/auth/src"],
+      "@libs/services/auth/*": ["libs/services/auth/src/*"],
+      "@libs/services/social-auth": ["libs/services/social-auth/src"],
+      "@libs/services/social-auth/*": ["libs/services/social-auth/src/*"],
+      "@libs/services/user": ["libs/services/user/src"],
+      "@libs/services/user/*": ["libs/services/user/src/*"],
+      "@libs/services/rides": ["libs/services/rides/src"],
+      "@libs/services/rides/*": ["libs/services/rides/src/*"],
+      "@libs/services/mail": ["libs/services/mail"],
+      "@libs/services/mail/*": ["libs/services/mail/*"],
+      "@libs/guards/": ["libs/guards"],
+      "@libs/guards/*": ["libs/guards/*"],
+      "@api": ["apps/api/src"],
+      "@api/*": ["apps/api/src/*"],
+      "@admin-api": ["apps/admin-api/src"],
+      "@admin-api/*": ["apps/admin-api/src/*"],
+      "@driver-api": ["apps/driver-api/src"],
+      "@driver-api/*": ["apps/driver-api/src/*"],
+      "@libs/services/favourites": ["libs/services/favourites/src"],
+      "@libs/services/favourites/*": ["libs/services/favourites/src/*"]
     },
-    "types": [
-      "node",
-      "jest"
-    ]
+    "types": ["node", "jest"]
   },
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "exclude": ["node_modules", "dist"]
 }
