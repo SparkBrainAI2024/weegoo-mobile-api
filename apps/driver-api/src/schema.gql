@@ -17,21 +17,25 @@ type GeoLocation {
   coordinates: [Float!]!
 }
 
-type Cancellation {
-  cancellationBy: CancellationByEnum!
-  userId: String!
-  cancelledAt: DateTime!
-  cancellationReason: String
-  cancellationOtherReason: String
-}
-
-"""The reason for cancellation"""
-enum CancellationByEnum {
-  """The ride was cancelled by the user themselves"""
-  SELF
-
-  """The ride was cancelled by the driver"""
-  DRIVER_CANCELLED
+type UserDetails {
+  _id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  userId: ID!
+  fullName: String!
+  address: String
+  profileImage: String
+  dateOfBirth: DateTime
+  bio: String
+  geoLocation: GeoLocation
+  gender: GenderEnum!
+  ridePreference: RidePreference!
+  driverOnlineStatus: DriverOnlineStatus
+  district: String
+  streetName: String
+  province: ProvinceEnum
 }
 
 """
@@ -39,14 +43,30 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
-type RideLocation {
-  type: String!
-  coordinates: [Float!]!
-  address: String!
-  city: String!
-  province: ProvinceEnum!
-  district: String!
-  fullAddress: String!
+enum GenderEnum {
+  MALE
+  FEMALE
+  OTHERS
+  UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
+}
+
+"""The online status of the driver"""
+enum DriverOnlineStatus {
+  """The driver is online"""
+  ONLINE
+
+  """The driver is offline"""
+  OFFLINE
 }
 
 """The provinces of Nepal"""
@@ -71,6 +91,33 @@ enum ProvinceEnum {
 
   """Sudurpashchim Province"""
   SUDURPASHCHIM
+}
+
+type Cancellation {
+  cancellationBy: CancellationByEnum!
+  userId: String!
+  cancelledAt: DateTime!
+  cancellationReason: String
+  cancellationOtherReason: String
+}
+
+"""The reason for cancellation"""
+enum CancellationByEnum {
+  """The ride was cancelled by the user themselves"""
+  SELF
+
+  """The ride was cancelled by the driver"""
+  DRIVER_CANCELLED
+}
+
+type RideLocation {
+  type: String!
+  coordinates: [Float!]!
+  address: String!
+  city: String!
+  province: ProvinceEnum!
+  district: String!
+  fullAddress: String!
 }
 
 type Fare {
@@ -225,6 +272,20 @@ type DriverDocument {
   submittedAt: DateTime
 }
 
+type Favourites {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  rideType: RideTypes!
+  passengerId: String!
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  vehicleType: VehicleType!
+  noOfPassengers: Float!
+}
+
 type BasicResponse {
   message: String!
   success: Boolean!
@@ -255,23 +316,6 @@ type UserDetailsResponse {
   streetName: String
   province: ProvinceEnum
   createdAt: String
-}
-
-enum GenderEnum {
-  MALE
-  FEMALE
-  OTHERS
-  UNPUBLISHED
-}
-
-"""The preference for booking a ride"""
-enum RidePreference {
-  """The ride is scheduled for a later time"""
-  SCHEDULED
-
-  """The ride is requested for immediate pickup"""
-  INSTANT
-  BOTH
 }
 
 type SignInResponse {
@@ -327,6 +371,12 @@ type BasicExpirationResponse {
   verificationToken: String
   message: String!
   success: Boolean!
+}
+
+type RideListWithPaginationResponse {
+  message: String
+  data: [Rides!]
+  pagination: Pagination!
 }
 
 type VehicleRegistrationResponse {
@@ -414,6 +464,7 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
+  setDriverOnlineStatus(onlineStatus: DriverOnlineStatus!): UserDetails!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
   editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!

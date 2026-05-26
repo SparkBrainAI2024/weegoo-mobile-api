@@ -1,5 +1,5 @@
 import { ErrorException, toMongoId } from "@libs/common";
-import { CreateUserDetailsInput, UserDetailsRepository, UserRepository } from "@libs/data-access";
+import { CreateUserDetailsInput, DriverOnlineStatus, UserDetailsRepository, UserRepository } from "@libs/data-access";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
@@ -80,4 +80,8 @@ export class UserDetailsService {
       );
     }
   }
+
+  async setOnlineStatus(userId: string, driverOnlineStatus: DriverOnlineStatus) {
+  return this.userDetailsRepository.setOnlineStatus(userId, driverOnlineStatus);
+}
 }
