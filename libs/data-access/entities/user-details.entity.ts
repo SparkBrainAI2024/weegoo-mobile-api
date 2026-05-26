@@ -60,7 +60,7 @@ export class UserDetails extends BaseEntity {
 
 @Field(() => DriverOnlineStatus, { nullable: true })
 @Prop({ type: String, enum: DriverOnlineStatus, default: null })
-onlineStatus?: DriverOnlineStatus;
+driverOnlineStatus?: DriverOnlineStatus;
 
   @Field({ nullable: true })
   @Prop({ required: false, type: String })

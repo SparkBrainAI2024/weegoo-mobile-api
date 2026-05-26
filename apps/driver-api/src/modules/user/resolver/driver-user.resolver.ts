@@ -16,7 +16,7 @@ export class DriverUserResolver {
   @Mutation(() => UserDetails)
 async setDriverOnlineStatus(
   @CurrentUser() user,
-  @Args('isOnline') driverOnlineStatus: DriverOnlineStatus,
+  @Args('onlineStatus') driverOnlineStatus: DriverOnlineStatus,
 ): Promise<UserDetails> {
   return this.userDetailsService.setOnlineStatus(user._id, driverOnlineStatus);
 }
