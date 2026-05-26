@@ -359,7 +359,6 @@ type Issue {
   issueContent: String!
   status: IssueStatus!
   resolvedBy: String
-  categoryFor: IssueCategoryForRole!
   resolvedAt: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -380,20 +379,6 @@ enum IssueStatus {
   OPEN
   IN_REVIEW
   RESOLVED
-}
-
-"""
-Indicates whether an issue category is applicable to drivers, passengers, or both
-"""
-enum IssueCategoryForRole {
-  """Category is relevant for drivers"""
-  DRIVER
-
-  """Category is relevant for passengers"""
-  PASSENGER
-
-  """Category is relevant for both drivers and passengers"""
-  BOTH
 }
 
 type CreateIssueResponse {
@@ -434,11 +419,26 @@ type RideListWithPaginationResponse {
 type IssueCategory {
   _id: ID!
   parentCategory: IssueParentCategory!
+  categoryForRole: IssueCategoryForRole!
   label: String!
   sortOrder: Float!
   isActive: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
+}
+
+"""
+Indicates whether an issue category is applicable to drivers, passengers, or both
+"""
+enum IssueCategoryForRole {
+  """Category is relevant for drivers"""
+  DRIVER
+
+  """Category is relevant for passengers"""
+  PASSENGER
+
+  """Category is relevant for both drivers and passengers"""
+  BOTH
 }
 
 type Query {

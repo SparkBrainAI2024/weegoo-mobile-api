@@ -90,7 +90,7 @@ async findByParentCategory(
   return this.issueCategoryEmbed.find({
     parentCategory,
     isActive: true,
-    categoryFor: { $in: [categoryAccessedByRole, IssueCategoryForRole.BOTH] },  // ← filter by role
+    categoryForRole: { $in: [categoryAccessedByRole, IssueCategoryForRole.BOTH] },  // ← filter by role
   }).sort({ sortOrder: 1 }).lean();
 }
 
