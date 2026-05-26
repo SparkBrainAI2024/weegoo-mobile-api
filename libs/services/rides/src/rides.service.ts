@@ -99,7 +99,7 @@ export class RidesService {
           bookingTime: bookingTime,
           rideStatus: rideStatus,
           passengerId: riderId,
-          driverId: rideStatus !== RideStatus.PENDING ? driverId :null,
+          driverId:  driverId,
           vehicleId: vehicleId,
           distanceInKm: distanceInKm,
           rideStartedAt: rideStartedAt,
