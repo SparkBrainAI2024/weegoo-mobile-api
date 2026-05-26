@@ -17,25 +17,21 @@ type GeoLocation {
   coordinates: [Float!]!
 }
 
-type UserDetails {
-  _id: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
-  deleted: Boolean
-  userId: ID!
-  fullName: String!
-  address: String
-  profileImage: String
-  dateOfBirth: DateTime
-  bio: String
-  geoLocation: GeoLocation
-  gender: GenderEnum!
-  ridePreference: RidePreference!
-  driverOnlineStatus: DriverOnlineStatus
-  district: String
-  streetName: String
-  province: ProvinceEnum
+type Cancellation {
+  cancellationBy: CancellationByEnum!
+  userId: String!
+  cancelledAt: DateTime!
+  cancellationReason: String
+  cancellationOtherReason: String
+}
+
+"""The reason for cancellation"""
+enum CancellationByEnum {
+  """The ride was cancelled by the user themselves"""
+  SELF
+
+  """The ride was cancelled by the driver"""
+  DRIVER_CANCELLED
 }
 
 """
@@ -43,30 +39,14 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
-enum GenderEnum {
-  MALE
-  FEMALE
-  OTHERS
-  UNPUBLISHED
-}
-
-"""The preference for booking a ride"""
-enum RidePreference {
-  """The ride is scheduled for a later time"""
-  SCHEDULED
-
-  """The ride is requested for immediate pickup"""
-  INSTANT
-  BOTH
-}
-
-"""The online status of the driver"""
-enum DriverOnlineStatus {
-  """The driver is online"""
-  ONLINE
-
-  """The driver is offline"""
-  OFFLINE
+type RideLocation {
+  type: String!
+  coordinates: [Float!]!
+  address: String!
+  city: String!
+  province: ProvinceEnum!
+  district: String!
+  fullAddress: String!
 }
 
 """The provinces of Nepal"""
@@ -91,33 +71,6 @@ enum ProvinceEnum {
 
   """Sudurpashchim Province"""
   SUDURPASHCHIM
-}
-
-type Cancellation {
-  cancellationBy: CancellationByEnum!
-  userId: String!
-  cancelledAt: DateTime!
-  cancellationReason: String
-  cancellationOtherReason: String
-}
-
-"""The reason for cancellation"""
-enum CancellationByEnum {
-  """The ride was cancelled by the user themselves"""
-  SELF
-
-  """The ride was cancelled by the driver"""
-  DRIVER_CANCELLED
-}
-
-type RideLocation {
-  type: String!
-  coordinates: [Float!]!
-  address: String!
-  city: String!
-  province: ProvinceEnum!
-  district: String!
-  fullAddress: String!
 }
 
 type Fare {
@@ -189,7 +142,7 @@ type Rides {
   rideStatus: RideStatus!
   cancellation: Cancellation
   passengerId: String!
-  driverId: String
+  driverId: String!
   pickupLocation: RideLocation
   dropoffLocation: RideLocation
   rideUUId: String
@@ -202,6 +155,7 @@ type Rides {
   paymentDetails: PaymentDetails
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
+  vehicleId: String!
   vehicle: Vehicle
 }
 
@@ -230,7 +184,6 @@ enum RideStatus {
 
   """Ride is cancelled"""
   CANCELLED
-  PENDING
 }
 
 type DocumentFile {
@@ -273,20 +226,6 @@ type DriverDocument {
   submittedAt: DateTime
 }
 
-type Favourites {
-  _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
-  deleted: Boolean
-  rideType: RideTypes!
-  passengerId: String!
-  pickupLocation: RideLocation
-  dropoffLocation: RideLocation
-  vehicleType: VehicleType!
-  noOfPassengers: Float!
-}
-
 type BasicResponse {
   message: String!
   success: Boolean!
@@ -317,6 +256,23 @@ type UserDetailsResponse {
   streetName: String
   province: ProvinceEnum
   createdAt: String
+}
+
+enum GenderEnum {
+  MALE
+  FEMALE
+  OTHERS
+  UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
 }
 
 type SignInResponse {
@@ -374,12 +330,6 @@ type BasicExpirationResponse {
   success: Boolean!
 }
 
-type RideListWithPaginationResponse {
-  message: String
-  data: [Rides!]
-  pagination: Pagination!
-}
-
 type VehicleRegistrationResponse {
   message: String!
   success: Boolean!
@@ -403,20 +353,20 @@ type RequestUploadResponse {
   expiresInSeconds: Int!
 }
 
+type RideListWithPaginationResponse {
+  message: String
+  data: [Rides!]
+  pagination: Pagination!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
   getUserDetails: UserDetailsResponse!
   getVehicle(vehicleId: String!): Vehicle!
   myDriverDocuments: [DriverDocument!]!
-  driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
+  driverDocumentFileViewUrl(documentType: String!, side: String!): DocumentViewUrlResponse!
   getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
-}
-
-enum DriverDocumentType {
-  NATIONAL_ID
-  DRIVING_LICENSE
-  BLUEBOOK
 }
 
 input PaginationInput {
@@ -454,12 +404,11 @@ type Mutation {
   verifyGooglePhone(input: VerifyPhoneInput!): VerifyGooglePhoneResponse!
   setPassword(input: SetPasswordInput!): SetPasswordResponse!
   verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
-  updatePhone(input: UpdatePhoneInput!): BasicExpirationResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicResponse!
   logOut(input: LogOutInput!): BasicResponse!
   changePassword(input: ChangePasswordInput!): BasicResponse!
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
-  setDriverOnlineStatus(onlineStatus: DriverOnlineStatus!): UserDetails!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
   editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
@@ -608,6 +557,12 @@ input UpsertDocumentFileInput {
   documentType: DriverDocumentType!
   side: DriverDocumentSide!
   s3Key: String!
+}
+
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
 }
 
 input SubmitDocumentForReviewInput {
