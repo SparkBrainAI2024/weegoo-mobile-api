@@ -59,6 +59,25 @@ export enum ridePreference {
   BOTH='BOTH',
 }
 
+export enum DriverOnlineStatus {
+  ONLINE = "ONLINE",
+  OFFLINE = "OFFLINE",
+}
+
+
+registerEnumType(DriverOnlineStatus, {
+  name: 'DriverOnlineStatus',
+  description: 'The online status of the driver',
+  valuesMap: {
+    ONLINE: {
+      description: 'The driver is online',
+    },
+    OFFLINE: {
+      description: 'The driver is offline',
+    },
+  },
+});
+
 export enum ProvinceEnum {
   PROVINCE_1 = "KOSHI",
   PROVINCE_2 = "MADESH",
@@ -68,6 +87,8 @@ export enum ProvinceEnum {
   KARNALI = "KARNALI",
   SUDURPASHCHIM = "SUDURPASHCHIM",
 }
+
+
 
 registerEnumType(ridePreference, {
   name: 'RidePreference',

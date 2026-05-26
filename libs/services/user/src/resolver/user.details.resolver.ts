@@ -1,5 +1,5 @@
 import { CurrentLang, CurrentUser } from "@libs/common";
-import { CreateUserDetailsInput, UserDetailsResponse } from "@libs/data-access";
+import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsResponse } from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
 import { UserDetailsService } from "../user.details.services";
 import { UseGuards } from "@nestjs/common";
@@ -24,4 +24,6 @@ export class UserDetailsResolver {
   getUserDetails(@CurrentUser() user, @CurrentLang() lang: string) {
     return this.userDetailsService.findOne(user._id, lang);
   }
+
+
 }
