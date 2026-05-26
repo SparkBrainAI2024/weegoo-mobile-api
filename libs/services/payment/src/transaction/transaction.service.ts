@@ -86,7 +86,6 @@ export class TransactionService {
 
     async getDriversEarningByDate(driverId: string) {
     const result = await this.transactionRepo.earningsByDayForDriver(driverId);
-console.log(result,"result");
 
     return (
       result[0] || {
