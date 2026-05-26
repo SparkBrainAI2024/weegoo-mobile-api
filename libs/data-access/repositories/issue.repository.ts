@@ -85,12 +85,12 @@ export class IssueRepository {
 
 async findByParentCategory(
   parentCategory: IssueParentCategory,
-  categoryForRole: CategoryAccessedByRole,
+  categoryAccessedByRole: CategoryAccessedByRole,
 ): Promise<IssueCategory[]> {
   return this.issueCategoryEmbed.find({
     parentCategory,
     isActive: true,
-    categoryFor: { $in: [categoryForRole, IssueCategoryForRole.BOTH] },  // ← filter by role
+    categoryFor: { $in: [categoryAccessedByRole, IssueCategoryForRole.BOTH] },  // ← filter by role
   }).sort({ sortOrder: 1 }).lean();
 }
 
