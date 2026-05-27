@@ -203,6 +203,12 @@ type Rides {
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   vehicle: Vehicle
+  cancelledAt: DateTime
+  cancelledBy: ID
+  cancelledByRole: UserRole
+  cancelSubCategoryLabel: String
+  cancelSubCategoryId: ID
+  cancelReasonContent: String
 }
 
 """Types of rides"""
@@ -231,6 +237,20 @@ enum RideStatus {
   """Ride is cancelled"""
   CANCELLED
   PENDING
+}
+
+"""The role of the user in the system"""
+enum UserRole {
+  """Regular user with standard access"""
+  USER
+
+  """User with admin privileges"""
+  ADMIN
+
+  """
+  Driver user with riding request acceptance permissions and transaction and wallet access
+  """
+  RIDER
 }
 
 type DocumentFile {
@@ -485,6 +505,16 @@ enum IssueCategoryForRole {
   """Category is relevant for both drivers and passengers"""
   BOTH
 }
+type CancelRideResponse {
+  _id: ID!
+  rideStatus: RideStatus!
+  cancelledAt: DateTime!
+  cancelledByRole: UserRole
+  cancelledBy: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
+}
 
 type Query {
   health: String!
@@ -552,6 +582,7 @@ type Mutation {
   generateSampleRides: [Rides!]!
   createIssue(input: CreateIssueInput!): CreateIssueResponse!
   seedIssueCategorys: String!
+  cancelRide(input: CancelRideInput!): CancelRideResponse!
 }
 
 input RefreshTokenInput {
@@ -722,4 +753,11 @@ input CreateIssueInput {
 input IssueCategoryInput {
   parentCategory: IssueParentCategory!
   subCategoryId: ID
+}
+
+input CancelRideInput {
+  rideId: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
 }
