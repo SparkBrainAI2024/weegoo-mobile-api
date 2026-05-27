@@ -207,24 +207,6 @@ type CancelRideResponse {
   cancellationDetail: CancellationDetail
 }
 
-"""Rides status"""
-enum RideStatus {
-  """Ride is confirmed"""
-  CONFIRMED
-
-  """Ride is ongoing"""
-  ONGOING
-
-  """Driver has picked up the rider"""
-  PICKUP
-
-  """Ride is completed"""
-  COMPLETED
-
-  """Ride is cancelled"""
-  CANCELLED
-  PENDING
-}
 
 type Rides {
   _id: String!
@@ -262,6 +244,40 @@ enum RideTypes {
   """Scheduled ride"""
   SCHEDULED
 }
+
+"""Rides status"""
+enum RideStatus {
+  """Ride is confirmed"""
+  CONFIRMED
+
+  """Ride is ongoing"""
+  ONGOING
+
+  """Driver has picked up the rider"""
+  PICKUP
+
+  """Ride is completed"""
+  COMPLETED
+
+  """Ride is cancelled"""
+  CANCELLED
+  PENDING
+}
+
+"""The role of the user in the system"""
+enum UserRole {
+  """Regular user with standard access"""
+  USER
+
+  """User with admin privileges"""
+  ADMIN
+
+  """
+  Driver user with riding request acceptance permissions and transaction and wallet access
+  """
+  RIDER
+}
+
 
 type DocumentFile {
   side: DriverDocumentSide!
