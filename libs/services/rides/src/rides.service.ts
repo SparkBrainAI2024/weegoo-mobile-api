@@ -130,4 +130,12 @@ export class RidesService {
     }
     return generatedRides;
   }
+
+  async cancelRide(rideId: string): Promise<RidesDocument | null> {
+    return this.rideRepository.findOneAndUpdate(
+      { _id: new Types.ObjectId(rideId) },
+      { rideStatus: RideStatus.CANCELLED },
+      { new: true }
+    );
+  }
 }

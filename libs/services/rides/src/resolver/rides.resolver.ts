@@ -48,4 +48,8 @@ export class RidesResolver {
       vehicleId
     );
   }
+
+  async cancelRide(@Args('rideId') rideId: string) {
+    return this.ridesService.cancelRide(rideId);
+  }
 }

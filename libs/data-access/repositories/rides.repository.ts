@@ -124,4 +124,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     return result;
   }
+
+  async cancelRide(rideId: string): Promise<RidesDocument | null> {
+    return this.findOneAndUpdate(
+      { _id: new Types.ObjectId(rideId) },
+      { rideStatus: RideStatus.CANCELLED },
+      { new: true }
+    );
+  }
 }
