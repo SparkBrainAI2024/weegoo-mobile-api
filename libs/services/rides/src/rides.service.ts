@@ -130,27 +130,21 @@ export class RidesService {
         const newRide = await this.rideRepository.createRide(rideData);
         // NOW we have newRide._id
 
-
-
         if (newRide.rideStatus === RideStatus.CONFIRMED) {
-
-
-            await this.transactionService.createRideTransactions({
-                tripId: newRide._id.toString(),
-                adminId: adminId.toString(),
-                riderId: newRide.passengerId.toString(),
-                driverId: newRide.driverId.toString(),
-                totalFare: newRide.estimatedFare,
-                commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
-            });
-  
-
+          await this.transactionService.createRideTransactions({
+            tripId: newRide._id.toString(),
+            adminId: adminId.toString(),
+            riderId: newRide.passengerId.toString(),
+            driverId: newRide.driverId.toString(),
+            totalFare: newRide.estimatedFare,
+            commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
+          });
+        }
 
         generatedRides.push(newRide);
       }
     }
+
     return generatedRides;
   }
-
-}
 }

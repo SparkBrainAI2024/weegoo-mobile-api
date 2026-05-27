@@ -1,13 +1,16 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, PaginationInputOnly } from '@libs/data-access';
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, PaginationInputOnly, CreateFavouriteInput } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Injectable } from '@nestjs/common';
 import { FavouritesRepository } from '@libs/data-access/repositories/favourites.repository';
 import { FavouritesDocument } from '@libs/data-access/entities/favourites.entity';
+import { ErrorException } from '@libs/common/exceptions';
+import { toMongoId } from '@libs/common';
 
 @Injectable()
 export class FavouriteService {
     constructor(
         private readonly favouriteRepository: FavouritesRepository,
+        private readonly ridesRepository: RidesRepository
     ) { }
 
     /**
@@ -28,8 +31,20 @@ export class FavouriteService {
      * @param favouriteData - Partial data for creating a favourite entry
      * @returns The created FavouritesDocument
      */
-    async createFavorite(rideData: Partial<FavouritesDocument>): Promise<FavouritesDocument> {
-        return this.favouriteRepository.createFavourite(rideData);
+    async createFavorite(rideData: CreateFavouriteInput,passengerId: string): Promise<FavouritesDocument> {
+        const ride = await this.ridesRepository.findByIdWithVehicle(rideData.rideId, passengerId);
+        if (!ride) {
+            throw ErrorException(null, "RIDE.RIDE_NOT_FOUND", 404);
+        }
+
+        return await this.favouriteRepository.createFavourite({
+            pickupLocation: ride.pickupLocation,
+            dropoffLocation: ride.dropoffLocation,
+            rideType: ride.rideType,
+            passengerId: ride.passengerId,
+            noOfPassengers: ride?.fare?.noOfPassengers||1,
+            vehicleType: ride.vehicle?.vehicleType || null
+        });
     }
 
     /** get rides by favourite id and passenger Id */

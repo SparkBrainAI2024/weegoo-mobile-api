@@ -495,19 +495,5 @@ input GeoLocationInput {
 }
 
 input CreateFavouriteInput {
-  rideType: RideTypes!
-  pickupLocation: RideLocationInput!
-  dropoffLocation: RideLocationInput!
-  vehicleType: VehicleType!
-  noOfPassengers: Int! = 1
-}
-
-input RideLocationInput {
-  type: String!
-  coordinates: [Float!]!
-  address: String!
-  city: String!
-  province: ProvinceEnum!
-  district: String!
-  fullAddress: String!
+  rideId: String!
 }

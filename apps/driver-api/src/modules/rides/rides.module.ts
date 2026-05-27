@@ -2,7 +2,7 @@ import { RidePersistentModule, RidesService, RidesResolver } from "@libs/service
 import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
-import { TransactionModule } from "../transaction/transaction.module";
+import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 
 @Module({
     imports: [
