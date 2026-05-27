@@ -41,6 +41,8 @@
       "@libs/services/rides/*": ["libs/services/rides/src/*"],
       "@libs/services/mail": ["libs/services/mail"],
       "@libs/services/mail/*": ["libs/services/mail/*"],
+      "@libs/services/firebase-messaging": ["libs/services/firebase-messaging"],
+      "@libs/services/firebase-messaging/*": ["libs/services/firebase-messaging/src/*"],
       "@libs/guards/": ["libs/guards"],
       "@libs/guards/*": ["libs/guards/*"],
       "@api": ["apps/api/src"],

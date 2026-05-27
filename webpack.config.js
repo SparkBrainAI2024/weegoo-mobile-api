@@ -27,6 +27,7 @@ module.exports = function (options) {
         '@libs/services/mail': path.resolve(__dirname, 'libs/services/mail'),
         '@libs/services/rides': path.resolve(__dirname, 'libs/services/rides/src'),
         '@libs/services/favourites': path.resolve(__dirname, 'libs/services/favourites/src'),
+        '@libs/services/firebase-messaging': path.resolve(__dirname, 'libs/services/firebase-messaging/src'),
         '@libs/services/user': path.resolve(__dirname, 'libs/services/user/src'),
         '@libs/services': path.resolve(__dirname, 'libs/services'),
         '@libs': path.resolve(__dirname, 'libs'),
