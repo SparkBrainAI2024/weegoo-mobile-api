@@ -4,7 +4,7 @@ import { RidesService } from './rides.service';
 import { RidePersistentModule } from './rides-persistent.module';
 
 @Module({
-  imports: [RidePersistentModule],
+  imports: [RidePersistentModule, ],
   providers: [RidesResolver,RidesService],
 })
 export class UserRidesModule {}
