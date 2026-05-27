@@ -10,6 +10,16 @@ import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
 
+interface CancelRideParams {
+  rideId: string;
+  cancelledBy: Types.ObjectId;
+  cancelledByRole: roles;
+  cancelSubCategoryId: Types.ObjectId;
+  cancelSubCategoryLabel: string;
+  cancelReasonContent?: string;
+}
+
+
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
   constructor(@InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>) {
@@ -134,11 +144,19 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return rideWithVechile;
   }
 
-  async cancelRide(rideId: string): Promise<RidesDocument | null> {
-    return this.findOneAndUpdate(
-      { _id: new Types.ObjectId(rideId) },
-      { rideStatus: RideStatus.CANCELLED },
-      { new: true }
-    );
-  }
+async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
+  return this._model.findByIdAndUpdate(
+    new Types.ObjectId(params.rideId),
+    {
+      status: RideStatus.CANCELLED,
+      cancelledAt: new Date(),
+      cancelledBy: params.cancelledBy,
+      cancelledByRole: params.cancelledByRole,
+      cancelSubCategoryId: params.cancelSubCategoryId,
+      cancelSubCategoryLabel: params.cancelSubCategoryLabel,
+      cancelReasonContent: params.cancelReasonContent ?? null,
+    },
+    { new: true },
+  );
+}
 }
