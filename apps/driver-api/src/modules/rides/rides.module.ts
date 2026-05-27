@@ -3,7 +3,6 @@ import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
-import { Issue } from "@libs/data-access/entities/issue.entity";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 
 @Module({
