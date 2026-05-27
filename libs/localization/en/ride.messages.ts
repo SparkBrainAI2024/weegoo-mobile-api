@@ -8,4 +8,5 @@ export const RIDES = {
   CANCEL_SHOULD_STRING: "Cancel sub category label should be a string",
   CANCEL_SHOULDNOT_EMPTY: "Cancel sub category label should not be empty",
   CANCEL_REASON_REQUIRED_FOR_OTHER: "Cancel reason content is required when cancel category is OTHER",
+  INVALID_CANCEL_SUB_CATEGORY: "The selected cancel sub-category is not valid for your role",
 }
