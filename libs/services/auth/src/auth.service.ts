@@ -772,7 +772,7 @@ export class AuthService {
 
   async loginWithRefreshToken(refreshTokenInput: string) {
     try {
-      const verifiedToken = await verifyToken(
+      const verifiedToken: any = await verifyToken(
         refreshTokenInput,
         this.envService.getJwtSecretKey(),
       );
@@ -903,7 +903,7 @@ export class AuthService {
   async resetPassword(resetPasswordInput: ResetPasswordInput, lang: string) {
     try {
       const { password, resetPasswordToken } = resetPasswordInput;
-      const verifiedToken = await verifyToken(
+      const verifiedToken: any = await verifyToken(
         resetPasswordToken,
         this.envService.getJwtSecretKey(),
       );

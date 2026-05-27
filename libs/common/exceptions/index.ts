@@ -24,23 +24,28 @@ export const ErrorException = (
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: any, host: ArgumentsHost) {
-    const isHttp = host.getType() === "http";
+    const contextType = host.getType() as string;
+    const isHttp = contextType === "http";
+    const isGql = contextType === "graphql";
+
     let request: any;
 
     if (isHttp) {
       const ctx = host.switchToHttp();
       request = ctx.getRequest();
-    } else {
+    } else if (isGql) {
       const gqlCtx = GqlExecutionContext.create(host as any);
       request = gqlCtx.getContext()?.req;
+    } else {
+      request = null;
     }
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : exception?.extensions?.statusCode ||
-          exception?.status ||
-          HttpStatus.INTERNAL_SERVER_ERROR;
+    const status = exception instanceof HttpException
+      ? exception.getStatus()
+      : exception?.extensions?.statusCode ||
+        exception?.extensions?.response?.statusCode ||
+        exception?.status ||
+        (exception instanceof GraphQLError ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR);
 
     // ✅ Safe response extraction
     const exceptionResponse =
@@ -83,15 +88,31 @@ export class HttpExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path: request?.url,
       message: translatedMessage,
+      code: this.getErrorCode(status),
     };
+
+    if (isGql) {
+      throw new GraphQLError(translatedMessage, {
+        extensions: errorResponse,
+      });
+    }
 
     if (isHttp) {
       const response = host.switchToHttp().getResponse();
       return response.status(status).json(errorResponse);
     }
 
-    throw new GraphQLError(translatedMessage, {
-      extensions: errorResponse,
-    });
+    return exception;
+  }
+
+  private getErrorCode(status: number): string {
+    const map: Record<number, string> = {
+      [HttpStatus.BAD_REQUEST]: 'BAD_REQUEST',
+      [HttpStatus.UNAUTHORIZED]: 'UNAUTHENTICATED',
+      [HttpStatus.FORBIDDEN]: 'FORBIDDEN',
+      [HttpStatus.NOT_FOUND]: 'NOT_FOUND',
+      [HttpStatus.UNPROCESSABLE_ENTITY]: 'BAD_USER_INPUT',
+    };
+    return map[status] || 'INTERNAL_SERVER_ERROR';
   }
 }

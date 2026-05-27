@@ -2,7 +2,7 @@ import { Field, ID, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
-import { GenderEnum, ridePreference, ProvinceEnum } from "../enums/user.enum";
+import { GenderEnum, ridePreference, ProvinceEnum, DriverOnlineStatus } from "../enums/user.enum";
 import { BaseEntity } from "../base/base.entity";
 
 export type UserDetailsDocument = UserDetails &
@@ -57,6 +57,10 @@ export class UserDetails extends BaseEntity {
     default: ridePreference.BOTH,
   })
   ridePreference?: string;
+
+@Field(() => DriverOnlineStatus, { nullable: true })
+@Prop({ type: String, enum: DriverOnlineStatus, default: null })
+driverOnlineStatus?: DriverOnlineStatus;
 
   @Field({ nullable: true })
   @Prop({ required: false, type: String })

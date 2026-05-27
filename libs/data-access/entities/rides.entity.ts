@@ -34,9 +34,9 @@ export class Rides extends BaseEntity {
     @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
     passengerId: Types.ObjectId;
 
-    @Field(() => String)
-    @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
-    driverId: Types.ObjectId;
+    @Field(() => String, { nullable: true })
+    @Prop({ type: Types.ObjectId, required: false, ref: "User", index: true, default: null })
+    driverId?: Types.ObjectId;
 
     @Field(() => RideLocation, { nullable: true })
     @Prop({ type: RideLocation, required: false })

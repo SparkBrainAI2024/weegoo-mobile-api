@@ -16,6 +16,7 @@ export * from './entities/vehicle.entity';
 export * from './entities/vehicle-image.embedded';
 export * from './entities/driver-document.entity';
 export * from './entities/document-file.embedded';
+export * from './entities/favourites.entity';
 
 //repositories
 export * from './repositories/user.repository';
@@ -27,6 +28,7 @@ export * from './repositories/rides.repository';
 export * from './repositories/vehicle.repository';
 export * from './repositories/driver-document.repository';
 export * from './repositories/transaction.repository';
+export * from './repositories/favourites.repository';
 
 //enums
 export * from './enums/user.enum';
@@ -76,6 +78,8 @@ export * from './dtos/input/phone-signin.input';
 export * from './dtos/input/phone-input';
 export * from './dtos/input/update-phone.input';
 export * from './dtos/input/verify-phone.input';
+export * from './dtos/input/ride-location.input';
+export * from './dtos/input/create-favourite.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -89,3 +93,5 @@ export * from './dtos/response/verify-password-reset.repsonse';
 export * from './dtos/response/user-detail-response-v2';
 export * from './dtos/response/expiration.response';
 export * from './dtos/response/basic-expiration.repsonse';
+export * from './dtos/response/favourites-with-pagination.response';
+export * from './dtos/response/ride-list-with-pagination.response';
