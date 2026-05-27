@@ -6,6 +6,8 @@ import { RidesService } from '../rides.service';
 import { CurrentUser } from '@libs/common';
 import { RideListWithPaginationResponse } from '@libs/data-access/dtos/response/ride-list-with-pagination.response';
 import { Types } from 'mongoose';
+import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
+import { CancelRideResponse } from '@libs/data-access/dtos/response/cancel-ride.response';
 
 @Resolver(() => Rides)
 @UseGuards(AuthGuard)
@@ -52,4 +54,12 @@ export class RidesResolver {
       adminId
     );
   }
+
+@Mutation(() => CancelRideResponse)
+async cancelRide(
+  @CurrentUser() user: User,
+  @Args('input') input: CancelRideInput,
+) {
+  return this.ridesService.cancelRide(user, input);
+}
 }

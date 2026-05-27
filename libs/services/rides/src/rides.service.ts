@@ -1,7 +1,11 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum } from '@libs/data-access';
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles } from '@libs/data-access';
 import { Types } from 'mongoose';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpStatus, Injectable } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
+import { Message } from '@libs/localization';
+import { ErrorException } from '@libs/common/exceptions';
+import { RIDES } from '@libs/localization/en/ride.messages';
+import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 
 @Injectable()
 export class RidesService {
@@ -147,4 +151,40 @@ export class RidesService {
 
     return generatedRides;
   }
+
+async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+  const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
+
+  if (!ride) {
+    ErrorException(null, RIDES.RIDE_NOT_FOUND, HttpStatus.NOT_FOUND);
+  }
+
+  const isPassenger = ride.passengerId.toString() === user._id.toString();
+  const isDriver = ride.driverId.toString() === user._id.toString();
+
+if (!isPassenger && !isDriver) {
+  ErrorException(null, RIDES.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+}
+
+if (ride.rideStatus === RideStatus.COMPLETED) {
+  ErrorException(null, RIDES.ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
+}
+
+if (ride.rideStatus === RideStatus.ONGOING) {
+  ErrorException(null, RIDES.IN_PROGRESS, HttpStatus.BAD_REQUEST);
+}
+
+if (ride.rideStatus === RideStatus.PENDING) {
+  ErrorException(null, RIDES.PENDING, HttpStatus.BAD_REQUEST);
+}
+
+  return this.rideRepository.cancelRide({
+    rideId: input.rideId,
+    cancelledBy: user._id,
+    cancelledByRole: user.loginAs as roles,
+    cancelSubCategoryId: new Types.ObjectId(input.cancelSubCategoryId),
+    cancelSubCategoryLabel: input.cancelSubCategoryLabel,
+    cancelReasonContent: input.cancelReasonContent,
+  });
+}
 }
