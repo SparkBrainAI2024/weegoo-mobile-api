@@ -26,7 +26,7 @@ import { IssueModule } from './modules/issue/issue.module';
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: false,
+      autoSchemaFile: true,
       playground: false,
       introspection: true,
       plugins: [
