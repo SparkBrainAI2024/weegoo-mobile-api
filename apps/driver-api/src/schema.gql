@@ -178,6 +178,54 @@ enum VehicleType {
   SCOOTER
 }
 
+type CancellationDetail {
+  cancelledAt: DateTime!
+  cancelledBy: ID!
+  cancelledByRole: UserRole!
+  cancelSubCategoryId: ID!
+  cancelSubCategoryLabel: String!
+  cancelReasonContent: String
+}
+
+"""The role of the user in the system"""
+enum UserRole {
+  """Regular user with standard access"""
+  USER
+
+  """User with admin privileges"""
+  ADMIN
+
+  """
+  Driver user with riding request acceptance permissions and transaction and wallet access
+  """
+  RIDER
+}
+
+type CancelRideResponse {
+  _id: ID!
+  rideStatus: RideStatus!
+  cancellationDetail: CancellationDetail
+}
+
+"""Rides status"""
+enum RideStatus {
+  """Ride is confirmed"""
+  CONFIRMED
+
+  """Ride is ongoing"""
+  ONGOING
+
+  """Driver has picked up the rider"""
+  PICKUP
+
+  """Ride is completed"""
+  COMPLETED
+
+  """Ride is cancelled"""
+  CANCELLED
+  PENDING
+}
+
 type Rides {
   _id: String!
   createdAt: DateTime!
@@ -203,12 +251,7 @@ type Rides {
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   vehicle: Vehicle
-  cancelledAt: DateTime
-  cancelledBy: ID
-  cancelledByRole: UserRole
-  cancelSubCategoryLabel: String
-  cancelSubCategoryId: ID
-  cancelReasonContent: String
+  cancellationDetail: CancellationDetail
 }
 
 """Types of rides"""
@@ -218,39 +261,6 @@ enum RideTypes {
 
   """Scheduled ride"""
   SCHEDULED
-}
-
-"""Rides status"""
-enum RideStatus {
-  """Ride is confirmed"""
-  CONFIRMED
-
-  """Ride is ongoing"""
-  ONGOING
-
-  """Driver has picked up the rider"""
-  PICKUP
-
-  """Ride is completed"""
-  COMPLETED
-
-  """Ride is cancelled"""
-  CANCELLED
-  PENDING
-}
-
-"""The role of the user in the system"""
-enum UserRole {
-  """Regular user with standard access"""
-  USER
-
-  """User with admin privileges"""
-  ADMIN
-
-  """
-  Driver user with riding request acceptance permissions and transaction and wallet access
-  """
-  RIDER
 }
 
 type DocumentFile {
@@ -421,17 +431,6 @@ type RequestUploadResponse {
   uploadUrl: String!
   s3Key: String!
   expiresInSeconds: Int!
-}
-
-type CancelRideResponse {
-  _id: ID!
-  rideStatus: RideStatus!
-  cancelledAt: DateTime!
-  cancelledByRole: UserRole
-  cancelledBy: ID!
-  cancelSubCategoryLabel: String!
-  cancelSubCategoryId: ID!
-  cancelReasonContent: String
 }
 
 type Query {

@@ -10,6 +10,7 @@ import { PaymentDetails } from "../common/payment-details";
 import { Vehicle } from "./vehicle.entity";
 import { customAlphabet } from 'nanoid'
 import { roles } from "../enums/user.enum";
+import { CancellationDetail } from "../dtos/response/cancel-ride.response";
 const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
 @ObjectType()
 @Schema({ timestamps: true })
@@ -99,36 +100,26 @@ export class Rides extends BaseEntity {
   vehicle?: Vehicle;
 
 
-
-  @Field(() => Date, { nullable: true })
-  @Prop({ type: Date, default: null })
+@Field(() => CancellationDetail, { nullable: true })
+@Prop({
+  type: {
+    cancelledAt: { type: Date, default: null },
+    cancelledBy: { type: Types.ObjectId, ref: 'User', default: null },
+    cancelledByRole: { type: String, enum: roles, default: null },
+    cancelSubCategoryId: { type: Types.ObjectId, ref: 'IssueCategory', default: null },
+    cancelSubCategoryLabel: { type: String, default: null },
+    cancelReasonContent: { type: String, default: null },
+  },
+  default: null,
+})
+cancellationDetail: {
   cancelledAt: Date;
-
-
-  @Field(() => ID, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
   cancelledBy: Types.ObjectId;
-
-
-  @Field(() => roles, { nullable: true })
-  @Prop({ type: String, enum: roles, default: null })
-  cancelledByRole: string;
-
-
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, default: null })
-  cancelSubCategoryLabel: string;
-
-
-
-  @Field(() => ID, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'IssueCategory', default: null })
+  cancelledByRole: roles;
   cancelSubCategoryId: Types.ObjectId;
-
-
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, default: null })
-  cancelReasonContent: string;
+  cancelSubCategoryLabel: string;
+  cancelReasonContent?: string;
+};
 
 
 }

@@ -163,19 +163,19 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
   const isDriver = ride.driverId.toString() === user._id.toString();
 
 if (!isPassenger && !isDriver) {
-  ErrorException(null, RIDES.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+  ErrorException(null, RIDES.CANCEL_UNAUTHORIZED, HttpStatus.FORBIDDEN);
 }
 
 if (ride.rideStatus === RideStatus.COMPLETED) {
-  ErrorException(null, RIDES.ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
+  ErrorException(null, RIDES.CANCEL_ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.ONGOING) {
-  ErrorException(null, RIDES.IN_PROGRESS, HttpStatus.BAD_REQUEST);
+  ErrorException(null, RIDES.CANCEL_IN_PROGRESS, HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.PENDING) {
-  ErrorException(null, RIDES.PENDING, HttpStatus.BAD_REQUEST);
+  ErrorException(null, RIDES.CANCEL_PENDING, HttpStatus.BAD_REQUEST);
 }
 
   return this.rideRepository.cancelRide({

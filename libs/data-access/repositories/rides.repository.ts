@@ -143,18 +143,19 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     return rideWithVechile;
   }
-
 async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
   return this._model.findByIdAndUpdate(
     new Types.ObjectId(params.rideId),
     {
       rideStatus: RideStatus.CANCELLED,
-      cancelledAt: new Date(),
-      cancelledBy: params.cancelledBy,
-      cancelledByRole: params.cancelledByRole,
-      cancelSubCategoryId: params.cancelSubCategoryId,
-      cancelSubCategoryLabel: params.cancelSubCategoryLabel,
-      cancelReasonContent: params.cancelReasonContent ?? null,
+      cancellationDetail: {
+        cancelledAt: new Date(),
+        cancelledBy: params.cancelledBy,
+        cancelledByRole: params.cancelledByRole,
+        cancelSubCategoryId: params.cancelSubCategoryId,
+        cancelSubCategoryLabel: params.cancelSubCategoryLabel,
+        cancelReasonContent: params.cancelReasonContent ?? null,
+      },
     },
     { new: true },
   );

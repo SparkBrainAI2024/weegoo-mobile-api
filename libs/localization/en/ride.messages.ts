@@ -7,4 +7,5 @@ export const RIDES = {
   CANCEL_UNAUTHORIZED: 'You are not authorized to cancel this ride.',
   CANCEL_SHOULD_STRING: "Cancel sub category label should be a string",
   CANCEL_SHOULDNOT_EMPTY: "Cancel sub category label should not be empty",
+  CANCEL_REASON_REQUIRED_FOR_OTHER: "Cancel reason content is required when cancel category is OTHER",
 }
