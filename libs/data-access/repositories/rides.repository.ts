@@ -8,7 +8,7 @@ import { PaginationInput } from "../base/base.input";
 import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
-import { nanoid } from "@libs/common/utils/id.generator";
+import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
 
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
@@ -91,6 +91,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       deleted: false, // Exclude soft-deleted rides
     };
 
+    if(filter.rideStatus === UpcomingRideStatus){ 
+      filter.bookingTime = { $gt: new Date() }; // Only upcoming rides
+      filter.rideStatus = { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] }; // Upcoming rides are a subset of scheduled rides
+    }
+
     // Check user roles and apply appropriate filter
     // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
     // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
@@ -104,15 +109,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const populateOptions = {
       path: "vehicleId",
     };
-    console.log("filter in repository:", filter);
-
     // Apply pagination with the constructed filter and vehicle population
     const result = await this.paginate(paginationInput, populateOptions as any, filter);
-    console.log("result in repository:", result);
+
     // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
     result.data = result.data.map((ride: any) => {
       if (ride.vehicleId && typeof ride.vehicleId === 'object') {
-        console.log("Populated vehicle data:", ride.vehicleId);
         ride.vehicle = ride.vehicleId;
         ride.vechicleId = ride.vehicleId._id;
         delete ride.vehicleId;// Keep the original vehicleId for reference

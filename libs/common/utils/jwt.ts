@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import * as Jwt from 'jsonwebtoken';
 
-export const generateToken = async (payload, secretKey, options): Promise<Jwt.Jwt | string> => {
+export const generateToken = async (payload, secretKey, options): Promise<string> => {
     return new Promise((resolve, reject) => {
         Jwt.sign(payload, secretKey, options, function (error, token) {
             if (error) {

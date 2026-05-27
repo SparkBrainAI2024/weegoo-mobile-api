@@ -10,9 +10,10 @@ export enum RideStatus {
     ONGOING = 'ONGOING',
     PICKUP = 'PICKUP',
     COMPLETED = 'COMPLETED',
-    CANCELLED = 'CANCELLED'
+    CANCELLED = 'CANCELLED',
+    PENDING = 'PENDING',
 }
-
+export const UpcomingRideStatus = "UPCOMING"; // Special status for filtering upcoming rides
 registerEnumType(RideTypes, {
     name: 'RideTypes',
     description: 'Types of rides',
