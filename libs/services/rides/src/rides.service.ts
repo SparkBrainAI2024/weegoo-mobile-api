@@ -156,26 +156,26 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
   const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
   if (!ride) {
-    ErrorException(null, RIDES.RIDE_NOT_FOUND, HttpStatus.NOT_FOUND);
+    ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
   }
 
   const isPassenger = ride.passengerId.toString() === user._id.toString();
   const isDriver = ride.driverId.toString() === user._id.toString();
 
 if (!isPassenger && !isDriver) {
-  ErrorException(null, RIDES.UNAUTHORIZED, HttpStatus.FORBIDDEN);
+  ErrorException(null, 'RIDES.UNAUTHORIZED', HttpStatus.FORBIDDEN);
 }
 
 if (ride.rideStatus === RideStatus.COMPLETED) {
-  ErrorException(null, RIDES.ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.ONGOING) {
-  ErrorException(null, RIDES.IN_PROGRESS, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.IN_PROGRESS', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.PENDING) {
-  ErrorException(null, RIDES.PENDING, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.PENDING', HttpStatus.BAD_REQUEST);
 }
 
   return this.rideRepository.cancelRide({

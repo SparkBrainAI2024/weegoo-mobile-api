@@ -156,6 +156,12 @@ type Rides {
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   vehicle: Vehicle
+  cancelledAt: DateTime
+  cancelledBy: ID
+  cancelledByRole: UserRole
+  cancelSubCategoryLabel: String
+  cancelSubCategoryId: ID
+  cancelReasonContent: String
 }
 
 """Types of rides"""
@@ -184,6 +190,20 @@ enum RideStatus {
   """Ride is cancelled"""
   CANCELLED
   PENDING
+}
+
+"""The role of the user in the system"""
+enum UserRole {
+  """Regular user with standard access"""
+  USER
+
+  """User with admin privileges"""
+  ADMIN
+
+  """
+  Driver user with riding request acceptance permissions and transaction and wallet access
+  """
+  RIDER
 }
 
 type DocumentFile {
@@ -340,6 +360,17 @@ type RideListWithPaginationResponse {
   pagination: Pagination!
 }
 
+type CancelRideResponse {
+  _id: ID!
+  rideStatus: RideStatus!
+  cancelledAt: DateTime!
+  cancelledByRole: UserRole
+  cancelledBy: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
@@ -395,6 +426,7 @@ type Mutation {
   changeLanguage(input: ChangeLanguageInput!): BasicResponse!
   updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
   generateSampleRides: [Rides!]!
+  cancelRide(input: CancelRideInput!): CancelRideResponse!
   createFavourite(input: CreateFavouriteInput!): Favourites!
 }
 
@@ -492,6 +524,13 @@ input CreateUserDetailsInput {
 input GeoLocationInput {
   type: String!
   coordinates: [Float!]!
+}
+
+input CancelRideInput {
+  rideId: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
 }
 
 input CreateFavouriteInput {
