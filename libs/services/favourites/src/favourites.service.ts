@@ -34,7 +34,7 @@ export class FavouriteService {
     async createFavorite(rideData: CreateFavouriteInput,passengerId: string): Promise<FavouritesDocument> {
         const ride = await this.ridesRepository.findByIdWithVehicle(rideData.rideId, passengerId);
         if (!ride) {
-            throw ErrorException(null, "RIDE.RIDE_NOT_FOUND", 404);
+            throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
         }
 
         return await this.favouriteRepository.createFavourite({

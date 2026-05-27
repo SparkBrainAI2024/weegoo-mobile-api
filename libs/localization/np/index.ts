@@ -4,6 +4,7 @@ import { SOCIAL_AUTH } from "./social-auth.message";
 import { VEHICLE } from "./vehicle.messages";
 import { UPLOAD } from "./upload.messages";
 import { DRIVER_DOCUMENT } from "./driver-document.messages";
+import { RIDES } from "./ride.messages";
 
 export const np_messages = {
   COMMON,
@@ -11,5 +12,6 @@ export const np_messages = {
   SOCIAL_AUTH,
   VEHICLE,
   UPLOAD,
-  DRIVER_DOCUMENT
+  DRIVER_DOCUMENT,
+  RIDES
 };

@@ -130,7 +130,7 @@ export class RidesService {
         const newRide = await this.rideRepository.createRide(rideData);
         // NOW we have newRide._id
 
-        if (newRide.rideStatus === RideStatus.CONFIRMED) {
+        if (newRide.rideStatus === RideStatus.CONFIRMED && process.env.NODE_ENV !== "local") {
           await this.transactionService.createRideTransactions({
             tripId: newRide._id.toString(),
             adminId: adminId.toString(),
