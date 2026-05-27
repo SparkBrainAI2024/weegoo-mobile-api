@@ -169,7 +169,7 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
   ErrorException(null, 'RIDE.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
 }
 
-if (subCategory.label === 'OTHER' && !input.cancelReasonContent) {
+if (subCategory.label === 'Other' && !input.cancelReasonContent) {
   ErrorException(null, 'RIDE.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
 }
 
