@@ -78,6 +78,7 @@ export * from './dtos/input/phone-signin.input';
 export * from './dtos/input/phone-input';
 export * from './dtos/input/update-phone.input';
 export * from './dtos/input/verify-phone.input';
+export * from './dtos/input/create-issue.input'
 export * from './dtos/input/ride-location.input';
 export * from './dtos/input/create-favourite.input';
 
@@ -93,5 +94,6 @@ export * from './dtos/response/verify-password-reset.repsonse';
 export * from './dtos/response/user-detail-response-v2';
 export * from './dtos/response/expiration.response';
 export * from './dtos/response/basic-expiration.repsonse';
+export * from './dtos/response/issue.response'
 export * from './dtos/response/favourites-with-pagination.response';
 export * from './dtos/response/ride-list-with-pagination.response';

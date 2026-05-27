@@ -156,7 +156,7 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
   const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
   if (!ride) {
-    ErrorException(null, RIDES.RIDE_NOT_FOUND, HttpStatus.NOT_FOUND);
+    ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
   }
 
   const isPassenger = ride.passengerId.toString() === user._id.toString();
