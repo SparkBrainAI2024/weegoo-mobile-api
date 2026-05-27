@@ -87,11 +87,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   ): Promise<IPaginatedResult<RidesDocument>> {
     // Build filter based on user role
     const filter: any = {
-     ...paginationInput.filter,
+      ...paginationInput.filter,
       deleted: false, // Exclude soft-deleted rides
     };
 
-    if(filter.rideStatus === UpcomingRideStatus){ 
+    if (filter.rideStatus === UpcomingRideStatus) {
       filter.bookingTime = { $gt: new Date() }; // Only upcoming rides
       filter.rideStatus = { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] }; // Upcoming rides are a subset of scheduled rides
     }
@@ -123,6 +123,15 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     });
 
     return result;
+  }
+
+  async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
+    const rideWithVechile = await this._model.findOne({ _id: new Types.ObjectId(rideId), passengerId: new Types.ObjectId(passengerId) }).populate('vehicleId').exec();
+    if (rideWithVechile?.vehicleId && typeof rideWithVechile?.vehicleId === 'object') {
+      rideWithVechile.vehicle = rideWithVechile.vehicleId as any;
+      delete rideWithVechile.vehicleId;
+    }
+    return rideWithVechile;
   }
 
   async cancelRide(rideId: string): Promise<RidesDocument | null> {
