@@ -1,11 +1,17 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum } from '@libs/data-access';
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles } from '@libs/data-access';
 import { Types } from 'mongoose';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpStatus, Injectable } from '@nestjs/common';
+import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
+import { Message } from '@libs/localization';
+import { ErrorException } from '@libs/common/exceptions';
+import { RIDES } from '@libs/localization/en/ride.messages';
+import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
+    private readonly transactionService:TransactionService
   ) {}
 
   /**
@@ -58,6 +64,7 @@ export class RidesService {
     driverId: Types.ObjectId,
     riderId: Types.ObjectId,
     vehicleId: Types.ObjectId,
+    adminId: Types.ObjectId,
     countPerType: number = 20, // 20 instant, 20 scheduled
   ): Promise<RidesDocument[]> {
     const generatedRides: RidesDocument[] = [];
@@ -79,7 +86,7 @@ export class RidesService {
         } else if (i < 17) {
           rideStatus = RideStatus.CANCELLED;
         } else {
-          rideStatus = RideStatus.CONFIRMED; // Remaining 3 rides
+          rideStatus = RideStatus.PENDING; // Remaining 3 rides
         }
 
         const bookingTime = new Date(Date.now() - Math.random() * 3600000 * 24); // Random booking time within last 24 hours
@@ -99,7 +106,7 @@ export class RidesService {
           bookingTime: bookingTime,
           rideStatus: rideStatus,
           passengerId: riderId,
-          driverId: driverId,
+          driverId:  driverId,
           vehicleId: vehicleId,
           distanceInKm: distanceInKm,
           rideStartedAt: rideStartedAt,
@@ -125,9 +132,59 @@ export class RidesService {
           deleted: false,
         };
         const newRide = await this.rideRepository.createRide(rideData);
+        // NOW we have newRide._id
+
+        if (newRide.rideStatus === RideStatus.CONFIRMED && process.env.NODE_ENV !== "local") {
+          await this.transactionService.createRideTransactions({
+            tripId: newRide._id.toString(),
+            adminId: adminId.toString(),
+            riderId: newRide.passengerId.toString(),
+            driverId: newRide.driverId.toString(),
+            totalFare: newRide.estimatedFare,
+            commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
+          });
+        }
+
         generatedRides.push(newRide);
       }
     }
+
     return generatedRides;
   }
+
+async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+  const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
+
+  if (!ride) {
+    ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+  }
+
+  const isPassenger = ride.passengerId.toString() === user._id.toString();
+  const isDriver = ride.driverId.toString() === user._id.toString();
+
+if (!isPassenger && !isDriver) {
+  ErrorException(null, 'RIDES.UNAUTHORIZED', HttpStatus.FORBIDDEN);
+}
+
+if (ride.rideStatus === RideStatus.COMPLETED) {
+  ErrorException(null, 'RIDES.ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
+}
+
+if (ride.rideStatus === RideStatus.ONGOING) {
+  ErrorException(null, 'RIDES.IN_PROGRESS', HttpStatus.BAD_REQUEST);
+}
+
+if (ride.rideStatus === RideStatus.PENDING) {
+  ErrorException(null, 'RIDES.PENDING', HttpStatus.BAD_REQUEST);
+}
+
+  return this.rideRepository.cancelRide({
+    rideId: input.rideId,
+    cancelledBy: user._id,
+    cancelledByRole: user.loginAs as roles,
+    cancelSubCategoryId: new Types.ObjectId(input.cancelSubCategoryId),
+    cancelSubCategoryLabel: input.cancelSubCategoryLabel,
+    cancelReasonContent: input.cancelReasonContent,
+  });
+}
 }

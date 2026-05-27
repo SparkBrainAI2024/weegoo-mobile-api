@@ -1,4 +1,4 @@
-import { Field, ObjectType, GraphQLISODateTime } from "@nestjs/graphql";
+import { Field, ObjectType, GraphQLISODateTime, ID } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Types } from "mongoose";
@@ -8,94 +8,129 @@ import { RideLocation } from "../common/ride.location";
 import { Fare } from "../common/fare";
 import { PaymentDetails } from "../common/payment-details";
 import { Vehicle } from "./vehicle.entity";
-import {customAlphabet} from 'nanoid'
+import { customAlphabet } from 'nanoid'
+import { roles } from "../enums/user.enum";
 const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
 @ObjectType()
 @Schema({ timestamps: true })
 export class Rides extends BaseEntity {
 
-    @Field(() => RideTypes)
-    @Prop({ type: String, enum: RideTypes, required: true })
-    rideType: RideTypes;
+  @Field(() => RideTypes)
+  @Prop({ type: String, enum: RideTypes, required: true })
+  rideType: RideTypes;
 
-    @Field(() => Date)
-    @Prop({ type: Date, required: true })
-    bookingTime: Date;
+  @Field(() => Date)
+  @Prop({ type: Date, required: true })
+  bookingTime: Date;
 
-    @Field(() => RideStatus)
-    @Prop({ type: String, enum: RideStatus, required: true })
-    rideStatus: RideStatus;
+  @Field(() => RideStatus)
+  @Prop({ type: String, enum: RideStatus, required: true })
+  rideStatus: RideStatus;
 
-    @Field(() => Cancellation, { nullable: true })
-    @Prop({ type: Cancellation, required: false })
-    cancellation: Cancellation;
+  @Field(() => Cancellation, { nullable: true })
+  @Prop({ type: Cancellation, required: false })
+  cancellation: Cancellation;
 
-    @Field(() => String)
-    @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
-    passengerId: Types.ObjectId;
+  @Field(() => String)
+  @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
+  passengerId: Types.ObjectId;
 
-    @Field(() => String)
-    @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
-    driverId: Types.ObjectId;
+  @Field(() => String, { nullable: true })
+  @Prop({ type: Types.ObjectId, required: false, ref: "User", index: true, default: null })
+  driverId?: Types.ObjectId;
 
-    @Field(() => RideLocation, { nullable: true })
-    @Prop({ type: RideLocation, required: false })
-    pickupLocation: RideLocation;
+  @Field(() => RideLocation, { nullable: true })
+  @Prop({ type: RideLocation, required: false })
+  pickupLocation: RideLocation;
 
-    @Field(() => RideLocation, { nullable: true })
-    @Prop({ type: RideLocation, required: false })
-    dropoffLocation: RideLocation;
+  @Field(() => RideLocation, { nullable: true })
+  @Prop({ type: RideLocation, required: false })
+  dropoffLocation: RideLocation;
 
-    @Field(() => String, { nullable: true })
-    @Prop({ 
-        type: String, 
-        required: true, 
-        unique: true, 
-        default: () => "WG-" + nanoid() 
-    })
-    rideUUId: string;
+  @Field(() => String, { nullable: true })
+  @Prop({
+    type: String,
+    required: true,
+    unique: true,
+    default: () => "WG-" + nanoid()
+  })
+  rideUUId: string;
 
-    @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false, default: 0 })
-    estimatedTimeInMinutes?: number;
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  estimatedTimeInMinutes?: number;
 
-    @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false, default: 0 })
-    estimatedFare?: number;
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  estimatedFare?: number;
 
-    @Field(() => Date, { nullable: true })
-    @Prop({ type: Date, required: false })
-    rideStartedAt?: Date;
+  @Field(() => Date, { nullable: true })
+  @Prop({ type: Date, required: false })
+  rideStartedAt?: Date;
 
-    @Field(() => Date, { nullable: true })
-    @Prop({ type: Date, required: false })
-    rideCompletedAt?: Date;
+  @Field(() => Date, { nullable: true })
+  @Prop({ type: Date, required: false })
+  rideCompletedAt?: Date;
 
-    @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false, default: 0 })
-    distanceInKm?: number;
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  distanceInKm?: number;
 
-    @Field(() => Fare, { nullable: true })
-    @Prop({ type: Fare, required: false })
-    fare?: Fare
+  @Field(() => Fare, { nullable: true })
+  @Prop({ type: Fare, required: false })
+  fare?: Fare
 
-    @Field(() => PaymentDetails, { nullable: true })
-    @Prop({ type: PaymentDetails, required: false })
-    paymentDetails?: PaymentDetails;
+  @Field(() => PaymentDetails, { nullable: true })
+  @Prop({ type: PaymentDetails, required: false })
+  paymentDetails?: PaymentDetails;
 
-    @Field(() => Number, { nullable: true })
-    @Prop({ type: Number, required: false, default: 0 })
-    timeToReachPassengerInMinutes?: number;
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  timeToReachPassengerInMinutes?: number;
 
-    @Field(() => Date, { nullable: true })
-    @Prop({ type: Date, required: false })
-    timeToReachPassenger?: Date;
+  @Field(() => Date, { nullable: true })
+  @Prop({ type: Date, required: false })
+  timeToReachPassenger?: Date;
 
-    @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
-    vehicleId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
+  vehicleId: Types.ObjectId;
 
-    @Field(() => Vehicle, { nullable: true })
-    vehicle?: Vehicle;
+  @Field(() => Vehicle, { nullable: true })
+  vehicle?: Vehicle;
+
+
+
+  @Field(() => Date, { nullable: true })
+  @Prop({ type: Date, default: null })
+  cancelledAt: Date;
+
+
+  @Field(() => ID, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  cancelledBy: Types.ObjectId;
+
+
+  @Field(() => roles, { nullable: true })
+  @Prop({ type: String, enum: roles, default: null })
+  cancelledByRole: string;
+
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  cancelSubCategoryLabel: string;
+
+
+
+  @Field(() => ID, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: 'IssueCategory', default: null })
+  cancelSubCategoryId: Types.ObjectId;
+
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  cancelReasonContent: string;
+
+
 }
 export type RidesDocument = HydratedDocument<Rides>;
 export const RidesSchema = SchemaFactory.createForClass(Rides);
@@ -137,8 +172,8 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
 });
 
 export const ridesModel = {
-    name: Rides.name,
-    schema: RidesSchema,
+  name: Rides.name,
+  schema: RidesSchema,
 };
 
 RidesSchema.index({ deleted: 1, deletedAt: 1 });

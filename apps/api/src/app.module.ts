@@ -12,6 +12,7 @@ import { envConfiguration, HealthResolver } from "@libs/common";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
 import { RidesModule } from "./modules/rides/rides.module";
+import { UserFavouritesModule } from "./modules/user-favourites/user-favourites.module";
 
 @Module({
   imports: [
@@ -35,7 +36,7 @@ import { RidesModule } from "./modules/rides/rides.module";
         // Install a landing page plugin based on NODE_ENV
         process.env.NODE_ENV === "production"
           ? ApolloServerPluginLandingPageProductionDefault({
-              graphRef: "admin-api@current",
+              graphRef: "api@current",
               footer: false,
             })
           : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
@@ -43,7 +44,8 @@ import { RidesModule } from "./modules/rides/rides.module";
     }),
     AuthModule,
     UserModule,
-    RidesModule
+    RidesModule,
+    UserFavouritesModule
   ],
   providers: [HealthResolver],
 })

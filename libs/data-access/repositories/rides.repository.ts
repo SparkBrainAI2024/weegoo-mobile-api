@@ -10,6 +10,16 @@ import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
 
+interface CancelRideParams {
+  rideId: string;
+  cancelledBy: Types.ObjectId;
+  cancelledByRole: roles;
+  cancelSubCategoryId: Types.ObjectId;
+  cancelSubCategoryLabel: string;
+  cancelReasonContent?: string;
+}
+
+
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
   constructor(@InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>) {
@@ -87,13 +97,13 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   ): Promise<IPaginatedResult<RidesDocument>> {
     // Build filter based on user role
     const filter: any = {
-     ...paginationInput.filter,
+      ...paginationInput.filter,
       deleted: false, // Exclude soft-deleted rides
     };
 
-    if(filter.rideStatus === UpcomingRideStatus){ 
+    if (filter.rideStatus === UpcomingRideStatus) {
       filter.bookingTime = { $gt: new Date() }; // Only upcoming rides
-      filter.rideStatus = RideStatus.CONFIRMED; // Upcoming rides are a subset of scheduled rides
+      filter.rideStatus = { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] }; // Upcoming rides are a subset of scheduled rides
     }
 
     // Check user roles and apply appropriate filter
@@ -109,15 +119,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const populateOptions = {
       path: "vehicleId",
     };
-    console.log("filter in repository:", filter);
-
     // Apply pagination with the constructed filter and vehicle population
     const result = await this.paginate(paginationInput, populateOptions as any, filter);
-    console.log("result in repository:", result);
+
     // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
     result.data = result.data.map((ride: any) => {
       if (ride.vehicleId && typeof ride.vehicleId === 'object') {
-        console.log("Populated vehicle data:", ride.vehicleId);
         ride.vehicle = ride.vehicleId;
         ride.vechicleId = ride.vehicleId._id;
         delete ride.vehicleId;// Keep the original vehicleId for reference
@@ -127,4 +134,29 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     return result;
   }
+
+  async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
+    const rideWithVechile = await this._model.findOne({ _id: new Types.ObjectId(rideId), passengerId: new Types.ObjectId(passengerId) }).populate('vehicleId').exec();
+    if (rideWithVechile?.vehicleId && typeof rideWithVechile?.vehicleId === 'object') {
+      rideWithVechile.vehicle = rideWithVechile.vehicleId as any;
+      delete rideWithVechile.vehicleId;
+    }
+    return rideWithVechile;
+  }
+
+async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
+  return this._model.findByIdAndUpdate(
+    new Types.ObjectId(params.rideId),
+    {
+      rideStatus: RideStatus.CANCELLED,
+      cancelledAt: new Date(),
+      cancelledBy: params.cancelledBy,
+      cancelledByRole: params.cancelledByRole,
+      cancelSubCategoryId: params.cancelSubCategoryId,
+      cancelSubCategoryLabel: params.cancelSubCategoryLabel,
+      cancelReasonContent: params.cancelReasonContent ?? null,
+    },
+    { new: true },
+  );
+}
 }

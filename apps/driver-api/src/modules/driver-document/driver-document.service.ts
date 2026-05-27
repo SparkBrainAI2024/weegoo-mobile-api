@@ -163,9 +163,18 @@ async upsertDocumentFile(
 
   // ─── Get my docs ──────────────────────────────────────────────────────────────
   async getMyDocuments(driverId: string) {
-    return this.repository.getDriverDocuments(driverId);
-  }
+    const myDocs = await this.repository.getDriverDocuments(driverId);
+  
+  return myDocs.map(doc => ({
+    ...doc.toObject(),
+    files: doc.files.filter(f => f.isActive),
+  }));
+}
 
+
+
+
+  
   // ─── Driver URL ───────────────────────────────────────────────────────────────
   async getDocumentViewUrl(params: {
     driverId: string;
