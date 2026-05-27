@@ -30,7 +30,7 @@ import { IssueModule } from "./modules/issue/issue.module";
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), "apps/api/src/schema.gql"),
+      autoSchemaFile: false,
       playground: false,
       introspection: true,
       plugins: [
