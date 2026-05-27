@@ -20,4 +20,5 @@ CANCEL_SHOULDNOT_EMPTY:
   'रद्द गर्ने उप-श्रेणीको लेबल खाली हुनु हुँदैन।',
   CANCEL_REASON_REQUIRED_FOR_OTHER: "जब रद्द गर्ने श्रेणी OTHER हो भने रद्द करने कारण सामग्री आवश्यक छ",
   INVALID_CANCEL_SUB_CATEGORY: "चयनित रद्द करने उप-श्रेणी आपके भूमिका के लिए मान्य नहीं है",
+  CANCEL_ALREADY_CANCELLED: 'यो राइड पहिले नै रद्द गरिसकेको छ र फेरि रद्द गर्न मिल्दैन।',
 };

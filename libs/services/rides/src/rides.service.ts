@@ -180,6 +180,10 @@ if (!isPassenger && !isDriver) {
   ErrorException(null, RIDES.CANCEL_UNAUTHORIZED, HttpStatus.FORBIDDEN);
 }
 
+if (ride.rideStatus === RideStatus.CANCELLED) {
+  ErrorException(null, RIDES.CANCEL_ALREADY_CANCELLED, HttpStatus.BAD_REQUEST);
+}
+
 if (ride.rideStatus === RideStatus.COMPLETED) {
   ErrorException(null, RIDES.CANCEL_ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
 }
