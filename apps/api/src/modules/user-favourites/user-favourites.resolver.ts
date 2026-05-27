@@ -32,10 +32,7 @@ export class FavouritesResolver {
         @CurrentUser() user: User,
         @Args('input') input: CreateFavouriteInput,
     ) {
-        return this.favouriteService.createFavorite({
-            ...input,
-            passengerId: user._id,
-        } as any);
+        return this.favouriteService.createFavorite(input, user._id.toString());
     }
     @Roles(roles.USER)
     @Query(() => Favourites, { name: 'getFavouriteById' })

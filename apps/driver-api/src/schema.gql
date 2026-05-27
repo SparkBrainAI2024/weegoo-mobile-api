@@ -22,6 +22,16 @@ type Pagination {
   total: Int!
 }
 
+type Pagination {
+  page: Int!
+  limit: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  nextPage: Int
+  previousPage: Int
+  total: Int!
+}
+
 type GeoLocation {
   type: String!
   coordinates: [Float!]!
@@ -502,6 +512,18 @@ enum IssueCategoryForRole {
   BOTH
 }
 
+type RideListWithPaginationResponse {
+  message: String
+  data: [Rides!]
+  pagination: Pagination!
+}
+
+type DriverTodayEarningResponse {
+  totalCredit: Float!
+  totalDebit: Float!
+  netEarning: Float!
+}
+
 type Query {
   health: String!
   getUser: UserDetailEntity!
@@ -511,6 +533,7 @@ type Query {
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
   getIssueCategoriesByParent(parentCategory: IssueParentCategory!): [IssueCategory!]!
+  getDriverTodayEarning: DriverTodayEarningResponse!
 }
 
 enum DriverDocumentType {

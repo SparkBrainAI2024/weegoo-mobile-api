@@ -1,11 +1,13 @@
 import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Injectable } from '@nestjs/common';
+import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
+    private readonly transactionService:TransactionService
   ) {}
 
   /**
@@ -58,6 +60,7 @@ export class RidesService {
     driverId: Types.ObjectId,
     riderId: Types.ObjectId,
     vehicleId: Types.ObjectId,
+    adminId: Types.ObjectId,
     countPerType: number = 20, // 20 instant, 20 scheduled
   ): Promise<RidesDocument[]> {
     const generatedRides: RidesDocument[] = [];
@@ -125,9 +128,23 @@ export class RidesService {
           deleted: false,
         };
         const newRide = await this.rideRepository.createRide(rideData);
+        // NOW we have newRide._id
+
+        if (newRide.rideStatus === RideStatus.CONFIRMED && process.env.NODE_ENV !== "local") {
+          await this.transactionService.createRideTransactions({
+            tripId: newRide._id.toString(),
+            adminId: adminId.toString(),
+            riderId: newRide.passengerId.toString(),
+            driverId: newRide.driverId.toString(),
+            totalFare: newRide.estimatedFare,
+            commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
+          });
+        }
+
         generatedRides.push(newRide);
       }
     }
+
     return generatedRides;
   }
 }
