@@ -12,16 +12,6 @@ type Pagination {
   total: Int!
 }
 
-type Pagination {
-  page: Int!
-  limit: Int!
-  hasNextPage: Boolean!
-  hasPreviousPage: Boolean!
-  nextPage: Int
-  previousPage: Int
-  total: Int!
-}
-
 type GeoLocation {
   type: String!
   coordinates: [Float!]!
@@ -213,6 +203,12 @@ type Rides {
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   vehicle: Vehicle
+  cancelledAt: DateTime
+  cancelledBy: ID
+  cancelledByRole: UserRole
+  cancelSubCategoryLabel: String
+  cancelSubCategoryId: ID
+  cancelReasonContent: String
 }
 
 """Types of rides"""
@@ -241,6 +237,20 @@ enum RideStatus {
   """Ride is cancelled"""
   CANCELLED
   PENDING
+}
+
+"""The role of the user in the system"""
+enum UserRole {
+  """Regular user with standard access"""
+  USER
+
+  """User with admin privileges"""
+  ADMIN
+
+  """
+  Driver user with riding request acceptance permissions and transaction and wallet access
+  """
+  RIDER
 }
 
 type DocumentFile {
@@ -413,16 +423,15 @@ type RequestUploadResponse {
   expiresInSeconds: Int!
 }
 
-type RideListWithPaginationResponse {
-  message: String
-  data: [Rides!]
-  pagination: Pagination!
-}
-
-type DriverTodayEarningResponse {
-  totalCredit: Float!
-  totalDebit: Float!
-  netEarning: Float!
+type CancelRideResponse {
+  _id: ID!
+  rideStatus: RideStatus!
+  cancelledAt: DateTime!
+  cancelledByRole: UserRole
+  cancelledBy: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
 }
 
 type Query {
@@ -433,7 +442,6 @@ type Query {
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
-  getDriverTodayEarning: DriverTodayEarningResponse!
 }
 
 enum DriverDocumentType {
@@ -489,6 +497,7 @@ type Mutation {
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   requestUpload(input: RequestUploadInput!): RequestUploadResponse!
   generateSampleRides: [Rides!]!
+  cancelRide(input: CancelRideInput!): CancelRideResponse!
 }
 
 input RefreshTokenInput {
@@ -648,4 +657,11 @@ enum UploadPurpose {
   DRIVER_LICENSE
   DRIVER_BLUEBOOK
   DRIVER_NATIONAL_ID
+}
+
+input CancelRideInput {
+  rideId: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
 }

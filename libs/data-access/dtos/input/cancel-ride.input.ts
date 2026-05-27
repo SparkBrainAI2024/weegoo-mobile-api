@@ -9,10 +9,10 @@ export class CancelRideInput {
   rideId: string;
 
 
-@Field(() => String, { nullable: true })
-@IsString()
-@IsOptional()   
-  cancelSubCategoryLabel?: string;
+@Field(() => String)
+@IsString({ message: "USER.SHOULD_STRING" })
+@IsNotEmpty({ message: "USER.SHOULDNOT_EMPTY" })
+  cancelSubCategoryLabel: string;
 
   @Field(() => ID)
   @IsMongoId()

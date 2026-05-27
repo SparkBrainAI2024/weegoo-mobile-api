@@ -148,7 +148,7 @@ async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
   return this._model.findByIdAndUpdate(
     new Types.ObjectId(params.rideId),
     {
-      status: RideStatus.CANCELLED,
+      rideStatus: RideStatus.CANCELLED,
       cancelledAt: new Date(),
       cancelledBy: params.cancelledBy,
       cancelledByRole: params.cancelledByRole,
