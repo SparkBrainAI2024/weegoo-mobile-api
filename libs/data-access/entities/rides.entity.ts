@@ -1,15 +1,13 @@
-import { Field, ObjectType, GraphQLISODateTime, ID } from "@nestjs/graphql";
+import { Field, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Types } from "mongoose";
 import { RideStatus, RideTypes } from "../enums/rides.enum";
-import { Cancellation } from "../common/cancellation";
 import { RideLocation } from "../common/ride.location";
 import { Fare } from "../common/fare";
 import { PaymentDetails } from "../common/payment-details";
 import { Vehicle } from "./vehicle.entity";
 import { customAlphabet } from 'nanoid'
-import { roles } from "../enums/user.enum";
 import { CancellationDetail } from "../dtos/response/cancel-ride.response";
 const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
 @ObjectType()
@@ -28,9 +26,6 @@ export class Rides extends BaseEntity {
   @Prop({ type: String, enum: RideStatus, required: true })
   rideStatus: RideStatus;
 
-  @Field(() => Cancellation, { nullable: true })
-  @Prop({ type: Cancellation, required: false })
-  cancellation: Cancellation;
 
   @Field(() => String)
   @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
@@ -101,25 +96,8 @@ export class Rides extends BaseEntity {
 
 
 @Field(() => CancellationDetail, { nullable: true })
-@Prop({
-  type: {
-    cancelledAt: { type: Date, default: null },
-    cancelledBy: { type: Types.ObjectId, ref: 'User', default: null },
-    cancelledByRole: { type: String, enum: roles, default: null },
-    cancelSubCategoryId: { type: Types.ObjectId, ref: 'IssueCategory', default: null },
-    cancelSubCategoryLabel: { type: String, default: null },
-    cancelReasonContent: { type: String, default: null },
-  },
-  default: null,
-})
-cancellationDetail: {
-  cancelledAt: Date;
-  cancelledBy: Types.ObjectId;
-  cancelledByRole: roles;
-  cancelSubCategoryId: Types.ObjectId;
-  cancelSubCategoryLabel: string;
-  cancelReasonContent?: string;
-};
+@Prop({ type: CancellationDetail, default: null })
+cancellationDetail: CancellationDetail | null;
 
 
 }
