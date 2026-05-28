@@ -166,34 +166,34 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
   );
 
  if (subCategory.categoryForRole !== user.loginAs) {
-  ErrorException(null, 'RIDE.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
 }
 
 if (subCategory.label === 'Other' && !input.cancelReasonContent) {
-  ErrorException(null, 'RIDE.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
 }
 
   const isPassenger = ride.passengerId.toString() === user._id.toString();
   const isDriver = ride.driverId.toString() === user._id.toString();
 
 if (!isPassenger && !isDriver) {
-  ErrorException(null, RIDES.CANCEL_UNAUTHORIZED, HttpStatus.FORBIDDEN);
+  ErrorException(null, 'RIDES.CANCEL_UNAUTHORIZED', HttpStatus.FORBIDDEN);
 }
 
 if (ride.rideStatus === RideStatus.CANCELLED) {
-  ErrorException(null, RIDES.CANCEL_ALREADY_CANCELLED, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_ALREADY_CANCELLED', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.COMPLETED) {
-  ErrorException(null, RIDES.CANCEL_ALREADY_COMPLETED, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.ONGOING) {
-  ErrorException(null, RIDES.CANCEL_IN_PROGRESS, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_IN_PROGRESS', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.PENDING) {
-  ErrorException(null, RIDES.CANCEL_PENDING, HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
 }
 
   return this.rideRepository.cancelRide({
