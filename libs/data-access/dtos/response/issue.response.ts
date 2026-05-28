@@ -1,30 +1,9 @@
-import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { Issue } from '@libs/data-access/entities/issue.entity';
-
+import { Field, ObjectType } from '@nestjs/graphql';
+import { Issue } from '../../entities/issue.entity';
+import { BasicResponse } from './basic.response';
 
 @ObjectType()
-export class CreateIssueResponse {
-  @Field()
-  message: string;
-
-  @Field()
-  success: boolean;
-
+export class CreateIssueResponse extends BasicResponse {
   @Field(() => Issue, { nullable: true })
   issue?: Issue;
-}
-
-@ObjectType()
-export class PaginatedIssues {
-  @Field(() => [Issue])
-  items: Issue[];
-
-  @Field(() => Int)
-  total: number;
-
-  @Field(() => Int)
-  page: number;
-
-  @Field(() => Int)
-  limit: number;
 }

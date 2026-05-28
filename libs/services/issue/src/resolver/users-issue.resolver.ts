@@ -30,10 +30,9 @@ export class UsersIssueResolver {
     return this.issueService.createIssue(
       user._id.toString(),
       reportedByType,
-      input.category,
-      input.issueContent,
-      lang,
-      input.rideId,
+      input,
+      lang
+
     );
   }
   @Mutation(() => String)

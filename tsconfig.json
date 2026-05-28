@@ -41,7 +41,7 @@
       "@libs/services/rides/*": ["libs/services/rides/src/*"],
       "@libs/services/mail": ["libs/services/mail"],
       "@libs/services/mail/*": ["libs/services/mail/*"],
-      "@libs/services/firebase-messaging": ["libs/services/firebase-messaging"],
+      "@libs/services/firebase-messaging": ["libs/services/firebase-messaging/src"],
       "@libs/services/firebase-messaging/*": ["libs/services/firebase-messaging/src/*"],
       "@libs/guards/": ["libs/guards"],
       "@libs/guards/*": ["libs/guards/*"],
@@ -52,7 +52,10 @@
       "@driver-api": ["apps/driver-api/src"],
       "@driver-api/*": ["apps/driver-api/src/*"],
       "@libs/services/favourites": ["libs/services/favourites/src"],
-      "@libs/services/favourites/*": ["libs/services/favourites/src/*"]
+      "@libs/services/favourites/*": ["libs/services/favourites/src/*"],
+      "@libs/services/notification": ["libs/services/notification/src"],
+      "@libs/services/notification/*": ["libs/services/notification/src/*"],
+
     },
     "types": ["node", "jest"]
   },

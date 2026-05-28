@@ -1,3 +1,5 @@
+import { registerEnumType } from "@nestjs/graphql";
+
 export enum NotificationType {
     RIDE_REQUEST = 'RIDE_REQUEST',
     RIDE_CANCELLATION = 'RIDE_CANCELLATION',
@@ -42,3 +44,6 @@ export enum DriverNotificationType {
     TERMS_AND_CONDITIONS_UPDATED = NotificationType.TERMS_AND_CONDITIONS_UPDATED
 }
 
+registerEnumType(NotificationType, { name: 'NotificationType' });
+registerEnumType(PassengerNotificationType, { name: 'PassengerNotificationType' });
+registerEnumType(DriverNotificationType, { name: 'DriverNotificationType' });

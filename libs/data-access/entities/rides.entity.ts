@@ -64,6 +64,10 @@ export class Rides extends BaseEntity {
   @Prop({ type: Number, required: false, default: 0 })
   estimatedFare?: number;
 
+  @Field(() => Boolean, { nullable: true })
+  @Prop({ type: Boolean, required: false, default: false })
+  isFavourite?: number;
+
   @Field(() => Date, { nullable: true })
   @Prop({ type: Date, required: false })
   rideStartedAt?: Date;

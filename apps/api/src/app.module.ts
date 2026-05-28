@@ -14,6 +14,7 @@ import { UserModule } from "./modules/user/user.module";
 import { RidesModule } from "./modules/rides/rides.module";
 import { UserFavouritesModule } from "./modules/user-favourites/user-favourites.module";
 import { IssueModule } from "./modules/issue/issue.module";
+import { NotificationModule } from "./modules/notification/notification.module";
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { IssueModule } from "./modules/issue/issue.module";
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: true,
+      autoSchemaFile: join(process.cwd(), "apps/api/src/schema.gql"),
       playground: false,
       introspection: true,
       plugins: [
@@ -47,7 +48,8 @@ import { IssueModule } from "./modules/issue/issue.module";
     UserModule,
     RidesModule,
     IssueModule,
-    UserFavouritesModule
+    UserFavouritesModule,
+    NotificationModule
   ],
   providers: [HealthResolver],
 })

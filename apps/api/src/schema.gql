@@ -1,0 +1,705 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Pagination {
+  page: Int!
+  limit: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  nextPage: Int
+  previousPage: Int
+  total: Int!
+}
+
+type CursorPageInfo {
+  nextCursor: String
+  hasNextPage: Boolean!
+}
+
+type GeoLocation {
+  type: String!
+  coordinates: [Float!]!
+}
+
+type Cancellation {
+  cancellationBy: CancellationByEnum!
+  userId: String!
+  cancelledAt: DateTime!
+  cancellationReason: String
+  cancellationOtherReason: String
+}
+
+"""The reason for cancellation"""
+enum CancellationByEnum {
+  """The ride was cancelled by the user themselves"""
+  SELF
+
+  """The ride was cancelled by the driver"""
+  DRIVER_CANCELLED
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type RideLocation {
+  type: String!
+  coordinates: [Float!]!
+  address: String!
+  city: String!
+  province: ProvinceEnum!
+  district: String!
+  fullAddress: String!
+}
+
+"""The provinces of Nepal"""
+enum ProvinceEnum {
+  """Province No. 1 (Koshi)"""
+  PROVINCE_1
+
+  """Province No. 2 (Madhesh)"""
+  PROVINCE_2
+
+  """Bagmati Province"""
+  BAGMATI
+
+  """Gandaki Province"""
+  GANDAKI
+
+  """Lumbini Province"""
+  LUMBINI
+
+  """Karnali Province"""
+  KARNALI
+
+  """Sudurpashchim Province"""
+  SUDURPASHCHIM
+}
+
+type Fare {
+  baseAmount: Float!
+  trafficCongestionAmount: Float!
+  distanceAmount: Float!
+  totalAmount: Float!
+  noOfPassengers: Float!
+}
+
+type PaymentDetails {
+  baseAmount: Float!
+  distanceAmount: Float!
+  totalAmount: Float!
+  noOfPassengers: Float!
+  paymentMethod: PaymentMethodEnum
+  discountAmount: Float!
+}
+
+"""Payment method for the ride"""
+enum PaymentMethodEnum {
+  """Payment method is cash"""
+  CASH
+
+  """Payment method is wallet"""
+  WALLET
+}
+
+type VehicleImage {
+  s3Key: String!
+  status: ImageStatus!
+  createdAt: DateTime!
+}
+
+enum ImageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+type Vehicle {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  vehicleType: VehicleType!
+  vehicleModel: String!
+  year: Int!
+  color: String!
+  numberPlate: String!
+  images: [VehicleImage!]!
+}
+
+enum VehicleType {
+  CAR
+  MOTORBIKE
+  SCOOTER
+}
+
+type Rides {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  rideType: RideTypes!
+  bookingTime: DateTime!
+  rideStatus: RideStatus!
+  cancellation: Cancellation
+  passengerId: String!
+  driverId: String
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  rideUUId: String
+  estimatedTimeInMinutes: Float
+  estimatedFare: Float
+  isFavourite: Boolean
+  rideStartedAt: DateTime
+  rideCompletedAt: DateTime
+  distanceInKm: Float
+  fare: Fare
+  paymentDetails: PaymentDetails
+  timeToReachPassengerInMinutes: Float
+  timeToReachPassenger: DateTime
+  vehicle: Vehicle
+  cancelledAt: DateTime
+  cancelledBy: ID
+  cancelledByRole: UserRole
+  cancelSubCategoryLabel: String
+  cancelSubCategoryId: ID
+  cancelReasonContent: String
+}
+
+"""Types of rides"""
+enum RideTypes {
+  """Instant ride"""
+  INSTANT
+
+  """Scheduled ride"""
+  SCHEDULED
+}
+
+"""Rides status"""
+enum RideStatus {
+  """Ride is confirmed"""
+  CONFIRMED
+
+  """Ride is ongoing"""
+  ONGOING
+
+  """Driver has picked up the rider"""
+  PICKUP
+
+  """Ride is completed"""
+  COMPLETED
+
+  """Ride is cancelled"""
+  CANCELLED
+  PENDING
+}
+
+"""The role of the user in the system"""
+enum UserRole {
+  """Regular user with standard access"""
+  USER
+
+  """User with admin privileges"""
+  ADMIN
+
+  """
+  Driver user with riding request acceptance permissions and transaction and wallet access
+  """
+  RIDER
+}
+
+type DocumentFile {
+  side: DriverDocumentSide!
+  s3Key: String!
+  isActive: Boolean!
+  status: DocumentFileStatus!
+  verifiedBy: String
+  verifiedAt: DateTime
+  createdAt: DateTime!
+}
+
+enum DriverDocumentSide {
+  FRONT
+  BACK
+  VEHICLE_INFO_PAGE
+  TAX_CLEARANCE_PAGE
+}
+
+enum DocumentFileStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REUPLOAD_REQUESTED
+}
+
+type Favourites {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  rideType: RideTypes!
+  passengerId: String!
+  rideId: String!
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  vehicleType: VehicleType!
+  noOfPassengers: Float!
+}
+
+type Notification {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  title: String!
+  notificationType: NotificationType!
+  description: String!
+  readAt: DateTime
+  viewedAt: DateTime
+  isOpen: Boolean!
+}
+
+enum NotificationType {
+  RIDE_REQUEST
+  RIDE_CANCELLATION
+  SCHEDULED_RIDE_NOTIFY
+  REAL_TIME_RIDE_TRACKING
+  CHAT
+  RIDE_COMPLETE_NOTIFICATION
+  PROCEED_PAYMENT
+  PAYMENT_RECEIPT
+  PAYMENT_FAILURE
+  PAYMENT_WITHDRAWAL
+  TERMS_AND_CONDITIONS_UPDATED
+  RIDE_ACCEPTED
+  RIDE_START
+  RIDE_END
+  REQUEST_TO_PAY
+  DRIVER_ON_THE_WAY
+  PAYMENT_CONFIRM
+}
+
+type BasicResponse {
+  message: String!
+  success: Boolean!
+}
+
+type CoreUserDetailsResponse {
+  email: String
+  verified: Boolean!
+  suspended: Boolean!
+  profileCompleted: Boolean!
+  _id: String!
+  language: String!
+  phone: String
+}
+
+type UserDetailsResponse {
+  _id: String
+  userId: String
+  fullName: String
+  gender: GenderEnum
+  address: String
+  email: String
+  profileImage: String
+  dateOfBirth: String
+  bio: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
+  createdAt: String
+}
+
+enum GenderEnum {
+  MALE
+  FEMALE
+  OTHERS
+  UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
+}
+
+type SignInResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
+}
+
+type SignUpResponse {
+  currentTime: Int
+  expiresBy: Int
+  verificationToken: String
+  message: String!
+  success: Boolean!
+}
+
+type SetPasswordResponse {
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
+}
+
+type VerifyGooglePhoneResponse {
+  message: String!
+  success: Boolean!
+  accessToken: String!
+  refreshToken: String!
+  user: CoreUserDetailsResponse!
+  userDetails: UserDetailsResponse!
+}
+
+type VerifyResetPasswordOtpResponse {
+  message: String!
+  success: Boolean!
+  resetPasswordToken: String!
+}
+
+type UserDetailEntity {
+  _id: String!
+  email: String!
+  verified: Boolean!
+  suspended: Boolean!
+  language: String!
+  loginAs: String!
+  userDetails: UserDetailsResponse!
+}
+
+type BasicExpirationResponse {
+  currentTime: Int
+  expiresBy: Int
+  verificationToken: String
+  message: String!
+  success: Boolean!
+}
+
+type IssueCategoryEmbed {
+  parentCategory: IssueParentCategory!
+  subCategoryId: ID
+  subCategoryLabel: String
+}
+
+"""Top-level grouping for issue templates"""
+enum IssueParentCategory {
+  """Problems that occurred during a ride"""
+  RIDE
+
+  """Issues related to ride cancellations"""
+  CANCEL
+
+  """Complaints about drivers, passengers, or service"""
+  COMPLAINT
+
+  """Problems with the in-app chat feature"""
+  CHAT
+}
+
+type Issue {
+  _id: ID!
+  reportedBy: String!
+  reportedByType: ReportedByType!
+  rideId: String
+  category: IssueCategoryEmbed
+  issueContent: String!
+  status: IssueStatus!
+  resolvedBy: String
+  resolvedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+The type of the user who reported the issue since driver and passenger are allowed to report issues
+"""
+enum ReportedByType {
+  """The user is a passenger"""
+  PASSENGER
+
+  """The user is a driver"""
+  DRIVER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+}
+
+type CreateIssueResponse {
+  message: String!
+  success: Boolean!
+  issue: Issue
+}
+
+type FavouriteListWithPaginationResponse {
+  message: String
+  data: [Favourites!]
+  pagination: Pagination!
+}
+
+type RideListWithPaginationResponse {
+  message: String
+  data: [Rides!]
+  pagination: Pagination!
+}
+
+type NotificationGroup {
+  title: String!
+  notifications: [Notification!]!
+}
+
+type NotificationListWithCursorPaginationResponse {
+  data: [NotificationGroup!]!
+  pageInfo: CursorPageInfo!
+}
+
+type CancelRideResponse {
+  _id: ID!
+  rideStatus: RideStatus!
+  cancelledAt: DateTime!
+  cancelledByRole: UserRole
+  cancelledBy: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
+}
+
+type IssueCategory {
+  _id: ID!
+  parentCategory: IssueParentCategory!
+  categoryForRole: IssueCategoryForRole!
+  label: String!
+  sortOrder: Float!
+  isActive: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""
+Indicates whether an issue category is applicable to drivers, passengers, or both
+"""
+enum IssueCategoryForRole {
+  """Category is relevant for drivers"""
+  DRIVER
+
+  """Category is relevant for passengers"""
+  PASSENGER
+
+  """Category is relevant for both drivers and passengers"""
+  BOTH
+}
+
+type Query {
+  health: String!
+  getUser: UserDetailEntity!
+  getUserDetails: UserDetailsResponse!
+  getAllRides(input: PaginationInput!): RideListWithPaginationResponse!
+  getIssueCategoriesByParent(parentCategory: IssueParentCategory!): [IssueCategory!]!
+  getMyFavourites(options: PaginationInputOnly): FavouriteListWithPaginationResponse!
+  getFavouriteById(favouriteId: String!): Favourites!
+  getNotifications(options: CursorPaginationInput!): NotificationListWithCursorPaginationResponse!
+  unreadNotificationCount: Int!
+}
+
+input PaginationInput {
+  page: Int! = 0
+  limit: Int! = 5
+  orderBy: String
+  order: SortBy! = desc
+  searchText: String
+  filter: JSON
+}
+
+"""Order by direction for pagination"""
+enum SortBy {
+  """Ascending order"""
+  asc
+
+  """Descending order"""
+  desc
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
+
+input PaginationInputOnly {
+  page: Int! = 0
+  limit: Int! = 5
+}
+
+input CursorPaginationInput {
+  limit: Int! = 5
+  cursor: String
+  sortOrder: SortBy
+}
+
+type Mutation {
+  loginWithRefreshToken(input: RefreshTokenInput!): SignInResponse!
+  sendVerifyPhoneOtp(input: PhoneInput!): BasicExpirationResponse!
+  resetPassword(input: ResetPasswordInput!): BasicResponse!
+  googleSignUp(input: GoogleSignUpInput!): BasicResponse!
+  googleSignIn(input: GoogleSignInInput!): SignInResponse!
+  phoneSignUp(input: PhoneSignUpInput!): SignUpResponse!
+  phoneSignIn(input: PhoneSignInInput!): SignInResponse!
+  verifyPhone(input: VerifyPhoneInput!): SignUpResponse!
+  verifyGooglePhone(input: VerifyPhoneInput!): VerifyGooglePhoneResponse!
+  setPassword(input: SetPasswordInput!): SetPasswordResponse!
+  verifyResetPasswordPhoneOtp(input: VerifyPhoneInput!): VerifyResetPasswordOtpResponse!
+  updatePhone(input: UpdatePhoneInput!): BasicExpirationResponse!
+  logOut(input: LogOutInput!): BasicResponse!
+  changePassword(input: ChangePasswordInput!): BasicResponse!
+  changeLanguage(input: ChangeLanguageInput!): BasicResponse!
+  updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
+  generateSampleRides: [Rides!]!
+  cancelRide(input: CancelRideInput!): CancelRideResponse!
+  createIssue(input: CreateIssueInput!): CreateIssueResponse!
+  seedIssueCategorys: String!
+  createFavourite(input: CreateFavouriteInput!): Favourites!
+  readNotification(id: String!): Notification!
+  openNotifications: Notification!
+  createNotification(notificationPayload: CreateNotificationInput!): Notification!
+}
+
+input RefreshTokenInput {
+  refreshToken: String!
+}
+
+input PhoneInput {
+  phone: String!
+  type: VerificationType
+}
+
+enum VerificationType {
+  VERIFICATION_PHONE
+  RESET_PASSWORD
+  VERIFICATION_EMAIL
+}
+
+input ResetPasswordInput {
+  password: String!
+  resetPasswordToken: String!
+}
+
+input GoogleSignUpInput {
+  token: String!
+  deviceId: String
+  firebaseToken: String
+  deviceType: String
+}
+
+input GoogleSignInInput {
+  token: String!
+  device: DeviceInput
+}
+
+input DeviceInput {
+  deviceId: String!
+  firebaseToken: String!
+  deviceType: String!
+}
+
+input PhoneSignUpInput {
+  phone: String!
+}
+
+input PhoneSignInInput {
+  phone: String!
+  password: String!
+  device: DeviceInput
+}
+
+input VerifyPhoneInput {
+  phone: String!
+  otp: String!
+}
+
+input SetPasswordInput {
+  password: String!
+  device: DeviceInput
+}
+
+input UpdatePhoneInput {
+  phone: String!
+  email: String!
+}
+
+input LogOutInput {
+  deviceId: String!
+}
+
+input ChangePasswordInput {
+  oldPassword: String!
+  newPassword: String!
+}
+
+input ChangeLanguageInput {
+  language: String!
+}
+
+input CreateUserDetailsInput {
+  fullName: String!
+  address: String
+  profileImage: String
+  email: String
+  dateOfBirth: DateTime
+  bio: String
+  geoLocation: GeoLocationInput
+  gender: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
+}
+
+input GeoLocationInput {
+  type: String!
+  coordinates: [Float!]!
+}
+
+input CancelRideInput {
+  rideId: ID!
+  cancelSubCategoryLabel: String!
+  cancelSubCategoryId: ID!
+  cancelReasonContent: String
+}
+
+input CreateIssueInput {
+  title: String!
+  issueContent: String!
+  category: IssueCategoryInput!
+  rideId: String
+}
+
+input IssueCategoryInput {
+  parentCategory: IssueParentCategory!
+  category: IssueCategoryForRole!
+  subCategoryId: String
+}
+
+input CreateFavouriteInput {
+  rideId: String!
+}
+
+input CreateNotificationInput {
+  title: String!
+  notificationType: NotificationType!
+  description: String
+}

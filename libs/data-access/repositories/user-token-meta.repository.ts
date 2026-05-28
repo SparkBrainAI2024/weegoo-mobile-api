@@ -60,7 +60,8 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
     accessTokenJti: string,
     refreshTokenJti: string,
     email: string,
-    role?:string
+    role?:string,
+    firebaseToken?:string
   ) {
     try {
       await this.model.findOneAndDelete({ userId, deviceId });
@@ -71,6 +72,7 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
         refreshTokenJti,
         email,
         role: role || 'USER',
+        firebaseToken: firebaseToken || null
       });
     } catch (e) {
       ErrorException(e, 'COMMON.INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
