@@ -259,4 +259,14 @@ export class EnvService {
   getMailPass(): string {
     return this.getString('MAIL_PASS', '');
   }
+  getFirebaseProjectId(): string {
+    return this.getString('FIREBASE_PROJECT_ID', '');
+  }
+  getFirebaseClientEmail(): string {
+    return this.getString('FIREBASE_CLIENT_EMAIL', '');
+  }
+  getFirebasePrivateKey(): string {
+    return this.getString('FIREBASE_PRIVATE_KEY', '');
+  }
+  
 }

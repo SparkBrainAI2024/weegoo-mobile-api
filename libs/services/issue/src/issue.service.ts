@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { IssueRepository, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
 import { Issue } from '@libs/data-access/entities/issue.entity';
-import {  CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
-import { CreateIssueResponse, IssueCategoryInput, RidesRepository } from '@libs/data-access';
+import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
+import { CreateIssueResponse, IssueCategoryInput, RidesRepository, CreateIssueInput } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Message } from '@libs/localization';
 import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-category.embedded';
@@ -34,17 +34,17 @@ export class IssueService {
  async createIssue(
   userId: string,
   reportedByType: ReportedByType,
-  category: IssueCategoryInput,
-  issueContent: string,
+  input: CreateIssueInput, // Changed to accept the CreateIssueInput DTO
   lang: string,
-  rideId?: string,
 ): Promise<CreateIssueResponse> {
-  if (!issueContent || issueContent.trim().length < 10) {
+  const { category, issueContent, rideId, title } = input; // Destructure the input DTO
+
+  if (!issueContent || issueContent.trim().length < 10) { // Use issueContent from input
     throw new BadRequestException('Issue content must be at least 10 characters.');
   }
 
-  if (rideId) {
-    const ride = await this.ridesRepo.findById(new Types.ObjectId(rideId));
+  if (rideId) { // Use rideId from input
+    const ride = await this.ridesRepo.findById(new Types.ObjectId(rideId)); // Use rideId from input
     if (!ride) throw new NotFoundException('Ride not found.');
     const isPassenger = ride.passengerId?.toString() === userId;
     const isDriver = ride.driverId?.toString() === userId;
@@ -53,22 +53,23 @@ export class IssueService {
 
   // fetch IssueCategory and build full embed
   let categoryEmbed: IssueCategoryEmbed | null = null;
-  if (category) {
-    const group = category.subCategoryId
-      ? await this.issueRepo.findIssueCategoryById(category.subCategoryId)
+  if (category) { // Use category from input
+    const group = category.subCategoryId // Use subCategoryId from input.category
+      ? await this.issueRepo.findIssueCategoryById(category.subCategoryId) // Use subCategoryId from input.category
       : null;
 
     categoryEmbed = {
-      parentCategory: category.parentCategory,
+      parentCategory: category.parentCategory, // Use parentCategory from input.category
       subCategoryId: group?._id?.toString() ?? null,
       subCategoryLabel: group?.label ?? null,
     };
   }
 
   const issue = await this.issueRepo.create({
+    title: title, // Added the missing title from input
     reportedBy: userId,
     reportedByType,
-    category: categoryEmbed,
+    category: categoryEmbed as any,
     issueContent: issueContent.trim(),
     rideId,
   });

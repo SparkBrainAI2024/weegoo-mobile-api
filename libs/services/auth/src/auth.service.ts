@@ -131,6 +131,7 @@ export class AuthService {
     identifier: string,
     roles: string[] = [],
     deviceId: string = null,
+    firebaseToken:string = null
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessTokenJti = generateMongoDbId();
     const refreshTokenJti = generateMongoDbId();
@@ -142,6 +143,7 @@ export class AuthService {
       grant: 'access',
       type: tokenTypes.accessToken,
       deviceId,
+      firebaseToken,
       role: this.defaultRole,
     };
     const refreshTokenData = {
@@ -149,6 +151,7 @@ export class AuthService {
       identifier,
       type: tokenTypes.refreshToken,
       deviceId,
+      firebaseToken,
       role: this.defaultRole,
     };
 
@@ -168,6 +171,7 @@ export class AuthService {
       refreshTokenJti.toString(),
       identifier || '',
       this.defaultRole,
+      firebaseToken
     );
 
     return { accessToken, refreshToken };
@@ -513,7 +517,7 @@ export class AuthService {
         },
       );
 
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId,device?.firebaseToken);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -828,7 +832,7 @@ export class AuthService {
 
       // Use email or phone as the identifier for token generation
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId,verifiedToken.firebaseToken);
 
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
@@ -883,7 +887,7 @@ export class AuthService {
 
       // Generate auth tokens
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, updatedRoles, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, updatedRoles, device?.deviceId, device?.firebaseToken);
 
       const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
       if (!userDetails) {
@@ -1013,7 +1017,7 @@ export class AuthService {
           roles: updatedRoles,
         },
       );
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId, device?.firebaseToken);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;

@@ -42,4 +42,13 @@ export class FavouritesResolver {
     ) {
         return this.favouriteService.getFavouriteById(favouriteId, user._id.toString());
     }
+
+    @Roles(roles.USER)
+    @Query(() => Favourites, { name: 'getFavouriteById' })
+    async removeFavouriteById(
+        @CurrentUser() user: User,
+        @Args('favouriteId') favouriteId: string,
+    ) {
+        return this.favouriteService.removeFavouriteById(favouriteId, user._id.toString());
+    }
 }

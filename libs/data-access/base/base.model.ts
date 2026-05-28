@@ -10,6 +10,8 @@ import {
   IPaginationRequest,
   LookupWithSearchOptions,
 } from '../interfaces/pagination.interface';
+import { CursorPaginationInput } from './base.input';
+import { Populate } from './base.repository';
 
 export interface BaseModel<T extends Document> extends Model<T> {
   /**
@@ -71,5 +73,12 @@ export interface BaseModel<T extends Document> extends Model<T> {
     filter?: RootFilterQuery<T>,
     options?: MongooseBaseQueryOptions<T>,
     pipelines?: PipelineStage[],
+  ): Promise<IPaginatedResult<T>>;
+
+  /**Cursor-based pagination */
+  cursorPaginate(
+    filter: RootFilterQuery<T>,
+    pagination: CursorPaginationInput,
+    populate?: Populate,
   ): Promise<IPaginatedResult<T>>;
 }
