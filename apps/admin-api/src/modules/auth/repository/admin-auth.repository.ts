@@ -2,16 +2,16 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import { AdminVerification, AdminVerificationDocument } from "../entities/admin-verification.entity";
-import { BaseRepository } from "../base/base.repository";
-import { userVerificationModel } from "@libs/data-access";
+
+import { BaseModel, BaseRepository, UserVerification, UserVerificationDocument,  } from "@libs/data-access";
 
 @Injectable()
-export class AdminVerificationRepository extends BaseRepository<AdminVerificationDocument> {
+export class AdminVerificationRepository extends BaseRepository<UserVerificationDocument> {
   constructor(
-    @InjectModel(AdminVerification.name)
-    private readonly adminVerificationModel: Model<AdminVerificationDocument>,
+    @InjectModel(UserVerification.name)
+    private readonly _model: BaseModel<UserVerificationDocument>,
   ) {
-    super(userVerificationModel);
+    super(_model);
   }
 }
+
