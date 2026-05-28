@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { UserAuthModule } from "@libs/services/auth/auth.module";
-import { AuthResolver } from "./resolver/auth.resolver";
+import { AdminAuthResolver } from "./resolver/admin-auth.resolver";
 
 @Module({
   imports: [
@@ -8,7 +8,7 @@ import { AuthResolver } from "./resolver/auth.resolver";
     
   ],
   providers: [
-   AuthResolver
+   AdminAuthResolver
   ]
 })
 export class AuthModule {}

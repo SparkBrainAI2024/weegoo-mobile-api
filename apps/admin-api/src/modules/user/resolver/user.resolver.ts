@@ -15,7 +15,7 @@ import { UserService } from "@libs/services/user/user.service";
 
 @Resolver()
 @UseGuards(AuthGuard)
-export class UserResolver {
+export class AdminAuthResolver {
   constructor(private readonly userService: UserService) {}
 
   @Mutation(() => BasicResponse)
@@ -44,17 +44,17 @@ export class UserResolver {
     return this.userService.changeLanguage(input.language, user._id);
   }
 
-  // @Mutation(() => BasicResponse)
-  // verifyChangeEmailOTP(
-  //   @Args("input") input: VerifyEmailInput,
-  //   @CurrentUser() user,
-  //   @CurrentLang() lang: string,
-  // ) {
-  //   return this.userService.verifyChangeEmailOTP(input, lang, user._id);
-  // }
 
   @Query(() => UserDetailEntity)
   getUser(@CurrentUser() user) {
     return this.userService.getUserById(user._id);
   }
+
+  @Mutation(() => AdminSignInResponse)
+adminSignIn(
+  @Args("input") input: AdminSignInInput,
+  @CurrentLang() lang: string,
+) {
+  return this.adminAuthService.signIn(input, lang);
+}
 }

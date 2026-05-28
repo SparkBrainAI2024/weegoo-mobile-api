@@ -10,9 +10,13 @@ export type UserVerificationDocument = HydratedDocument<UserVerification>;
 @ObjectType()
 @Schema({ timestamps: true })
 export class UserVerification extends BaseEntity {
-  @Field(() => ID)
-  @Prop({ type: Types.ObjectId, ref: "User" })
-  userId: Types.ObjectId;
+   @Field(() => ID, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: "User", default: null })
+  userId?: Types.ObjectId;
+
+  @Field(() => ID, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: "Admin", default: null })
+  adminId?: Types.ObjectId;
 
   @Field()
   @Prop({ type: Number })
