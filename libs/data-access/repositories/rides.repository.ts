@@ -159,4 +159,34 @@ async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
     { new: true },
   );
 }
+
+
+async getMyTripHistory(user: Partial<User>, paginationInput: PaginationInput): Promise<IPaginatedResult<RidesDocument>> {
+  const filter: any = {
+    deleted: false, // Exclude soft-deleted rides
+  };
+
+  if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
+    filter.passengerId = new Types.ObjectId(user._id);
+  } else if (user.loginAs === roles.RIDER) {
+    filter.driverId = new Types.ObjectId(user._id);
+  }
+
+  const populateOptions = {
+    path: "vehicleId",
+  };
+  // Apply pagination with the constructed filter and vehicle population
+  const result = await this.paginate(paginationInput, populateOptions as any, filter);
+
+  // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
+  result.data = result.data.map((ride: any) => {
+    if (ride.vehicleId && typeof ride.vehicleId === 'object') {
+      ride.vehicle = ride.vehicleId;
+      ride.vechicleId = ride.vehicleId._id;
+    }
+    return ride;
+  });
+
+  return result;
+}
 }
