@@ -46,7 +46,6 @@ export * from './interfaces/jwt-payload.interface';
 //common
 export * from './common/geo.location';
 export * from './common/phone';
-export * from './common/cancellation';
 export * from './common/ride.location';
 export * from './common/fare';
 export * from './common/payment-details';

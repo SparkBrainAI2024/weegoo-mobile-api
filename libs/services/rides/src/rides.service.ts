@@ -6,12 +6,14 @@ import { Message } from '@libs/localization';
 import { ErrorException } from '@libs/common/exceptions';
 import { RIDES } from '@libs/localization/en/ride.messages';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
+import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
-    private readonly transactionService:TransactionService
+    private readonly transactionService:TransactionService,
+    private readonly issueRepository: IssueRepository
   ) {}
 
   /**
@@ -159,23 +161,39 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
     ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
   }
 
+    const subCategory = await this.issueRepository.findIssueCategoryById(
+    input.cancelSubCategoryId
+  );
+
+ if (subCategory.categoryForRole !== user.loginAs) {
+  ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+}
+
+if (subCategory.label === 'Other' && !input.cancelReasonContent) {
+  ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
+}
+
   const isPassenger = ride.passengerId.toString() === user._id.toString();
   const isDriver = ride.driverId.toString() === user._id.toString();
 
 if (!isPassenger && !isDriver) {
-  ErrorException(null, 'RIDES.UNAUTHORIZED', HttpStatus.FORBIDDEN);
+  ErrorException(null, 'RIDES.CANCEL_UNAUTHORIZED', HttpStatus.FORBIDDEN);
+}
+
+if (ride.rideStatus === RideStatus.CANCELLED) {
+  ErrorException(null, 'RIDES.CANCEL_ALREADY_CANCELLED', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.COMPLETED) {
-  ErrorException(null, 'RIDES.ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.ONGOING) {
-  ErrorException(null, 'RIDES.IN_PROGRESS', HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_IN_PROGRESS', HttpStatus.BAD_REQUEST);
 }
 
 if (ride.rideStatus === RideStatus.PENDING) {
-  ErrorException(null, 'RIDES.PENDING', HttpStatus.BAD_REQUEST);
+  ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
 }
 
   return this.rideRepository.cancelRide({
