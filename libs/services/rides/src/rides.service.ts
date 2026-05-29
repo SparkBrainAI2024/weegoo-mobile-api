@@ -7,6 +7,7 @@ import { ErrorException } from '@libs/common/exceptions';
 import { RIDES } from '@libs/localization/en/ride.messages';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
+import { CategoryAccessedByRole, IssueCategoryForRole } from '@libs/data-access/enums/issue.enum';
 
 @Injectable()
 export class RidesService {
@@ -155,6 +156,7 @@ export class RidesService {
   }
 
 async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+  const userLoginAs = user.loginAs===roles.RIDER? "DRIVER" : "PASSENGER";
   const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
   if (!ride) {
@@ -165,8 +167,11 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
     input.cancelSubCategoryId
   );
 
- if (subCategory.categoryForRole !== user.loginAs) {
-  ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+
+
+if(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole){
+    ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+
 }
 
 if (subCategory.label === 'Other' && !input.cancelReasonContent) {
@@ -199,7 +204,7 @@ if (ride.rideStatus === RideStatus.PENDING) {
   return this.rideRepository.cancelRide({
     rideId: input.rideId,
     cancelledBy: user._id,
-    cancelledByRole: user.loginAs as roles,
+    cancelledByRole: userLoginAs as CategoryAccessedByRole,
     cancelSubCategoryId: new Types.ObjectId(input.cancelSubCategoryId),
     cancelSubCategoryLabel: input.cancelSubCategoryLabel,
     cancelReasonContent: input.cancelReasonContent,
