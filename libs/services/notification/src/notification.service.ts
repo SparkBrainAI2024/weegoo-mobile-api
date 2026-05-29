@@ -61,7 +61,7 @@ export class NotificationService {
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
-        const token = await this.userTokenRepository.findOne({userId:userId});
+        const token = await this.userTokenRepository.findOne({userId:userId},null,null,{sort:{createdAt:-1 }});
         if(token?.firebaseToken){
         await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken,{
             data:{
