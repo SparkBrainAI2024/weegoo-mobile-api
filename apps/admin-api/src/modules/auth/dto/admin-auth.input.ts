@@ -4,6 +4,24 @@ import { IsEmail, IsNotEmpty, IsNumber, MinLength } from "class-validator";
 
 // --- Inputs ---
 
+
+
+@InputType()
+export class CreateAdminInput {
+  @Field()
+  @IsNotEmpty()
+  fullName: string;
+
+  @Field()
+  @IsEmail({}, { message: "ADMIN.INVALID_EMAIL" })
+  email: string;
+
+  @Field()
+  @IsNotEmpty()
+  @MinLength(8, { message: "ADMIN.PASSWORD_TOO_SHORT" })
+  password: string;
+}
+
 @InputType()
 export class AdminForgotPasswordInput {
   @Field()

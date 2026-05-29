@@ -9,29 +9,26 @@ import { generateToken } from "@libs/common/utils/jwt";
 import { passwordSalt, userOtpExpiredTime, tokenTypes } from "@libs/common/constants";
 import { MailService } from "@libs/services/mail";
 import { toMongoId } from "@libs/common";
-import { AdminUserRepository } from "@libs/data-access/repositories/admin-user.repository";
-import { AdminVerificationRepository } from "@libs/data-access/repositories/admin-verification.repository";
+
 import { verificationType } from "@libs/data-access/enums/user.enum";
-import {
-  AdminForgotPasswordInput,
-  AdminVerifyOtpInput,
-  AdminUpdatePasswordInput,
-  AdminSignInInput,
-} from "@libs/data-access/dto/admin-auth.dto";
+
 import { Message } from "@libs/localization";
+import { AdminSignInInput, CreateAdminInput } from "./dto/admin-auth.input";
+import { AdminUserRepository } from "../user/repository/admin-user.repository";
+import { UserVerificationRepository } from "@libs/data-access";
 
 @Injectable()
 export class AdminAuthService {
   constructor(
     private readonly adminUserRepository: AdminUserRepository,
-    private readonly adminVerificationRepository: AdminVerificationRepository,
+    private readonly userVerificationRepository: UserVerificationRepository,
     private readonly mailService: MailService,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────────
 
   private async hasValidOtp(adminId: Types.ObjectId): Promise<any> {
-    const verification = await this.adminVerificationRepository.findOne({
+    const verification = await this.userVerificationRepository.findOne({
       adminId,
       type: verificationType.RESET_PASSWORD, // or whatever enum value fits
     });
@@ -68,9 +65,7 @@ export class AdminAuthService {
       }
 
       const payload = { _id: admin._id, type: tokenTypes.ACCESS };
-      const accessToken = generateToken(payload);
-      const refreshToken = generateToken({ ...payload, type: tokenTypes.REFRESH });
-
+const this = authToken
       return {
         message: Message("ADMIN.SIGN_IN_SUCCESS", lang),
         accessToken,
@@ -224,5 +219,85 @@ export class AdminAuthService {
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  // add to admin-auth.service.ts
+
+async createAdmin(input: CreateAdminInput, lang: string) {
+  try {
+    const existing = await this.adminUserRepository.findOne({
+      email: input.email,
+      deleted: false,
+    });
+
+    if (existing) {
+      ErrorException(
+        new Error(),
+        "ADMIN.EMAIL_ALREADY_EXISTS",
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const hashed = await hashPassword(input.password, passwordSalt);
+
+    await this.adminUserRepository.create({
+      fullName: input.fullName,
+      email: input.email,
+      password: hashed,
+    });
+
+    return {
+      message: Message("ADMIN.CREATED", lang),
+    };
+  } catch (e) {
+    ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+  }
+}
+
+  private async createAuthTokens(
+    userId: Types.ObjectId | string,
+    identifier: string,
+    roles: string[] = [],
+    deviceId: string = null,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const accessTokenJti = generateMongoDbId();
+    const refreshTokenJti = generateMongoDbId();
+
+    const accessTokenData = {
+      id: userId,
+      identifier,
+      jti: accessTokenJti,
+      grant: 'access',
+      type: tokenTypes.accessToken,
+      deviceId,
+      role: this.defaultRole,
+    };
+    const refreshTokenData = {
+      id: userId,
+      identifier,
+      type: tokenTypes.refreshToken,
+      deviceId,
+      role: this.defaultRole,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      generateToken(accessTokenData, this.envService.getJwtSecretKey(), {
+        expiresIn: this.envService.getAccessTokenLife(),
+      }),
+      generateToken(refreshTokenData, this.envService.getJwtSecretKey(), {
+        expiresIn: this.envService.getRefreshTokenLife(),
+      }),
+    ]);
+
+    await this.userTokenMetaRepository.createSessionMeta(
+      typeof userId === 'string' ? new Types.ObjectId(userId) : userId as Types.ObjectId,
+      deviceId,
+      accessTokenJti.toString(),
+      refreshTokenJti.toString(),
+      identifier || '',
+      this.defaultRole,
+    );
+
+    return { accessToken, refreshToken };
   }
 }

@@ -6,7 +6,7 @@ import { Model } from "mongoose";
 import { BaseModel, BaseRepository, UserVerification, UserVerificationDocument,  } from "@libs/data-access";
 
 @Injectable()
-export class AdminVerificationRepository extends BaseRepository<UserVerificationDocument> {
+export class AdminAuthRepository extends BaseRepository<UserVerificationDocument> {
   constructor(
     @InjectModel(UserVerification.name)
     private readonly _model: BaseModel<UserVerificationDocument>,

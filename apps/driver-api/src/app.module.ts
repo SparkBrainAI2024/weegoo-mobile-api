@@ -14,6 +14,7 @@ import { DriverDocumentModule } from './modules/driver-document/driver-document.
 import { UploadCenterModule } from '@libs/services/upload-center/src';
 import { RidesModule } from './modules/rides/rides.module';
 import { IssueModule } from './modules/issue/issue.module';
+import { TransactionModule } from './modules/transaction/transaction.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { IssueModule } from './modules/issue/issue.module';
     DriverDocumentModule,
     UploadCenterModule,
     RidesModule,
+    TransactionModule,
     IssueModule
   ],
   providers: [HealthResolver],

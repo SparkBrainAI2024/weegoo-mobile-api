@@ -1,7 +1,7 @@
 // apps/admin/src/auth/admin-auth.resolver.ts
 import { Resolver, Mutation, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
-import { LangGuard } from "@libs/guards/guard";
+import { AuthGuard, LangGuard } from "@libs/guards/guard";
 import { CurrentLang } from "@libs/common";
 import { AdminAuthService } from "../admin-auth.service";
 import {
@@ -13,7 +13,9 @@ import {
   AdminVerifyOtpResponse,
   AdminUpdatePasswordResponse,
   AdminSignInResponse,
+  CreateAdminInput,
 } from "../dto/admin-auth.input";
+import { CreateAdminResponse } from "../dto/admin-auth.response";
 
 @Resolver()
 @UseGuards(LangGuard)
@@ -51,4 +53,15 @@ export class AdminAuthResolver {
   ) {
     return this.adminAuthService.updatePassword(input, lang);
   }
+
+  // add to admin-auth.resolver.ts — protected by AdminGuard
+
+@UseGuards(AuthGuard)  // only existing admins can create new admins
+@Mutation(() => CreateAdminResponse)
+createAdmin(
+  @Args("input") input: CreateAdminInput,
+  @CurrentLang() lang: string,
+) {
+  return this.adminAuthService.createAdmin(input, lang);
+}
 }
