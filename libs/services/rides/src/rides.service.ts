@@ -170,7 +170,7 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
   );
   this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
 
-  if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ {
+  if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ 
     ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
   }
 
@@ -217,4 +217,4 @@ if (ride.rideStatus === RideStatus.PENDING) {
   });
 }
 }
-}
+
