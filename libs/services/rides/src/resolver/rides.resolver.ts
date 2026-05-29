@@ -25,6 +25,15 @@ export class RidesResolver {
     );
   }
 
+   @Query(() => [Rides])
+  async dashboardHomeApi(
+    @CurrentUser() driver: User,
+  ) {
+    return this.ridesService.homeDashboardApi(
+      driver
+    );
+  }
+
   @Mutation(() => [Rides])
   async generateSampleRides() {
     let driverId: Types.ObjectId;
