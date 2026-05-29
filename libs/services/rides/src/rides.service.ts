@@ -6,6 +6,7 @@ import { ErrorException } from '@libs/common/exceptions';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
+import { toMongoId } from '@libs/common';
 
 @Injectable()
 export class RidesService {
@@ -210,7 +211,7 @@ if (ride.rideStatus === RideStatus.PENDING) {
     rideId: input.rideId,
     cancelledBy: user._id,
     cancelledByRole: userLoginAs as CategoryAccessedByRole,
-    cancelSubCategoryId: new Types.ObjectId(input.cancelSubCategoryId),
+    cancelSubCategoryId: toMongoId(input.cancelSubCategoryId), // Convert to ObjectId using
     cancelSubCategoryLabel: input.cancelSubCategoryLabel,
     cancelReasonContent: input.cancelReasonContent,
   });
