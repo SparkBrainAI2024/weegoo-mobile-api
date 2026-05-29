@@ -24,7 +24,7 @@ import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: true,
-      playground: true,
+      playground: false,
       introspection: true,
       plugins: [ApolloServerPluginLandingPageLocalDefault({ footer: false })],
     }),

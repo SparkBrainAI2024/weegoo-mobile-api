@@ -1,5 +1,5 @@
-import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { Field, InputType, registerEnumType, Int } from '@nestjs/graphql';
+import { IsEnum, IsOptional, IsString, IsDateString, Min } from 'class-validator';
 
 /**
  * Weather conditions that affect pricing and vehicle suggestions.
@@ -22,6 +22,24 @@ export enum TrafficConditionEnum {
 }
 
 /**
+ * Rain forecast conditions for scheduled pricing.
+ */
+export enum RainConditionEnum {
+  NONE = 'none',
+  LIGHT = 'light',
+  HEAVY = 'heavy',
+}
+
+/**
+ * Historical traffic conditions for scheduled pricing.
+ */
+export enum HistoricalTrafficEnum {
+  LOW = 'low',
+  MODERATE = 'moderate',
+  HEAVY = 'heavy',
+}
+
+/**
  * Driver's action in response to a ride request.
  */
 export enum DriverActionEnum {
@@ -39,13 +57,23 @@ registerEnumType(TrafficConditionEnum, {
   description: 'Traffic conditions affecting ride pricing',
 });
 
+registerEnumType(RainConditionEnum, {
+  name: 'RainCondition',
+  description: 'Rain forecast at scheduled time for scheduled ride pricing',
+});
+
+registerEnumType(HistoricalTrafficEnum, {
+  name: 'HistoricalTraffic',
+  description: 'Historical traffic at scheduled time for scheduled ride pricing',
+});
+
 registerEnumType(DriverActionEnum, {
   name: 'DriverAction',
   description: 'Driver response to a ride request',
 });
 
 /**
- * Input for triggering a matchmaking process.
+ * Input for triggering an INSTANT matchmaking process.
  */
 @InputType()
 export class MatchDriversInput {
@@ -62,6 +90,26 @@ export class MatchDriversInput {
   @IsOptional()
   @IsEnum(TrafficConditionEnum)
   traffic?: TrafficConditionEnum;
+}
+
+/**
+ * Input for triggering a SCHEDULED matchmaking process.
+ */
+@InputType()
+export class MatchScheduledDriversInput {
+  @Field(() => String)
+  @IsString()
+  rideId: string;
+
+  @Field(() => RainConditionEnum, { nullable: true, defaultValue: RainConditionEnum.NONE })
+  @IsOptional()
+  @IsEnum(RainConditionEnum)
+  rain?: RainConditionEnum;
+
+  @Field(() => HistoricalTrafficEnum, { nullable: true, defaultValue: HistoricalTrafficEnum.LOW })
+  @IsOptional()
+  @IsEnum(HistoricalTrafficEnum)
+  historicalTraffic?: HistoricalTrafficEnum;
 }
 
 /**
@@ -83,7 +131,7 @@ export class DriverResponseInput {
 }
 
 /**
- * Input for fetching estimated fare.
+ * Input for fetching estimated fare (instant).
  */
 @InputType()
 export class EstimatedFareInput {
@@ -100,4 +148,24 @@ export class EstimatedFareInput {
   @IsOptional()
   @IsEnum(TrafficConditionEnum)
   traffic?: TrafficConditionEnum;
+}
+
+/**
+ * Input for fetching estimated scheduled fare.
+ */
+@InputType()
+export class ScheduledFareInput {
+  @Field(() => String)
+  @IsString()
+  rideId: string;
+
+  @Field(() => RainConditionEnum, { nullable: true })
+  @IsOptional()
+  @IsEnum(RainConditionEnum)
+  rain?: RainConditionEnum;
+
+  @Field(() => HistoricalTrafficEnum, { nullable: true })
+  @IsOptional()
+  @IsEnum(HistoricalTrafficEnum)
+  historicalTraffic?: HistoricalTrafficEnum;
 }

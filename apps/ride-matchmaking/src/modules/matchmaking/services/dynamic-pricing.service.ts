@@ -4,6 +4,9 @@ import {
   FareBreakdown,
   WeatherCondition,
   TrafficCondition,
+  RainCondition,
+  HistoricalTraffic,
+  ScheduledFareBreakdown,
 } from '../config/matchmaking.config';
 
 @Injectable()
@@ -11,18 +14,15 @@ export class DynamicPricingService {
   private readonly logger = new Logger(DynamicPricingService.name);
 
   /**
-   * Calculate the estimated fare for a ride based on distance, duration,
-   * weather conditions, and traffic conditions.
+   * Calculate the estimated fare for an INSTANT ride (additive model).
    *
    * Formula:
    *   pickup_cost         = $1.0
    *   distance_km * 1.2   = distanceCost
    *   duration_min * 0.3  = durationCost
    *   subtotal = pickup + distance + duration
-   *
-   *   weather surcharge   = subtotal * weatherMultiplier (e.g. heavy rain +25% for car)
-   *   traffic surcharge   = subtotal * trafficMultiplier (e.g. severe traffic +30% for car)
-   *
+   *   weather surcharge   = subtotal × (weatherMultiplier - 1)
+   *   traffic surcharge   = subtotal × (trafficMultiplier - 1)
    *   total = subtotal + weatherSurcharge + trafficSurcharge
    */
   calculateFare(params: {
@@ -78,7 +78,72 @@ export class DynamicPricingService {
       total: this.round(total),
     };
 
-    this.logger.debug(`Fare calculated: ${JSON.stringify(fare)}`);
+    this.logger.debug(`[INSTANT] Fare calculated: ${JSON.stringify(fare)}`);
+    return fare;
+  }
+
+  /**
+   * Calculate the estimated fare for a SCHEDULED ride (multiplicative model).
+   *
+   * Formula:
+   *   Base fare = (distance_km × per_km_rate) + (time_min × per_min_rate)
+   *   Ride type multiplier:  car × 1.0, bike × 0.7
+   *   Rain multiplier:       light × 1.1, heavy × 1.3
+   *   Traffic multiplier:    moderate × 1.2, heavy × 1.4
+   *
+   *   Final = Base fare × ride_multiplier × rain_multiplier × traffic_multiplier
+   */
+  calculateScheduledFare(params: {
+    distanceKm: number;
+    durationMinutes: number;
+    vehicleType: string;
+    rain?: RainCondition;
+    historicalTraffic?: HistoricalTraffic;
+  }): ScheduledFareBreakdown {
+    const {
+      distanceKm,
+      durationMinutes,
+      vehicleType,
+      rain = 'none',
+      historicalTraffic = 'low',
+    } = params;
+
+    const { SCHEDULED_FARE } = MATCHMAKING_CONFIG;
+
+    // Base fare = (distance_km × per_km_rate) + (time_min × per_min_rate)
+    // Note: No separate pickup cost in scheduled — simplified
+    const baseFare =
+      distanceKm * SCHEDULED_FARE.PER_KM_RATE +
+      durationMinutes * SCHEDULED_FARE.PER_MINUTE_RATE;
+
+    // Ride type multiplier
+    const rideTypeMultiplier =
+      SCHEDULED_FARE.RIDE_TYPE_MULTIPLIER[vehicleType] || 1.0;
+
+    // Rain multiplier (based on forecast at scheduled time)
+    const rainMultiplier =
+      rain !== 'none'
+        ? SCHEDULED_FARE.RAIN_MULTIPLIER[rain] || 1.0
+        : 1.0;
+
+    // Traffic multiplier (based on historical traffic at scheduled time)
+    const trafficMultiplier =
+      historicalTraffic !== 'low'
+        ? SCHEDULED_FARE.SCHEDULED_TRAFFIC_MULTIPLIER[historicalTraffic] || 1.0
+        : 1.0;
+
+    // Final = Base fare × ride_mult × rain_mult × traffic_mult
+    const total = baseFare * rideTypeMultiplier * rainMultiplier * trafficMultiplier;
+
+    const fare: ScheduledFareBreakdown = {
+      baseFare: this.round(baseFare),
+      rideTypeMultiplier,
+      rainMultiplier,
+      trafficMultiplier,
+      total: this.round(total),
+    };
+
+    this.logger.debug(`[SCHEDULED] Fare calculated: ${JSON.stringify(fare)}`);
     return fare;
   }
 

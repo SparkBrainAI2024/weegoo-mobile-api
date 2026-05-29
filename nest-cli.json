@@ -97,7 +97,7 @@
       "sourceRoot": "apps/ride-matchmaking/src",
       "entryFile": "main",
       "compilerOptions": {
-        "tsConfigPath": "apps/ride-matchmaking/src/tsconfig.app.json"
+        "tsConfigPath": "apps/ride-matchmaking/tsconfig.app.json"
       }
     }
   }

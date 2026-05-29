@@ -31,6 +31,24 @@ export class FareBreakdownGraphQL {
 }
 
 @ObjectType()
+export class ScheduledFareBreakdownGraphQL {
+  @Field(() => Float)
+  baseFare: number;
+
+  @Field(() => Float)
+  rideTypeMultiplier: number;
+
+  @Field(() => Float)
+  rainMultiplier: number;
+
+  @Field(() => Float)
+  trafficMultiplier: number;
+
+  @Field(() => Float)
+  total: number;
+}
+
+@ObjectType()
 export class MatchAttemptResultGraphQL {
   @Field(() => Int)
   attemptNumber: number;
@@ -79,6 +97,36 @@ export class MatchResultGraphQL {
 
   @Field(() => FareBreakdownGraphQL, { nullable: true })
   estimatedFare?: FareBreakdownGraphQL;
+
+  @Field(() => [MatchAttemptResultGraphQL])
+  attempts: MatchAttemptResultGraphQL[];
+
+  @Field(() => String)
+  message: string;
+}
+
+@ObjectType()
+export class ScheduledMatchResultGraphQL {
+  @Field(() => Boolean)
+  matched: boolean;
+
+  @Field(() => String)
+  rideId: string;
+
+  @Field(() => String)
+  rideUUId: string;
+
+  @Field(() => String)
+  passengerId: string;
+
+  @Field(() => String, { nullable: true })
+  driverId?: string;
+
+  @Field(() => String, { nullable: true })
+  driverName?: string;
+
+  @Field(() => ScheduledFareBreakdownGraphQL, { nullable: true })
+  estimatedFare?: ScheduledFareBreakdownGraphQL;
 
   @Field(() => [MatchAttemptResultGraphQL])
   attempts: MatchAttemptResultGraphQL[];
