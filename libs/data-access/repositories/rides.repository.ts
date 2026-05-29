@@ -158,8 +158,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
     // Apply pagination with the constructed filter and vehicle population
     const upcomingResult = await this.model.find({
-      bookingTime: { $gt: new Date() },
-      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
+     rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
       ...filter
     
     }).populate(populateOptions).limit(3)

@@ -63,8 +63,20 @@ export class RidesService {
   }
 
   /**
-   * Generates a specified number of sample rides for testing purposes.
-   * This method creates 20 instant and 20 scheduled rides with varying statuses.
+   * Generates sample rides for testing purposes.
+   * Creates the following distribution:
+   *
+   * Instant rides:
+   *   - 1 ongoing
+   *   - 3 completed
+   *   - 5 cancelled
+   *
+   * Scheduled rides:
+   *   - 10 confirmed
+   *   - 10 pending
+   *   - 3 completed
+   *   - 5 cancelled
+   *
    * The rideUUId, estimatedFare, estimatedTimeInMinutes, timeToReachRiderInMinutes,
    * and timeToReachRider are automatically calculated by the pre-save hook.
    */
@@ -73,91 +85,155 @@ export class RidesService {
     riderId: Types.ObjectId,
     vehicleId: Types.ObjectId,
     adminId: Types.ObjectId,
-    countPerType: number = 20, // 20 instant, 20 scheduled
   ): Promise<RidesDocument[]> {
     const generatedRides: RidesDocument[] = [];
-    const rideTypes = [RideTypes.INSTANT, RideTypes.SCHEDULED];
 
-    for (const rideType of rideTypes) {
-      for (let i = 0; i < countPerType; i++) {
-        let rideStatus: RideStatus;
-        let rideStartedAt: Date | undefined;
-        let rideCompletedAt: Date | undefined;
+    // ---- Instant rides: 1 ongoing, 3 completed, 5 cancelled ----
+    const instantStatuses: RideStatus[] = [
+      RideStatus.ONGOING,
+      RideStatus.COMPLETED,
+      RideStatus.COMPLETED,
+      RideStatus.COMPLETED,
+      RideStatus.CANCELLED,
+      RideStatus.CANCELLED,
+      RideStatus.CANCELLED,
+      RideStatus.CANCELLED,
+      RideStatus.CANCELLED,
+    ];
 
-        // Distribute statuses as requested: 10 confirmed, 3 ongoing, 2 completed, 2 canceled, 3 more confirmed
-        if (i < 10) {
-          rideStatus = RideStatus.CONFIRMED;
-        } else if (i < 13) {
-          rideStatus = RideStatus.ONGOING;
-        } else if (i < 15) {
-          rideStatus = RideStatus.COMPLETED;
-        } else if (i < 17) {
-          rideStatus = RideStatus.CANCELLED;
-        } else {
-          rideStatus = RideStatus.PENDING; // Remaining 3 rides
-        }
+    for (const rideStatus of instantStatuses) {
+      const ride = await this.buildAndSaveRide({
+        rideType: RideTypes.INSTANT,
+        rideStatus,
+        driverId,
+        riderId,
+        vehicleId,
+        adminId,
+        index: generatedRides.length,
+      });
+      generatedRides.push(ride);
+    }
 
-        const bookingTime = new Date(Date.now() - Math.random() * 3600000 * 24); // Random booking time within last 24 hours
-        const distanceInKm = parseFloat((Math.random() * 15 + 2).toFixed(1)); // Random distance between 2.0 and 17.0 km
+    // ---- Scheduled rides: 10 confirmed, 10 pending, 3 completed, 5 cancelled ----
+    const scheduledStatuses: RideStatus[] = [
+      ...Array(10).fill(RideStatus.CONFIRMED),
+      ...Array(10).fill(RideStatus.PENDING),
+      ...Array(3).fill(RideStatus.COMPLETED),
+      ...Array(5).fill(RideStatus.CANCELLED),
+    ];
 
-        if (rideStatus === RideStatus.ONGOING || rideStatus === RideStatus.COMPLETED) {
-          rideStartedAt = new Date(bookingTime.getTime() + Math.random() * 10 * 60000); // Started 0-10 mins after booking
-        }
-        if (rideStatus === RideStatus.COMPLETED && rideStartedAt) {
-          // Assuming average speed of 30km/h, so 2 minutes per km. Add some randomness.
-          const travelTimeMs = distanceInKm * 2 * 60000 + Math.random() * 5 * 60000;
-          rideCompletedAt = new Date(rideStartedAt.getTime() + travelTimeMs);
-        }
-
-        const rideData: Partial<RidesDocument> = {
-          rideType: rideType,
-          bookingTime: bookingTime,
-          rideStatus: rideStatus,
-          passengerId: riderId,
-          driverId:  driverId,
-          vehicleId: vehicleId,
-          distanceInKm: distanceInKm,
-          rideStartedAt: rideStartedAt,
-          rideCompletedAt: rideCompletedAt,
-          pickupLocation: {
-            address: `Kathmandu ward -${i + 1}`,
-            city: 'Kathmandu',
-            province: ProvinceEnum.BAGMATI,
-            district: 'Kathmandu',
-            fullAddress: `Kathmandu ward -${i + 1}`,
-            type: 'Point',
-            coordinates: [85.3 + Math.random() * 0.1, 27.7 + Math.random() * 0.1],
-          } as any,
-          dropoffLocation: {
-            address: `Kathmandu ward ${i + 2}}`,
-            city: 'Kathmandu',
-            province: ProvinceEnum.BAGMATI,
-            district: 'Kathmandu',
-            fullAddress: `  Kathmandu ward ${i + 2}`,
-            type: 'Point',
-            coordinates: [85.4 + Math.random() * 0.1, 27.8 + Math.random() * 0.1],
-          } as any,
-          deleted: false,
-        };
-        const newRide = await this.rideRepository.createRide(rideData);
-        // NOW we have newRide._id
-
-        if (newRide.rideStatus === RideStatus.CONFIRMED && process.env.NODE_ENV !== "local") {
-          await this.transactionService.createRideTransactions({
-            tripId: newRide._id.toString(),
-            adminId: adminId.toString(),
-            riderId: newRide.passengerId.toString(),
-            driverId: newRide.driverId.toString(),
-            totalFare: newRide.estimatedFare,
-            commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
-          });
-        }
-
-        generatedRides.push(newRide);
-      }
+    for (const rideStatus of scheduledStatuses) {
+      const ride = await this.buildAndSaveRide({
+        rideType: RideTypes.SCHEDULED,
+        rideStatus,
+        driverId,
+        riderId,
+        vehicleId,
+        adminId,
+        index: generatedRides.length,
+      });
+      generatedRides.push(ride);
     }
 
     return generatedRides;
+  }
+
+  /**
+   * Builds ride data from status and type, sets time fields accordingly, and saves.
+   */
+  private async buildAndSaveRide(params: {
+    rideType: RideTypes;
+    rideStatus: RideStatus;
+    driverId: Types.ObjectId;
+    riderId: Types.ObjectId;
+    vehicleId: Types.ObjectId;
+    adminId: Types.ObjectId;
+    index: number;
+  }): Promise<RidesDocument> {
+    const { rideType, rideStatus, driverId, riderId, vehicleId, adminId, index } = params;
+
+    let rideStartedAt: Date | undefined;
+    let rideCompletedAt: Date | undefined;
+
+    // Scheduled confirmed/pending rides: booking time exactly 30 days in the future
+    const isFutureBooking = rideType === RideTypes.SCHEDULED && (rideStatus === RideStatus.CONFIRMED || rideStatus === RideStatus.PENDING);
+    let bookingTime: Date;
+    if (isFutureBooking) {
+      bookingTime = new Date(Date.now() + 30 * 24 * 3600000); // Exactly 30 days from now
+    } else {
+      bookingTime = new Date(Date.now() - Math.random() * 3600000 * 24); // Random booking time within last 24 hours
+    }
+    const distanceInKm = parseFloat((Math.random() * 15 + 2).toFixed(1)); // Random distance between 2.0 and 17.0 km
+
+    if (rideStatus === RideStatus.ONGOING || rideStatus === RideStatus.COMPLETED) {
+      rideStartedAt = new Date(bookingTime.getTime() + Math.random() * 10 * 60000); // Started 0-10 mins after booking
+    }
+    if (rideStatus === RideStatus.COMPLETED && rideStartedAt) {
+      // Assuming average speed of 30km/h, so 2 minutes per km. Add some randomness.
+      const travelTimeMs = distanceInKm * 2 * 60000 + Math.random() * 5 * 60000;
+      rideCompletedAt = new Date(rideStartedAt.getTime() + travelTimeMs);
+    }
+
+    // Calculate estimated fare (matching the pre-save hook logic)
+    const baseFare = 50;
+    const perKmRate = 20;
+    const perMinuteRate = 5;
+    let estimatedFare = baseFare + distanceInKm * perKmRate;
+
+    // For completed rides, also add the time-based component
+    if (rideStatus === RideStatus.COMPLETED && rideStartedAt && rideCompletedAt) {
+      const durationMs = rideCompletedAt.getTime() - rideStartedAt.getTime();
+      const actualMinutes = Math.ceil(durationMs / 60000);
+      estimatedFare = baseFare + distanceInKm * perKmRate + actualMinutes * perMinuteRate;
+    }
+
+    const rideData: Partial<RidesDocument> = {
+      rideType,
+      bookingTime,
+      rideStatus,
+      passengerId: riderId,
+      driverId,
+      vehicleId,
+      distanceInKm,
+      estimatedFare,
+      rideStartedAt,
+      rideCompletedAt,
+      pickupLocation: {
+        address: `Kathmandu ward -${index + 1}`,
+        city: 'Kathmandu',
+        province: ProvinceEnum.BAGMATI,
+        district: 'Kathmandu',
+        fullAddress: `Kathmandu ward -${index + 1}`,
+        type: 'Point',
+        coordinates: [85.3 + Math.random() * 0.1, 27.7 + Math.random() * 0.1],
+      } as any,
+      dropoffLocation: {
+        address: `Kathmandu ward ${index + 2}`,
+        city: 'Kathmandu',
+        province: ProvinceEnum.BAGMATI,
+        district: 'Kathmandu',
+        fullAddress: `  Kathmandu ward ${index + 2}`,
+        type: 'Point',
+        coordinates: [85.4 + Math.random() * 0.1, 27.8 + Math.random() * 0.1],
+      } as any,
+      deleted: false,
+    };
+
+    const newRide = await this.rideRepository.createRide(rideData);
+
+    // Create transactions for confirmed rides in non-local environments
+    if (newRide.rideStatus === RideStatus.CONFIRMED && process.env.NODE_ENV !== 'local') {
+      await this.transactionService.createRideTransactions({
+        tripId: newRide._id.toString(),
+        adminId: adminId.toString(),
+        riderId: newRide.passengerId.toString(),
+        driverId: newRide.driverId.toString(),
+        totalFare: newRide.estimatedFare,
+        commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
+      });
+    }
+
+    return newRide;
   }
 
 async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
