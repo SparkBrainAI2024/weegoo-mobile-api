@@ -34,7 +34,7 @@ export class FirebaseMessagingService implements OnModuleInit {
         ...message,
         token,
       });
-
+      console.log('Successfully sent message:', response);
       return response;
     } catch (error) {
       console.error('Error sending single message:', error);
