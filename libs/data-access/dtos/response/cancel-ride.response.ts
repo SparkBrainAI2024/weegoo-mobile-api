@@ -3,6 +3,7 @@
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { roles } from '@libs/data-access/enums/user.enum';
 import { RideStatus } from '@libs/data-access/enums/rides.enum';
+import { CategoryAccessedByRole } from '@libs/data-access/enums/issue.enum';
 
 @ObjectType()
 export class CancellationDetail {
@@ -12,8 +13,8 @@ export class CancellationDetail {
   @Field(() => ID)
   cancelledBy: string;
 
-  @Field(() => roles)
-  cancelledByRole: roles;
+  @Field(() => CategoryAccessedByRole)
+  cancelledByRole: CategoryAccessedByRole;
 
   @Field(() => ID)
   cancelSubCategoryId: string;
