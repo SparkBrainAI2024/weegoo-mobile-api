@@ -1,6 +1,7 @@
 import { Type } from '@nestjs/common';
 import { Field, Int, ObjectType } from '@nestjs/graphql';
 import {
+  IBaseCursorPaginationResponse,
   IBaseListResponse,
   IBaseResponse,
   IPaginatedResult,
@@ -70,4 +71,27 @@ export function BaseListResponse<T>(classRef: Type<T>): Type<IBaseListResponse<T
   }
 
   return BaseListResponseType as Type<IBaseListResponse<T>>;
+}
+
+
+@ObjectType()
+export class CursorPageInfo {
+  @Field(() => String, { nullable: true })
+  nextCursor?: string;
+
+  @Field(() => Boolean)
+  hasNextPage: boolean;
+}
+
+export function BaseCursorPaginationResponse<T>(classRef: Type<T>): Type<IBaseCursorPaginationResponse<T>> {
+  @ObjectType({ isAbstract: true })
+  abstract class BaseCursorPaginationType {
+    @Field(() => [classRef], { defaultValue: [] })
+    data: T[];
+
+    @Field(() => CursorPageInfo)
+    pageInfo: CursorPageInfo
+  }
+
+  return BaseCursorPaginationType as Type<IBaseCursorPaginationResponse<T>>;
 }

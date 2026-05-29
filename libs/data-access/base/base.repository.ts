@@ -15,7 +15,7 @@ import {
 } from 'mongoose';
 
 import { IPaginatedResult, IPaginationRequest } from '../interfaces/pagination.interface';
-import { PaginationInput } from './base.input';
+import { CursorPaginationInput, PaginationInput } from './base.input';
 import { BaseModel } from './base.model';
 
 export type Populate = string | string[] | PopulateOptions | PopulateOptions[];
@@ -34,7 +34,7 @@ export class BaseRepository<T extends Document> {
    * Creates an instance of BaseRepository.
    * @param model - The Mongoose model to be used for database operations.
    */
-  constructor(protected readonly model: BaseModel<T>) {}
+  constructor(protected readonly model: BaseModel<T>) { }
 
   get searchKeys(): string[] {
     return [];
@@ -48,10 +48,7 @@ export class BaseRepository<T extends Document> {
   async create(doc: Partial<T>, populate?: Populate): Promise<T> {
     const result = await this.model.create(doc);
     if (populate) {
-      if (typeof populate === 'string' || Array.isArray(populate)) {
-        return result.populate(populate);
-      }
-      return result.populate(populate as PopulateOptions);
+      return result.populate(populate as any);
     }
     return result;
   }
@@ -64,11 +61,13 @@ export class BaseRepository<T extends Document> {
   async createMany(
     docs: AnyKeys<T>[] | T[],
     populate?: Populate,
-    options?: InsertManyOptions & { lean: true },
+    options?: InsertManyOptions,
   ): Promise<T[]> {
-    const entities = docs.map((item: any) => new this.model(item));
-    options = this.mergePopulateOptions({}, populate);
-    return this.model.insertMany(entities, options);
+    const results = await this.model.insertMany(docs, options);
+    if (populate) {
+      return this.model.populate(results, populate as any);
+    }
+    return results as unknown as T[];
   }
 
   /**
@@ -315,7 +314,7 @@ export class BaseRepository<T extends Document> {
   async paginate(
     pageInput: PaginationInput,
     populate?: Populate,
-    filter?: FilterQuery<T>,
+    filter: FilterQuery<T> = {},
     options?: QueryOptions<T>,
   ): Promise<IPaginatedResult<T>> {
     const { page, limit, order, searchText, orderBy } = pageInput;
@@ -413,18 +412,11 @@ export class BaseRepository<T extends Document> {
       delete options.populate; // Remove existing populate to avoid conflicts
     }
     if (populate) {
-      if (this.checkIsString(populate) || Array.isArray(populate)) {
-        options['populate'] = populate; // Ensure options has the populate key
-      } else {
-        options['populate'] = populate as PopulateOptions; // Ensure options has the populate key
-      }
+      options['populate'] = populate;
     }
     return options;
   }
 
-  private checkIsString(value: Populate) {
-    return typeof value === 'string' && value.trim() !== '';
-  }
 
   /**
    * Counts the number of documents based on the provided filter.
@@ -433,6 +425,13 @@ export class BaseRepository<T extends Document> {
    */
   async count(filter?: FilterQuery<T>): Promise<number> {
     return this.model.countDocuments(filter);
+  }
+  protected encodeCursor(data: any): string {
+    return Buffer.from(JSON.stringify(data)).toString('base64');
+  }
+
+  protected decodeCursor(cursor: string): any {
+    return JSON.parse(Buffer.from(cursor, 'base64').toString());
   }
 
   /**
@@ -443,5 +442,82 @@ export class BaseRepository<T extends Document> {
    */
   async distinct(field: string, filter?: FilterQuery<T>): Promise<any[]> {
     return this.model.distinct(field, filter);
+  }
+
+  /**Pagination with cursor support */
+  async cursorPaginate(
+    filter: FilterQuery<T> = {},
+    input: CursorPaginationInput,
+    populate?: Populate,
+  ): Promise<{
+    data: T[];
+    nextCursor: string | null;
+    hasNextPage: boolean;
+  }> {
+    const limit = input.limit ?? 20;
+    const sortOrder = input.sortOrder ?? 'desc';
+    const cursor = input.cursor;
+
+    const sortDirection = sortOrder;;
+
+    let queryFilter: any = { ...filter };
+
+    /**
+     * CURSOR LOGIC (createdAt + _id for stability)
+     */
+    if (cursor) {
+      const decoded = this.decodeCursor(cursor);
+
+      queryFilter = {
+        ...queryFilter,
+        $or: [
+          {
+            createdAt: sortDirection === -1
+              ? { $lt: new Date(decoded.createdAt) }
+              : { $gt: new Date(decoded.createdAt) },
+          },
+          {
+            createdAt: new Date(decoded.createdAt),
+            _id: sortDirection === -1
+              ? { $lt: new Types.ObjectId(decoded._id) }
+              : { $gt: new Types.ObjectId(decoded._id) },
+          },
+        ],
+      };
+    }
+
+    const options = this.mergePopulateOptions(
+      {
+        limit: limit + 1, // fetch extra for nextCursor
+        sort: {
+          createdAt: sortDirection,
+          _id: sortDirection,
+        },
+      },
+      populate,
+    );
+
+    const docs = await this.model.find(queryFilter, null, options);
+
+    let hasNextPage = false;
+    let nextCursor: string | null = null;
+
+    if (docs.length > limit) {
+      hasNextPage = true;
+      const nextItem = docs[limit];
+
+      nextCursor = this.encodeCursor({
+        createdAt: (nextItem as any).createdAt,
+        _id: nextItem._id,
+      });
+
+      docs.pop();
+    }
+
+    return {
+      data: docs as unknown as T[],
+      nextCursor,
+      hasNextPage,
+    };
   }
 }

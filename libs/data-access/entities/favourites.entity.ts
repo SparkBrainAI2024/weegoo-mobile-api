@@ -18,6 +18,10 @@ export class Favourites extends BaseEntity {
     @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
     passengerId: Types.ObjectId;
 
+    @Field(() => String)
+    @Prop({ type: Types.ObjectId, required: true, ref: "Rides", index: true })
+    rideId: Types.ObjectId;
+
     @Field(() => RideLocation, { nullable: true })
     @Prop({ type: RideLocation, required: false })
     pickupLocation: RideLocation;
