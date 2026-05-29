@@ -46,7 +46,7 @@ import { IssueModule } from './modules/issue/issue.module';
     DriverDocumentModule,
     UploadCenterModule,
     RidesModule,
-    IssueModule
+    IssueModule,
   ],
   providers: [HealthResolver],
 })

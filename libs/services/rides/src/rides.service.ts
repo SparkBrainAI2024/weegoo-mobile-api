@@ -5,7 +5,7 @@ import { TransactionService } from '@libs/services/payment/src/transaction/trans
 import { ErrorException } from '@libs/common/exceptions';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
-import { CategoryAccessedByRole, IssueCategoryForRole } from '@libs/data-access/enums/issue.enum';
+import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 
 @Injectable()
 export class RidesService {
@@ -167,15 +167,19 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
     const subCategory = await this.issueRepository.findIssueCategoryById(
     input.cancelSubCategoryId
   );
+  this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
+
+  if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ {
+    ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+  }
 
 
-
-if(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole){
+if(!(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole)){
     ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
 
 }
 
-if (subCategory.label === 'Other' && !input.cancelReasonContent) {
+if ((subCategory.label.toLowerCase()) === 'other' && !input.cancelReasonContent) {
   ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
 }
 
@@ -210,5 +214,6 @@ if (ride.rideStatus === RideStatus.PENDING) {
     cancelSubCategoryLabel: input.cancelSubCategoryLabel,
     cancelReasonContent: input.cancelReasonContent,
   });
+}
 }
 }
