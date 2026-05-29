@@ -9,11 +9,12 @@ import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
+import { CategoryAccessedByRole } from "../enums/issue.enum";
 
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
-  cancelledByRole: roles;
+  cancelledByRole: CategoryAccessedByRole;
   cancelSubCategoryId: Types.ObjectId;
   cancelSubCategoryLabel: string;
   cancelReasonContent?: string;

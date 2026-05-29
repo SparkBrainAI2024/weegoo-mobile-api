@@ -57,6 +57,15 @@ registerEnumType(IssueParentCategory, {
 });
 
 
+registerEnumType(CategoryAccessedByRole,{
+  name: 'CategoryAccessedByRole',
+  description: 'Indicates the role that accessed the category, either driver or passenger',
+  valuesMap: {
+    DRIVER: { description: 'Accessed by a driver' },
+    PASSENGER: { description: 'Accessed by a passenger' },
+  },
+})
+
 registerEnumType(IssueStatus, { name: 'IssueStatus' });
 registerEnumType(ReportedByType, {
   name: 'ReportedByType',

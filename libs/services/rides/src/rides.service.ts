@@ -1,15 +1,16 @@
 import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles } from '@libs/data-access';
 import { Types } from 'mongoose';
-import { BadRequestException, ForbiddenException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
-import { Message } from '@libs/localization';
 import { ErrorException } from '@libs/common/exceptions';
-import { RIDES } from '@libs/localization/en/ride.messages';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
+import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
+import { toMongoId } from '@libs/common';
 
 @Injectable()
 export class RidesService {
+  private readonly logger = new Logger(RidesService.name);
   constructor(
     private readonly rideRepository: RidesRepository,
     private readonly transactionService:TransactionService,
@@ -160,6 +161,9 @@ export class RidesService {
   }
 
 async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+
+  const userLoginAs = user.loginAs===roles.RIDER? "DRIVER" : "PASSENGER";
+  this.logger.log(`User ${user._id} with role ${user.loginAs} is attempting to cancel ride ${input.rideId} with subcategory ${input.cancelSubCategoryId} and reason ${input.cancelReasonContent}`);
   const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
   if (!ride) {
@@ -169,12 +173,19 @@ async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
     const subCategory = await this.issueRepository.findIssueCategoryById(
     input.cancelSubCategoryId
   );
+  this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
 
- if (subCategory.categoryForRole !== user.loginAs) {
-  ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+  if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ 
+    ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+  }
+
+
+if(!(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole)){
+    ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+
 }
 
-if (subCategory.label === 'Other' && !input.cancelReasonContent) {
+if ((subCategory.label.toLowerCase()) === 'other' && !input.cancelReasonContent) {
   ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
 }
 
@@ -204,10 +215,11 @@ if (ride.rideStatus === RideStatus.PENDING) {
   return this.rideRepository.cancelRide({
     rideId: input.rideId,
     cancelledBy: user._id,
-    cancelledByRole: user.loginAs as roles,
-    cancelSubCategoryId: new Types.ObjectId(input.cancelSubCategoryId),
+    cancelledByRole: userLoginAs as CategoryAccessedByRole,
+    cancelSubCategoryId: toMongoId(input.cancelSubCategoryId), // Convert to ObjectId using
     cancelSubCategoryLabel: input.cancelSubCategoryLabel,
     cancelReasonContent: input.cancelReasonContent,
   });
 }
 }
+
