@@ -12,21 +12,6 @@ export class FareBreakdownGraphQL {
   durationCost: number;
 
   @Field(() => Float)
-  subtotal: number;
-
-  @Field(() => Float)
-  weatherSurcharge: number;
-
-  @Field(() => Float)
-  weatherSurchargePercent: number;
-
-  @Field(() => Float)
-  trafficSurcharge: number;
-
-  @Field(() => Float)
-  trafficSurchargePercent: number;
-
-  @Field(() => Float)
   total: number;
 }
 

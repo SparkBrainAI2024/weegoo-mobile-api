@@ -8,6 +8,6 @@ import { AblyRideListenerService } from './ably-ride-listener.service';
 @Module({
   imports: [ConfigModule],
   providers: [ConfigService, EnvService, AblyService, AblyRideListenerService],
-  exports: [AblyService, AblyRideListenerService],
+  exports: [AblyService, AblyRideListenerService, EnvService, ConfigService],
 })
 export class AblyModule {}

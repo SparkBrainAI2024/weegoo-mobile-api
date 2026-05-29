@@ -16,12 +16,8 @@ import {
   EstimatedFareInput,
   ScheduledFareInput,
   UpdateDriverLocationInput,
-  WeatherConditionEnum,
-  TrafficConditionEnum,
-  RainConditionEnum,
-  HistoricalTrafficEnum,
 } from './dto/matchmaking-input.dto';
-import { WeatherCondition, TrafficCondition, RainCondition, HistoricalTraffic } from './config/matchmaking.config';
+import { RainCondition, HistoricalTraffic } from './config/matchmaking.config';
 
 @Resolver()
 export class MatchmakingResolver {
@@ -29,31 +25,20 @@ export class MatchmakingResolver {
 
   constructor(private readonly matchmakingService: MatchmakingService) {}
 
-  // ════════════════════════════════════════════════════════════════
-  //  INSTANT Matchmaking
-  // ════════════════════════════════════════════════════════════════
-
   @Mutation(() => MatchResultGraphQL, {
     name: 'matchDrivers',
     description: 'Find and notify nearby drivers for an INSTANT ride using expanding-ring algorithm',
   })
   async matchDrivers(@Args('input') input: MatchDriversInput): Promise<MatchResultGraphQL> {
     this.logger.log(`GraphQL: INSTANT matchmaking triggered for ride: ${input.rideId}`);
-    const result = await this.matchmakingService.matchDrivers({
-      rideId: input.rideId,
-      weather: (input.weather as unknown as WeatherCondition) || undefined,
-      traffic: (input.traffic as unknown as TrafficCondition) || undefined,
-    });
+    const result = await this.matchmakingService.matchDrivers({ rideId: input.rideId });
 
     return {
       matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
       driverId: result.driverId, driverName: result.driverName,
       estimatedFare: result.estimatedFare ? {
         pickupCost: result.estimatedFare.pickupCost, distanceCost: result.estimatedFare.distanceCost,
-        durationCost: result.estimatedFare.durationCost, subtotal: result.estimatedFare.subtotal,
-        weatherSurcharge: result.estimatedFare.weatherSurcharge, weatherSurchargePercent: result.estimatedFare.weatherSurchargePercent,
-        trafficSurcharge: result.estimatedFare.trafficSurcharge, trafficSurchargePercent: result.estimatedFare.trafficSurchargePercent,
-        total: result.estimatedFare.total,
+        durationCost: result.estimatedFare.durationCost, total: result.estimatedFare.total,
       } : undefined,
       attempts: result.attempts.map((a) => ({
         attemptNumber: a.attemptNumber, radiusKm: a.radiusKm, waitTimeSeconds: a.waitTimeSeconds,
@@ -63,10 +48,6 @@ export class MatchmakingResolver {
       message: result.message,
     };
   }
-
-  // ════════════════════════════════════════════════════════════════
-  //  SCHEDULED Matchmaking
-  // ════════════════════════════════════════════════════════════════
 
   @Mutation(() => ScheduledMatchResultGraphQL, {
     name: 'matchScheduledDrivers',
@@ -97,23 +78,15 @@ export class MatchmakingResolver {
     };
   }
 
-  // ════════════════════════════════════════════════════════════════
-  //  Driver Response
-  // ════════════════════════════════════════════════════════════════
-
   @Mutation(() => DriverResponseResultGraphQL, {
     name: 'driverRespondToRide',
-    description: 'Handle a driver accepting or rejecting a ride request (instant or scheduled)',
+    description: 'Handle a driver accepting or rejecting a ride request',
   })
   async driverRespondToRide(@Args('input') input: DriverResponseInput): Promise<DriverResponseResultGraphQL> {
     this.logger.log(`GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideId}`);
     const result = await this.matchmakingService.handleDriverResponse(input.rideId, input.driverId, input.action as unknown as 'accept' | 'reject');
     return { success: result.success, message: result.message };
   }
-
-  // ════════════════════════════════════════════════════════════════
-  //  Driver Location
-  // ════════════════════════════════════════════════════════════════
 
   @Mutation(() => LocationUpdateResultGraphQL, {
     name: 'updateDriverLocation',
@@ -122,31 +95,17 @@ export class MatchmakingResolver {
   async updateDriverLocation(@Args('input') input: UpdateDriverLocationInput): Promise<LocationUpdateResultGraphQL> {
     this.logger.log(`GraphQL: Updating location for driver ${input.driverId}`);
     const result = await this.matchmakingService.updateDriverLocation(input.driverId, input.latitude, input.longitude);
-    return {
-      success: result.success,
-      message: result.message,
-      latitude: input.latitude,
-      longitude: input.longitude,
-      updatedAt: new Date().toISOString(),
-    };
+    return { success: result.success, message: result.message, latitude: input.latitude, longitude: input.longitude, updatedAt: new Date().toISOString() };
   }
-
-  // ════════════════════════════════════════════════════════════════
-  //  Fare Queries
-  // ════════════════════════════════════════════════════════════════
 
   @Query(() => FareBreakdownGraphQL, {
     name: 'estimatedFare', nullable: true,
-    description: 'Get estimated fare for an INSTANT ride with optional weather/traffic conditions',
+    description: 'Get estimated fare for an INSTANT ride',
   })
   async estimatedFare(@Args('input') input: EstimatedFareInput): Promise<FareBreakdownGraphQL | null> {
-    const fare = await this.matchmakingService.getEstimatedFare(input.rideId, (input.weather as unknown as WeatherCondition) || undefined, (input.traffic as unknown as TrafficCondition) || undefined);
+    const fare = await this.matchmakingService.getEstimatedFare(input.rideId);
     if (!fare) return null;
-    return {
-      pickupCost: fare.pickupCost, distanceCost: fare.distanceCost, durationCost: fare.durationCost,
-      subtotal: fare.subtotal, weatherSurcharge: fare.weatherSurcharge, weatherSurchargePercent: fare.weatherSurchargePercent,
-      trafficSurcharge: fare.trafficSurcharge, trafficSurchargePercent: fare.trafficSurchargePercent, total: fare.total,
-    };
+    return { pickupCost: fare.pickupCost, distanceCost: fare.distanceCost, durationCost: fare.durationCost, total: fare.total };
   }
 
   @Query(() => ScheduledFareBreakdownGraphQL, {
@@ -156,9 +115,6 @@ export class MatchmakingResolver {
   async scheduledEstimatedFare(@Args('input') input: ScheduledFareInput): Promise<ScheduledFareBreakdownGraphQL | null> {
     const fare = await this.matchmakingService.getScheduledEstimatedFare(input.rideId, (input.rain as unknown as RainCondition) || undefined, (input.historicalTraffic as unknown as HistoricalTraffic) || undefined);
     if (!fare) return null;
-    return {
-      baseFare: fare.baseFare, rideTypeMultiplier: fare.rideTypeMultiplier,
-      rainMultiplier: fare.rainMultiplier, trafficMultiplier: fare.trafficMultiplier, total: fare.total,
-    };
+    return { baseFare: fare.baseFare, rideTypeMultiplier: fare.rideTypeMultiplier, rainMultiplier: fare.rainMultiplier, trafficMultiplier: fare.trafficMultiplier, total: fare.total };
   }
 }

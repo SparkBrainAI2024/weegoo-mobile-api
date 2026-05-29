@@ -92,6 +92,12 @@ export class Rides extends BaseEntity {
   @Prop({ type: Date, required: false })
   timeToReachPassenger?: Date;
 
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 1 })
+  noOfPassengers: number;
+
+
+
   @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
   vehicleId: Types.ObjectId;
 

@@ -1,10 +1,14 @@
 import { RidePersistentModule, RidesService, RidesResolver } from "@libs/services/rides";
 import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Rides, RidesSchema } from "@libs/data-access/entities/rides.entity";
+import { Vehicle, VehicleSchema } from "@libs/data-access/entities/vehicle.entity";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { MatchmakingIntegrationService } from "./matchmaking-integration.service";
+import { MatchmakingResolver } from "./matchmaking.resolver";
 
 @Module({
     imports: [
@@ -12,12 +16,17 @@ import { MatchmakingIntegrationService } from "./matchmaking-integration.service
         UserPersistenceModule,
         TransactionModule,
         IssuePersistenceModule,
+        MongooseModule.forFeature([
+            { name: Rides.name, schema: RidesSchema },
+            { name: Vehicle.name, schema: VehicleSchema },
+        ]),
     ],
     providers: [
         RidesService,
         RidesResolver,
         EnvService,
         MatchmakingIntegrationService,
+        MatchmakingResolver,
     ],
     exports: [RidesService]
 })
