@@ -13,6 +13,7 @@ import { groupItemsByDate } from '@libs/common/utils/group-by-date.utils';
 import { ErrorException } from '@libs/common/exceptions';
 import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
 import { toMongoId } from '@libs/common';
+import { TokenGrantType } from '@libs/data-access';
 
 @Injectable()
 export class NotificationService {
@@ -41,7 +42,6 @@ export class NotificationService {
         }
         const { data, pageInfo } = await this.notificationRepository.getNotificationsByUserId(user._id.toString(), options);
         const groupedData = groupItemsByDate(data);
-        console.log("groupedData", groupedData)
         return {
             data: groupedData,
             pageInfo: {
@@ -61,7 +61,7 @@ export class NotificationService {
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
-        const token = await this.userTokenRepository.findOne({ userId: userId }, null, null, { sort: { createdAt: -1 } });
+        const token = await this.userTokenRepository.findOne({ userId: userId, grant:TokenGrantType.REFRESH_TOKEN }, null, null, { sort: { createdAt: -1 } });
         if (token?.firebaseToken) {
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: {
