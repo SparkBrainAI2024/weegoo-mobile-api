@@ -1,16 +1,15 @@
 import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles } from '@libs/data-access';
 import { Types } from 'mongoose';
-import { BadRequestException, ForbiddenException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
-import { Message } from '@libs/localization';
 import { ErrorException } from '@libs/common/exceptions';
-import { RIDES } from '@libs/localization/en/ride.messages';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole } from '@libs/data-access/enums/issue.enum';
 
 @Injectable()
 export class RidesService {
+  private readonly logger = new Logger(RidesService.name);
   constructor(
     private readonly rideRepository: RidesRepository,
     private readonly transactionService:TransactionService,
@@ -156,7 +155,9 @@ export class RidesService {
   }
 
 async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+
   const userLoginAs = user.loginAs===roles.RIDER? "DRIVER" : "PASSENGER";
+  this.logger.log(`User ${user._id} with role ${user.loginAs} is attempting to cancel ride ${input.rideId} with subcategory ${input.cancelSubCategoryId} and reason ${input.cancelReasonContent}`);
   const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
   if (!ride) {
