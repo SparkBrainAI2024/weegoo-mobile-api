@@ -279,5 +279,23 @@ export class EnvService {
   getAblyApiKey(): string {
     return this.getString('ABLY_API_KEY', '');
   }
+
+  // ==========================================
+  // Batoo API helper methods
+  // ==========================================
+
+  /**
+   * Get Batoo API key for distance calculation
+   */
+  getBatooApiKey(): string {
+    return this.getString('BATOO_API_KEY', '');
+  }
+
+  /**
+   * Get Batoo API base URL
+   */
+  getBatooApiUrl(): string {
+    return this.getString('BATOO_API_URL', 'https://api.batoo.com');
+  }
   
 }

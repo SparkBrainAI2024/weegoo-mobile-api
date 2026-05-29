@@ -57,6 +57,8 @@
       "@libs/services/notification/*": ["libs/services/notification/src/*"],
       "@libs/services/ably": ["libs/services/ably/src"],
       "@libs/services/ably/*": ["libs/services/ably/src/*"],
+      "@ride-matchmaking": ["apps/ride-matchmaking/src"],
+      "@ride-matchmaking/*": ["apps/ride-matchmaking/src/*"],
 
     },
     "types": ["node", "jest"]
