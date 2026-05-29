@@ -268,5 +268,16 @@ export class EnvService {
   getFirebasePrivateKey(): string {
     return this.getString('FIREBASE_PRIVATE_KEY', '');
   }
+
+  // ==========================================
+  // Ably-specific helper methods
+  // ==========================================
+
+  /**
+   * Get Ably API key
+   */
+  getAblyApiKey(): string {
+    return this.getString('ABLY_API_KEY', '');
+  }
   
 }
