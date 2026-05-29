@@ -2,32 +2,69 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
+import { User, UserDocument } from '@libs/data-access/entities/user.entity';
+import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
+import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { AblyRideListenerService, AblyService } from '@libs/services/ably';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
 
-/**
- * Driver-side ride acceptance service.
- * Listens for ride requests via Ably and allows drivers to accept/reject.
- * Implements ride locking: once a driver accepts, the ride is locked (CONFIRMED)
- * and no other driver can accept.
- */
+export interface DriverAcceptDetails {
+  rideId: string;
+  rideUUId: string;
+  driver: {
+    driverId: string;
+    fullName: string;
+    phone: string;
+    profileImage?: string;
+    rating: number;
+  };
+  vehicle: {
+    vehicleId: string;
+    vehicleModel: string;
+    vehicleType: string;
+    color: string;
+    numberPlate: string;
+    year: number;
+  };
+  passenger: {
+    passengerId: string;
+    fullName: string;
+    phone: string;
+  };
+  pickupLocation: {
+    address: string;
+    coordinates: [number, number];
+    city?: string;
+  };
+  dropoffLocation?: {
+    address: string;
+    coordinates: [number, number];
+    city?: string;
+  };
+  estimatedFare: number;
+  estimatedTimeInMinutes: number;
+  distanceInKm: number;
+  acceptedAt: string;
+}
+
 @Injectable()
 export class DriverRideAcceptanceService implements OnModuleInit {
   private readonly logger = new Logger(DriverRideAcceptanceService.name);
-  private driverId: string; // In production, this comes from the authenticated driver's session
+  private driverId: string;
 
   constructor(
     @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
+    @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly ablyListenerService: AblyRideListenerService,
     private readonly ablyService: AblyService,
     private readonly envService: EnvService,
   ) {}
 
   onModuleInit() {
-    // In production, the driver would authenticate first, then call subscribeForDriver
-    // The subscription is shown here for the architectural pattern.
     this.logger.log('Driver ride acceptance service initialized. Awaiting driver authentication.');
   }
 
@@ -44,8 +81,6 @@ export class DriverRideAcceptanceService implements OnModuleInit {
         this.logger.log(
           `Driver ${driverId}: Received ride request for ride ${rideRequest.rideUUId} (${rideRequest.distanceInKm}km, $${rideRequest.estimatedFare})`,
         );
-        // In a real app, this would push to the driver's mobile app via WebSocket or push notification
-        // The driver then calls acceptRide() or rejectRide()
       },
       (rideTaken) => {
         this.logger.log(`Driver ${driverId}: Ride ${rideTaken.rideId} was taken by another driver`);
@@ -61,17 +96,16 @@ export class DriverRideAcceptanceService implements OnModuleInit {
 
   /**
    * Driver accepts a ride.
-   * Locks the ride by setting status to CONFIRMED and assigning the driver.
-   * Uses atomic findOneAndUpdate with status check to prevent race conditions.
+   * Locks the ride atomically, then publishes full driver+vehicle+passenger details.
    */
-  async acceptRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
+  async acceptRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string; data?: DriverAcceptDetails }> {
     this.logger.log(`Driver ${driverId} attempting to accept ride ${rideId}`);
 
     // Atomic lock: only update if still PENDING
     const updatedRide = await this.ridesModel.findOneAndUpdate(
       {
         _id: new Types.ObjectId(rideId),
-        rideStatus: RideStatus.PENDING, // Only lock if still pending
+        rideStatus: RideStatus.PENDING,
       },
       {
         $set: {
@@ -83,21 +117,19 @@ export class DriverRideAcceptanceService implements OnModuleInit {
     ).exec();
 
     if (!updatedRide) {
-      // Ride was already taken by another driver or is not in PENDING status
       this.logger.warn(`Driver ${driverId}: Ride ${rideId} was already locked by another driver`);
       return { success: false, message: 'Ride was already accepted by another driver' };
     }
 
     this.logger.log(`Driver ${driverId} successfully locked ride ${rideId}`);
 
-    // Publish acceptance via Ably to both passenger and matchmaking service
-    await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', {
-      rideId,
-      driverId,
-      message: 'A driver has accepted your ride request',
-    });
+    // Fetch full driver details with vehicle info
+    const acceptDetails = await this.buildAcceptDetails(updatedRide, driverId);
 
-    // Notify matchmaking service that this driver accepted
+    // Publish full details to passenger channel
+    await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', acceptDetails);
+
+    // Notify matchmaking service
     await this.ablyService.publish(`ride:${rideId}:driver-response`, 'driver-response', {
       driverId,
       action: 'accept',
@@ -106,10 +138,11 @@ export class DriverRideAcceptanceService implements OnModuleInit {
     // Notify all other drivers that the ride is taken
     await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', {
       rideId,
+      rideUUId: updatedRide.rideUUId,
       message: 'This ride has been accepted by another driver',
     });
 
-    return { success: true, message: 'Ride accepted successfully' };
+    return { success: true, message: 'Ride accepted successfully', data: acceptDetails };
   }
 
   /**
@@ -118,7 +151,6 @@ export class DriverRideAcceptanceService implements OnModuleInit {
   async rejectRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
 
-    // Notify matchmaking service that this driver rejected
     await this.ablyService.publish(`ride:${rideId}:driver-response`, 'driver-response', {
       driverId,
       action: 'reject',
@@ -128,8 +160,59 @@ export class DriverRideAcceptanceService implements OnModuleInit {
   }
 
   /**
-   * Get the matchmaking result for a ride (to check if matched).
+   * Build the full acceptance payload with driver, vehicle, and passenger details.
    */
+  private async buildAcceptDetails(ride: RidesDocument, driverId: string): Promise<DriverAcceptDetails> {
+    // Fetch driver user
+    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+    const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
+
+    // Fetch driver's vehicle
+    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
+
+    // Fetch passenger details
+    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+
+    return {
+      rideId: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      driver: {
+        driverId: driverId,
+        fullName: driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: driverDetails?.profileImage || undefined,
+        rating: 4.5, // placeholder — fetch from ratings collection in production
+      },
+      vehicle: {
+        vehicleId: vehicle?._id?.toString() || '',
+        vehicleModel: vehicle?.vehicleModel || '',
+        vehicleType: vehicle?.vehicleType || '',
+        color: vehicle?.color || '',
+        numberPlate: vehicle?.numberPlate || '',
+        year: vehicle?.year || 0,
+      },
+      passenger: {
+        passengerId: ride.passengerId.toString(),
+        fullName: passengerUser?.fullName || 'Passenger',
+        phone: passengerUser?.phone || '',
+      },
+      pickupLocation: {
+        address: ride.pickupLocation?.address || '',
+        coordinates: ride.pickupLocation?.coordinates || [0, 0],
+        city: ride.pickupLocation?.city,
+      },
+      dropoffLocation: ride.dropoffLocation ? {
+        address: ride.dropoffLocation.address,
+        coordinates: ride.dropoffLocation.coordinates,
+        city: ride.dropoffLocation.city,
+      } : undefined,
+      estimatedFare: ride.estimatedFare || 0,
+      estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+      distanceInKm: ride.distanceInKm || 0,
+      acceptedAt: new Date().toISOString(),
+    };
+  }
+
   async getMatchmakingResult(rideId: string): Promise<any> {
     const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
     try {

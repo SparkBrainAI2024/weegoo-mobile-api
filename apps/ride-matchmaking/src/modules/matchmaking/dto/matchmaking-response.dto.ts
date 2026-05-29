@@ -143,3 +143,21 @@ export class DriverResponseResultGraphQL {
   @Field(() => String)
   message: string;
 }
+
+@ObjectType()
+export class LocationUpdateResultGraphQL {
+  @Field(() => Boolean)
+  success: boolean;
+
+  @Field(() => String)
+  message: string;
+
+  @Field(() => Float)
+  latitude: number;
+
+  @Field(() => Float)
+  longitude: number;
+
+  @Field(() => String)
+  updatedAt: string;
+}

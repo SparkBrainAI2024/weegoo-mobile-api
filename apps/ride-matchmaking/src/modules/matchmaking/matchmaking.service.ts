@@ -187,11 +187,11 @@ export class MatchmakingService {
         acceptedDriverId = driverResponse.driverId;
         acceptedDriverName = requestBatch.find((d) => d.driverId === driverResponse.driverId)?.fullName || 'Driver';
         await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
-        await this.ablyService.publish(`ride:${rideId}:passenger`, 'scheduled-driver-accepted', {
-          rideId, rideUUId: ride.rideUUId, driverId: acceptedDriverId, driverName: acceptedDriverName,
-          estimatedFare: scheduledFare, message: 'A driver has accepted your scheduled ride request',
-        });
-        await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', { rideId, message: 'This ride has been accepted by another driver' });
+
+        // Fetch full driver + vehicle details for scheduled acceptance
+        const acceptDetails = await this.buildScheduledAcceptDetails(ride, acceptedDriverId, scheduledFare);
+        await this.ablyService.publish(`ride:${rideId}:passenger`, 'scheduled-driver-accepted', acceptDetails);
+        await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', { rideId, rideUUId: ride.rideUUId, message: 'This ride has been accepted by another driver' });
       }
 
       attempts.push({
@@ -283,10 +283,11 @@ export class MatchmakingService {
         acceptedDriverId = driverResponse.driverId;
         acceptedDriverName = requestBatch.find((d) => d.driverId === driverResponse.driverId)?.fullName || 'Driver';
         await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
-        await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', {
-          rideId, rideUUId: ride.rideUUId, driverId: acceptedDriverId, driverName: acceptedDriverName, estimatedFare, message: 'A driver has accepted your ride request',
-        });
-        await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', { rideId, message: 'This ride has been accepted by another driver' });
+
+        // Fetch full driver + vehicle details for the acceptance payload
+        const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
+        await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', acceptDetails);
+        await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', { rideId, rideUUId: ride.rideUUId, message: 'This ride has been accepted by another driver' });
       }
 
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted });
@@ -530,6 +531,36 @@ export class MatchmakingService {
     return this.pricingService.calculateFare({ distanceKm, durationMinutes, vehicleType, weather, traffic });
   }
 
+  /**
+   * Update a driver's current geo-location in UserDetails.
+   * This is used for real-time proximity matching.
+   * Stores coordinates as [longitude, latitude] per GeoJSON standard.
+   */
+  async updateDriverLocation(driverId: string, latitude: number, longitude: number): Promise<{ success: boolean; message: string }> {
+    const driverObjectId = new Types.ObjectId(driverId);
+
+    const updated = await this.userDetailsModel.findOneAndUpdate(
+      { userId: driverObjectId, deleted: false },
+      {
+        $set: {
+          geoLocation: {
+            type: 'Point',
+            coordinates: [longitude, latitude],
+          },
+        },
+      },
+      { new: true },
+    ).exec();
+
+    if (!updated) {
+      this.logger.warn(`Driver ${driverId} not found in UserDetails. Cannot update location.`);
+      return { success: false, message: 'Driver details not found' };
+    }
+
+    this.logger.log(`Driver ${driverId} location updated: [${latitude}, ${longitude}]`);
+    return { success: true, message: 'Location updated successfully' };
+  }
+
   async getScheduledEstimatedFare(rideId: string, rain?: RainCondition, historicalTraffic?: HistoricalTraffic): Promise<ScheduledFareBreakdown | null> {
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
     if (!ride) return null;
@@ -547,5 +578,108 @@ export class MatchmakingService {
       } catch {}
     }
     return this.pricingService.calculateScheduledFare({ distanceKm, durationMinutes, vehicleType, rain, historicalTraffic });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Build acceptance details payloads
+  // ════════════════════════════════════════════════════════════════
+
+  private async buildAcceptDetails(
+    ride: RidesDocument,
+    driverId: string,
+    estimatedFare: FareBreakdown,
+  ): Promise<any> {
+    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+    const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
+    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
+
+    return {
+      rideId: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      driver: {
+        driverId,
+        fullName: driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: driverDetails?.profileImage || undefined,
+        rating: 4.5,
+      },
+      vehicle: {
+        vehicleId: vehicle?._id?.toString() || '',
+        vehicleModel: vehicle?.vehicleModel || '',
+        vehicleType: vehicle?.vehicleType || '',
+        color: vehicle?.color || '',
+        numberPlate: vehicle?.numberPlate || '',
+        year: vehicle?.year || 0,
+      },
+      passenger: {
+        passengerId: ride.passengerId.toString(),
+        fullName: '', // passenger name not fetched here; could be added
+        phone: '',
+      },
+      pickupLocation: {
+        address: ride.pickupLocation?.address || '',
+        coordinates: ride.pickupLocation?.coordinates || [0, 0],
+        city: ride.pickupLocation?.city,
+      },
+      dropoffLocation: ride.dropoffLocation ? {
+        address: ride.dropoffLocation.address,
+        coordinates: ride.dropoffLocation.coordinates,
+        city: ride.dropoffLocation.city,
+      } : undefined,
+      estimatedFare: estimatedFare?.total || 0,
+      estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+      distanceInKm: ride.distanceInKm || 0,
+      acceptedAt: new Date().toISOString(),
+    };
+  }
+
+  private async buildScheduledAcceptDetails(
+    ride: RidesDocument,
+    driverId: string,
+    estimatedFare: ScheduledFareBreakdown,
+  ): Promise<any> {
+    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+    const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
+    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
+
+    return {
+      rideId: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      driver: {
+        driverId,
+        fullName: driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: driverDetails?.profileImage || undefined,
+        rating: 4.5,
+      },
+      vehicle: {
+        vehicleId: vehicle?._id?.toString() || '',
+        vehicleModel: vehicle?.vehicleModel || '',
+        vehicleType: vehicle?.vehicleType || '',
+        color: vehicle?.color || '',
+        numberPlate: vehicle?.numberPlate || '',
+        year: vehicle?.year || 0,
+      },
+      passenger: {
+        passengerId: ride.passengerId.toString(),
+        fullName: '',
+        phone: '',
+      },
+      pickupLocation: {
+        address: ride.pickupLocation?.address || '',
+        coordinates: ride.pickupLocation?.coordinates || [0, 0],
+        city: ride.pickupLocation?.city,
+      },
+      dropoffLocation: ride.dropoffLocation ? {
+        address: ride.dropoffLocation.address,
+        coordinates: ride.dropoffLocation.coordinates,
+        city: ride.dropoffLocation.city,
+      } : undefined,
+      estimatedFare: estimatedFare?.total || 0,
+      estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+      distanceInKm: ride.distanceInKm || 0,
+      bookingTime: ride.bookingTime,
+      acceptedAt: new Date().toISOString(),
+    };
   }
 }

@@ -1,5 +1,5 @@
-import { Field, InputType, registerEnumType, Int } from '@nestjs/graphql';
-import { IsEnum, IsOptional, IsString, IsDateString, Min } from 'class-validator';
+import { Field, InputType, registerEnumType, Int, Float } from '@nestjs/graphql';
+import { IsEnum, IsOptional, IsString, IsDateString, Min, IsNumber, MinLength, Max } from 'class-validator';
 
 /**
  * Weather conditions that affect pricing and vehicle suggestions.
@@ -148,6 +148,22 @@ export class EstimatedFareInput {
   @IsOptional()
   @IsEnum(TrafficConditionEnum)
   traffic?: TrafficConditionEnum;
+}
+
+/**
+ * Input for updating a driver's current geo-location.
+ */
+@InputType()
+export class UpdateDriverLocationInput {
+  @Field(() => String)
+  @IsString()
+  driverId: string;
+
+  @Field(() => Float)
+  latitude: number;
+
+  @Field(() => Float)
+  longitude: number;
 }
 
 /**

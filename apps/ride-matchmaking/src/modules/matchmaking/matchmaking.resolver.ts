@@ -7,6 +7,7 @@ import {
   FareBreakdownGraphQL,
   ScheduledMatchResultGraphQL,
   ScheduledFareBreakdownGraphQL,
+  LocationUpdateResultGraphQL,
 } from './dto/matchmaking-response.dto';
 import {
   MatchDriversInput,
@@ -14,6 +15,7 @@ import {
   DriverResponseInput,
   EstimatedFareInput,
   ScheduledFareInput,
+  UpdateDriverLocationInput,
   WeatherConditionEnum,
   TrafficConditionEnum,
   RainConditionEnum,
@@ -107,6 +109,26 @@ export class MatchmakingResolver {
     this.logger.log(`GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideId}`);
     const result = await this.matchmakingService.handleDriverResponse(input.rideId, input.driverId, input.action as unknown as 'accept' | 'reject');
     return { success: result.success, message: result.message };
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Driver Location
+  // ════════════════════════════════════════════════════════════════
+
+  @Mutation(() => LocationUpdateResultGraphQL, {
+    name: 'updateDriverLocation',
+    description: 'Update a driver current geo-location for real-time proximity matching',
+  })
+  async updateDriverLocation(@Args('input') input: UpdateDriverLocationInput): Promise<LocationUpdateResultGraphQL> {
+    this.logger.log(`GraphQL: Updating location for driver ${input.driverId}`);
+    const result = await this.matchmakingService.updateDriverLocation(input.driverId, input.latitude, input.longitude);
+    return {
+      success: result.success,
+      message: result.message,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      updatedAt: new Date().toISOString(),
+    };
   }
 
   // ════════════════════════════════════════════════════════════════

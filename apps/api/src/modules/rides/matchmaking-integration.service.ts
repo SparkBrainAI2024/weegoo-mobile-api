@@ -73,7 +73,7 @@ export class MatchmakingIntegrationService {
   }
 
   private getMatchmakingUrl(): string {
-    return this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
+    return this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004/graphql');
   }
 
   private async requestMatchmakingViaAbly(rideId: string, rideType: string): Promise<void> {
