@@ -135,6 +135,60 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return result;
   }
 
+  async homeDashboardApi(
+    user: Partial<User>,
+  ): Promise<RidesDocument[]> {
+    // Build filter based on user role
+    // Check user roles and apply appropriate filter
+    // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
+    // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
+    let filter: any = {
+      deleted: false, // Exclude soft-deleted rides
+    };
+
+    if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
+      filter.passengerId = new Types.ObjectId(user._id);
+    } else if (user.loginAs === roles.RIDER) {
+      filter.driverId = new Types.ObjectId(user._id);
+    }
+    // Populate vehicle data to include model and type/name
+    const populateOptions = {
+      path: "vehicleId",
+    };
+    // Apply pagination with the constructed filter and vehicle population
+    const upcomingResult = await this.model.find({
+      bookingTime: { $gt: new Date() },
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
+      ...filter
+    
+    }).populate(populateOptions).limit(3)
+
+    const ongoingResult = await this.model.find({
+      rideStatus: { $in: [RideStatus.ONGOING] },
+      ...filter
+    }).populate(populateOptions).sort({createdAt: -1}).limit(1)
+
+    // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
+    const newUpcomingResult = upcomingResult.map((ride: any) => {
+      if(ride.vehicleId && typeof ride.vehicleId === 'object'){
+        ride.vehicle = ride.vehicleId;
+        ride.vechicleId = ride.vehicleId._id;
+        delete ride.vehicleId;// Keep 
+      }
+      return ride;
+    })
+    const newOngoingResult = ongoingResult.map((ride: any) => {
+     if(ride.vehicleId && typeof ride.vehicleId === 'object'){
+        ride.vehicle = ride.vehicleId;
+        ride.vechicleId = ride.vehicleId._id;
+        delete ride.vehicleId;// Keep 
+     }
+     return ride ;
+    })
+    
+  
+    return [...newOngoingResult,...newUpcomingResult];
+  }
   async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
     const rideWithVechile = await this._model.findOne({ _id: new Types.ObjectId(rideId), passengerId: new Types.ObjectId(passengerId) }).populate('vehicleId').exec();
     if (rideWithVechile?.vehicleId && typeof rideWithVechile?.vehicleId === 'object') {

@@ -29,7 +29,12 @@ export class RidesService {
   ) {
     return this.rideRepository.findRidesByUserWithPagination(user, options);
   }
-
+  
+  async homeDashboardApi(
+    user: User,
+  ){
+    return this.rideRepository.homeDashboardApi(user);
+  }
   /**
    * Creates a new ride with an auto-generated rideUUId using nanoid.
    * Also calculates timeToReachRiderInMinutes and timeToReachRider based on
@@ -114,20 +119,20 @@ export class RidesService {
           rideStartedAt: rideStartedAt,
           rideCompletedAt: rideCompletedAt,
           pickupLocation: {
-            address: `Pickup ${rideType} ${i + 1}`,
+            address: `Kathmandu ward -${i + 1}`,
             city: 'Kathmandu',
             province: ProvinceEnum.BAGMATI,
             district: 'Kathmandu',
-            fullAddress: `Full Pickup Address ${i + 1}, Kathmandu`,
+            fullAddress: `Kathmandu ward -${i + 1}`,
             type: 'Point',
             coordinates: [85.3 + Math.random() * 0.1, 27.7 + Math.random() * 0.1],
           } as any,
           dropoffLocation: {
-            address: `Dropoff ${rideType} ${i + 1}`,
+            address: `Kathmandu ward ${i + 2}}`,
             city: 'Kathmandu',
             province: ProvinceEnum.BAGMATI,
             district: 'Kathmandu',
-            fullAddress: `Full Dropoff Address ${i + 1}, Kathmandu`,
+            fullAddress: `  Kathmandu ward ${i + 2}`,
             type: 'Point',
             coordinates: [85.4 + Math.random() * 0.1, 27.8 + Math.random() * 0.1],
           } as any,
