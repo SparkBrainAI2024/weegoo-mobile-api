@@ -39,7 +39,7 @@ export class OngoingRideResponse {
 @Field(() => ID)
   _id: string;
 
-  @Field()
+  @Field(()=> String)
   rideUUId: string;
 
   @Field(() => RideStatus)
@@ -74,5 +74,14 @@ export class OngoingRideResponse {
 
   @Field(() => PaymentDetails, { nullable: true })
   paymentDetails?: PaymentDetails;
+
+    @Field(() => VehicleSummary, { nullable: true })
+    vehicle?: VehicleSummary;
+
+    @Field(() => DriverSummary, { nullable: true })
+    driver?: DriverSummary;
+
+    @Field()
+    ablyChannelId: string;
 
 }

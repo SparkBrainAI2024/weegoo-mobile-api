@@ -19,7 +19,7 @@ async getOngoingRide(
   @Args('rideId') rideId: string,
   @CurrentUser() passenger: User,
 ) {
-  return this.ridesService.getOngoingRide(rideId,passenger._id);
+  return this.ridesService.getOngoingRideWithDetails(rideId,passenger._id);
 }
 }
 

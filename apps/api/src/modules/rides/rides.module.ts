@@ -4,18 +4,19 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { EnvService } from "@libs/common/config/env.service";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
-
+import { PassengerRidesResolver } from "./resolver/rides.resolver";
 @Module({
     imports: [
         RidePersistentModule,
         UserPersistenceModule,
         TransactionModule,
-        IssuePersistenceModule
+        IssuePersistenceModule,
     ],
     providers: [
         RidesService,
         RidesResolver,
         EnvService,
+        PassengerRidesResolver
     ],
     exports: [RidesService]
 })

@@ -1,4 +1,4 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles } from '@libs/data-access';
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { BadRequestException, ForbiddenException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
@@ -13,9 +13,10 @@ export class RidesService {
   private readonly logger = new Logger(RidesService.name);
   constructor(
     private readonly rideRepository: RidesRepository,
-    private readonly transactionService:TransactionService,
-    private readonly issueRepository: IssueRepository
-  ) {}
+    private readonly transactionService: TransactionService,
+    private readonly issueRepository: IssueRepository,
+    private readonly userDetailsRepository: UserDetailsRepository
+  ) { }
 
   /**
    * Fetches rides for the current user based on their role with pagination.
@@ -30,10 +31,10 @@ export class RidesService {
   ) {
     return this.rideRepository.findRidesByUserWithPagination(user, options);
   }
-  
+
   async homeDashboardApi(
     user: User,
-  ){
+  ) {
     return this.rideRepository.homeDashboardApi(user);
   }
   /**
@@ -238,7 +239,7 @@ export class RidesService {
 
   async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
 
-    const userLoginAs = user.loginAs===roles.RIDER? "DRIVER" : "PASSENGER";
+    const userLoginAs = user.loginAs === roles.RIDER ? "DRIVER" : "PASSENGER";
     this.logger.log(`User ${user._id} with role ${user.loginAs} is attempting to cancel ride ${input.rideId} with subcategory ${input.cancelSubCategoryId} and reason ${input.cancelReasonContent}`);
     const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
@@ -246,47 +247,47 @@ export class RidesService {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
 
-      const subCategory = await this.issueRepository.findIssueCategoryById(
+    const subCategory = await this.issueRepository.findIssueCategoryById(
       input.cancelSubCategoryId
     );
     this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
 
-    if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ 
+    if ((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()) {
       ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
     }
 
 
-  if(!(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole)){
+    if (!(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole)) {
       ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
 
-  }
+    }
 
-  if ((subCategory.label.toLowerCase()) === 'other' && !input.cancelReasonContent) {
-    ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
-  }
+    if ((subCategory.label.toLowerCase()) === 'other' && !input.cancelReasonContent) {
+      ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
+    }
 
     const isPassenger = ride.passengerId.toString() === user._id.toString();
     const isDriver = ride.driverId.toString() === user._id.toString();
 
-  if (!isPassenger && !isDriver) {
-    ErrorException(null, 'RIDES.CANCEL_UNAUTHORIZED', HttpStatus.FORBIDDEN);
-  }
+    if (!isPassenger && !isDriver) {
+      ErrorException(null, 'RIDES.CANCEL_UNAUTHORIZED', HttpStatus.FORBIDDEN);
+    }
 
-  if (ride.rideStatus === RideStatus.CANCELLED) {
-    ErrorException(null, 'RIDES.CANCEL_ALREADY_CANCELLED', HttpStatus.BAD_REQUEST);
-  }
+    if (ride.rideStatus === RideStatus.CANCELLED) {
+      ErrorException(null, 'RIDES.CANCEL_ALREADY_CANCELLED', HttpStatus.BAD_REQUEST);
+    }
 
-  if (ride.rideStatus === RideStatus.COMPLETED) {
-    ErrorException(null, 'RIDES.CANCEL_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
-  }
+    if (ride.rideStatus === RideStatus.COMPLETED) {
+      ErrorException(null, 'RIDES.CANCEL_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
+    }
 
-  if (ride.rideStatus === RideStatus.ONGOING) {
-    ErrorException(null, 'RIDES.CANCEL_IN_PROGRESS', HttpStatus.BAD_REQUEST);
-  }
+    if (ride.rideStatus === RideStatus.ONGOING) {
+      ErrorException(null, 'RIDES.CANCEL_IN_PROGRESS', HttpStatus.BAD_REQUEST);
+    }
 
-  if (ride.rideStatus === RideStatus.PENDING) {
-    ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
-  }
+    if (ride.rideStatus === RideStatus.PENDING) {
+      ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
+    }
 
     return this.rideRepository.cancelRide({
       rideId: input.rideId,
@@ -298,16 +299,44 @@ export class RidesService {
     });
   }
 
-  async getOngoingRide(rideId: string, passengerId: Types.ObjectId) {
-  const ride = await this.rideRepository.getOngoingRide(rideId, passengerId);
+  async getOngoingRideWithDetails(rideId: string, userId: Types.ObjectId): Promise<any> {
+    const ride = await this.rideRepository.getOngoingRideWithDetails(
+      rideId,
+      userId,
+    );
+    if (!ride)
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
 
-  if (!ride) 
-    ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    if (ride.vehicleId && typeof ride.vehicleId === 'object') {
+      ride.vehicle = ride.vehicleId;
+      delete ride.vehicleId;// Keep the original vehicleId for reference
+    }
 
-  return {
-    ...ride,
-    ablyChannelId: `ride:${ride.rideUUId}`,  
-  };
-}
+
+    const driverDetails = ride.driverId
+      ? await this.userDetailsRepository.findOne(
+        { userId: toMongoId(ride.driverId._id) },
+        null,
+        { fullName: 1, profileImage: 1, rating: 1 },
+      )
+      : null;
+
+    this.logger.log(`Fetched driver details for driverId ${ride.driverId}: ${driverDetails ? driverDetails.fullName : 'No details found'}`);
+    const rideObject = {
+      ...ride,
+      _id: ride._id.toString(),
+      driver: driverDetails
+        ? {
+          fullName: driverDetails.fullName,
+          profileImage: driverDetails.profileImage || "",
+          rating: Math.floor(Math.random() * 5) + 1 // Random rating between 1 and 5 for testing,
+        }
+        : null,
+      ablyChannelId: `ride:${ride.rideUUId}`,
+    };
+    this.logger.log(rideObject)
+    return rideObject;
+
+  }
 }
 
