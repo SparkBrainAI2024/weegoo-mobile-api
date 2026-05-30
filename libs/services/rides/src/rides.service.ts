@@ -236,66 +236,78 @@ export class RidesService {
     return newRide;
   }
 
-async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+  async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
 
-  const userLoginAs = user.loginAs===roles.RIDER? "DRIVER" : "PASSENGER";
-  this.logger.log(`User ${user._id} with role ${user.loginAs} is attempting to cancel ride ${input.rideId} with subcategory ${input.cancelSubCategoryId} and reason ${input.cancelReasonContent}`);
-  const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
+    const userLoginAs = user.loginAs===roles.RIDER? "DRIVER" : "PASSENGER";
+    this.logger.log(`User ${user._id} with role ${user.loginAs} is attempting to cancel ride ${input.rideId} with subcategory ${input.cancelSubCategoryId} and reason ${input.cancelReasonContent}`);
+    const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
-  if (!ride) {
+    if (!ride) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+      const subCategory = await this.issueRepository.findIssueCategoryById(
+      input.cancelSubCategoryId
+    );
+    this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
+
+    if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ 
+      ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+    }
+
+
+  if(!(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole)){
+      ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
+
+  }
+
+  if ((subCategory.label.toLowerCase()) === 'other' && !input.cancelReasonContent) {
+    ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
+  }
+
+    const isPassenger = ride.passengerId.toString() === user._id.toString();
+    const isDriver = ride.driverId.toString() === user._id.toString();
+
+  if (!isPassenger && !isDriver) {
+    ErrorException(null, 'RIDES.CANCEL_UNAUTHORIZED', HttpStatus.FORBIDDEN);
+  }
+
+  if (ride.rideStatus === RideStatus.CANCELLED) {
+    ErrorException(null, 'RIDES.CANCEL_ALREADY_CANCELLED', HttpStatus.BAD_REQUEST);
+  }
+
+  if (ride.rideStatus === RideStatus.COMPLETED) {
+    ErrorException(null, 'RIDES.CANCEL_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
+  }
+
+  if (ride.rideStatus === RideStatus.ONGOING) {
+    ErrorException(null, 'RIDES.CANCEL_IN_PROGRESS', HttpStatus.BAD_REQUEST);
+  }
+
+  if (ride.rideStatus === RideStatus.PENDING) {
+    ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
+  }
+
+    return this.rideRepository.cancelRide({
+      rideId: input.rideId,
+      cancelledBy: user._id,
+      cancelledByRole: userLoginAs as CategoryAccessedByRole,
+      cancelSubCategoryId: toMongoId(input.cancelSubCategoryId), // Convert to ObjectId using
+      cancelSubCategoryLabel: input.cancelSubCategoryLabel,
+      cancelReasonContent: input.cancelReasonContent,
+    });
+  }
+
+  async getOngoingRide(rideId: string, passengerId: Types.ObjectId) {
+  const ride = await this.rideRepository.getOngoingRide(rideId, passengerId);
+
+  if (!ride) 
     ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
-  }
 
-    const subCategory = await this.issueRepository.findIssueCategoryById(
-    input.cancelSubCategoryId
-  );
-  this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
-
-  if((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()){ 
-    ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
-  }
-
-
-if(!(subCategory.categoryForRole === IssueCategoryForRole.BOTH || subCategory.categoryForRole === userLoginAs as IssueCategoryForRole)){
-    ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
-
-}
-
-if ((subCategory.label.toLowerCase()) === 'other' && !input.cancelReasonContent) {
-  ErrorException(null, 'RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER', HttpStatus.BAD_REQUEST);
-}
-
-  const isPassenger = ride.passengerId.toString() === user._id.toString();
-  const isDriver = ride.driverId.toString() === user._id.toString();
-
-if (!isPassenger && !isDriver) {
-  ErrorException(null, 'RIDES.CANCEL_UNAUTHORIZED', HttpStatus.FORBIDDEN);
-}
-
-if (ride.rideStatus === RideStatus.CANCELLED) {
-  ErrorException(null, 'RIDES.CANCEL_ALREADY_CANCELLED', HttpStatus.BAD_REQUEST);
-}
-
-if (ride.rideStatus === RideStatus.COMPLETED) {
-  ErrorException(null, 'RIDES.CANCEL_ALREADY_COMPLETED', HttpStatus.BAD_REQUEST);
-}
-
-if (ride.rideStatus === RideStatus.ONGOING) {
-  ErrorException(null, 'RIDES.CANCEL_IN_PROGRESS', HttpStatus.BAD_REQUEST);
-}
-
-if (ride.rideStatus === RideStatus.PENDING) {
-  ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
-}
-
-  return this.rideRepository.cancelRide({
-    rideId: input.rideId,
-    cancelledBy: user._id,
-    cancelledByRole: userLoginAs as CategoryAccessedByRole,
-    cancelSubCategoryId: toMongoId(input.cancelSubCategoryId), // Convert to ObjectId using
-    cancelSubCategoryLabel: input.cancelSubCategoryLabel,
-    cancelReasonContent: input.cancelReasonContent,
-  });
+  return {
+    ...ride,
+    ablyChannelId: `ride:${ride.rideUUId}`,  
+  };
 }
 }
 

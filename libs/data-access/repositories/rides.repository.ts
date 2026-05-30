@@ -197,21 +197,59 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     return rideWithVechile;
   }
-async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
-  return this._model.findByIdAndUpdate(
-    new Types.ObjectId(params.rideId),
-    {
-      rideStatus: RideStatus.CANCELLED,
-      cancellationDetail: {
-        cancelledAt: new Date(),
-        cancelledBy: params.cancelledBy,
-        cancelledByRole: params.cancelledByRole,
-        cancelSubCategoryId: params.cancelSubCategoryId,
-        cancelSubCategoryLabel: params.cancelSubCategoryLabel,
-        cancelReasonContent: params.cancelReasonContent ?? null,
+  async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
+    return this._model.findByIdAndUpdate(
+      new Types.ObjectId(params.rideId),
+      {
+        rideStatus: RideStatus.CANCELLED,
+        cancellationDetail: {
+          cancelledAt: new Date(),
+          cancelledBy: params.cancelledBy,
+          cancelledByRole: params.cancelledByRole,
+          cancelSubCategoryId: params.cancelSubCategoryId,
+          cancelSubCategoryLabel: params.cancelSubCategoryLabel,
+          cancelReasonContent: params.cancelReasonContent ?? null,
+        },
       },
+      { new: true },
+    );
+  }
+
+
+async getOngoingRide(rideId: string, passengerId: Types.ObjectId): Promise<RidesDocument | null> {
+  return this.findOne(
+    {
+      _id: new Types.ObjectId(rideId),
+      rideStatus: RideStatus.ONGOING,
     },
-    { new: true },
+    [
+      {
+        path: 'vehicleId',
+        select: 'vehicleModel year color numberPlate vehicleType',
+      },
+      {
+        path: 'driverId',
+        select: 'fullName profileImage rating',
+      },
+    ],
+    {
+      rideUUId: 1,
+      rideStatus: 1,
+      rideType: 1,
+      bookingTime: 1,
+      rideStartedAt: 1,
+      rideCompletedAt: 1,
+      estimatedTimeInMinutes: 1,
+      estimatedFare: 1,
+      distanceInKm: 1,
+      pickupLocation: 1,
+      dropoffLocation: 1,
+      fare: 1,
+      paymentDetails: 1,
+      vehicleId: 1,
+      driverId: 1,
+    },
   );
 }
+
 }
