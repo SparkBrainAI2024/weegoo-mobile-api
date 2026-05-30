@@ -13,15 +13,16 @@ import { groupItemsByDate } from '@libs/common/utils/group-by-date.utils';
 import { ErrorException } from '@libs/common/exceptions';
 import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
 import { toMongoId } from '@libs/common';
+import { TokenGrantType } from '@libs/data-access';
 
 @Injectable()
 export class NotificationService {
     constructor(
         @Inject(forwardRef(() => NotificationRepository))
         private readonly notificationRepository: NotificationRepository,
-        private readonly firebaseMessagingService:FirebaseMessagingService,
+        private readonly firebaseMessagingService: FirebaseMessagingService,
         @Inject(forwardRef(() => UserTokenMetaRepository))
-        private readonly  userTokenRepository: UserTokenMetaRepository
+        private readonly userTokenRepository: UserTokenMetaRepository
     ) { }
 
     /**
@@ -41,7 +42,6 @@ export class NotificationService {
         }
         const { data, pageInfo } = await this.notificationRepository.getNotificationsByUserId(user._id.toString(), options);
         const groupedData = groupItemsByDate(data);
-        console.log("groupedData",groupedData)
         return {
             data: groupedData,
             pageInfo: {
@@ -61,23 +61,24 @@ export class NotificationService {
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
-        const token = await this.userTokenRepository.findOne({userId:userId});
-        if(token?.firebaseToken){
-        await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken,{
-            data:{
-                title: notification.title,
-                body: notification.description,
-                notificationType:notification.notificationType,
-                notificationId: notification._id.toString(),
-                desc: notification.description,
-            },
-            token: token.firebaseToken,
-            notification: {
-                title: notification.title,
-                body: notification.description,
-            }
-        } );
-       }
+        const token = await this.userTokenRepository.findOne({ userId: userId, grant:TokenGrantType.REFRESH_TOKEN }, null, null, { sort: { createdAt: -1 } });
+        if (token?.firebaseToken) {
+            await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
+                data: {
+                    title: notification.title,
+                    body: notification.description,
+                    notificationType: String(notification.notificationType),
+                    notificationId: notification._id.toString(),
+                    desc: notification.description,
+                },
+                token: token.firebaseToken,
+                notification: {
+                    title: notification.title,
+                    body: notification.description,
+                }
+            });
+        }
+        console.log("firebase token",token?.firebaseToken)
         return notification;
     }
 

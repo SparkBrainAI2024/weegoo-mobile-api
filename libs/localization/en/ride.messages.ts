@@ -10,5 +10,6 @@ export const RIDES = {
   CANCEL_REASON_REQUIRED_FOR_OTHER: "Cancel reason content is required when cancel category is OTHER",
   INVALID_CANCEL_SUB_CATEGORY: "The selected cancel sub-category is not valid for your role",
   CANCEL_ALREADY_CANCELLED: 'This ride has already been cancelled and cannot be cancelled again.',
-  RIDE_STATUS_MISMATCHED:"Ride should be ongoing or completed to save it."
+  RIDE_STATUS_MISMATCHED:"Ride should be ongoing or completed to save it.",
+  RIDE_ALREADY_FAVOURITE:"This ride is already on favourite list."
 }

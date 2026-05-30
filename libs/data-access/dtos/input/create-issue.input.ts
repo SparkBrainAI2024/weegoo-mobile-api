@@ -20,10 +20,9 @@ export class IssueCategoryInput {
 
 @InputType()
 export class CreateIssueInput {
-  @Field()
-  @IsNotEmpty()
-  @IsString()
-  title: string;
+  @Field({ nullable: true })
+  @IsOptional()
+  title?: string;
 
   @Field()
   @IsNotEmpty()

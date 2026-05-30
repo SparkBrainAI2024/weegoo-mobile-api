@@ -52,6 +52,9 @@ export class FavouriteService {
         if (!ride) {
             throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
         }
+        if(ride.isFavourite){
+            throw ErrorException(null, "RIDES.RIDE_ALREADY_FAVOURITE", 400);
+        }
         if (
             ride.rideStatus !== RideStatus.ONGOING &&
             ride.rideStatus !== RideStatus.COMPLETED
@@ -67,6 +70,7 @@ export class FavouriteService {
             noOfPassengers: ride?.fare?.noOfPassengers || 1,
             vehicleType: ride.vehicle?.vehicleType || null,
             rideId: ride._id,
+            estimatedFare: ride.estimatedFare
         });
         await this.ridesRepository.updateById(ride._id, { isFavourite: true });
         return favorites;
