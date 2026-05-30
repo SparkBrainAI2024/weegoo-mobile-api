@@ -1,16 +1,16 @@
 import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository } from '@libs/data-access';
 import { Types } from 'mongoose';
-import { BadRequestException, ForbiddenException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {  HttpStatus, Injectable } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 import { ErrorException } from '@libs/common/exceptions';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 import { toMongoId } from '@libs/common';
+import { transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
 
 @Injectable()
 export class RidesService {
-  private readonly logger = new Logger(RidesService.name);
   constructor(
     private readonly rideRepository: RidesRepository,
     private readonly transactionService: TransactionService,
@@ -240,7 +240,6 @@ export class RidesService {
   async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
 
     const userLoginAs = user.loginAs === roles.RIDER ? "DRIVER" : "PASSENGER";
-    this.logger.log(`User ${user._id} with role ${user.loginAs} is attempting to cancel ride ${input.rideId} with subcategory ${input.cancelSubCategoryId} and reason ${input.cancelReasonContent}`);
     const ride = await this.rideRepository.findById(new Types.ObjectId(input.rideId));
 
     if (!ride) {
@@ -250,7 +249,6 @@ export class RidesService {
     const subCategory = await this.issueRepository.findIssueCategoryById(
       input.cancelSubCategoryId
     );
-    this.logger.log(`Fetched subcategory ${subCategory?._id} with label ${subCategory?.label} for cancellation, categoryForRole: ${subCategory?.categoryForRole}`);
 
     if ((subCategory.parentCategory).toLowerCase() !== (IssueParentCategory.CANCEL).toLowerCase()) {
       ErrorException(null, 'RIDES.INVALID_CANCEL_SUB_CATEGORY', HttpStatus.BAD_REQUEST);
@@ -300,17 +298,16 @@ export class RidesService {
   }
 
   async getOngoingRideWithDetails(rideId: string, userId: Types.ObjectId): Promise<any> {
-    const ride = await this.rideRepository.getOngoingRideWithDetails(
+    const rideDocument = await this.rideRepository.getOngoingRideWithDetails(
       rideId,
       userId,
     );
-    if (!ride)
+    if (!rideDocument)
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    const ride = rideDocument.toObject();
 
-    if (ride.vehicleId && typeof ride.vehicleId === 'object') {
-      ride.vehicle = ride.vehicleId;
-      delete ride.vehicleId;// Keep the original vehicleId for reference
-    }
+  
+    transformToEntityNameObjectFromId(ride, ['vehicleId', 'vehicle']);
 
 
     const driverDetails = ride.driverId
@@ -321,7 +318,6 @@ export class RidesService {
       )
       : null;
 
-    this.logger.log(`Fetched driver details for driverId ${ride.driverId}: ${driverDetails ? driverDetails.fullName : 'No details found'}`);
     const rideObject = {
       ...ride,
       _id: ride._id.toString(),
@@ -334,7 +330,6 @@ export class RidesService {
         : null,
       ablyChannelId: `ride:${ride.rideUUId}`,
     };
-    this.logger.log(rideObject)
     return rideObject;
 
   }

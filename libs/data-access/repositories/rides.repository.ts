@@ -257,19 +257,10 @@ async getOngoingRideWithDetails(
     driverId: 1,
   };
 
-  const ride = await this.findOne(filter, populate, projection);
-this.logger.log(ride)
-  if (!ride) return null;
+  return this.findOne(filter, populate, projection);
 
-  // remap vehicleId → vehicle
-  const rideObj: any = ride.toObject();
 
-  if (rideObj.vehicleId && typeof rideObj.vehicleId === 'object') {
-    rideObj.vehicle = rideObj.vehicleId;
-    rideObj.vehicleId = rideObj.vehicleId._id;
-  }
 
-  return rideObj;
 }
 
 }
