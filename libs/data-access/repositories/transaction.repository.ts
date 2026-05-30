@@ -111,7 +111,7 @@ async      earningsByDayForDriver                                               
             timezone: "Asia/Kathmandu"
           },
         },
-        totalCredit: { $sum: "$amount" },
+        netEarning: { $sum: "$amount" },
       },
     },
     { $sort: { _id: 1 } },
@@ -119,7 +119,7 @@ async      earningsByDayForDriver                                               
       $project: {
         _id: 0,
         date: "$_id",
-        totalCredit: 1,
+        netEarning: 1,
       },
     },
   ]);
