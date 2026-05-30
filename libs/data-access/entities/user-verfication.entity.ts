@@ -15,7 +15,7 @@ export class UserVerification extends BaseEntity {
   userId?: Types.ObjectId;
 
   @Field(() => ID, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: "Admin", default: null })
+  @Prop({ type: Types.ObjectId, ref: "AdminUser", default: null })
   adminId?: Types.ObjectId;
 
   @Field()
