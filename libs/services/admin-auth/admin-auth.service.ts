@@ -88,7 +88,7 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
         email,
       });
 
-      return { accessToken, refreshToken };
+      return { accessToken, refreshToken, admin: { _id: admin._id.toString(), fullName: admin.fullName, email: admin.email } };
     }
 
     // ─── Forgot Password ──────────────────────────────────────────────────────
@@ -105,11 +105,12 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
         admin._id,
         otp,
         verificationType.RESET_PASSWORD,
+        true //isAdmin
       );
 
       // TODO: send otp via email (mail service)
 
-      return { message: 'AUTH.OTP_SENT' };
+      return { message: 'USER.OTP_SEND', success:true };
     }
 
     // ─── Verify OTP ───────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
 
       await this.userVerificationRepository.deleteOtpById(verification._id);
 
-      return { message: 'AUTH.OTP_VERIFIED' };
+      return { message: 'USER.OTP_VERIFICATION_SUCCESS', success: true };
     }
 
     // ─── Reset Password ───────────────────────────────────────────────────────
