@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { BaseModel } from '../base/base.model';
 import { BaseRepository } from '../base/base.repository';
@@ -11,14 +11,14 @@ import { toMongoId } from '@libs/common';
 
 @Injectable()
 export class UserVerificationRepository extends BaseRepository<UserVerificationDocument> {
-  constructor(@InjectModel(UserVerification.name) private readonly _model: BaseModel<UserVerificationDocument>) {
-    super(_model);
-  }
+    constructor(@InjectModel(UserVerification.name) private readonly _model: BaseModel<UserVerificationDocument>) {
+        super(_model);
+    }
     async deleteOtpById(id: Types.ObjectId) {
         try {
             return await this.model.findByIdAndDelete(id)
         } catch (e) {
-           ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+            ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -65,15 +65,24 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
         }
     }
 
-    async sendOtp(userId: Types.ObjectId, otp: number, type: string) {
+    async sendOtp(userId: Types.ObjectId, otp: number, type: string, isAdmin: boolean = false) {
         try {
-            await this.model.deleteMany({ type, userId });
-            return await this.create({
+
+            const filter = isAdmin
+                ? { type, adminId: toMongoId(userId.toString()), otp }
+                : { type, userId, otp };
+
+            await this.model.deleteMany(filter);
+            const verifyObject =  await this.create({
                 type,
-                userId: toMongoId(userId.toString()),
+                ...(isAdmin
+                    ? { adminId: toMongoId(userId.toString()) }
+                    : { userId }
+                ),
                 otp,
                 createdAt: UTCTime()
             });
+            return verifyObject;
         } catch (e) {
             ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
         }

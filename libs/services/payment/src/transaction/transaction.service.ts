@@ -89,8 +89,7 @@ export class TransactionService {
 
     return (
       result[0] || {
-        totalCredit: 0,
-        totalDebit: 0,
+      
         netEarning: 0,
       }
     );

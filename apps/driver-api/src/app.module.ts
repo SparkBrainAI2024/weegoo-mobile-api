@@ -52,7 +52,7 @@ import { TransactionModule } from './modules/transaction/transaction.module';
     RidesModule,
     IssueModule,
     NotificationModule,
-    TransactionModule
+    TransactionModule,
   ],
   providers: [HealthResolver],
 })

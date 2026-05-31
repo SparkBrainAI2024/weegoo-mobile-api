@@ -7,9 +7,9 @@ import { UserDetails, UserDetailsSchema } from "@libs/data-access/entities/user-
 import { Vehicle, VehicleSchema } from "@libs/data-access/entities/vehicle.entity";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
-import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { DriverRideAcceptanceService } from "./driver-ride-acceptance.service";
+import { TransactionModule } from "../transaction/transaction.module";
 
 @Module({
     imports: [

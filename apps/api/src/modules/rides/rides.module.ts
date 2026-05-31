@@ -10,6 +10,7 @@ import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persisten
 import { MatchmakingIntegrationService } from "./matchmaking-integration.service";
 import { MatchmakingResolver } from "./matchmaking.resolver";
 
+import { PassengerRidesResolver } from "./resolver/rides.resolver";
 @Module({
     imports: [
         RidePersistentModule,
@@ -27,6 +28,7 @@ import { MatchmakingResolver } from "./matchmaking.resolver";
         EnvService,
         MatchmakingIntegrationService,
         MatchmakingResolver,
+        PassengerRidesResolver
     ],
     exports: [RidesService]
 })

@@ -10,9 +10,13 @@ export type UserTokenMetaDocument = HydratedDocument<UserTokenMeta>;
 @ObjectType()
 @Schema({ timestamps: true })
 export class UserTokenMeta extends BaseEntity {
-  @Field(() => ID)
-  @Prop({ type: Types.ObjectId, ref: "User", required: true })
+  @Field(() => ID, {nullable: true })
+  @Prop({ type: Types.ObjectId, ref: "User", default: null })
   userId: Types.ObjectId;
+
+  @Field(() => ID, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: "AdminUser", default: null })
+  adminId?: Types.ObjectId; 
 
   @Field()
   @Prop({ type: String, required: false })

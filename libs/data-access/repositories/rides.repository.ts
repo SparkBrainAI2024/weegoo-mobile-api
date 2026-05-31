@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { BaseRepository } from "../base/base.repository";
+import { Injectable, Logger } from "@nestjs/common";
+import { BaseRepository, Populate } from "../base/base.repository";
 import { InjectModel } from "@nestjs/mongoose";
 import { Rides, RidesDocument } from "../entities/rides.entity";
 import { BaseModel } from "../base/base.model";
@@ -9,11 +9,12 @@ import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
+import { CategoryAccessedByRole } from "../enums/issue.enum";
 
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
-  cancelledByRole: roles;
+  cancelledByRole: CategoryAccessedByRole;
   cancelSubCategoryId: Types.ObjectId;
   cancelSubCategoryLabel: string;
   cancelReasonContent?: string;
@@ -22,6 +23,7 @@ interface CancelRideParams {
 
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
+  private readonly logger = new Logger(RidesRepository.name);
   constructor(@InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>) {
     super(_model);
   }
@@ -135,6 +137,59 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return result;
   }
 
+  async homeDashboardApi(
+    user: Partial<User>,
+  ): Promise<RidesDocument[]> {
+    // Build filter based on user role
+    // Check user roles and apply appropriate filter
+    // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
+    // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
+    let filter: any = {
+      deleted: false, // Exclude soft-deleted rides
+    };
+
+    if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
+      filter.passengerId = new Types.ObjectId(user._id);
+    } else if (user.loginAs === roles.RIDER) {
+      filter.driverId = new Types.ObjectId(user._id);
+    }
+    // Populate vehicle data to include model and type/name
+    const populateOptions = {
+      path: "vehicleId",
+    };
+    // Apply pagination with the constructed filter and vehicle population
+    const upcomingResult = await this.model.find({
+     rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
+      ...filter
+    
+    }).populate(populateOptions).limit(3)
+
+    const ongoingResult = await this.model.find({
+      rideStatus: { $in: [RideStatus.ONGOING] },
+      ...filter
+    }).populate(populateOptions).sort({createdAt: -1}).limit(1)
+
+    // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
+    const newUpcomingResult = upcomingResult.map((ride: any) => {
+      if(ride.vehicleId && typeof ride.vehicleId === 'object'){
+        ride.vehicle = ride.vehicleId;
+        ride.vechicleId = ride.vehicleId._id;
+        delete ride.vehicleId;// Keep 
+      }
+      return ride;
+    })
+    const newOngoingResult = ongoingResult.map((ride: any) => {
+     if(ride.vehicleId && typeof ride.vehicleId === 'object'){
+        ride.vehicle = ride.vehicleId;
+        ride.vechicleId = ride.vehicleId._id;
+        delete ride.vehicleId;// Keep 
+     }
+     return ride ;
+    })
+    
+  
+    return [...newOngoingResult,...newUpcomingResult];
+  }
   async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
     const rideWithVechile = await this._model.findOne({ _id: new Types.ObjectId(rideId), passengerId: new Types.ObjectId(passengerId) }).populate('vehicleId').exec();
     if (rideWithVechile?.vehicleId && typeof rideWithVechile?.vehicleId === 'object') {
@@ -143,21 +198,69 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     return rideWithVechile;
   }
-async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
-  return this._model.findByIdAndUpdate(
-    new Types.ObjectId(params.rideId),
-    {
-      rideStatus: RideStatus.CANCELLED,
-      cancellationDetail: {
-        cancelledAt: new Date(),
-        cancelledBy: params.cancelledBy,
-        cancelledByRole: params.cancelledByRole,
-        cancelSubCategoryId: params.cancelSubCategoryId,
-        cancelSubCategoryLabel: params.cancelSubCategoryLabel,
-        cancelReasonContent: params.cancelReasonContent ?? null,
+  async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
+    return this._model.findByIdAndUpdate(
+      new Types.ObjectId(params.rideId),
+      {
+        rideStatus: RideStatus.CANCELLED,
+        cancellationDetail: {
+          cancelledAt: new Date(),
+          cancelledBy: params.cancelledBy,
+          cancelledByRole: params.cancelledByRole,
+          cancelSubCategoryId: params.cancelSubCategoryId,
+          cancelSubCategoryLabel: params.cancelSubCategoryLabel,
+          cancelReasonContent: params.cancelReasonContent ?? null,
+        },
       },
+      { new: true },
+    );
+  }
+
+
+async getOngoingRideWithDetails(
+  rideId: string,
+  passengerId: Types.ObjectId,
+): Promise<any> {
+  const filter = {
+    _id: rideId,
+    passengerId: new Types.ObjectId(passengerId),
+    rideStatus: RideStatus.ONGOING,
+  };
+
+  const populate: Populate = [
+    {
+      path: 'vehicleId',
+      select: 'vehicleModel year color numberPlate vehicleType',
     },
-    { new: true },
-  );
+    {
+      path: 'driverId',
+      select: '_id',  // only get driverId, we'll fetch UserDetails separately
+    },
+  ];
+
+  const projection = {
+    _id: 1,
+    rideUUId: 1,
+    rideStatus: 1,
+    rideType: 1,
+    bookingTime: 1,
+    rideStartedAt: 1,
+    rideCompletedAt: 1,
+    estimatedTimeInMinutes: 1,
+    estimatedFare: 1,
+    distanceInKm: 1,
+    pickupLocation: 1,
+    dropoffLocation: 1,
+    fare: 1,
+    paymentDetails: 1,
+    vehicleId: 1,
+    driverId: 1,
+  };
+
+  return this.findOne(filter, populate, projection);
+
+
+
 }
+
 }

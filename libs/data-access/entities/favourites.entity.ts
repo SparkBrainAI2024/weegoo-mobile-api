@@ -37,6 +37,10 @@ export class Favourites extends BaseEntity {
     @Field(() => Number, { defaultValue: 1 })
     @Prop({ type: Number, default: 1, required: true })
     noOfPassengers?: Number;
+
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: true })
+    estimatedFare?: Number;
 }
 export type FavouritesDocument = HydratedDocument<Favourites>;
 export const FavouritesSchema = SchemaFactory.createForClass(Favourites);
