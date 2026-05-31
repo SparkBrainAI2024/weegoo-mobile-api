@@ -12,32 +12,15 @@ type Pagination {
   total: Int!
 }
 
+type CursorPageInfo {
+  nextCursor: String
+  hasNextPage: Boolean!
+}
+
 type GeoLocation {
   type: String!
   coordinates: [Float!]!
 }
-
-type Cancellation {
-  cancellationBy: CancellationByEnum!
-  userId: String!
-  cancelledAt: DateTime!
-  cancellationReason: String
-  cancellationOtherReason: String
-}
-
-"""The reason for cancellation"""
-enum CancellationByEnum {
-  """The ride was cancelled by the user themselves"""
-  SELF
-
-  """The ride was cancelled by the driver"""
-  DRIVER_CANCELLED
-}
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
 
 type RideLocation {
   type: String!
@@ -110,6 +93,11 @@ enum ImageStatus {
   INACTIVE
 }
 
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
 type Vehicle {
   _id: String!
   createdAt: DateTime!
@@ -131,6 +119,26 @@ enum VehicleType {
   SCOOTER
 }
 
+type CancellationDetail {
+  cancelledAt: DateTime!
+  cancelledBy: ID!
+  cancelledByRole: CategoryAccessedByRole!
+  cancelSubCategoryId: ID!
+  cancelSubCategoryLabel: String!
+  cancelReasonContent: String
+}
+
+"""
+Indicates the role that accessed the category, either driver or passenger
+"""
+enum CategoryAccessedByRole {
+  """Accessed by a passenger"""
+  PASSENGER
+
+  """Accessed by a driver"""
+  DRIVER
+}
+
 type Rides {
   _id: String!
   createdAt: DateTime!
@@ -140,7 +148,6 @@ type Rides {
   rideType: RideTypes!
   bookingTime: DateTime!
   rideStatus: RideStatus!
-  cancellation: Cancellation
   passengerId: String!
   driverId: String
   pickupLocation: RideLocation
@@ -148,6 +155,7 @@ type Rides {
   rideUUId: String
   estimatedTimeInMinutes: Float
   estimatedFare: Float
+  isFavourite: Boolean
   rideStartedAt: DateTime
   rideCompletedAt: DateTime
   distanceInKm: Float
@@ -156,12 +164,7 @@ type Rides {
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   vehicle: Vehicle
-  cancelledAt: DateTime
-  cancelledBy: ID
-  cancelledByRole: UserRole
-  cancelSubCategoryLabel: String
-  cancelSubCategoryId: ID
-  cancelReasonContent: String
+  cancellationDetail: CancellationDetail
 }
 
 """Types of rides"""
@@ -190,20 +193,6 @@ enum RideStatus {
   """Ride is cancelled"""
   CANCELLED
   PENDING
-}
-
-"""The role of the user in the system"""
-enum UserRole {
-  """Regular user with standard access"""
-  USER
-
-  """User with admin privileges"""
-  ADMIN
-
-  """
-  Driver user with riding request acceptance permissions and transaction and wallet access
-  """
-  RIDER
 }
 
 type DocumentFile {
@@ -238,10 +227,46 @@ type Favourites {
   deleted: Boolean
   rideType: RideTypes!
   passengerId: String!
+  rideId: String!
   pickupLocation: RideLocation
   dropoffLocation: RideLocation
   vehicleType: VehicleType!
   noOfPassengers: Float!
+  estimatedFare: Float!
+}
+
+type Notification {
+  _id: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  deleted: Boolean
+  title: String!
+  notificationType: NotificationType!
+  description: String!
+  readAt: DateTime
+  viewedAt: DateTime
+  isOpen: Boolean!
+}
+
+enum NotificationType {
+  RIDE_REQUEST
+  RIDE_CANCELLATION
+  SCHEDULED_RIDE_NOTIFY
+  REAL_TIME_RIDE_TRACKING
+  CHAT
+  RIDE_COMPLETE_NOTIFICATION
+  PROCEED_PAYMENT
+  PAYMENT_RECEIPT
+  PAYMENT_FAILURE
+  PAYMENT_WITHDRAWAL
+  TERMS_AND_CONDITIONS_UPDATED
+  RIDE_ACCEPTED
+  RIDE_START
+  RIDE_END
+  REQUEST_TO_PAY
+  DRIVER_ON_THE_WAY
+  PAYMENT_CONFIRM
 }
 
 type BasicResponse {
@@ -343,6 +368,11 @@ enum IssueStatus {
   OPEN
   IN_REVIEW
   RESOLVED
+}
+
+type NotificationGroup {
+  title: String!
+  notifications: [Notification!]!
 }
 
 type AdminUserResponse {
