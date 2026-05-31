@@ -2,10 +2,9 @@ import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { Logger, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { User } from '@libs/data-access';
+import { TriggerInstantMatchmakingInput, UpdateLocationInput, User } from '@libs/data-access';
 import { MatchmakingIntegrationService } from './matchmaking-integration.service';
-import { TriggerInstantMatchmakingInput } from './dto/matchmaking-input.dto';
-import { TriggerMatchmakingResult } from './dto/matchmaking-response.dto';
+import { TriggerMatchmakingResult, LocationUpdateResult } from './dto/matchmaking-response.dto';
 
 @Resolver()
 @UseGuards(AuthGuard)
@@ -33,6 +32,27 @@ export class MatchmakingResolver {
       input.pickupLocation,
       input.dropoffLocation,
       input.vehicleType,
+    );
+  }
+
+  /**
+   * Update the current passenger's location for the active ride.
+   * Publishes location to P-LOCATION-{rideUUId} channel and updates
+   * distanceToReachPassenger/estimatedTimeToReachPassenger in ride schema.
+   */
+  @Mutation(() => LocationUpdateResult, {
+    name: 'updatePassengerLocation',
+    description: 'Update passenger current location for real-time tracking and distance calculation',
+  })
+  async updatePassengerLocation(
+    @CurrentUser() user: User,
+    @Args('input') input: UpdateLocationInput,
+  ): Promise<LocationUpdateResult> {
+    this.logger.log(`GraphQL: updatePassengerLocation called by user ${user._id}`);
+    return this.matchmakingIntegration.updatePassengerLocation(
+      user._id.toString(),
+      input.latitude,
+      input.longitude,
     );
   }
 }

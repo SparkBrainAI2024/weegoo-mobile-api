@@ -6,7 +6,15 @@ import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
-import { RideLocationInput } from './dto/matchmaking-input.dto';
+import { RideLocationInput } from '@libs/data-access';
+
+export interface UpdateLocationResult {
+  success: boolean;
+  message: string;
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
+}
 
 export interface TriggerMatchmakingResult {
   success: boolean;
@@ -190,6 +198,76 @@ export class MatchmakingIntegrationService {
     } catch (error: any) {
       this.logger.error(`Scheduled matchmaking request failed: ${error?.message || error}`);
       return { success: false, matched: false, rideId, rideUUId: '', message: 'Matchmaking service unavailable' };
+    }
+  }
+
+  /**
+   * Update driver location via the ride-matchmaking service.
+   * This will publish the location to the driver location channel and update
+   * distanceToReachPassenger/estimatedTimeToReachPassenger in the ride schema.
+   */
+  async updateDriverLocation(driverId: string, latitude: number, longitude: number): Promise<UpdateLocationResult> {
+    const matchmakingUrl = this.getMatchmakingUrl();
+    try {
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        {
+          query: `
+            mutation UpdateDriverLocation($input: UpdateDriverLocationInput!) {
+              updateDriverLocation(input: $input) {
+                success
+                message
+                latitude
+                longitude
+                updatedAt
+              }
+            }
+          `,
+          variables: { input: { driverId, latitude, longitude } },
+        },
+        { timeout: 15000 },
+      );
+
+      const result = response.data?.data?.updateDriverLocation;
+      return result || { success: false, message: 'No response from matchmaking service', latitude, longitude, updatedAt: new Date().toISOString() };
+    } catch (error: any) {
+      this.logger.error(`Failed to update driver location: ${error?.message || error}`);
+      return { success: false, message: 'Matchmaking service unavailable', latitude, longitude, updatedAt: new Date().toISOString() };
+    }
+  }
+
+  /**
+   * Update passenger location via the ride-matchmaking service.
+   * This will publish the location to the passenger location channel and update
+   * distanceToReachPassenger/estimatedTimeToReachPassenger in the ride schema.
+   */
+  async updatePassengerLocation(passengerId: string, latitude: number, longitude: number): Promise<UpdateLocationResult> {
+    const matchmakingUrl = this.getMatchmakingUrl();
+    try {
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        {
+          query: `
+            mutation UpdatePassengerLocation($input: UpdatePassengerLocationInput!) {
+              updatePassengerLocation(input: $input) {
+                success
+                message
+                latitude
+                longitude
+                updatedAt
+              }
+            }
+          `,
+          variables: { input: { passengerId, latitude, longitude } },
+        },
+        { timeout: 15000 },
+      );
+
+      const result = response.data?.data?.updatePassengerLocation;
+      return result || { success: false, message: 'No response from matchmaking service', latitude, longitude, updatedAt: new Date().toISOString() };
+    } catch (error: any) {
+      this.logger.error(`Failed to update passenger location: ${error?.message || error}`);
+      return { success: false, message: 'Matchmaking service unavailable', latitude, longitude, updatedAt: new Date().toISOString() };
     }
   }
 

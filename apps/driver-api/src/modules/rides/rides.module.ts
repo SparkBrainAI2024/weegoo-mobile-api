@@ -9,6 +9,7 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { EnvService } from "@libs/common/config/env.service";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { DriverRideAcceptanceService } from "./driver-ride-acceptance.service";
+import { DriverRideLocationResolver } from "./driver-ride-location.resolver";
 import { TransactionModule } from "../transaction/transaction.module";
 
 @Module({
@@ -30,6 +31,7 @@ import { TransactionModule } from "../transaction/transaction.module";
         RidesResolver,
         EnvService,
         DriverRideAcceptanceService,
+        DriverRideLocationResolver,
     ],
     exports: [RidesService]
 })

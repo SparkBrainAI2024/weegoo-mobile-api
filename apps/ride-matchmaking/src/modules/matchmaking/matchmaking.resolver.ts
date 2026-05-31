@@ -16,6 +16,7 @@ import {
   EstimatedFareInput,
   ScheduledFareInput,
   UpdateDriverLocationInput,
+  UpdatePassengerLocationInput,
 } from './dto/matchmaking-input.dto';
 import { RainCondition, HistoricalTraffic } from './config/matchmaking.config';
 
@@ -95,6 +96,16 @@ export class MatchmakingResolver {
   async updateDriverLocation(@Args('input') input: UpdateDriverLocationInput): Promise<LocationUpdateResultGraphQL> {
     this.logger.log(`GraphQL: Updating location for driver ${input.driverId}`);
     const result = await this.matchmakingService.updateDriverLocation(input.driverId, input.latitude, input.longitude);
+    return { success: result.success, message: result.message, latitude: input.latitude, longitude: input.longitude, updatedAt: new Date().toISOString() };
+  }
+
+  @Mutation(() => LocationUpdateResultGraphQL, {
+    name: 'updatePassengerLocation',
+    description: 'Update a passenger current geo-location for real-time tracking',
+  })
+  async updatePassengerLocation(@Args('input') input: UpdatePassengerLocationInput): Promise<LocationUpdateResultGraphQL> {
+    this.logger.log(`GraphQL: Updating location for passenger ${input.passengerId}`);
+    const result = await this.matchmakingService.updatePassengerLocation(input.passengerId, input.latitude, input.longitude);
     return { success: result.success, message: result.message, latitude: input.latitude, longitude: input.longitude, updatedAt: new Date().toISOString() };
   }
 

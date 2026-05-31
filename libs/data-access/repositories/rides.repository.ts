@@ -249,12 +249,18 @@ async getOngoingRideWithDetails(
     estimatedTimeInMinutes: 1,
     estimatedFare: 1,
     distanceInKm: 1,
+    distanceToReachPassenger: 1,
+    estimatedTimeToReachPassenger: 1,
     pickupLocation: 1,
     dropoffLocation: 1,
     fare: 1,
     paymentDetails: 1,
     vehicleId: 1,
     driverId: 1,
+    passengerChannelId: 1,
+    driverChannelId: 1,
+    passengerLocationChannelId: 1,
+    driverLocationChannelId: 1,
   };
 
   return this.findOne(filter, populate, projection);

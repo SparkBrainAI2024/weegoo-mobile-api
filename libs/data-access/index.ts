@@ -82,6 +82,7 @@ export * from './dtos/input/create-issue.input'
 export * from './dtos/input/ride-location.input';
 export * from './dtos/input/create-favourite.input';
 export * from './dtos/input/create-notification.input';
+export * from './dtos/input/matchmaking.input'
 
 // dtos - response
 export * from './dtos/response/basic.response';

@@ -329,6 +329,10 @@ export class RidesService {
         }
         : null,
       ablyChannelId: `ride:${ride.rideUUId}`,
+      driverChannelId: ride.driverChannelId || `D-${ride.rideUUId}-RIDE`,
+      passengerChannelId: ride.passengerChannelId || `P-${ride.rideUUId}-RIDE`,
+      driverLocationChannelId: ride.driverLocationChannelId || `D-LOCATION-${ride.rideUUId}`,
+      passengerLocationChannelId: ride.passengerLocationChannelId || `P-LOCATION-${ride.rideUUId}`,
     };
     return rideObject;
 

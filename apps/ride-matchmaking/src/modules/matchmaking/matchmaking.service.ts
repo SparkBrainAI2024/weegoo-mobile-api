@@ -510,6 +510,157 @@ export class MatchmakingService {
       return { success: false, message: 'Driver details not found' };
     }
     this.logger.log(`Driver ${driverId} location updated: [${latitude}, ${longitude}]`);
+
+    // Find the active ride for this driver (ONGOING or CONFIRMED status)
+    const activeRide = await this.ridesModel.findOne({
+      driverId: driverObjectId,
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] },
+      deleted: false,
+    }).exec();
+
+    if (activeRide) {
+      // Calculate distance and time from driver's current location to passenger pickup location
+      const pickupCoords = activeRide.pickupLocation?.coordinates;
+      if (pickupCoords && pickupCoords.length >= 2) {
+        const pickupLat = pickupCoords[1];
+        const pickupLng = pickupCoords[0];
+        
+        let distanceKm = 0;
+        let durationMinutes = 0;
+        try {
+          const route = await this.distanceCalculator.calculateDriverDistance(
+            pickupLat, pickupLng, latitude, longitude,
+          );
+          distanceKm = route.distanceKm;
+          durationMinutes = route.durationMinutes;
+        } catch (err) {
+          this.logger.warn(`Failed to calculate distance for driver ${driverId}: ${err}`);
+          // Fallback: approximate using haversine (assuming ~30km/h avg speed)
+          const R = 6371; // Earth's radius in km
+          const dLat = (pickupLat - latitude) * Math.PI / 180;
+          const dLng = (pickupLng - longitude) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(latitude * Math.PI / 180) * Math.cos(pickupLat * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          distanceKm = R * c;
+          durationMinutes = Math.ceil(distanceKm * 2); // 2 min per km
+        }
+
+        // Update the ride schema with distanceToReachPassenger and estimatedTimeToReachPassenger
+        await this.ridesModel.findByIdAndUpdate(activeRide._id, {
+          $set: {
+            distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+            estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+          },
+        }).exec();
+
+        // Publish driver location update to the driver location channel
+        const channelId = activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`;
+        await this.ablyService.publish(channelId, 'driver-location-update', {
+          driverId,
+          latitude,
+          longitude,
+          distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+          estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+          updatedAt: new Date().toISOString(),
+        });
+
+        this.logger.log(`Published driver location for ride ${activeRide.rideUUId}: dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);
+      }
+    }
+
+    return { success: true, message: 'Location updated successfully' };
+  }
+
+  /**
+   * Update passenger location and publish to the driver's channel.
+   */
+  async updatePassengerLocation(passengerId: string, latitude: number, longitude: number): Promise<{ success: boolean; message: string }> {
+    const passengerObjectId = new Types.ObjectId(passengerId);
+
+    // Find the active ride for this passenger (ONGOING or CONFIRMED status)
+    const activeRide = await this.ridesModel.findOne({
+      passengerId: passengerObjectId,
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] },
+      deleted: false,
+    }).exec();
+
+    if (!activeRide) {
+      return { success: false, message: 'No active ride found for this passenger' };
+    }
+
+    // Calculate distance and time from driver's current location (from ride) to passenger's current location
+    const driverId = activeRide.driverId?.toString();
+    let distanceKm = 0;
+    let durationMinutes = 0;
+
+    if (driverId) {
+      const driverDetails = await this.userDetailsModel.findOne({
+        userId: new Types.ObjectId(driverId),
+        deleted: false,
+      }).exec();
+
+      if (driverDetails?.geoLocation?.coordinates && driverDetails.geoLocation.coordinates.length >= 2) {
+        const driverLat = driverDetails.geoLocation.coordinates[1];
+        const driverLng = driverDetails.geoLocation.coordinates[0];
+
+        try {
+          const route = await this.distanceCalculator.calculateDriverDistance(
+            driverLat, driverLng, latitude, longitude,
+          );
+          distanceKm = route.distanceKm;
+          durationMinutes = route.durationMinutes;
+        } catch (err) {
+          this.logger.warn(`Failed to calculate distance from driver to passenger: ${err}`);
+          const R = 6371;
+          const dLat = (driverLat - latitude) * Math.PI / 180;
+          const dLng = (driverLng - longitude) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(latitude * Math.PI / 180) * Math.cos(driverLat * Math.PI / 180) *
+                    Math.sin(dLng/2) * Math.sin(dLng/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          distanceKm = R * c;
+          durationMinutes = Math.ceil(distanceKm * 2);
+        }
+      } else {
+        // If driver location not available, use pickup location as fallback
+        const pickupCoords = activeRide.pickupLocation?.coordinates;
+        if (pickupCoords && pickupCoords.length >= 2) {
+          try {
+            const route = await this.distanceCalculator.calculateDriverDistance(
+              pickupCoords[1], pickupCoords[0], latitude, longitude,
+            );
+            distanceKm = route.distanceKm;
+            durationMinutes = route.durationMinutes;
+          } catch (err) {
+            this.logger.warn(`Failed to calculate distance from pickup to passenger: ${err}`);
+          }
+        }
+      }
+    }
+
+    // Update the ride schema
+    await this.ridesModel.findByIdAndUpdate(activeRide._id, {
+      $set: {
+        distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+        estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+      },
+    }).exec();
+
+    // Publish passenger location update to the driver location channel
+    const channelId = activeRide.passengerLocationChannelId || `P-LOCATION-${activeRide.rideUUId}`;
+    await this.ablyService.publish(channelId, 'passenger-location-update', {
+      passengerId,
+      latitude,
+      longitude,
+      distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+      estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+      updatedAt: new Date().toISOString(),
+    });
+
+    this.logger.log(`Published passenger location for ride ${activeRide.rideUUId}: dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);
+
     return { success: true, message: 'Location updated successfully' };
   }
 

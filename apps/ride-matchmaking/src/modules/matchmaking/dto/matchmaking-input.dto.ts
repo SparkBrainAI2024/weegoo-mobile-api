@@ -93,6 +93,19 @@ export class UpdateDriverLocationInput {
 }
 
 @InputType()
+export class UpdatePassengerLocationInput {
+  @Field(() => String)
+  @IsString()
+  passengerId: string;
+
+  @Field(() => Float)
+  latitude: number;
+
+  @Field(() => Float)
+  longitude: number;
+}
+
+@InputType()
 export class ScheduledFareInput {
   @Field(() => String)
   @IsString()

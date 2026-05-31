@@ -1,6 +1,24 @@
 import { Field, ObjectType, Int, Float } from '@nestjs/graphql';
 
 @ObjectType()
+export class LocationUpdateResult {
+  @Field(() => Boolean)
+  success: boolean;
+
+  @Field(() => String)
+  message: string;
+
+  @Field(() => Float)
+  latitude: number;
+
+  @Field(() => Float)
+  longitude: number;
+
+  @Field(() => String)
+  updatedAt: string;
+}
+
+@ObjectType()
 export class MatchAttemptInfo {
   @Field(() => Int)
   attemptNumber: number;
