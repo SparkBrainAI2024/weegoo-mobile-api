@@ -1,5 +1,5 @@
-import { Injectable } from "@nestjs/common";
-import { BaseRepository } from "../base/base.repository";
+import { Injectable, Logger } from "@nestjs/common";
+import { BaseRepository, Populate } from "../base/base.repository";
 import { InjectModel } from "@nestjs/mongoose";
 import { Rides, RidesDocument } from "../entities/rides.entity";
 import { BaseModel } from "../base/base.model";
@@ -23,6 +23,7 @@ interface CancelRideParams {
 
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
+  private readonly logger = new Logger(RidesRepository.name);
   constructor(@InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>) {
     super(_model);
   }
@@ -197,21 +198,69 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     return rideWithVechile;
   }
-async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
-  return this._model.findByIdAndUpdate(
-    new Types.ObjectId(params.rideId),
-    {
-      rideStatus: RideStatus.CANCELLED,
-      cancellationDetail: {
-        cancelledAt: new Date(),
-        cancelledBy: params.cancelledBy,
-        cancelledByRole: params.cancelledByRole,
-        cancelSubCategoryId: params.cancelSubCategoryId,
-        cancelSubCategoryLabel: params.cancelSubCategoryLabel,
-        cancelReasonContent: params.cancelReasonContent ?? null,
+  async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
+    return this._model.findByIdAndUpdate(
+      new Types.ObjectId(params.rideId),
+      {
+        rideStatus: RideStatus.CANCELLED,
+        cancellationDetail: {
+          cancelledAt: new Date(),
+          cancelledBy: params.cancelledBy,
+          cancelledByRole: params.cancelledByRole,
+          cancelSubCategoryId: params.cancelSubCategoryId,
+          cancelSubCategoryLabel: params.cancelSubCategoryLabel,
+          cancelReasonContent: params.cancelReasonContent ?? null,
+        },
       },
+      { new: true },
+    );
+  }
+
+
+async getOngoingRideWithDetails(
+  rideId: string,
+  passengerId: Types.ObjectId,
+): Promise<any> {
+  const filter = {
+    _id: rideId,
+    passengerId: new Types.ObjectId(passengerId),
+    rideStatus: RideStatus.ONGOING,
+  };
+
+  const populate: Populate = [
+    {
+      path: 'vehicleId',
+      select: 'vehicleModel year color numberPlate vehicleType',
     },
-    { new: true },
-  );
+    {
+      path: 'driverId',
+      select: '_id',  // only get driverId, we'll fetch UserDetails separately
+    },
+  ];
+
+  const projection = {
+    _id: 1,
+    rideUUId: 1,
+    rideStatus: 1,
+    rideType: 1,
+    bookingTime: 1,
+    rideStartedAt: 1,
+    rideCompletedAt: 1,
+    estimatedTimeInMinutes: 1,
+    estimatedFare: 1,
+    distanceInKm: 1,
+    pickupLocation: 1,
+    dropoffLocation: 1,
+    fare: 1,
+    paymentDetails: 1,
+    vehicleId: 1,
+    driverId: 1,
+  };
+
+  return this.findOne(filter, populate, projection);
+
+
+
 }
+
 }
