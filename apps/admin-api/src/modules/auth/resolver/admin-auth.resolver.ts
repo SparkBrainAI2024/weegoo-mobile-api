@@ -1,67 +1,52 @@
-// apps/admin/src/auth/admin-auth.resolver.ts
+// apps/admin/src/auth/resolver/admin-auth.resolver.ts
 import { Resolver, Mutation, Args } from "@nestjs/graphql";
-import { UseGuards } from "@nestjs/common";
-import { AuthGuard, LangGuard } from "@libs/guards/guard";
-import { CurrentLang } from "@libs/common";
-import { AdminAuthService } from "../admin-auth.service";
 import {
+  AdminSignUpInput,
+  AdminSignInInput,
   AdminForgotPasswordInput,
   AdminVerifyOtpInput,
-  AdminUpdatePasswordInput,
-  AdminSignInInput,
-  AdminForgotPasswordResponse,
-  AdminVerifyOtpResponse,
-  AdminUpdatePasswordResponse,
+  AdminResetPasswordInput,
+} from "@libs/data-access/dtos/input/admin-auth.input";
+import {
   AdminSignInResponse,
-  CreateAdminInput,
-} from "../dto/admin-auth.input";
-import { CreateAdminResponse } from "../dto/admin-auth.response";
+  AdminSignUpResponse,
+} from "@libs/data-access/dtos/response/admin-auth.response";
+import { BasicResponse } from "@libs/data-access";
+import { AdminAuthService } from "@libs/services/admin-auth";
 
 @Resolver()
-@UseGuards(LangGuard)
 export class AdminAuthResolver {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
-//   @Mutation(() => AdminSignInResponse)
-//   adminSignIn(
-//     @Args("input") input: AdminSignInInput,
-//     @CurrentLang() lang: string,
-//   ) {
-//     return this.adminAuthService.signIn(input, lang);
-//   }
+  @Mutation(() => AdminSignUpResponse)
+  adminSignUp(@Args("input") input: AdminSignUpInput) {
+    return this.adminAuthService.signup(
+      input.fullName,
+      input.email,
+      input.password,
+    );
+  }
 
-//   @Mutation(() => AdminForgotPasswordResponse)
-//   adminForgotPassword(
-//     @Args("input") input: AdminForgotPasswordInput,
-//     @CurrentLang() lang: string,
-//   ) {
-//     return this.adminAuthService.forgotPassword(input, lang);
-//   }
+  @Mutation(() => AdminSignInResponse)
+  adminSignIn(@Args("input") input: AdminSignInInput) {
+    return this.adminAuthService.login(input.email, input.password);
+  }
 
-//   @Mutation(() => AdminVerifyOtpResponse)
-//   adminVerifyOtp(
-//     @Args("input") input: AdminVerifyOtpInput,
-//     @CurrentLang() lang: string,
-//   ) {
-//     return this.adminAuthService.verifyOtp(input, lang);
-//   }
+  @Mutation(() => BasicResponse)
+  adminForgotPassword(@Args("input") input: AdminForgotPasswordInput) {
+    return this.adminAuthService.forgotPassword(input.email);
+  }
 
-//   @Mutation(() => AdminUpdatePasswordResponse)
-//   adminUpdatePassword(
-//     @Args("input") input: AdminUpdatePasswordInput,
-//     @CurrentLang() lang: string,
-//   ) {
-//     return this.adminAuthService.resetPassword(input, lang);
-//   }
+  @Mutation(() => BasicResponse)
+  adminVerifyOtp(@Args("input") input: AdminVerifyOtpInput) {
+    return this.adminAuthService.verifyOtp(input.email, input.otp);
+  }
 
-//   // add to admin-auth.resolver.ts — protected by AdminGuard
-
-// @UseGuards(AuthGuard)  // only existing admins can create new admins
-// @Mutation(() => CreateAdminResponse)
-// createAdmin(
-//   @Args("input") input: CreateAdminInput,
-//   @CurrentLang() lang: string,
-// ) {
-//   return this.adminAuthService.createAdmin(input, lang);
-// }
+  @Mutation(() => BasicResponse)
+  adminResetPassword(@Args("input") input: AdminResetPasswordInput) {
+    return this.adminAuthService.resetPassword(
+      input.email,
+      input.newPassword,
+    );
+  }
 }

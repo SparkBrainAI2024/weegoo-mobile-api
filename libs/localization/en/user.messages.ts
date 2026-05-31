@@ -78,4 +78,6 @@ export const USER = {
     "Phone number verified successfully.",
   USER_ALREADY_REGISTERED_AS_CUSTOMER:
     "User already registered.Please login.",
+    SIGNUP_SUCCESS: "Signup successful. Please verify your email to continue.",
 };
+

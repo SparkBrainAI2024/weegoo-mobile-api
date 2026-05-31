@@ -6,9 +6,10 @@ import { MailService } from "@libs/services/mail";
 import { roles, userVerificationModel } from "@libs/data-access";
 import { adminUserModel } from "@libs/data-access/entities/admin-user.entity";
 import { UserAuthModule } from "@libs/services/auth/auth.module";
-import { AdminAuthService } from "../auth/admin-auth.service";
 import { AdminAuthResolver } from "../auth/resolver/admin-auth.resolver";
-import { AdminUserRepository } from "../user/repository/admin-user.repository";
+import { AdminUserRepository } from "../../../../../libs/data-access/repositories/admin-user.repository";
+import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
+import { AdminAuthService } from "@libs/services/admin-auth";
 
 @Module({
   imports: [
@@ -21,7 +22,8 @@ import { AdminUserRepository } from "../user/repository/admin-user.repository";
     AdminAuthService,
     AdminUserRepository,
     MailService,
+    AdminAuthGuard
   ],
-  exports: [AdminAuthService],
+  exports: [AdminAuthService, AdminAuthGuard],
 })
 export class AdminAuthModule {}

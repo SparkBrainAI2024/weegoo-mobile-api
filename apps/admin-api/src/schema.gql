@@ -244,6 +244,11 @@ type Favourites {
   noOfPassengers: Float!
 }
 
+type BasicResponse {
+  message: String!
+  success: Boolean!
+}
+
 type CoreUserDetailsResponse {
   email: String
   verified: Boolean!
@@ -340,6 +345,57 @@ enum IssueStatus {
   RESOLVED
 }
 
+type AdminUserResponse {
+  _id: String!
+  fullName: String!
+  email: String!
+}
+
+type AdminSignInResponse {
+  accessToken: String!
+  refreshToken: String!
+  admin: AdminUserResponse!
+}
+
+type AdminSignUpResponse {
+  message: String!
+  success: Boolean!
+  admin: AdminUserResponse!
+}
+
 type Query {
   health: String!
+}
+
+type Mutation {
+  adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
+  adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
+  adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
+  adminVerifyOtp(input: AdminVerifyOtpInput!): BasicResponse!
+  adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
+}
+
+input AdminSignUpInput {
+  fullName: String!
+  email: String!
+  password: String!
+}
+
+input AdminSignInInput {
+  email: String!
+  password: String!
+}
+
+input AdminForgotPasswordInput {
+  email: String!
+}
+
+input AdminVerifyOtpInput {
+  email: String!
+  otp: Float!
+}
+
+input AdminResetPasswordInput {
+  email: String!
+  newPassword: String!
 }
