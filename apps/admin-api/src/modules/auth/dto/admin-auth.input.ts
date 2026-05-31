@@ -78,29 +78,5 @@ export class AdminForgotPasswordResponse {
   expiresIn: number; // seconds remaining
 }
 
-@ObjectType()
-export class AdminVerifyOtpResponse {
-  @Field()
-  message: string;
 
-  @Field()
-  otpVerified: boolean;
-}
 
-@ObjectType()
-export class AdminUpdatePasswordResponse {
-  @Field()
-  message: string;
-}
-
-@ObjectType()
-export class AdminSignInResponse {
-  @Field()
-  message: string;
-
-  @Field()
-  accessToken: string;
-
-  @Field()
-  refreshToken: string;
-}

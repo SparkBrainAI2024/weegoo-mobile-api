@@ -3,7 +3,7 @@
 
   import { UserTokenMetaRepository, UserVerificationRepository } from '@libs/data-access';
   import { EnvService } from '@libs/common/config/env.service';
-  import { GenerateRandomDigit, generateToken } from '@libs/common';
+  import { GenerateRandomDigit, generateToken, verifyToken } from '@libs/common';
   import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
 
   import { roles, verificationType } from '@libs/data-access/enums/user.enum';
@@ -113,44 +113,58 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
       return { message: 'USER.OTP_SEND', success:true };
     }
 
-    // ─── Verify OTP ───────────────────────────────────────────────────────────
+async verifyOtp(email: string, otp: number): Promise<any> {
+  const admin = await this.adminUserRepository.findOne({ email });
+  if (!admin) {
+    throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
+  }
 
-    async verifyOtp(email: string, otp: number) {
-      const admin = await this.adminUserRepository.findOne({ email });
-      if (!admin) {
-        throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
-      }
+  const verification = await this.userVerificationRepository.findOne({
+    adminId: admin._id,
+    otp,
+    type: verificationType.RESET_PASSWORD,
+  });
+  if (!verification) {
+    throw new HttpException('AUTH.INVALID_OTP', HttpStatus.BAD_REQUEST);
+  }
+  const resetPasswordToken = await generateToken(
+    {
+      id: admin._id,
+      email: admin.email,
+      type: tokenTypes.resetPasswordToken,
+    },
+    this.envService.getJwtSecretKey(),
+    { expiresIn:"15m"  
+      // "this.envService.getResetPasswordTokenLife()" 
+    },
+  );
 
-      const verification = await this.userVerificationRepository.findOne({
-        adminId: admin._id,
-        otp,
-        type: verificationType.RESET_PASSWORD,
-      });
+  await this.userVerificationRepository.deleteOtpById(verification._id);
 
-      if (!verification) {
-        throw new HttpException('AUTH.INVALID_OR_EXPIRED_OTP', HttpStatus.BAD_REQUEST);
-      }
-
-      await this.userVerificationRepository.deleteOtpById(verification._id);
-
-      return { message: 'USER.OTP_VERIFICATION_SUCCESS', success: true };
-    }
+  return {
+    message: 'USER.OTP_VERIFICATION_SUCCESS',
+    success: true,
+    resetPasswordToken,  // ← client uses this for resetPassword
+  };
+}
 
     // ─── Reset Password ───────────────────────────────────────────────────────
+async resetPassword(resetPasswordToken: string, newPassword: string) {
+  const decoded: any = await verifyToken(
+    resetPasswordToken,
+    this.envService.getJwtSecretKey(),
+  );
 
-    async resetPassword(email: string, newPassword: string) {
-      const admin = await this.adminUserRepository.findOne({ email });
-      if (!admin) {
-        throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
-      }
+  if (!decoded || decoded.type !== tokenTypes.resetPasswordToken) {
+    throw new HttpException('AUTH.INVALID_TOKEN', HttpStatus.UNAUTHORIZED);
+  }
 
-      const hashedPassword = await hashPassword(newPassword, passwordSalt);
+  const hashedPassword = await hashPassword(newPassword, passwordSalt);
+  await this.adminUserRepository.updateOne(
+    { _id: decoded.id },
+    { $set: { password: hashedPassword } },
+  );
 
-      await this.adminUserRepository.updateOne(
-        { _id: admin._id },
-        { $set: { password: hashedPassword } },
-      );
-
-      return { message: 'AUTH.PASSWORD_RESET_SUCCESS' };
-    }
+  return { message: 'AUTH.PASSWORD_RESET_SUCCESS', success: true };
+}
   }

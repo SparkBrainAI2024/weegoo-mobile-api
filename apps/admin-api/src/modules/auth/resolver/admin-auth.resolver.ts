@@ -10,6 +10,7 @@ import {
 import {
   AdminSignInResponse,
   AdminSignUpResponse,
+  AdminVerifyOTPResponse,
 } from "@libs/data-access/dtos/response/admin-auth.response";
 import { BasicResponse } from "@libs/data-access";
 import { AdminAuthService } from "@libs/services/admin-auth";
@@ -37,16 +38,18 @@ export class AdminAuthResolver {
     return this.adminAuthService.forgotPassword(input.email);
   }
 
-  @Mutation(() => BasicResponse)
+  @Mutation(() => AdminVerifyOTPResponse)
   adminVerifyOtp(@Args("input") input: AdminVerifyOtpInput) {
     return this.adminAuthService.verifyOtp(input.email, input.otp);
   }
 
-  @Mutation(() => BasicResponse)
-  adminResetPassword(@Args("input") input: AdminResetPasswordInput) {
-    return this.adminAuthService.resetPassword(
-      input.email,
-      input.newPassword,
-    );
-  }
+
+
+@Mutation(() => BasicResponse)
+adminResetPassword(@Args("input") input: AdminResetPasswordInput) {
+  return this.adminAuthService.resetPassword(
+    input.resetPasswordToken,  // ← update arg
+    input.newPassword,
+  );
+}
 }

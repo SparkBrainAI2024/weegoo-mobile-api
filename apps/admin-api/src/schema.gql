@@ -363,6 +363,12 @@ type AdminSignUpResponse {
   admin: AdminUserResponse!
 }
 
+type AdminVerifyOTPResponse {
+  message: String!
+  success: Boolean!
+  resetPasswordToken: String!
+}
+
 type Query {
   health: String!
 }
@@ -371,7 +377,7 @@ type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
   adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
-  adminVerifyOtp(input: AdminVerifyOtpInput!): BasicResponse!
+  adminVerifyOtp(input: AdminVerifyOtpInput!): AdminVerifyOTPResponse!
   adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
 }
 
@@ -396,6 +402,6 @@ input AdminVerifyOtpInput {
 }
 
 input AdminResetPasswordInput {
-  email: String!
+  resetPasswordToken: String!
   newPassword: String!
 }

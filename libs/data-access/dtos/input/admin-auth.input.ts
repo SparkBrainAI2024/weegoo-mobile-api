@@ -40,7 +40,7 @@ export class AdminVerifyOtpInput {
 @InputType()
 export class AdminResetPasswordInput {
   @Field()
-  email: string;
+  resetPasswordToken: string;
 
   @Field()
   newPassword: string;

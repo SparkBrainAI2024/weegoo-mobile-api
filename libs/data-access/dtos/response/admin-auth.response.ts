@@ -36,3 +36,21 @@ export class AdminSignUpResponse {
   @Field(() => AdminUserResponse)
   admin: AdminUserResponse;
 }
+
+@ObjectType()
+export class AdminVerifyOTPResponse {
+  @Field()
+  message: string;
+
+  @Field()
+  success: boolean;
+
+  @Field()
+  resetPasswordToken: string;
+}
+
+@ObjectType()
+export class AdminUpdatePasswordResponse {
+  @Field()
+  message: string;
+}
