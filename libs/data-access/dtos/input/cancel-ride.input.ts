@@ -1,5 +1,5 @@
 import { InputType, Field, ID } from '@nestjs/graphql';
-import { IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
 
 @InputType()
 export class CancelRideInput {
@@ -19,8 +19,11 @@ export class CancelRideInput {
   @IsNotEmpty()
   cancelSubCategoryId: string;
 
-  @Field({ nullable: true })
+  @Field(()=>String, { nullable: true })
+  @ValidateIf((o) => o.cancelSubCategoryLabel === 'OTHER')
   @IsString()
-  @IsOptional()
+    @IsNotEmpty({ message: 'RIDE.CANCEL_REASON_REQUIRED_FOR_OTHER' })
   cancelReasonContent?: string;
 }
+
+

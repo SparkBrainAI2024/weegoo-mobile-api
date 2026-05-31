@@ -1,3 +1,5 @@
+import { CursorPageInfo } from "../base/base.response";
+
 export interface IBaseResponse<T> {
   message: string;
   data: T;
@@ -7,6 +9,13 @@ export interface IBaseListResponse<T> {
   message: string;
   data: T[];
 }
+
+export interface IBaseCursorPaginationResponse<T> {
+  message: string;
+  data: T[];
+  pageInfo: CursorPageInfo;
+}
+
 
 export interface IPaginationRequest {
   page?: number;

@@ -55,6 +55,21 @@ export class PaginationInputOnly {
   limit: number = 5;
 }
 
+@InputType()
+export class CursorPaginationInput {
+  @Field(() => Int, { defaultValue: 5 })
+  @Min(5)
+  limit: number = 5;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  cursor?: string;
+
+  @Field(() => SortBy, { nullable: true })
+  @IsOptional()
+  sortOrder?: SortBy;
+}
+
 // Register the OrderBy enum for GraphQL
 registerEnumType(SortBy, {
   name: 'SortBy',

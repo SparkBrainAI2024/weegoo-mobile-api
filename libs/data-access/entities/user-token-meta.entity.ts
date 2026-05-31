@@ -30,6 +30,10 @@ export class UserTokenMeta extends BaseEntity {
   @Prop({ type: String, default: null })
   deviceId: string;
 
+  @Field({ nullable: true })
+  @Prop({ type: String, default: null })
+  firebaseToken: string;
+
   @Field(() => TokenGrantType)
   @Prop({ type: String, enum: TokenGrantType, default: TokenGrantType.REFRESH_TOKEN })
   grant: TokenGrantType;

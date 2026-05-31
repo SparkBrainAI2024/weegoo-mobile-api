@@ -1,15 +1,14 @@
-import { Field, ObjectType, GraphQLISODateTime, ID } from "@nestjs/graphql";
+import { Field, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Types } from "mongoose";
 import { RideStatus, RideTypes } from "../enums/rides.enum";
-import { Cancellation } from "../common/cancellation";
 import { RideLocation } from "../common/ride.location";
 import { Fare } from "../common/fare";
 import { PaymentDetails } from "../common/payment-details";
 import { Vehicle } from "./vehicle.entity";
 import { customAlphabet } from 'nanoid'
-import { roles } from "../enums/user.enum";
+import { CancellationDetail } from "../dtos/response/cancel-ride.response";
 const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
 @ObjectType()
 @Schema({ timestamps: true })
@@ -27,9 +26,6 @@ export class Rides extends BaseEntity {
   @Prop({ type: String, enum: RideStatus, required: true })
   rideStatus: RideStatus;
 
-  @Field(() => Cancellation, { nullable: true })
-  @Prop({ type: Cancellation, required: false })
-  cancellation: Cancellation;
 
   @Field(() => String)
   @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
@@ -63,6 +59,10 @@ export class Rides extends BaseEntity {
   @Field(() => Number, { nullable: true })
   @Prop({ type: Number, required: false, default: 0 })
   estimatedFare?: number;
+
+  @Field(() => Boolean, { nullable: true })
+  @Prop({ type: Boolean, required: false, default: false })
+  isFavourite?: number;
 
   @Field(() => Date, { nullable: true })
   @Prop({ type: Date, required: false })
@@ -99,36 +99,9 @@ export class Rides extends BaseEntity {
   vehicle?: Vehicle;
 
 
-
-  @Field(() => Date, { nullable: true })
-  @Prop({ type: Date, default: null })
-  cancelledAt: Date;
-
-
-  @Field(() => ID, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
-  cancelledBy: Types.ObjectId;
-
-
-  @Field(() => roles, { nullable: true })
-  @Prop({ type: String, enum: roles, default: null })
-  cancelledByRole: string;
-
-
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, default: null })
-  cancelSubCategoryLabel: string;
-
-
-
-  @Field(() => ID, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'IssueCategory', default: null })
-  cancelSubCategoryId: Types.ObjectId;
-
-
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, default: null })
-  cancelReasonContent: string;
+@Field(() => CancellationDetail, { nullable: true })
+@Prop({ type: CancellationDetail, default: null })
+cancellationDetail: CancellationDetail | null;
 
 
 }

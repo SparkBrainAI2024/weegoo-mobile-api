@@ -18,6 +18,10 @@ export class Favourites extends BaseEntity {
     @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
     passengerId: Types.ObjectId;
 
+    @Field(() => String)
+    @Prop({ type: Types.ObjectId, required: true, ref: "Rides", index: true })
+    rideId: Types.ObjectId;
+
     @Field(() => RideLocation, { nullable: true })
     @Prop({ type: RideLocation, required: false })
     pickupLocation: RideLocation;
@@ -33,6 +37,10 @@ export class Favourites extends BaseEntity {
     @Field(() => Number, { defaultValue: 1 })
     @Prop({ type: Number, default: 1, required: true })
     noOfPassengers?: Number;
+
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: true })
+    estimatedFare?: Number;
 }
 export type FavouritesDocument = HydratedDocument<Favourites>;
 export const FavouritesSchema = SchemaFactory.createForClass(Favourites);
