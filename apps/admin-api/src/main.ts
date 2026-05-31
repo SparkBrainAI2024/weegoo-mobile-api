@@ -60,7 +60,7 @@ async function bootstrap() {
 
 // For traditional server deployment (Railway, Heroku, etc.)
 bootstrap().then((app) => {
-  const port = 8000
+  const port = process.env.PORT || 3002;
   app.listen(port, "0.0.0.0", () => {
     console.log(`🚀 Admin API running on port ${port}`);
   });
