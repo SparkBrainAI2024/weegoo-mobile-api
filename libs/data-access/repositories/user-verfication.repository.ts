@@ -84,7 +84,6 @@ export class UserVerificationRepository extends BaseRepository<UserVerificationD
                 otp,
                 createdAt: UTCTime()
             });
-            this.logger.log(`OTP sent: ${otp} for userId: ${userId} and type: ${type}`);
             return verifyObject;
         } catch (e) {
             ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
