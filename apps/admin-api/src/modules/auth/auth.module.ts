@@ -1,14 +1,27 @@
+// apps/admin/src/auth/admin-auth.module.ts
 import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+
+import { MailService } from "@libs/services/mail";
+import { userVerificationModel } from "@libs/data-access";
+import { adminUserModel } from "@libs/data-access/entities/admin-user.entity";
 import { UserAuthModule } from "@libs/services/auth/auth.module";
-import { AdminAuthResolver } from "./resolver/admin-auth.resolver";
+import { AdminAuthService } from "../auth/admin-auth.service";
+import { AdminAuthResolver } from "../auth/resolver/admin-auth.resolver";
+import { AdminUserRepository } from "../user/repository/admin-user.repository";
 
 @Module({
   imports: [
-    UserAuthModule.forRoot(),
+    MongooseModule.forFeature([adminUserModel, userVerificationModel,]),
+    UserAuthModule.forRoot(),  // Import UserAuthModule to reuse its services and models
     
   ],
   providers: [
-   AdminAuthResolver
-  ]
+    AdminAuthResolver,
+    AdminAuthService,
+    AdminUserRepository,
+    MailService,
+  ],
+  exports: [AdminAuthService],
 })
-export class AuthModule {}
+export class AdminAuthModule {}

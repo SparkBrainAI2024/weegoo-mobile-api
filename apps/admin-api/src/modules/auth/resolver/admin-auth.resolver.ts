@@ -22,46 +22,46 @@ import { CreateAdminResponse } from "../dto/admin-auth.response";
 export class AdminAuthResolver {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
-  @Mutation(() => AdminSignInResponse)
-  adminSignIn(
-    @Args("input") input: AdminSignInInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.adminAuthService.signIn(input, lang);
-  }
+//   @Mutation(() => AdminSignInResponse)
+//   adminSignIn(
+//     @Args("input") input: AdminSignInInput,
+//     @CurrentLang() lang: string,
+//   ) {
+//     return this.adminAuthService.signIn(input, lang);
+//   }
 
-  @Mutation(() => AdminForgotPasswordResponse)
-  adminForgotPassword(
-    @Args("input") input: AdminForgotPasswordInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.adminAuthService.forgotPassword(input, lang);
-  }
+//   @Mutation(() => AdminForgotPasswordResponse)
+//   adminForgotPassword(
+//     @Args("input") input: AdminForgotPasswordInput,
+//     @CurrentLang() lang: string,
+//   ) {
+//     return this.adminAuthService.forgotPassword(input, lang);
+//   }
 
-  @Mutation(() => AdminVerifyOtpResponse)
-  adminVerifyOtp(
-    @Args("input") input: AdminVerifyOtpInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.adminAuthService.verifyOtp(input, lang);
-  }
+//   @Mutation(() => AdminVerifyOtpResponse)
+//   adminVerifyOtp(
+//     @Args("input") input: AdminVerifyOtpInput,
+//     @CurrentLang() lang: string,
+//   ) {
+//     return this.adminAuthService.verifyOtp(input, lang);
+//   }
 
-  @Mutation(() => AdminUpdatePasswordResponse)
-  adminUpdatePassword(
-    @Args("input") input: AdminUpdatePasswordInput,
-    @CurrentLang() lang: string,
-  ) {
-    return this.adminAuthService.updatePassword(input, lang);
-  }
+//   @Mutation(() => AdminUpdatePasswordResponse)
+//   adminUpdatePassword(
+//     @Args("input") input: AdminUpdatePasswordInput,
+//     @CurrentLang() lang: string,
+//   ) {
+//     return this.adminAuthService.resetPassword(input, lang);
+//   }
 
-  // add to admin-auth.resolver.ts — protected by AdminGuard
+//   // add to admin-auth.resolver.ts — protected by AdminGuard
 
-@UseGuards(AuthGuard)  // only existing admins can create new admins
-@Mutation(() => CreateAdminResponse)
-createAdmin(
-  @Args("input") input: CreateAdminInput,
-  @CurrentLang() lang: string,
-) {
-  return this.adminAuthService.createAdmin(input, lang);
-}
+// @UseGuards(AuthGuard)  // only existing admins can create new admins
+// @Mutation(() => CreateAdminResponse)
+// createAdmin(
+//   @Args("input") input: CreateAdminInput,
+//   @CurrentLang() lang: string,
+// ) {
+//   return this.adminAuthService.createAdmin(input, lang);
+// }
 }
