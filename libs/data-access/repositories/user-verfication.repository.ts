@@ -8,11 +8,9 @@ import { ErrorException } from '@libs/common/exceptions';
 import { UserVerification, UserVerificationDocument } from '../entities/user-verfication.entity';
 import { UTCTime } from '@libs/common/utils/datetime';
 import { toMongoId } from '@libs/common';
-import { logger } from 'handlebars';
 
 @Injectable()
 export class UserVerificationRepository extends BaseRepository<UserVerificationDocument> {
-  private readonly logger = new Logger(UserVerificationRepository.name);
     constructor(@InjectModel(UserVerification.name) private readonly _model: BaseModel<UserVerificationDocument>) {
         super(_model);
     }

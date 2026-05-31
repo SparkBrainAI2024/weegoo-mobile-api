@@ -16,7 +16,6 @@ export const verifyToken = async (token, secretKey) => {
         return Jwt.verify(token, secretKey);
 
     } catch (e) {
-    console.log('verifyToken error:', e); // ← add this
 
         return false
     }

@@ -31,6 +31,8 @@ export const USER = {
   MAX_FULL_NAME: "Your full name cannot exceed 30 characters in length.",
   MIN_FULL_NAME: "Your full name must be at least 3 characters long.",
   PASSWORD_SET_SUCCESS: "Password set successfully.",
+  PASSWORD_RESET_SUCCESS: "Password reset successfully.",
+  INVALID_RESET_PASSWORD_TOKEN: "Invalid or expired reset password token.",
   REQUIRED_LAST_NAME: "Please provide your last name.",
   MIN_LAST_NAME: "Your last name must be at least 3 characters long.",
   MAX_LAST_NAME: "Your last name cannot exceed 10 characters in length.",

@@ -3,7 +3,7 @@
 
   import { UserTokenMetaRepository, UserVerificationRepository } from '@libs/data-access';
   import { EnvService } from '@libs/common/config/env.service';
-  import { GenerateRandomDigit, generateToken, verifyToken } from '@libs/common';
+  import { ErrorException, GenerateRandomDigit, generateToken, verifyToken } from '@libs/common';
   import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
 
   import { roles, verificationType } from '@libs/data-access/enums/user.enum';
@@ -12,6 +12,7 @@
   import { Types } from 'mongoose';
 import { AdminSignUpResponse } from '@libs/data-access/dtos/response/admin-auth.response';
 import { AdminUserRepository } from '@libs/data-access/repositories/admin-user.repository';
+import { Message } from '@libs/localization';
 
   @Injectable()
   export class AdminAuthService {
@@ -25,10 +26,10 @@ import { AdminUserRepository } from '@libs/data-access/repositories/admin-user.r
     // ─── Signup ───────────────────────────────────────────────────────────────
 
 // signup
-async signup(fullName: string, email: string, password: string): Promise<AdminSignUpResponse> {
+async signup(fullName: string, email: string, password: string, lang: string): Promise<AdminSignUpResponse> {
   const existing = await this.adminUserRepository.findOne({ email });
   if (existing) {
-    throw new HttpException('USER .EMAIL_ALREADY_EXISTS', HttpStatus.CONFLICT);
+    ErrorException(null,'USER.EMAIL_ALREADY_EXISTS', HttpStatus.CONFLICT);
   }
 
   const hashedPassword = await hashPassword(password, passwordSalt);
@@ -40,7 +41,7 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
   });
 
   return {
-    message: 'USER.SIGNUP_SUCCESS',
+    message: Message(lang, 'USER.SIGNUP_SUCCESS'),
     success: true,
     admin: {
       _id: admin._id.toString(),
@@ -52,7 +53,7 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
 
     // ─── Login ────────────────────────────────────────────────────────────────
 
-    async login(email: string, password: string) {
+    async login(email: string, password: string,lang: string) {
       const admin = await this.adminUserRepository.findOne({ email });
       if (!admin) {
         throw new HttpException('AUTH.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
@@ -93,7 +94,7 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
 
     // ─── Forgot Password ──────────────────────────────────────────────────────
 
-    async forgotPassword(email: string) {
+    async forgotPassword(email: string, lang: string) {
       const admin = await this.adminUserRepository.findOne({ email });
       if (!admin) {
         throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
@@ -110,10 +111,10 @@ async signup(fullName: string, email: string, password: string): Promise<AdminSi
 
       // TODO: send otp via email (mail service)
 
-      return { message: 'USER.OTP_SEND', success:true };
+      return { message: Message(lang, 'USER.OTP_SEND'), success:true };
     }
 
-async verifyOtp(email: string, otp: number): Promise<any> {
+async verifyOtp(email: string, otp: number, lang: string): Promise<any> {
   const admin = await this.adminUserRepository.findOne({ email });
   if (!admin) {
     throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
@@ -123,6 +124,7 @@ async verifyOtp(email: string, otp: number): Promise<any> {
     adminId: admin._id,
     otp,
     type: verificationType.RESET_PASSWORD,
+
   });
   if (!verification) {
     throw new HttpException('AUTH.INVALID_OTP', HttpStatus.BAD_REQUEST);
@@ -134,22 +136,22 @@ async verifyOtp(email: string, otp: number): Promise<any> {
       type: tokenTypes.resetPasswordToken,
     },
     this.envService.getJwtSecretKey(),
-    { expiresIn:"15m"  
-      // "this.envService.getResetPasswordTokenLife()" 
+    { expiresIn:
+      this.envService.getResetPasswordTokenLife()
     },
   );
 
   await this.userVerificationRepository.deleteOtpById(verification._id);
 
   return {
-    message: 'USER.OTP_VERIFICATION_SUCCESS',
+    message: Message(lang, 'USER.OTP_VERIFICATION_SUCCESS'),
     success: true,
     resetPasswordToken,  // ← client uses this for resetPassword
   };
 }
 
     // ─── Reset Password ───────────────────────────────────────────────────────
-async resetPassword(resetPasswordToken: string, newPassword: string) {
+async resetPassword(resetPasswordToken: string, newPassword: string, lang: string) {
   const decoded: any = await verifyToken(
     resetPasswordToken,
     this.envService.getJwtSecretKey(),
@@ -165,6 +167,6 @@ async resetPassword(resetPasswordToken: string, newPassword: string) {
     { $set: { password: hashedPassword } },
   );
 
-  return { message: 'AUTH.PASSWORD_RESET_SUCCESS', success: true };
+  return { message: Message(lang, 'USER.PASSWORD_RESET_SUCCESS'), success: true };
 }
   }
