@@ -49,6 +49,6 @@ export class FavouritesResolver {
         @CurrentUser() user: User,
         @Args('rideId') rideId: string,
     ) {
-        return this.favouriteService.removeFavouriteByRideId(favouriteId, user._id.toString());
+        return this.favouriteService.removeFavouriteByRideId(rideId, user._id.toString());
     }
 }
