@@ -91,7 +91,6 @@ async upsertDocumentFile(
         message: Message(lang, "DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS"),
       };
     } catch (e) {
-      console.log(e);
       
       ErrorException(
         e,

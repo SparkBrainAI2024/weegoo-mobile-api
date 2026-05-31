@@ -6,8 +6,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { join } from 'path';
 import { envConfiguration, HealthResolver } from '@libs/common';
-import { AuthModule } from './modules/auth/auth.module';
-import { UserModule } from './modules/user/user.module';
+import { UserAuthModule } from '@libs/services/auth/auth.module';
+import { AdminAuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -32,7 +32,7 @@ import { UserModule } from './modules/user/user.module';
         })
       : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
   ],     }),
- AuthModule, UserModule , ],
+ AdminAuthModule, UserAuthModule , ],
   providers: [HealthResolver],
 })
 export class AppModule {}

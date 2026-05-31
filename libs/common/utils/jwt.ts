@@ -16,6 +16,8 @@ export const verifyToken = async (token, secretKey) => {
         return Jwt.verify(token, secretKey);
 
     } catch (e) {
+
         return false
     }
 };
+
