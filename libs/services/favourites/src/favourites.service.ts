@@ -87,17 +87,18 @@ export class FavouriteService {
             passengerId: new Types.ObjectId(passengerId),
         });
     }
-    async removeFavouriteById(
-        favouriteId: string,
+    async removeFavouriteByRideId(
+        rideId: string,
         passengerId: string,
     ): Promise<FavouritesDocument | null> {
-        const favRide = await this.favouriteRepository.findById(
-            toMongoId(favouriteId),
-        );
+        const favRide= await this.favouriteRepository.findOne({
+           rideId: toMongoId(rideId),
+           passengerId: toMongoId(passengerId),
+     });
         if (!favRide) {
             throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
         }
         await this.ridesRepository.updateById(favRide.rideId, { isFavourite: false });
-        return await this.favouriteRepository.deleteFavourite(favouriteId, passengerId);
+        return await this.favouriteRepository.deleteFavourite(favRide._id.toString(), passengerId);
     }
 }
