@@ -25,6 +25,8 @@ async function bootstrap() {
       "https://ridehailing.com",
       "https://www.ridehailing.com",
       "http://localhost:3001",
+      "https://weegoo-admin-dev.vercel.app"
+
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
