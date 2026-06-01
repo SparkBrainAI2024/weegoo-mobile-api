@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default';
+import { ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
 import { envConfiguration } from '@libs/common';
 import { AblyModule } from '@libs/services/ably';
 import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
@@ -26,7 +26,10 @@ import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
       autoSchemaFile: true,
       playground: false,
       introspection: true,
-      plugins: [ApolloServerPluginLandingPageLocalDefault({ footer: false })],
+      plugins: [ ApolloServerPluginLandingPageProductionDefault({
+                  graphRef: 'ride-matchmaking-service@current',
+                  footer: false,
+                })],
     }),
     AblyModule,
     MatchmakingModule,
