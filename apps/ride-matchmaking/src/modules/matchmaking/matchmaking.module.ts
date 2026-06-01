@@ -10,6 +10,8 @@ import { DistanceCalculatorService } from './services/distance-calculator.servic
 import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { NotificationPersistentModule } from '@libs/services/notification';
 import { NotificationService } from '@libs/services/notification';
+import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
+import { EnvService } from '@libs/common/config/env.service';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { NotificationService } from '@libs/services/notification';
     MatchmakingService,
     DistanceCalculatorService,
     DynamicPricingService,
+    FirebaseMessagingService,
+    EnvService,
     NotificationService,
   ],
   exports: [MatchmakingService],
