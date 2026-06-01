@@ -25,7 +25,7 @@ export class DriverRideLocationResolver {
 
   /**
    * Update the current driver's location for the active ride.
-   * This publishes to D-LOCATION-{rideUUId} channel and updates
+   * This publishes to the unified ride channel WG-RIDE-{rideUUId}-ride-details and updates
    * distanceToReachPassenger/estimatedTimeToReachPassenger in ride schema
    * via the ride-matchmaking service.
    */

@@ -84,18 +84,6 @@ export class OngoingRideResponse {
     @Field({ nullable: true })
     ablyChannelId: string;
 
-    @Field({ nullable: true })
-    driverChannelId?: string;
-
-    @Field({ nullable: true })
-    passengerChannelId?: string;
-
-    @Field({ nullable: true })
-    driverLocationChannelId?: string;
-
-    @Field({ nullable: true })
-    passengerLocationChannelId?: string;
-
     @Field(() => Number, { nullable: true })
     distanceToReachPassenger?: number;
 

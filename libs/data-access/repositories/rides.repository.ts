@@ -238,7 +238,7 @@ async getOngoingRideWithDetails(
     },
   ];
 
-  const projection = {
+    const projection = {
     _id: 1,
     rideUUId: 1,
     rideStatus: 1,
@@ -257,10 +257,7 @@ async getOngoingRideWithDetails(
     paymentDetails: 1,
     vehicleId: 1,
     driverId: 1,
-    passengerChannelId: 1,
-    driverChannelId: 1,
-    passengerLocationChannelId: 1,
-    driverLocationChannelId: 1,
+    ablyChannelId: 1,
   };
 
   return this.findOne(filter, populate, projection);

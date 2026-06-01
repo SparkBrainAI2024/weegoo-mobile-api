@@ -10,7 +10,7 @@ import { VehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { roles, DriverOnlineStatus, ridePreference } from '@libs/data-access/enums/user.enum';
 import { NotificationType } from '@libs/data-access/enums/notification.enum';
 import { CreateNotificationInput } from '@libs/data-access/dtos/input/create-notification.input';
-import { AblyService } from '@libs/services/ably';
+import { AblyService, RideChannelService } from '@libs/services/ably';
 import { NotificationService } from '@libs/services/notification';
 import {
   MatchResult,
@@ -35,6 +35,7 @@ export class MatchmakingService {
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly ablyService: AblyService,
+    private readonly rideChannelService: RideChannelService,
     private readonly distanceCalculator: DistanceCalculatorService,
     private readonly pricingService: DynamicPricingService,
     private readonly notificationService: NotificationService,
@@ -166,6 +167,7 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
+        // Publish to driver-specific channel for matchmaking notifications
         await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'scheduled-ride-details', {
           rideId, rideUUId: ride.rideUUId, rideType: ride.rideType, bookingTime: ride.bookingTime,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
@@ -186,8 +188,8 @@ export class MatchmakingService {
         await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
 
         const acceptDetails = await this.buildScheduledAcceptDetails(ride, acceptedDriverId, scheduledFare);
-        await this.ablyService.publish(`ride:${rideId}:passenger`, 'scheduled-driver-accepted', acceptDetails);
-        await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', { rideId, rideUUId: ride.rideUUId, message: 'This ride has been accepted by another driver' });
+        // Publish driver accepted to the unified ride channel
+        await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
       }
 
       attempts.push({
@@ -199,7 +201,7 @@ export class MatchmakingService {
 
     if (!matched) {
       const failMessage = 'No available drivers found within 15 km radius for your scheduled time. Please try a different time.';
-      await this.ablyService.publish(`ride:${rideId}:passenger`, 'scheduled-match-failed', { rideId, rideUUId: ride.rideUUId, message: failMessage, suggestedAction: 'reschedule' });
+      await this.rideChannelService.publishMatchFailed(ride.rideUUId, rideId, failMessage, 'reschedule');
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare: scheduledFare, attempts, message: failMessage };
     }
 
@@ -260,8 +262,8 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        await this.ablyService.publish(`
-          WG-RIDE-${ride.rideUUId}-ride-details`, 'ride-details', {
+        // Publish ride details to driver-specific channel for matchmaking notifications
+        await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'ride-details', {
           rideId, rideUUId: ride.rideUUId, rideType: ride.rideType,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
           dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
@@ -269,11 +271,7 @@ export class MatchmakingService {
           passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
           driverImage: driver.profileImage || null, rating: driver.rating,
-          ablyChannelId: `WG-rides-${ride.rideUUId}`,
-          driverChannelId: ride.driverChannelId || `WG-rides-${ride.rideUUId}`,
-          passengerChannelId: ride.passengerChannelId || `WG-rides-${ride.rideUUId}`,
-          driverLocationChannelId: ride.driverLocationChannelId || `D-LOCATION-${ride.rideUUId}`,
-          passengerLocationChannelId: ride.passengerLocationChannelId || `P-LOCATION-${ride.rideUUId}`,
+          ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
         });
 
         // Notify driver about ride request
@@ -304,8 +302,10 @@ export class MatchmakingService {
         await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
 
         const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
-        await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', acceptDetails);
-        await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', { rideId, rideUUId: ride.rideUUId, message: 'This ride has been accepted by another driver' });
+        // Publish driver accepted to the unified ride channel
+        await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
+        // Notify all subscribers that ride is taken
+        await this.rideChannelService.publishRideTaken(ride.rideUUId, rideId);
       }
 
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted });
@@ -313,7 +313,7 @@ export class MatchmakingService {
 
     if (!matched) {
       const failMessage = 'No available drivers found within 10 km radius. Please try scheduling your ride.';
-      await this.ablyService.publish(`ride:${rideId}:passenger`, 'match-failed', { rideId, rideUUId: ride.rideUUId, message: failMessage, suggestedAction: 'schedule' });
+      await this.rideChannelService.publishMatchFailed(ride.rideUUId, rideId, failMessage, 'schedule');
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: failMessage };
     }
 
@@ -569,14 +569,15 @@ export class MatchmakingService {
     }
     this.logger.log(`Driver ${driverId} location updated: [${latitude}, ${longitude}]`);
 
-    // Find the active ride for this driver (ONGOING or CONFIRMED status)
-    const activeRide = await this.ridesModel.findOne({
+    // Find ALL active rides for this driver (CONFIRMED or ONGOING)
+    // This includes both instant and scheduled rides
+    const activeRides = await this.ridesModel.find({
       driverId: driverObjectId,
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] },
       deleted: false,
     }).exec();
 
-    if (activeRide) {
+    for (const activeRide of activeRides) {
       // Calculate distance and time from driver's current location to passenger pickup location
       const pickupCoords = activeRide.pickupLocation?.coordinates;
       if (pickupCoords && pickupCoords.length >= 2) {
@@ -613,9 +614,8 @@ export class MatchmakingService {
           },
         }).exec();
 
-        // Publish driver location update to the driver location channel
-        const channelId = activeRide.driverLocationChannelId || `WG-DRIVER-LOCATION-${driverId}`;
-        await this.ablyService.publish(channelId, 'driver-location-update', {
+        // Publish driver location update to this ride's unified channel
+        await this.rideChannelService.publishDriverLocationUpdate(activeRide.rideUUId, {
           driverId,
           latitude,
           longitude,
@@ -624,40 +624,18 @@ export class MatchmakingService {
           updatedAt: new Date().toISOString(),
         });
 
-        // Publish updated information to the ride request channel with all original ride details
-        await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-details`, 'ride-details', {
-          rideId: activeRide._id.toString(),
-          rideUUId: activeRide.rideUUId,
-          rideType: activeRide.rideType,
-          pickupLocation: activeRide.pickupLocation ? {
-            address: activeRide.pickupLocation.address,
-            coordinates: activeRide.pickupLocation.coordinates,
-            city: activeRide.pickupLocation.city,
-          } : null,
-          dropoffLocation: activeRide.dropoffLocation ? {
-            address: activeRide.dropoffLocation.address,
-            coordinates: activeRide.dropoffLocation.coordinates,
-            city: activeRide.dropoffLocation.city,
-          } : null,
-          distanceInKm: activeRide.distanceInKm || 0,
-          estimatedFare: activeRide.estimatedFare || 0,
-          estimatedTimeInMinutes: activeRide.estimatedTimeInMinutes || 0,
-          passengerId: activeRide.passengerId.toString(),
-          driverId,
-          distanceToPickupKm: Math.round(distanceKm * 100) / 100,
-          latitude,
-          longitude,
+        // Fetch full passenger, driver, and vehicle details
+        const fullDetails = await this.buildFullRideDetailsPayload(activeRide, {
+          driverLocation: { latitude, longitude },
           distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
           estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
           updatedAt: new Date().toISOString(),
-          ablyChannelId: `WG-rides-${activeRide.rideUUId}`,
-          driverChannelId: activeRide.driverChannelId || `WG-rides-${activeRide.rideUUId}`,
-          passengerChannelId: activeRide.passengerChannelId || `WG-rides-${activeRide.rideUUId}`,
-          driverLocationChannelId: activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`,
-          passengerLocationChannelId: activeRide.passengerLocationChannelId || `P-LOCATION-${activeRide.rideUUId}`,
         });
 
-        this.logger.log(`Published driver location for ride ${activeRide.rideUUId}: dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);
+        // Publish full ride details update to this ride's unified channel
+        await this.rideChannelService.publishRideDetails(activeRide.rideUUId, fullDetails);
+
+        this.logger.log(`Published driver location for ride ${activeRide.rideUUId} (status: ${activeRide.rideStatus}): dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);
       }
     }
 
@@ -739,9 +717,8 @@ export class MatchmakingService {
       },
     }).exec();
 
-    // Publish passenger location update to the driver location channel
-    const channelId = activeRide.passengerLocationChannelId || `WG-PASSENGER-LOCATION-${passengerId}`;
-    await this.ablyService.publish(channelId, 'passenger-location-update', {
+    // Publish passenger location update to the unified ride channel
+    await this.rideChannelService.publishPassengerLocationUpdate(activeRide.rideUUId, {
       passengerId,
       latitude,
       longitude,
@@ -750,36 +727,16 @@ export class MatchmakingService {
       updatedAt: new Date().toISOString(),
     });
 
-    // Publish updated information to the ride request channel with all original ride details
-    await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-details`, 'ride-details', {
-      rideId: activeRide._id.toString(),
-      rideUUId: activeRide.rideUUId,
-      rideType: activeRide.rideType,
-      pickupLocation: activeRide.pickupLocation ? {
-        address: activeRide.pickupLocation.address,
-        coordinates: activeRide.pickupLocation.coordinates,
-        city: activeRide.pickupLocation.city,
-      } : null,
-      dropoffLocation: activeRide.dropoffLocation ? {
-        address: activeRide.dropoffLocation.address,
-        coordinates: activeRide.dropoffLocation.coordinates,
-        city: activeRide.dropoffLocation.city,
-      } : null,
-      distanceInKm: activeRide.distanceInKm || 0,
-      estimatedFare: activeRide.estimatedFare || 0,
-      estimatedTimeInMinutes: activeRide.estimatedTimeInMinutes || 0,
-      passengerId: activeRide.passengerId.toString(),
-      latitude,
-      longitude,
+    // Fetch full passenger, driver, and vehicle details
+    const fullDetails = await this.buildFullRideDetailsPayload(activeRide, {
+      passengerLocation: { latitude, longitude },
       distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
       estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
       updatedAt: new Date().toISOString(),
-      ablyChannelId: `WG-rides-${activeRide.rideUUId}`,
-      driverChannelId: activeRide.driverChannelId || `WG-rides-${activeRide.rideUUId}`,
-      passengerChannelId: activeRide.passengerChannelId || `WG-rides-${activeRide.rideUUId}`,
-      driverLocationChannelId: activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`,
-      passengerLocationChannelId: activeRide.passengerLocationChannelId || `P-LOCATION-${activeRide.rideUUId}`,
     });
+
+    // Publish full ride details update to the unified ride channel
+    await this.rideChannelService.publishRideDetails(activeRide.rideUUId, fullDetails);
 
     this.logger.log(`Published passenger location for ride ${activeRide.rideUUId}: dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);
 
@@ -842,6 +799,90 @@ export class MatchmakingService {
       dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined,
       estimatedFare: estimatedFare?.total || 0, estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0, distanceInKm: ride.distanceInKm || 0,
       bookingTime: ride.bookingTime, acceptedAt: new Date().toISOString(),
+    };
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Build full ride details payload with all passenger, driver, and vehicle info
+  // ════════════════════════════════════════════════════════════════
+
+  /**
+   * Build a complete ride details payload by fetching full passenger, driver, and vehicle
+   * information from the database. Used by location update methods to ensure the frontend
+   * receives all details on every ride-details event.
+   */
+  private async buildFullRideDetailsPayload(
+    ride: RidesDocument,
+    overrides: Partial<import('@libs/services/ably').RideDetailsPayload> = {},
+  ): Promise<import('@libs/services/ably').RideDetailsPayload> {
+    // Fetch passenger details
+    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+    const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId, deleted: false }).exec();
+
+    // Fetch driver details (if assigned)
+    let driver: import('@libs/services/ably').RideDetailsPayload['driver'] = undefined;
+    if (ride.driverId) {
+      const driverUser = await this.userModel.findById(ride.driverId).exec();
+      const driverDetails = await this.userDetailsModel.findOne({ userId: ride.driverId, deleted: false }).exec();
+      driver = {
+        driverId: ride.driverId.toString(),
+        fullName: driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: driverDetails?.profileImage || undefined,
+        rating: 4.5,
+      };
+    }
+
+    // Fetch vehicle details
+    let vehicle: import('@libs/services/ably').RideDetailsPayload['vehicle'] = undefined;
+    const vehicleDoc = ride.vehicle || (await this.vehicleModel.findById(ride.vehicleId).exec());
+    if (vehicleDoc) {
+      vehicle = {
+        vehicleId: vehicleDoc._id?.toString() || '',
+        vehicleModel: vehicleDoc.vehicleModel || '',
+        vehicleType: vehicleDoc.vehicleType || '',
+        color: vehicleDoc.color || '',
+        numberPlate: vehicleDoc.numberPlate || '',
+        year: vehicleDoc.year || 0,
+      };
+    }
+
+    return {
+      rideId: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      rideType: ride.rideType,
+      rideStatus: ride.rideStatus,
+      bookingTime: ride.bookingTime?.toISOString(),
+      pickupLocation: ride.pickupLocation ? {
+        address: ride.pickupLocation.address,
+        coordinates: ride.pickupLocation.coordinates,
+        city: ride.pickupLocation.city,
+      } : undefined,
+      dropoffLocation: ride.dropoffLocation ? {
+        address: ride.dropoffLocation.address,
+        coordinates: ride.dropoffLocation.coordinates,
+        city: ride.dropoffLocation.city,
+      } : undefined,
+      distanceInKm: ride.distanceInKm || 0,
+      estimatedFare: ride.estimatedFare || 0,
+      estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+      // Full passenger details (with profile image from userDetails)
+      passenger: {
+        passengerId: ride.passengerId.toString(),
+        fullName: passengerUser?.fullName || passengerDetails?.fullName || 'Passenger',
+        phone: passengerUser?.phone || '',
+        profileImage: passengerDetails?.profileImage || undefined,
+      },
+      // Full driver details (with profile image from userDetails)
+      driver,
+      // Full vehicle details
+      vehicle,
+      // Timestamps
+      rideStartedAt: ride.rideStartedAt?.toISOString(),
+      rideCompletedAt: ride.rideCompletedAt?.toISOString(),
+      updatedAt: new Date().toISOString(),
+      // Apply overrides (driverLocation, passengerLocation, distanceToReachPassenger, etc.)
+      ...overrides,
     };
   }
 }

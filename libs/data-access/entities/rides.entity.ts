@@ -108,14 +108,6 @@ export class Rides extends BaseEntity {
   @Prop({ type: String, required: false })
   ablyChannelId?: string;
 
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, required: false })
-  passengerLocationChannelId?: string;
-
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, required: false })
-  driverLocationChannelId?: string;
-
 
 
   @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
@@ -144,15 +136,9 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
     );
   }
 
-  // Set channel IDs based on rideUUId if not already set
+  // Set unified channel ID based on rideUUId if not already set
   if (this.rideUUId && !this.ablyChannelId) {
     this.ablyChannelId = `WG-RIDE-${this.rideUUId}-ride-details`;
-  }
-  if (this.rideUUId && !this.passengerLocationChannelId) {
-    this.passengerLocationChannelId = `P-LOCATION-${this.rideUUId}`;
-  }
-  if (this.rideUUId && !this.driverLocationChannelId) {
-    this.driverLocationChannelId = `D-LOCATION-${this.rideUUId}`;
   }
 
   // 3. Calculate Estimated Fare and Time when ride starts or is ongoing

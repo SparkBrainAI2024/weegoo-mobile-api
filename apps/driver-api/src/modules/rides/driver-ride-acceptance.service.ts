@@ -6,7 +6,7 @@ import { User, UserDocument } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus } from '@libs/data-access/enums/rides.enum';
-import { AblyRideListenerService, AblyService } from '@libs/services/ably';
+import { AblyRideListenerService, AblyService, RideChannelService } from '@libs/services/ably';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
 
@@ -61,6 +61,7 @@ export class DriverRideAcceptanceService implements OnModuleInit {
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly ablyListenerService: AblyRideListenerService,
     private readonly ablyService: AblyService,
+    private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
   ) {}
 
@@ -126,32 +127,14 @@ export class DriverRideAcceptanceService implements OnModuleInit {
     // Fetch full driver details with vehicle info
     const acceptDetails = await this.buildAcceptDetails(updatedRide, driverId);
 
-    // Publish full details to passenger channel
-    await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', acceptDetails);
+    // Publish driver accepted to the unified ride channel
+    await this.rideChannelService.publishDriverAccepted(updatedRide.rideUUId, acceptDetails);
 
-    // Notify matchmaking service via its listener channel
-    await this.ablyService.publish(`WG-RIDE-${updatedRide.rideUUId}:driver-response`, 'driver-response', {
-      driverId,
-      action: 'accept',
-    });
+    // Notify matchmaking service via its internal response channel
+    await this.rideChannelService.publishDriverResponse(updatedRide.rideUUId, driverId, 'accept');
 
-    // Also notify the ride request channel so all subscribers get driver info
-    await this.ablyService.publish(`WG-RIDE-${updatedRide.rideUUId}-ride-request`, 'driver-accepted', {
-      ...acceptDetails,
-      acceptedAt: new Date().toISOString(),
-    });
-
-    // Notify all other drivers that the ride is taken
-    await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', {
-      rideId,
-      rideUUId: updatedRide.rideUUId,
-      message: 'This ride has been accepted by another driver',
-    });
-    await this.ablyService.publish(`WG-RIDE-${updatedRide.rideUUId}-ride-request`, 'ride-taken', {
-      rideId,
-      rideUUId: updatedRide.rideUUId,
-      message: 'This ride has been accepted by another driver',
-    });
+    // Notify all subscribers that ride is taken
+    await this.rideChannelService.publishRideTaken(updatedRide.rideUUId, rideId);
 
     return { success: true, message: 'Ride accepted successfully', data: acceptDetails };
   }
@@ -164,15 +147,8 @@ export class DriverRideAcceptanceService implements OnModuleInit {
 
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
 
-    // Notify matchmaking service via its listener channel
-    await this.ablyService.publish(
-      `WG-RIDE-${ride.rideUUId}:driver-response`,
-      'driver-response',
-      {
-        driverId,
-        action: 'reject',
-      },
-    );
+    // Notify matchmaking service via the internal response channel
+    await this.rideChannelService.publishDriverResponse(ride.rideUUId, driverId, 'reject');
 
     return { success: true, message: 'Ride rejected' };
   }

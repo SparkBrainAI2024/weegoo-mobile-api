@@ -60,7 +60,7 @@ export class MatchmakingResolver {
 
   /**
    * Update the current passenger's location for the active ride.
-   * Publishes location to P-LOCATION-{rideUUId} channel and updates
+   * Publishes location to the unified ride channel WG-RIDE-{rideUUId}-ride-details and updates
    * distanceToReachPassenger/estimatedTimeToReachPassenger in ride schema.
    */
   @Mutation(() => LocationUpdateResult, {
