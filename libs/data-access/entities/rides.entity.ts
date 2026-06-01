@@ -92,6 +92,36 @@ export class Rides extends BaseEntity {
   @Prop({ type: Date, required: false })
   timeToReachPassenger?: Date;
 
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  distanceToReachPassenger?: number;
+
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  estimatedTimeToReachPassenger?: number;
+
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 1 })
+  noOfPassengers: number;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false })
+  passengerChannelId?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false })
+  driverChannelId?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false })
+  passengerLocationChannelId?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false })
+  driverLocationChannelId?: string;
+
+
+
   @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
   vehicleId: Types.ObjectId;
 
@@ -116,6 +146,20 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
     this.timeToReachPassenger = new Date(
       this.bookingTime.getTime() + this.timeToReachPassengerInMinutes * 60000
     );
+  }
+
+  // Set channel IDs based on rideUUId if not already set
+  if (this.rideUUId && !this.passengerChannelId) {
+    this.passengerChannelId = `WG-rides-${this.rideUUId}`;
+  }
+  if (this.rideUUId && !this.driverChannelId) {
+    this.driverChannelId = `WG-rides-${this.rideUUId}`;
+  }
+  if (this.rideUUId && !this.passengerLocationChannelId) {
+    this.passengerLocationChannelId = `P-LOCATION-${this.rideUUId}`;
+  }
+  if (this.rideUUId && !this.driverLocationChannelId) {
+    this.driverLocationChannelId = `D-LOCATION-${this.rideUUId}`;
   }
 
   // 3. Calculate Estimated Fare and Time when ride starts or is ongoing

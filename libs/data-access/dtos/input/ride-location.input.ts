@@ -1,32 +1,38 @@
-import { Field, InputType } from '@nestjs/graphql';
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { Field, Float, InputType } from '@nestjs/graphql';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import { ProvinceEnum } from '../../enums/user.enum';
 import { GeoLocationInput } from './geo-location.input';
 
 @InputType()
-export class RideLocationInput extends GeoLocationInput {
+export class RideLocationInput {
+  @Field(() => Float)
+  @IsNumber()
+  latitude: number;
+
+  @Field(() => Float)
+  @IsNumber()
+  longitude: number;
+
   @Field()
-  @IsNotEmpty()
   @IsString()
   address: string;
 
-  @Field()
-  @IsNotEmpty()
+  @Field(() => String, { nullable: true })
   @IsString()
-  city: string;
+  @IsOptional()
+  city?: string;
 
-  @Field(() => ProvinceEnum)
-  @IsNotEmpty()
+  @Field(() => ProvinceEnum, { nullable: true })
   @IsEnum(ProvinceEnum)
-  province: ProvinceEnum;
+  @IsOptional()
+  province?: ProvinceEnum;
 
-  @Field()
-  @IsNotEmpty()
+  @Field(() => String, { nullable: true })
   @IsString()
-  district: string;
+  @IsOptional()
+  district?: string;
 
   @Field()
-  @IsNotEmpty()
   @IsString()
   fullAddress: string;
 }

@@ -268,5 +268,34 @@ export class EnvService {
   getFirebasePrivateKey(): string {
     return this.getString('FIREBASE_PRIVATE_KEY', '');
   }
+
+  // ==========================================
+  // Ably-specific helper methods
+  // ==========================================
+
+  /**
+   * Get Ably API key
+   */
+  getAblyApiKey(): string {
+    return this.getString('ABLY_API_KEY', '');
+  }
+
+  // ==========================================
+  // Batoo API helper methods
+  // ==========================================
+
+  /**
+   * Get Batoo API key for distance calculation
+   */
+  getBatooApiKey(): string {
+    return this.getString('BATOO_API_KEY', '');
+  }
+
+  /**
+   * Get Batoo API base URL
+   */
+  getBatooApiUrl(): string {
+    return this.getString('BATOO_API_URL', 'https://api.batoo.com');
+  }
   
 }

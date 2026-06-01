@@ -328,7 +328,11 @@ export class RidesService {
           rating: Math.floor(Math.random() * 5) + 1 // Random rating between 1 and 5 for testing,
         }
         : null,
-      ablyChannelId: `ride:${ride.rideUUId}`,
+      ablyChannelId: `WG-rides-${ride.rideUUId}`,
+      driverChannelId: ride.driverChannelId || `WG-DRIVER-${ride.rideUUId}`,
+      passengerChannelId: ride.passengerChannelId || `WG-rides-${ride.rideUUId}`,
+      driverLocationChannelId: ride.driverLocationChannelId || `D-LOCATION-${ride.rideUUId}`,
+      passengerLocationChannelId: ride.passengerLocationChannelId || `P-LOCATION-${ride.rideUUId}`,
     };
     return rideObject;
 

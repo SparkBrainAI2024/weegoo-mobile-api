@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { join } from 'path';
 import { envConfiguration, HealthResolver } from '@libs/common';
+import { AblyModule } from '@libs/services/ably';
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
 import { VehicleModule } from './modules/vehicle/vehicle.module';
@@ -41,6 +42,7 @@ import { TransactionModule } from './modules/transaction/transaction.module';
           : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
       ],
     }),
+    AblyModule,
     AuthModule,
     UserModule,
     VehicleModule,

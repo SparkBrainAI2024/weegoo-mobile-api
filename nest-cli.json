@@ -90,6 +90,15 @@
       "compilerOptions": {
         "tsConfigPath": "libs/guards/tsconfig.lib.json"
       }
+    },
+    "ride-matchmaking": {
+      "type": "application",
+      "root": "apps/ride-matchmaking",
+      "sourceRoot": "apps/ride-matchmaking/src",
+      "entryFile": "main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/ride-matchmaking/tsconfig.app.json"
+      }
     }
   }
 }

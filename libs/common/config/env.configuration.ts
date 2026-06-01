@@ -37,10 +37,21 @@ export interface AppEnv {
   // Production URL
   PRODUCTION_URL: string;
 
+  // Mail
   MAIL_HOST: string;
   MAIL_PORT: number;
   MAIL_USER: string;
   MAIL_PASS: string;
+ 
+  //Batoo
+  BATOO_API_KEY: string;
+  BATOO_API_URL: string;
+  //Ably
+  ABLY_API_KEY: string;
+  //Firebase
+  FIREBASE_PROJECT_ID: string;
+  FIREBASE_CLIENT_EMAIL: string;
+  FIREBASE_PRIVATE_KEY: string; 
 }
 
 export default (): AppEnv => ({
@@ -86,4 +97,16 @@ export default (): AppEnv => ({
   MAIL_PORT: parseInt(process.env.MAIL_PORT || '587', 10),
   MAIL_USER: process.env.MAIL_USER || '',
   MAIL_PASS: process.env.MAIL_PASS || '',
+
+  //Ably
+  ABLY_API_KEY: process.env.ABLY_API_KEY || '',
+  
+  //Batoo
+  BATOO_API_KEY: process.env.BATOO_API_KEY || '',
+  BATOO_API_URL: process.env.BATOO_API_URL || '',
+  
+  //Firebase 
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
+  FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY || '',
 });
