@@ -8,6 +8,8 @@ import { MatchmakingService } from './matchmaking.service';
 import { MatchmakingResolver } from './matchmaking.resolver';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
+import { NotificationPersistentModule } from '@libs/services/notification';
+import { NotificationService } from '@libs/services/notification';
 
 @Module({
   imports: [
@@ -17,12 +19,14 @@ import { DynamicPricingService } from './services/dynamic-pricing.service';
       { name: UserDetails.name, schema: UserDetailsSchema },
       { name: Vehicle.name, schema: VehicleSchema },
     ]),
+    NotificationPersistentModule,
   ],
   providers: [
     MatchmakingResolver,
     MatchmakingService,
     DistanceCalculatorService,
     DynamicPricingService,
+    NotificationService,
   ],
   exports: [MatchmakingService],
 })

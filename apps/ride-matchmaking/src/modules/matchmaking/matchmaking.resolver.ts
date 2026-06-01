@@ -8,8 +8,6 @@ import {
   ScheduledMatchResultGraphQL,
   ScheduledFareBreakdownGraphQL,
   LocationUpdateResultGraphQL,
-} from './dto/matchmaking-response.dto';
-import {
   MatchDriversInput,
   MatchScheduledDriversInput,
   DriverResponseInput,
@@ -17,8 +15,11 @@ import {
   ScheduledFareInput,
   UpdateDriverLocationInput,
   UpdatePassengerLocationInput,
-} from './dto/matchmaking-input.dto';
-import { RainCondition, HistoricalTraffic } from './config/matchmaking.config';
+  RainCondition, 
+  HistoricalTraffic
+} from '@libs/data-access';
+
+
 
 @Resolver()
 export class MatchmakingResolver {
@@ -37,6 +38,7 @@ export class MatchmakingResolver {
     return {
       matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
       driverId: result.driverId, driverName: result.driverName,
+      driverImage: result.driverImage || null, rating: result.rating || null,
       estimatedFare: result.estimatedFare ? {
         pickupCost: result.estimatedFare.pickupCost, distanceCost: result.estimatedFare.distanceCost,
         durationCost: result.estimatedFare.durationCost, total: result.estimatedFare.total,
@@ -84,8 +86,8 @@ export class MatchmakingResolver {
     description: 'Handle a driver accepting or rejecting a ride request',
   })
   async driverRespondToRide(@Args('input') input: DriverResponseInput): Promise<DriverResponseResultGraphQL> {
-    this.logger.log(`GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideId}`);
-    const result = await this.matchmakingService.handleDriverResponse(input.rideId, input.driverId, input.action as unknown as 'accept' | 'reject');
+    this.logger.log(`GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideUUID}`);
+    const result = await this.matchmakingService.handleDriverResponse(input.rideUUID, input.driverId, input.action as unknown as 'accept' | 'reject');
     return { success: result.success, message: result.message };
   }
 

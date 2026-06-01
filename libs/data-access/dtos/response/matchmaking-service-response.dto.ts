@@ -80,6 +80,12 @@ export class MatchResultGraphQL {
   @Field(() => String, { nullable: true })
   driverName?: string;
 
+  @Field(() => String, { nullable: true })
+  driverImage?: string;
+
+  @Field(() => Float, { nullable: true })
+  rating?: number;
+
   @Field(() => FareBreakdownGraphQL, { nullable: true })
   estimatedFare?: FareBreakdownGraphQL;
 
@@ -109,6 +115,12 @@ export class ScheduledMatchResultGraphQL {
 
   @Field(() => String, { nullable: true })
   driverName?: string;
+
+  @Field(() => String, { nullable: true })
+  driverImage?: string;
+
+  @Field(() => Float, { nullable: true })
+  rating?: number;
 
   @Field(() => ScheduledFareBreakdownGraphQL, { nullable: true })
   estimatedFare?: ScheduledFareBreakdownGraphQL;

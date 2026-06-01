@@ -8,9 +8,11 @@ import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.ent
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { VehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { roles, DriverOnlineStatus, ridePreference } from '@libs/data-access/enums/user.enum';
+import { NotificationType } from '@libs/data-access/enums/notification.enum';
+import { CreateNotificationInput } from '@libs/data-access/dtos/input/create-notification.input';
 import { AblyService } from '@libs/services/ably';
+import { NotificationService } from '@libs/services/notification';
 import {
-  MATCHMAKING_CONFIG,
   MatchResult,
   MatchAttemptResult,
   DriverScore,
@@ -18,9 +20,10 @@ import {
   RainCondition,
   HistoricalTraffic,
   ScheduledFareBreakdown,
-} from './config/matchmaking.config';
+} from 'libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
+import { MATCHMAKING_CONFIG } from '@libs/common';
 
 @Injectable()
 export class MatchmakingService {
@@ -34,6 +37,7 @@ export class MatchmakingService {
     private readonly ablyService: AblyService,
     private readonly distanceCalculator: DistanceCalculatorService,
     private readonly pricingService: DynamicPricingService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   // ════════════════════════════════════════════════════════════════
@@ -140,6 +144,8 @@ export class MatchmakingService {
     let matched = false;
     let acceptedDriverId: string | undefined;
     let acceptedDriverName: string | undefined;
+    let acceptedDriverImage: string | undefined;
+    let acceptedRating: number | undefined;
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
       const radiusKm = radii[attemptIdx];
@@ -171,6 +177,7 @@ export class MatchmakingService {
           distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes,
           passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1, isScheduled: true,
+          driverImage: driver.profileImage || null, rating: driver.rating,
         });
       }
 
@@ -237,6 +244,8 @@ export class MatchmakingService {
     let matched = false;
     let acceptedDriverId: string | undefined;
     let acceptedDriverName: string | undefined;
+    let acceptedDriverImage: string | undefined;
+    let acceptedRating: number | undefined;
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
       const radiusKm = radii[attemptIdx];
@@ -255,14 +264,31 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'ride-request', {
+        await this.ablyService.publish(`
+          WG-RIDE-${ride.rideUUId}-ride-request`, 'ride-request', {
           rideId, rideUUId: ride.rideUUId, rideType: ride.rideType,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
           dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
           distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
           passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
+          driverImage: driver.profileImage || null, rating: driver.rating,
         });
+
+        // Notify driver about ride request
+        try {
+          const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
+          if (driverUser) {
+            const notificationInput: CreateNotificationInput = {
+              title: 'New Ride Request',
+              notificationType: NotificationType.RIDE_REQUEST,
+              description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}`,
+            };
+            await this.notificationService.createNotification(notificationInput, driverUser);
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to send ride request notification to driver ${driver.driverId}: ${err}`);
+        }
       }
 
       const driverResponse = await this.waitForDriverResponse(rideId, requestBatch.map((d) => d.driverId), waitTimeSeconds * 1000);
@@ -270,7 +296,10 @@ export class MatchmakingService {
       if (driverResponse.accepted) {
         matched = true;
         acceptedDriverId = driverResponse.driverId;
-        acceptedDriverName = requestBatch.find((d) => d.driverId === driverResponse.driverId)?.fullName || 'Driver';
+        const acceptedDriver = requestBatch.find((d) => d.driverId === driverResponse.driverId);
+        acceptedDriverName = acceptedDriver?.fullName || 'Driver';
+        acceptedDriverImage = acceptedDriver?.profileImage;
+        acceptedRating = acceptedDriver?.rating;
         await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
 
         const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
@@ -287,7 +316,7 @@ export class MatchmakingService {
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: failMessage };
     }
 
-    return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, estimatedFare, attempts, message: 'Driver matched successfully' };
+    return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage, rating: acceptedRating, estimatedFare, attempts, message: 'Driver matched successfully' };
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -341,6 +370,7 @@ export class MatchmakingService {
         const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
         drivers.push({
           driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '',
+          profileImage: userDetails.profileImage || undefined,
           vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate,
           distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes,
         });
@@ -408,6 +438,7 @@ export class MatchmakingService {
         const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
         drivers.push({
           driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '',
+          profileImage: userDetails.profileImage || undefined,
           vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate,
           distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes,
         });
@@ -443,16 +474,16 @@ export class MatchmakingService {
   // ════════════════════════════════════════════════════════════════
 
   private async waitForDriverResponse(
-    rideId: string, driverIds: string[], timeoutMs: number,
+    rideUUID: string, driverIds: string[], timeoutMs: number,
   ): Promise<{ accepted: boolean; driverId?: string }> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
-        this.logger.log(`Driver response timeout for ride ${rideId} after ${timeoutMs}ms`);
+        this.logger.log(`Driver response timeout for ride ${rideUUID} after ${timeoutMs}ms`);
         resolve({ accepted: false });
       }, timeoutMs);
 
       const unsubscribe = this.ablyService.subscribe(
-        `ride:${rideId}:driver-response`, 'driver-response',
+        `WG-RIDE-${rideUUID}:driver-response`, 'driver-response',
         (message) => {
           const response = message.data as { driverId: string; action: 'accept' | 'reject' };
           if (response.action === 'accept' && driverIds.includes(response.driverId)) {
@@ -465,13 +496,41 @@ export class MatchmakingService {
     });
   }
 
-  async handleDriverResponse(rideId: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string }> {
-    await this.ablyService.publish(`ride:${rideId}:driver-response`, 'driver-response', { driverId, action });
+  async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string }> {
+    await this.ablyService.publish(`WG-RIDE-${rideUUID}:driver-response`, 'driver-response', { driverId, action });
+
+    // Find the ride to send notifications
+    try {
+      const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
+      if (ride && ride.passengerId) {
+        const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+        if (passengerUser) {
+          if (action === 'accept') {
+            const notificationInput: CreateNotificationInput = {
+              title: 'Ride Accepted',
+              notificationType: NotificationType.RIDE_ACCEPTED,
+              description: 'Your ride request has been accepted by a driver. They are on their way to pick you up!',
+            };
+            await this.notificationService.createNotification(notificationInput, passengerUser);
+          } else if (action === 'reject') {
+            const notificationInput: CreateNotificationInput = {
+              title: 'Ride Rejected',
+              notificationType: NotificationType.RIDE_REQUEST,
+              description: 'A driver has declined your ride request. We are looking for other drivers.',
+            };
+            await this.notificationService.createNotification(notificationInput, passengerUser);
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to send notification for driver response: ${err}`);
+    }
+
     if (action === 'reject') {
-      this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
+      this.logger.log(`Driver ${driverId} rejected ride ${rideUUID}`);
       return { success: true, message: 'Ride rejected' };
     }
-    this.logger.log(`Driver ${driverId} accepted ride ${rideId}`);
+    this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
     return { success: true, message: 'Ride accepted' };
   }
 
@@ -554,8 +613,18 @@ export class MatchmakingService {
         }).exec();
 
         // Publish driver location update to the driver location channel
-        const channelId = activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`;
+        const channelId = activeRide.driverLocationChannelId || `WG-LOCATION-${activeRide.rideUUId}`;
         await this.ablyService.publish(channelId, 'driver-location-update', {
+          driverId,
+          latitude,
+          longitude,
+          distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+          estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+          updatedAt: new Date().toISOString(),
+        });
+
+        // Publish updated information to the ride request channel
+        await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'driver-location-update', {
           driverId,
           latitude,
           longitude,
@@ -647,8 +716,18 @@ export class MatchmakingService {
     }).exec();
 
     // Publish passenger location update to the driver location channel
-    const channelId = activeRide.passengerLocationChannelId || `P-LOCATION-${activeRide.rideUUId}`;
+    const channelId = activeRide.passengerLocationChannelId || `WG-PASSANGER-LOCATION-${passengerId}`;
     await this.ablyService.publish(channelId, 'passenger-location-update', {
+      passengerId,
+      latitude,
+      longitude,
+      distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+      estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Publish updated information to the ride request channel
+    await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'passenger-location-update', {
       passengerId,
       latitude,
       longitude,

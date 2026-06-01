@@ -150,10 +150,10 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
 
   // Set channel IDs based on rideUUId if not already set
   if (this.rideUUId && !this.passengerChannelId) {
-    this.passengerChannelId = `P-${this.rideUUId}-RIDE`;
+    this.passengerChannelId = `WG-rides-${this.rideUUId}`;
   }
   if (this.rideUUId && !this.driverChannelId) {
-    this.driverChannelId = `D-${this.rideUUId}-RIDE`;
+    this.driverChannelId = `WG-rides-${this.rideUUId}`;
   }
   if (this.rideUUId && !this.passengerLocationChannelId) {
     this.passengerLocationChannelId = `P-LOCATION-${this.rideUUId}`;
