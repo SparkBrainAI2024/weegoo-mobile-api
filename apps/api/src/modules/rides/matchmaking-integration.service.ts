@@ -86,6 +86,8 @@ export class MatchmakingIntegrationService {
                 rideUUId
                 driverId
                 driverName
+                driverImage
+                rating
                 attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
                 message
               }
@@ -183,41 +185,124 @@ export class MatchmakingIntegrationService {
   }
 
   /**
-   * Update driver location via the ride-matchmaking service.
-   * This will publish the location to the driver location channel and update
-   * distanceToReachPassenger/estimatedTimeToReachPassenger in the ride schema.
+   * Create a scheduled ride with full details, then trigger scheduled matchmaking.
    */
-  async updateDriverLocation(driverId: string, latitude: number, longitude: number): Promise<UpdateLocationResult> {
+  async createAndMatchScheduledRide(
+    userId: string,
+    pickupLocation: RideLocationInput,
+    dropoffLocation: RideLocationInput,
+    vehicleType: string,
+    bookingTime: Date,
+    noOfPassengers: number = 1,
+  ): Promise<TriggerMatchmakingResult> {
+    // Find a matching vehicle
+    const vehicle = await this.vehicleModel.findOne({
+      vehicleType: vehicleType as any,
+      deleted: false,
+    }).exec();
+
+    // Create the ride in PENDING status
+    const rideData: Partial<RidesDocument> = {
+      rideType: RideTypes.SCHEDULED,
+      bookingTime,
+      rideStatus: RideStatus.PENDING,
+      passengerId: new Types.ObjectId(userId),
+      vehicleId: vehicle?._id || new Types.ObjectId(),
+      pickupLocation: {
+        type: 'Point',
+        coordinates: [pickupLocation.longitude, pickupLocation.latitude],
+        address: pickupLocation.address,
+        city: pickupLocation.city,
+        province: pickupLocation.province,
+        district: pickupLocation.district,
+        fullAddress: pickupLocation.fullAddress,
+      } as any,
+      dropoffLocation: {
+        type: 'Point',
+        coordinates: [dropoffLocation.longitude, dropoffLocation.latitude],
+        address: dropoffLocation.address,
+        city: dropoffLocation.city,
+        province: dropoffLocation.province,
+        district: dropoffLocation.district,
+        fullAddress: dropoffLocation.fullAddress,
+      } as any,
+      noOfPassengers,
+      deleted: false,
+    };
+
+    let ride: RidesDocument;
+    try {
+      ride = await this.ridesModel.create(rideData);
+      this.logger.log(`Scheduled ride created with ID: ${ride._id} (${ride.rideUUId})`);
+    } catch (err: any) {
+      this.logger.error(`Failed to create scheduled ride: ${err.message}`);
+      return { success: false, matched: false, rideId: '', rideUUId: '', message: 'Failed to create ride' };
+    }
+
+    // Call matchmaking service for scheduled ride
     const matchmakingUrl = this.getMatchmakingUrl();
     try {
+      this.logger.log(`Calling scheduled matchmaking for ride ${ride._id}`);
+
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
         {
           query: `
-            mutation UpdateDriverLocation($input: UpdateDriverLocationInput!) {
-              updateDriverLocation(input: $input) {
-                success
+            mutation MatchScheduledDrivers($input: MatchScheduledDriversInput!) {
+              matchScheduledDrivers(input: $input) {
+                matched
+                rideId
+                rideUUId
+                driverId
+                driverName
+                attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
                 message
-                latitude
-                longitude
-                updatedAt
               }
             }
           `,
-          variables: { input: { driverId, latitude, longitude } },
+          variables: { input: { rideId: ride._id.toString() } },
         },
-        { timeout: 15000 },
+        { timeout: 120000 },
       );
 
-      const result = response.data?.data?.updateDriverLocation;
-      return result || { success: false, message: 'No response from matchmaking service', latitude, longitude, updatedAt: new Date().toISOString() };
+      const result = response.data?.data?.matchScheduledDrivers;
+
+      if (result?.matched) {
+        this.logger.log(`Scheduled matchmaking succeeded for ride ${ride.rideUUId}: driver ${result.driverId}`);
+        return {
+          success: true,
+          matched: true,
+          rideId: ride._id.toString(),
+          rideUUId: ride.rideUUId,
+          message: `Driver ${result.driverName || result.driverId} matched for scheduled ride`,
+          driverId: result.driverId,
+          driverName: result.driverName,
+          attempts: result.attempts,
+        };
+      }
+
+      // Matchmaking did not find a driver — keep the ride for later cancellation/polling
+      this.logger.warn(`Scheduled matchmaking failed for ride ${ride.rideUUId}: ${result?.message}`);
+      return {
+        success: false,
+        matched: false,
+        rideId: ride._id.toString(),
+        rideUUId: ride.rideUUId,
+        message: result?.message || 'No driver found for scheduled ride',
+      };
     } catch (error: any) {
-      this.logger.error(`Failed to update driver location: ${error?.message || error}`);
-      return { success: false, message: 'Matchmaking service unavailable', latitude, longitude, updatedAt: new Date().toISOString() };
+      this.logger.error(`Scheduled matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}`);
+      return {
+        success: false,
+        matched: false,
+        rideId: ride._id.toString(),
+        rideUUId: ride.rideUUId,
+        message: 'Matchmaking service unavailable',
+      };
     }
   }
 
-  /**
+    /**
    * Update passenger location via the ride-matchmaking service.
    * This will publish the location to the passenger location channel and update
    * distanceToReachPassenger/estimatedTimeToReachPassenger in the ride schema.

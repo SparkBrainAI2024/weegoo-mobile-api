@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  MATCHMAKING_CONFIG,
   FareBreakdown,
   RainCondition,
   HistoricalTraffic,
   ScheduledFareBreakdown,
-} from '../config/matchmaking.config';
+} from '@libs/data-access';
+import { MATCHMAKING_CONFIG } from '@libs/common';
 
 @Injectable()
 export class DynamicPricingService {

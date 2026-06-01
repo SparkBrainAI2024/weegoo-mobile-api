@@ -273,6 +273,11 @@ export class MatchmakingService {
           passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
           driverImage: driver.profileImage || null, rating: driver.rating,
+          ablyChannelId: `WG-rides-${ride.rideUUId}`,
+          driverChannelId: ride.driverChannelId || `WG-rides-${ride.rideUUId}`,
+          passengerChannelId: ride.passengerChannelId || `WG-rides-${ride.rideUUId}`,
+          driverLocationChannelId: ride.driverLocationChannelId || `D-LOCATION-${ride.rideUUId}`,
+          passengerLocationChannelId: ride.passengerLocationChannelId || `P-LOCATION-${ride.rideUUId}`,
         });
 
         // Notify driver about ride request
@@ -613,7 +618,7 @@ export class MatchmakingService {
         }).exec();
 
         // Publish driver location update to the driver location channel
-        const channelId = activeRide.driverLocationChannelId || `WG-LOCATION-${activeRide.rideUUId}`;
+        const channelId = activeRide.driverLocationChannelId || `WG-DRIVER-LOCATION-${driverId}`;
         await this.ablyService.publish(channelId, 'driver-location-update', {
           driverId,
           latitude,
@@ -623,14 +628,37 @@ export class MatchmakingService {
           updatedAt: new Date().toISOString(),
         });
 
-        // Publish updated information to the ride request channel
-        await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'driver-location-update', {
+        // Publish updated information to the ride request channel with all original ride details
+        await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'ride-request', {
+          rideId: activeRide._id.toString(),
+          rideUUId: activeRide.rideUUId,
+          rideType: activeRide.rideType,
+          pickupLocation: activeRide.pickupLocation ? {
+            address: activeRide.pickupLocation.address,
+            coordinates: activeRide.pickupLocation.coordinates,
+            city: activeRide.pickupLocation.city,
+          } : null,
+          dropoffLocation: activeRide.dropoffLocation ? {
+            address: activeRide.dropoffLocation.address,
+            coordinates: activeRide.dropoffLocation.coordinates,
+            city: activeRide.dropoffLocation.city,
+          } : null,
+          distanceInKm: activeRide.distanceInKm || 0,
+          estimatedFare: activeRide.estimatedFare || 0,
+          estimatedTimeInMinutes: activeRide.estimatedTimeInMinutes || 0,
+          passengerId: activeRide.passengerId.toString(),
           driverId,
+          distanceToPickupKm: Math.round(distanceKm * 100) / 100,
           latitude,
           longitude,
           distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
           estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
           updatedAt: new Date().toISOString(),
+          ablyChannelId: `WG-rides-${activeRide.rideUUId}`,
+          driverChannelId: activeRide.driverChannelId || `WG-rides-${activeRide.rideUUId}`,
+          passengerChannelId: activeRide.passengerChannelId || `WG-rides-${activeRide.rideUUId}`,
+          driverLocationChannelId: activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`,
+          passengerLocationChannelId: activeRide.passengerLocationChannelId || `P-LOCATION-${activeRide.rideUUId}`,
         });
 
         this.logger.log(`Published driver location for ride ${activeRide.rideUUId}: dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);
@@ -716,7 +744,7 @@ export class MatchmakingService {
     }).exec();
 
     // Publish passenger location update to the driver location channel
-    const channelId = activeRide.passengerLocationChannelId || `WG-PASSANGER-LOCATION-${passengerId}`;
+    const channelId = activeRide.passengerLocationChannelId || `WG-PASSENGER-LOCATION-${passengerId}`;
     await this.ablyService.publish(channelId, 'passenger-location-update', {
       passengerId,
       latitude,
@@ -726,14 +754,35 @@ export class MatchmakingService {
       updatedAt: new Date().toISOString(),
     });
 
-    // Publish updated information to the ride request channel
-    await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'passenger-location-update', {
-      passengerId,
+    // Publish updated information to the ride request channel with all original ride details
+    await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'ride-request', {
+      rideId: activeRide._id.toString(),
+      rideUUId: activeRide.rideUUId,
+      rideType: activeRide.rideType,
+      pickupLocation: activeRide.pickupLocation ? {
+        address: activeRide.pickupLocation.address,
+        coordinates: activeRide.pickupLocation.coordinates,
+        city: activeRide.pickupLocation.city,
+      } : null,
+      dropoffLocation: activeRide.dropoffLocation ? {
+        address: activeRide.dropoffLocation.address,
+        coordinates: activeRide.dropoffLocation.coordinates,
+        city: activeRide.dropoffLocation.city,
+      } : null,
+      distanceInKm: activeRide.distanceInKm || 0,
+      estimatedFare: activeRide.estimatedFare || 0,
+      estimatedTimeInMinutes: activeRide.estimatedTimeInMinutes || 0,
+      passengerId: activeRide.passengerId.toString(),
       latitude,
       longitude,
       distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
       estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
       updatedAt: new Date().toISOString(),
+      ablyChannelId: `WG-rides-${activeRide.rideUUId}`,
+      driverChannelId: activeRide.driverChannelId || `WG-rides-${activeRide.rideUUId}`,
+      passengerChannelId: activeRide.passengerChannelId || `WG-rides-${activeRide.rideUUId}`,
+      driverLocationChannelId: activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`,
+      passengerLocationChannelId: activeRide.passengerLocationChannelId || `P-LOCATION-${activeRide.rideUUId}`,
     });
 
     this.logger.log(`Published passenger location for ride ${activeRide.rideUUId}: dist=${distanceKm.toFixed(2)}km, time=${Math.ceil(durationMinutes)}min`);

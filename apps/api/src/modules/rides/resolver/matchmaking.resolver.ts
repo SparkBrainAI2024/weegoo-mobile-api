@@ -2,7 +2,7 @@ import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { Logger, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { TriggerInstantMatchmakingInput, UpdateLocationInput, User } from '@libs/data-access';
+import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, UpdateLocationInput, User } from '@libs/data-access';
 import { MatchmakingIntegrationService } from '../matchmaking-integration.service';
 import { TriggerMatchmakingResultResponse, LocationUpdateResult } from '../../../../../../libs/data-access/dtos/response/match-making.response';
 
@@ -32,6 +32,29 @@ export class MatchmakingResolver {
       input.pickupLocation,
       input.dropoffLocation,
       input.vehicleType,
+    );
+  }
+
+  /**
+   * Create a scheduled ride and trigger scheduled matchmaking.
+   * rideType: SCHEDULED, bookingTime, noOfPassengers (default 1).
+   */
+  @Mutation(() => TriggerMatchmakingResultResponse, {
+    name: 'requestScheduledRide',
+    description: 'Create a scheduled ride with pickup/dropoff and booking time, then match drivers via expanding-ring algorithm',
+  })
+  async requestScheduledRide(
+    @CurrentUser() user: User,
+    @Args('input') input: TriggerScheduledMatchmakingInput,
+  ): Promise<TriggerMatchmakingResultResponse> {
+    this.logger.log(`GraphQL: requestScheduledRide called by user ${user._id}`);
+    return this.matchmakingIntegration.createAndMatchScheduledRide(
+      user._id.toString(),
+      input.pickupLocation,
+      input.dropoffLocation,
+      input.rideType,
+      input.bookingTime,
+      input.noOfPassengers || 1,
     );
   }
 

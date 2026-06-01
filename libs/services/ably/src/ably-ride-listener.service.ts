@@ -4,6 +4,7 @@ import { AblyService } from './ably.service';
 export interface RideRequestEvent {
   rideId: string;
   rideUUId: string;
+  rideType?: string;
   pickupLocation: any;
   dropoffLocation: any;
   distanceInKm: number;
@@ -15,6 +16,9 @@ export interface RideRequestEvent {
   expirySeconds: number;
   attemptNumber: number;
   isScheduled?: boolean;
+  bookingTime?: string;
+  driverImage?: string | null;
+  rating?: number;
   weather?: string;
   traffic?: string;
 }

@@ -129,14 +129,25 @@ export class DriverRideAcceptanceService implements OnModuleInit {
     // Publish full details to passenger channel
     await this.ablyService.publish(`ride:${rideId}:passenger`, 'driver-accepted', acceptDetails);
 
-    // Notify matchmaking service
-    await this.ablyService.publish(`ride:${rideId}:driver-response`, 'driver-response', {
+    // Notify matchmaking service via its listener channel
+    await this.ablyService.publish(`WG-RIDE-${updatedRide.rideUUId}:driver-response`, 'driver-response', {
       driverId,
       action: 'accept',
     });
 
+    // Also notify the ride request channel so all subscribers get driver info
+    await this.ablyService.publish(`WG-RIDE-${updatedRide.rideUUId}-ride-request`, 'driver-accepted', {
+      ...acceptDetails,
+      acceptedAt: new Date().toISOString(),
+    });
+
     // Notify all other drivers that the ride is taken
     await this.ablyService.publish(`ride:${rideId}:drivers`, 'ride-taken', {
+      rideId,
+      rideUUId: updatedRide.rideUUId,
+      message: 'This ride has been accepted by another driver',
+    });
+    await this.ablyService.publish(`WG-RIDE-${updatedRide.rideUUId}-ride-request`, 'ride-taken', {
       rideId,
       rideUUId: updatedRide.rideUUId,
       message: 'This ride has been accepted by another driver',
@@ -151,10 +162,17 @@ export class DriverRideAcceptanceService implements OnModuleInit {
   async rejectRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
 
-    await this.ablyService.publish(`ride:${rideId}:driver-response`, 'driver-response', {
-      driverId,
-      action: 'reject',
-    });
+    const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+
+    // Notify matchmaking service via its listener channel
+    await this.ablyService.publish(
+      `WG-RIDE-${ride.rideUUId}:driver-response`,
+      'driver-response',
+      {
+        driverId,
+        action: 'reject',
+      },
+    );
 
     return { success: true, message: 'Ride rejected' };
   }

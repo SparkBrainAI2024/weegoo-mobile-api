@@ -329,7 +329,7 @@ export class RidesService {
         }
         : null,
       ablyChannelId: `WG-rides-${ride.rideUUId}`,
-      driverChannelId: ride.driverChannelId || `WG-rides-${ride.rideUUId}`,
+      driverChannelId: ride.driverChannelId || `WG-DRIVER-${ride.rideUUId}`,
       passengerChannelId: ride.passengerChannelId || `WG-rides-${ride.rideUUId}`,
       driverLocationChannelId: ride.driverLocationChannelId || `D-LOCATION-${ride.rideUUId}`,
       passengerLocationChannelId: ride.passengerLocationChannelId || `P-LOCATION-${ride.rideUUId}`,

@@ -84,6 +84,7 @@ export * from './dtos/input/ride-location.input';
 export * from './dtos/input/create-favourite.input';
 export * from './dtos/input/create-notification.input';
 export * from './dtos/input/matchmaking.input';
+export * from './dtos/input/scheduled-ride.input';
 export * from './dtos/input/matchmaking-service-input';
 
 

@@ -68,54 +68,5 @@ export class DriverRideLocationResolver {
     } catch (error: any) {
       this.logger.error(`Failed to call matchmaking service for driver location: ${error?.message || error}`);
     }
-
-    // Fallback: update directly if matchmaking service is unavailable
-    try {
-      const driverObjectId = new Types.ObjectId(user._id);
-      
-      // Update driver location in user details
-      await this.userDetailsModel.findOneAndUpdate(
-        { userId: driverObjectId, deleted: false },
-        { $set: { geoLocation: { type: 'Point', coordinates: [input.longitude, input.latitude] } } },
-        { new: true },
-      ).exec();
-
-      // Find active ride
-      const activeRide = await this.ridesModel.findOne({
-        driverId: driverObjectId,
-        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] },
-        deleted: false,
-      }).exec();
-
-      if (activeRide) {
-        // Publish driver location update directly to Ably channel
-        const channelId = activeRide.driverLocationChannelId || `D-LOCATION-${activeRide.rideUUId}`;
-        await this.ablyService.publish(channelId, 'driver-location-update', {
-          driverId: user._id.toString(),
-          latitude: input.latitude,
-          longitude: input.longitude,
-          updatedAt: new Date().toISOString(),
-        });
-
-        this.logger.log(`Published driver location for ride ${activeRide.rideUUId} via fallback`);
-      }
-
-      return {
-        success: true,
-        message: 'Location updated successfully',
-        latitude: input.latitude,
-        longitude: input.longitude,
-        updatedAt: new Date().toISOString(),
-      };
-    } catch (error: any) {
-      this.logger.error(`Failed to update driver location: ${error?.message || error}`);
-      return {
-        success: false,
-        message: 'Failed to update location',
-        latitude: input.latitude,
-        longitude: input.longitude,
-        updatedAt: new Date().toISOString(),
-      };
-    }
   }
 }
