@@ -46,7 +46,7 @@ export class MatchAttemptInfo {
 }
 
 @ObjectType()
-export class TriggerMatchmakingResult {
+export class TriggerMatchmakingResultResponse {
   @Field(() => Boolean)
   success: boolean;
 

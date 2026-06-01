@@ -302,9 +302,7 @@ export class MatchmakingService {
       .populate('driverId')
       .limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING)
       .exec();
-
-    const drivers: DriverScore[] = [];
-
+    const drivers: DriverScore[] = []
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
       if (!driver) continue;
@@ -321,7 +319,6 @@ export class MatchmakingService {
         deleted: false,
       }).exec();
       if (activeRide) continue;
-
       const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
       const driverRating = 4.5;
       if (driverRating < minRating) continue;
@@ -338,7 +335,8 @@ export class MatchmakingService {
       }
 
       const distResult = await this.distanceCalculator.calculateDriverDistance(pickupLat, pickupLng, driverLat, driverLng);
-
+      this.logger.log(`Searching drivers ${distResult.distanceKm} distance`);
+   
       if (distResult.distanceKm <= radiusKm) {
         const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
         drivers.push({

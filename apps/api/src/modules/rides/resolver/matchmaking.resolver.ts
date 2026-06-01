@@ -3,8 +3,8 @@ import { Logger, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
 import { TriggerInstantMatchmakingInput, UpdateLocationInput, User } from '@libs/data-access';
-import { MatchmakingIntegrationService } from './matchmaking-integration.service';
-import { TriggerMatchmakingResult, LocationUpdateResult } from './dto/matchmaking-response.dto';
+import { MatchmakingIntegrationService } from '../matchmaking-integration.service';
+import { TriggerMatchmakingResultResponse, LocationUpdateResult } from '../../../../../../libs/data-access/dtos/response/match-making.response';
 
 @Resolver()
 @UseGuards(AuthGuard)
@@ -18,14 +18,14 @@ export class MatchmakingResolver {
    * If matchmaking fails, the ride is deleted.
    * If successful, the ride stays saved with the matched driver.
    */
-  @Mutation(() => TriggerMatchmakingResult, {
+  @Mutation(() => TriggerMatchmakingResultResponse, {
     name: 'requestInstantRide',
     description: 'Create an instant ride with pickup/dropoff/vehicle type, then match drivers via expanding-ring algorithm',
   })
   async requestInstantRide(
     @CurrentUser() user: User,
     @Args('input') input: TriggerInstantMatchmakingInput,
-  ): Promise<TriggerMatchmakingResult> {
+  ): Promise<TriggerMatchmakingResultResponse> {
     this.logger.log(`GraphQL: requestInstantRide called by user ${user._id}`);
     return this.matchmakingIntegration.triggerInstantMatchmaking(
       user._id.toString(),

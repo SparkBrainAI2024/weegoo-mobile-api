@@ -24,12 +24,3 @@ export class TriggerInstantMatchmakingInput {
   @Min(1)
   noOfPassengers: number;
 }
-
-@InputType()
-export class UpdateLocationInput {
-  @Field(() => Float)
-  latitude: number;
-
-  @Field(() => Float)
-  longitude: number;
-}

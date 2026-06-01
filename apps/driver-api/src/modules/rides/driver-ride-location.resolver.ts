@@ -2,7 +2,7 @@ import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { Logger, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { User } from '@libs/data-access';
+import { LocationUpdateResult, UpdateLocationInput, User } from '@libs/data-access';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
@@ -11,38 +11,6 @@ import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { AblyService } from '@libs/services/ably';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
-import { Field, InputType, Float, ObjectType } from '@nestjs/graphql';
-import { IsNumber } from 'class-validator';
-
-@InputType()
-export class UpdateDriverLocationInput {
-  @Field(() => Float)
-  @IsNumber()
-  latitude: number;
-
-  @Field(() => Float)
-  @IsNumber()
-  longitude: number;
-}
-
-@ObjectType()
-export class LocationUpdateResult {
-  @Field(() => Boolean)
-  success: boolean;
-
-  @Field(() => String)
-  message: string;
-
-  @Field(() => Float)
-  latitude: number;
-
-  @Field(() => Float)
-  longitude: number;
-
-  @Field(() => String)
-  updatedAt: string;
-}
-
 @Resolver()
 @UseGuards(AuthGuard)
 export class DriverRideLocationResolver {
@@ -67,7 +35,7 @@ export class DriverRideLocationResolver {
   })
   async updateDriverLocation(
     @CurrentUser() user: User,
-    @Args('input') input: UpdateDriverLocationInput,
+    @Args('input') input: UpdateLocationInput,
   ): Promise<LocationUpdateResult> {
     this.logger.log(`GraphQL: updateDriverLocation called by driver ${user._id}`);
 

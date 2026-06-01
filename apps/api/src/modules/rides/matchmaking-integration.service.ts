@@ -6,26 +6,7 @@ import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
-import { RideLocationInput } from '@libs/data-access';
-
-export interface UpdateLocationResult {
-  success: boolean;
-  message: string;
-  latitude: number;
-  longitude: number;
-  updatedAt: string;
-}
-
-export interface TriggerMatchmakingResult {
-  success: boolean;
-  message: string;
-  matched: boolean;
-  rideId: string;
-  rideUUId: string;
-  driverId?: string;
-  driverName?: string;
-  attempts?: any[];
-}
+import { RideLocationInput, TriggerMatchmakingResult, UpdateLocationResult } from '@libs/data-access';
 
 @Injectable()
 export class MatchmakingIntegrationService {
@@ -35,7 +16,7 @@ export class MatchmakingIntegrationService {
     @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly envService: EnvService,
-  ) {}
+  ) { }
 
   /**
    * Create an instant ride, trigger matchmaking, and if matchmaking fails,
@@ -84,7 +65,7 @@ export class MatchmakingIntegrationService {
     try {
       ride = await this.ridesModel.create(rideData);
       this.logger.log(`Ride created with ID: ${ride._id} (${ride.rideUUId})`);
-    } catch (err:any) {
+    } catch (err: any) {
       this.logger.error(`Failed to create ride: ${err.message}`);
       return { success: false, matched: false, rideId: '', rideUUId: '', message: 'Failed to create ride' };
     }

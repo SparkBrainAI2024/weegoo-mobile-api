@@ -61,6 +61,7 @@ export * from './dtos/input/device.input';
 export * from './dtos/input/email-input';
 export * from './dtos/input/email-signin.input';
 export * from './dtos/input/email-signup.input';
+export * from './dtos/input/location-update.input';
 export * from './dtos/input/geo-location.input';
 export * from './dtos/input/reset-password.input';
 export * from './dtos/input/set-password.input';
@@ -82,7 +83,8 @@ export * from './dtos/input/create-issue.input'
 export * from './dtos/input/ride-location.input';
 export * from './dtos/input/create-favourite.input';
 export * from './dtos/input/create-notification.input';
-export * from './dtos/input/matchmaking.input'
+export * from './dtos/input/matchmaking.input';
+
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -100,3 +102,10 @@ export * from './dtos/response/issue.response'
 export * from './dtos/response/favourites-with-pagination.response';
 export * from './dtos/response/ride-list-with-pagination.response';
 export * from './dtos/response/notification-listing-with-curson-pagination.response';
+export * from './dtos/response/match-making.response'
+
+//interfaces
+export * from './interfaces/location.interface'
+export * from './interfaces/pagination.interface';
+export * from './interfaces/jwt-payload.interface';
+export * from './interfaces/trigger-matchmaking.interface'
