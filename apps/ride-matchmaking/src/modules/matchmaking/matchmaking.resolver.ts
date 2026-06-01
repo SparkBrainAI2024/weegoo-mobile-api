@@ -60,16 +60,13 @@ export class MatchmakingResolver {
     this.logger.log(`GraphQL: SCHEDULED matchmaking triggered for ride: ${input.rideId}`);
     const result = await this.matchmakingService.matchScheduledDrivers({
       rideId: input.rideId,
-      rain: (input.rain as unknown as RainCondition) || undefined,
-      historicalTraffic: (input.historicalTraffic as unknown as HistoricalTraffic) || undefined,
     });
 
     return {
       matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
       driverId: result.driverId, driverName: result.driverName,
       estimatedFare: result.estimatedFare ? {
-        baseFare: result.estimatedFare.baseFare, rideTypeMultiplier: result.estimatedFare.rideTypeMultiplier,
-        rainMultiplier: result.estimatedFare.rainMultiplier, trafficMultiplier: result.estimatedFare.trafficMultiplier,
+        baseFare: result.estimatedFare.baseFare, 
         total: result.estimatedFare.total,
       } : undefined,
       attempts: result.attempts.map((a) => ({
@@ -128,6 +125,6 @@ export class MatchmakingResolver {
   async scheduledEstimatedFare(@Args('input') input: ScheduledFareInput): Promise<ScheduledFareBreakdownGraphQL | null> {
     const fare = await this.matchmakingService.getScheduledEstimatedFare(input.rideId, (input.rain as unknown as RainCondition) || undefined, (input.historicalTraffic as unknown as HistoricalTraffic) || undefined);
     if (!fare) return null;
-    return { baseFare: fare.baseFare, rideTypeMultiplier: fare.rideTypeMultiplier, rainMultiplier: fare.rainMultiplier, trafficMultiplier: fare.trafficMultiplier, total: fare.total };
+    return { baseFare: fare.baseFare,  total: fare.total };
   }
 }

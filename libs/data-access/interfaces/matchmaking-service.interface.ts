@@ -52,8 +52,5 @@ export interface MatchResult {
 
 export interface ScheduledFareBreakdown {
   baseFare: number;
-  rideTypeMultiplier: number;
-  rainMultiplier: number;
-  trafficMultiplier: number;
   total: number;
 }

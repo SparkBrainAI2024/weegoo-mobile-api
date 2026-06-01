@@ -21,15 +21,6 @@ export class ScheduledFareBreakdownGraphQL {
   baseFare: number;
 
   @Field(() => Float)
-  rideTypeMultiplier: number;
-
-  @Field(() => Float)
-  rainMultiplier: number;
-
-  @Field(() => Float)
-  trafficMultiplier: number;
-
-  @Field(() => Float)
   total: number;
 }
 

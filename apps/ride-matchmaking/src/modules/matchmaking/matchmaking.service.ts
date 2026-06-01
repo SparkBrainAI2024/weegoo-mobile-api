@@ -72,8 +72,6 @@ export class MatchmakingService {
 
   async matchScheduledDrivers(params: {
     rideId: string;
-    rain?: RainCondition;
-    historicalTraffic?: HistoricalTraffic;
   }): Promise<{
     matched: boolean;
     rideId: string;
@@ -85,7 +83,7 @@ export class MatchmakingService {
     attempts: MatchAttemptResult[];
     message: string;
   }> {
-    const { rideId, rain, historicalTraffic } = params;
+    const { rideId } = params;
     const ride = await this.ridesModel
       .findById(new Types.ObjectId(rideId))
       .populate('vehicleId')
@@ -135,8 +133,6 @@ export class MatchmakingService {
       distanceKm: routeDistanceKm,
       durationMinutes: routeDurationMinutes,
       vehicleType: requestedType,
-      rain,
-      historicalTraffic,
     });
 
     const radii = MATCHMAKING_CONFIG.SCHEDULED_FALLBACK_RADII_KM;
@@ -170,7 +166,7 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'scheduled-ride-request', {
+        await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'scheduled-ride-details', {
           rideId, rideUUId: ride.rideUUId, rideType: ride.rideType, bookingTime: ride.bookingTime,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
           dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
@@ -265,7 +261,7 @@ export class MatchmakingService {
 
       for (const driver of requestBatch) {
         await this.ablyService.publish(`
-          WG-RIDE-${ride.rideUUId}-ride-request`, 'ride-request', {
+          WG-RIDE-${ride.rideUUId}-ride-details`, 'ride-details', {
           rideId, rideUUId: ride.rideUUId, rideType: ride.rideType,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
           dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
@@ -629,7 +625,7 @@ export class MatchmakingService {
         });
 
         // Publish updated information to the ride request channel with all original ride details
-        await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'ride-request', {
+        await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-details`, 'ride-details', {
           rideId: activeRide._id.toString(),
           rideUUId: activeRide.rideUUId,
           rideType: activeRide.rideType,
@@ -755,7 +751,7 @@ export class MatchmakingService {
     });
 
     // Publish updated information to the ride request channel with all original ride details
-    await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-request`, 'ride-request', {
+    await this.ablyService.publish(`WG-RIDE-${activeRide.rideUUId}-ride-details`, 'ride-details', {
       rideId: activeRide._id.toString(),
       rideUUId: activeRide.rideUUId,
       rideType: activeRide.rideType,
@@ -804,9 +800,11 @@ export class MatchmakingService {
         const route = await this.distanceCalculator.calculateDistance(pickupCoords[1], pickupCoords[0], dropoffCoords[1], dropoffCoords[0]);
         distanceKm = route.distanceKm;
         durationMinutes = route.durationMinutes;
-      } catch {}
+      } catch {
+        this.logger.log(`Failed to calculate distance for scheduled fare estimation, using defaults for ride ${rideId}`);
+      }
     }
-    return this.pricingService.calculateScheduledFare({ distanceKm, durationMinutes, vehicleType, rain, historicalTraffic });
+    return this.pricingService.calculateScheduledFare({ distanceKm, durationMinutes, vehicleType });
   }
 
   // ════════════════════════════════════════════════════════════════

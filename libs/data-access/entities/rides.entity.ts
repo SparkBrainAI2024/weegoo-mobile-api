@@ -106,11 +106,7 @@ export class Rides extends BaseEntity {
 
   @Field(() => String, { nullable: true })
   @Prop({ type: String, required: false })
-  passengerChannelId?: string;
-
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, required: false })
-  driverChannelId?: string;
+  ablyChannelId?: string;
 
   @Field(() => String, { nullable: true })
   @Prop({ type: String, required: false })
@@ -149,11 +145,8 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
   }
 
   // Set channel IDs based on rideUUId if not already set
-  if (this.rideUUId && !this.passengerChannelId) {
-    this.passengerChannelId = `WG-rides-${this.rideUUId}`;
-  }
-  if (this.rideUUId && !this.driverChannelId) {
-    this.driverChannelId = `WG-rides-${this.rideUUId}`;
+  if (this.rideUUId && !this.ablyChannelId) {
+    this.ablyChannelId = `WG-RIDE-${this.rideUUId}-ride-details`;
   }
   if (this.rideUUId && !this.passengerLocationChannelId) {
     this.passengerLocationChannelId = `P-LOCATION-${this.rideUUId}`;

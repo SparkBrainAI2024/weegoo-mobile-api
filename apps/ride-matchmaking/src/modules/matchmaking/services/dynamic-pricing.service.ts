@@ -1,8 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   FareBreakdown,
-  RainCondition,
-  HistoricalTraffic,
   ScheduledFareBreakdown,
 } from '@libs/data-access';
 import { MATCHMAKING_CONFIG } from '@libs/common';
@@ -46,15 +44,11 @@ export class DynamicPricingService {
     distanceKm: number;
     durationMinutes: number;
     vehicleType: string;
-    rain?: RainCondition;
-    historicalTraffic?: HistoricalTraffic;
   }): ScheduledFareBreakdown {
     const {
       distanceKm,
       durationMinutes,
       vehicleType,
-      rain = 'none',
-      historicalTraffic = 'low',
     } = params;
 
     const { SCHEDULED_FARE } = MATCHMAKING_CONFIG;
@@ -66,23 +60,11 @@ export class DynamicPricingService {
     const rideTypeMultiplier =
       SCHEDULED_FARE.RIDE_TYPE_MULTIPLIER[vehicleType] || 1.0;
 
-    const rainMultiplier =
-      rain !== 'none'
-        ? SCHEDULED_FARE.RAIN_MULTIPLIER[rain] || 1.0
-        : 1.0;
 
-    const trafficMultiplier =
-      historicalTraffic !== 'low'
-        ? SCHEDULED_FARE.SCHEDULED_TRAFFIC_MULTIPLIER[historicalTraffic] || 1.0
-        : 1.0;
-
-    const total = baseFare * rideTypeMultiplier * rainMultiplier * trafficMultiplier;
+    const total = baseFare * rideTypeMultiplier;
 
     const fare: ScheduledFareBreakdown = {
       baseFare: this.round(baseFare),
-      rideTypeMultiplier,
-      rainMultiplier,
-      trafficMultiplier,
       total: this.round(total),
     };
 
