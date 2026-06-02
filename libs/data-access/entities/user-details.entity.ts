@@ -7,6 +7,7 @@ import { BaseEntity } from "../base/base.entity";
 import { Vehicle } from "./vehicle.entity";
 import { VehicleImage } from "./vehicle-image.embedded";
 import { PublicImage } from "../common/public-image.entity";
+import { UserProfileImageEntity } from "../common/user-profile-image";
 
 export type UserDetailsDocument = UserDetails &
   HydratedDocument<UserDetails>;
@@ -31,9 +32,9 @@ export class UserDetails extends BaseEntity {
 
 
 
-  @Field(()=> [PublicImage])
-  @Prop({ type: [PublicImage], default: [] })
-  profileImages: PublicImage[];
+  @Field(()=> [UserProfileImageEntity])
+  @Prop({ type: [UserProfileImageEntity], default: [] })
+  profileImages: UserProfileImageEntity[];
 
   @Field({ nullable: true })
   @Prop({ required: false, type: Date, default: null })

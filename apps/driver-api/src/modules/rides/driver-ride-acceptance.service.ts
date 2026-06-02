@@ -9,6 +9,8 @@ import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { AblyRideListenerService, AblyService, RideChannelService } from '@libs/services/ably';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
+import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
+import { S3Service } from '@libs/s3/s3.service';
 
 export interface DriverAcceptDetails {
   rideId: string;
@@ -63,6 +65,7 @@ export class DriverRideAcceptanceService implements OnModuleInit {
     private readonly ablyService: AblyService,
     private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
+    private readonly s3: S3Service,
   ) {}
 
   onModuleInit() {
@@ -174,7 +177,7 @@ export class DriverRideAcceptanceService implements OnModuleInit {
         driverId: driverId,
         fullName: driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
-        profileImage: driverDetails?.profileImage || undefined,
+        profileImage: driverDetails?.profileImages?.length>0 ? getActiveProfileImageUrl(driverDetails.profileImages, (key) => this.s3.getPublicUrl(key)) : null,
         rating: 4.5, // placeholder — fetch from ratings collection in production
       },
       vehicle: {

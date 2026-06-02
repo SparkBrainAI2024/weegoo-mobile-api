@@ -30,6 +30,7 @@ import {
   UserTokenMetaRepository,
   roles,
 } from '@libs/data-access';
+import { S3Module } from '@libs/s3';
 
 export interface AuthModuleOptions {
   imports?: any[];
@@ -54,6 +55,7 @@ export class UserAuthModule {
           { name: Device.name, schema: DeviceSchema },
           { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
         ]),
+        S3Module,
 
         // ✅ Mailer properly configured using global ConfigService
         MailerModule.forRootAsync({
