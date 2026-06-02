@@ -11,5 +11,8 @@ export const RIDES = {
   INVALID_CANCEL_SUB_CATEGORY: "The selected cancel sub-category is not valid for your role",
   CANCEL_ALREADY_CANCELLED: 'This ride has already been cancelled and cannot be cancelled again.',
   RIDE_STATUS_MISMATCHED:"Ride should be ongoing or completed to save it.",
-  RIDE_ALREADY_FAVOURITE:"This ride is already on favourite list."
+  RIDE_ALREADY_FAVOURITE:"This ride is already on favourite list.",
+  UPDATE_RIDE_NOT_FOUND: "Upcoming confirmed ride not found. Only upcoming confirmed rides can be updated.",
+  UPDATE_RIDE_FAILED: "Failed to update the ride. Please try again.",
+  UPDATE_RIDE_SUCCESS: "Ride updated successfully.",
 }

@@ -217,7 +217,116 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   }
 
 
-async getOngoingRideWithDetails(
+/**
+   * Finds a ride by ID with all details populated (vehicle, driver, passenger).
+   * Used for getting complete ride information.
+   */
+  async findByIdWithAllDetails(rideId: string): Promise<RidesDocument | null> {
+    const filter = {
+      _id: rideId,
+      deleted: false,
+    };
+
+    const populate: Populate = [
+      {
+        path: 'vehicleId',
+        select: 'vehicleModel year color numberPlate vehicleType',
+      },
+      {
+        path: 'driverId',
+        select: '_id phone fullName',
+      },
+      {
+        path: 'passengerId',
+        select: '_id fullName email phone',
+      },
+    ];
+
+    return this.findOne(filter, populate);
+  }
+
+  /**
+   * Finds an upcoming confirmed ride by ID for a specific passenger.
+   * Upcoming confirmed rides have rideStatus CONFIRMED and bookingTime in the future.
+   */
+  async findUpcomingConfirmedRideById(
+    rideId: string,
+    passengerId: Types.ObjectId,
+  ): Promise<RidesDocument | null> {
+    const filter = {
+      _id: rideId,
+      passengerId: new Types.ObjectId(passengerId),
+      rideStatus: RideStatus.CONFIRMED,
+      bookingTime: { $gt: new Date() },
+      deleted: false,
+    };
+
+    const populate: Populate = [
+      {
+        path: 'vehicleId',
+        select: 'vehicleModel year color numberPlate vehicleType',
+      },
+      {
+        path: 'driverId',
+        select: '_id',
+      },
+    ];
+
+    return this.findOne(filter, populate);
+  }
+
+  /**
+   * Updates an upcoming confirmed ride with new booking time, pickup, or dropoff location.
+   * Returns the updated document.
+   */
+  async updateUpcomingConfirmedRide(
+    rideId: string,
+    passengerId: Types.ObjectId,
+    updateData: {
+      bookingTime?: Date;
+      pickupLocation?: any;
+      dropoffLocation?: any;
+    },
+  ): Promise<RidesDocument | null> {
+    const filter = {
+      _id: rideId,
+      passengerId: new Types.ObjectId(passengerId),
+      rideStatus: RideStatus.CONFIRMED,
+      bookingTime: { $gt: new Date() },
+      deleted: false,
+    };
+
+    const setFields: any = {};
+    if (updateData.bookingTime) {
+      setFields.bookingTime = updateData.bookingTime;
+    }
+    if (updateData.pickupLocation) {
+      setFields.pickupLocation = updateData.pickupLocation;
+    }
+    if (updateData.dropoffLocation) {
+      setFields.dropoffLocation = updateData.dropoffLocation;
+    }
+
+    const populate: Populate = [
+      {
+        path: 'vehicleId',
+        select: 'vehicleModel year color numberPlate vehicleType',
+      },
+      {
+        path: 'driverId',
+        select: '_id',
+      },
+    ];
+
+    return this.findOneAndUpdate(
+      filter,
+      { $set: setFields },
+      { new: true },
+      populate,
+    );
+  }
+
+  async getOngoingRideWithDetails(
   rideId: string,
   passengerId: Types.ObjectId,
 ): Promise<any> {
@@ -234,7 +343,7 @@ async getOngoingRideWithDetails(
     },
     {
       path: 'driverId',
-      select: '_id',  // only get driverId, we'll fetch UserDetails separately
+      select: '_id fullName phone',
     },
   ];
 

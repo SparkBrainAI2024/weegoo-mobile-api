@@ -350,7 +350,7 @@ export class MatchmakingService {
       }).exec();
       if (activeRide) continue;
       const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
-      const driverRating = 4.5;
+      const driverRating = userDetails.rating ?? 0;
       if (driverRating < minRating) continue;
 
       let driverLat: number;
@@ -420,7 +420,7 @@ export class MatchmakingService {
       if (conflictingRide) continue;
 
       const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
-      const driverRating = 4.5;
+      const driverRating = userDetails.rating ?? 0;
       if (driverRating < minRating) continue;
 
       let driverLat: number;
@@ -775,7 +775,13 @@ export class MatchmakingService {
 
     return {
       rideId: ride._id.toString(), rideUUId: ride.rideUUId,
-      driver: { driverId, fullName: driverUser?.fullName || 'Driver', phone: driverUser?.phone || '', profileImage: driverDetails?.profileImage || undefined, rating: 4.5 },
+      driver: {
+        driverId,
+        fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: driverDetails?.profileImage || undefined,
+        rating: driverDetails?.rating ?? 0
+      },
       vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 },
       passenger: { passengerId: ride.passengerId.toString(), fullName: '', phone: '' },
       pickupLocation: { address: ride.pickupLocation?.address || '', coordinates: ride.pickupLocation?.coordinates || [0, 0], city: ride.pickupLocation?.city },
@@ -792,7 +798,13 @@ export class MatchmakingService {
 
     return {
       rideId: ride._id.toString(), rideUUId: ride.rideUUId,
-      driver: { driverId, fullName: driverUser?.fullName || 'Driver', phone: driverUser?.phone || '', profileImage: driverDetails?.profileImage || undefined, rating: 4.5 },
+      driver: {
+        driverId,
+        fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: driverDetails?.profileImage || undefined,
+        rating: driverDetails?.rating ?? 0
+      },
       vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 },
       passenger: { passengerId: ride.passengerId.toString(), fullName: '', phone: '' },
       pickupLocation: { address: ride.pickupLocation?.address || '', coordinates: ride.pickupLocation?.coordinates || [0, 0], city: ride.pickupLocation?.city },
@@ -826,10 +838,10 @@ export class MatchmakingService {
       const driverDetails = await this.userDetailsModel.findOne({ userId: ride.driverId, deleted: false }).exec();
       driver = {
         driverId: ride.driverId.toString(),
-        fullName: driverUser?.fullName || 'Driver',
+        fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
         profileImage: driverDetails?.profileImage || undefined,
-        rating: 4.5,
+        rating: driverDetails?.rating ?? 0,
       };
     }
 

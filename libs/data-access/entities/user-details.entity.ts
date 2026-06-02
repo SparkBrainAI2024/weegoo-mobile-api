@@ -77,6 +77,10 @@ driverOnlineStatus?: DriverOnlineStatus;
     required: false,
   })
   province?: string;
+
+  @Field({ nullable: true ,defaultValue: 0})
+  @Prop({ required: false, type: Number, defaultValue: 0 })
+  rating?: number;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 

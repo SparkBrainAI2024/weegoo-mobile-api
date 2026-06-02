@@ -8,6 +8,7 @@ import { RideListWithPaginationResponse } from '@libs/data-access/dtos/response/
 import { Types } from 'mongoose';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { CancelRideResponse } from '@libs/data-access/dtos/response/cancel-ride.response';
+import { GetRideByIdInput } from '@libs/data-access/dtos/input/get-ride-by-id.input';
 
 @Resolver(() => Rides)
 @UseGuards(AuthGuard)
@@ -64,11 +65,19 @@ export class RidesResolver {
     );
   }
 
-@Mutation(() => CancelRideResponse)
-async cancelRide(
-  @CurrentUser() user: User,
-  @Args('input') input: CancelRideInput,
-) {
-  return this.ridesService.cancelRide(user, input);
-}
+@Query(() => Rides, { name: 'getRideById' })
+  async getRideById(
+    @CurrentUser() user: User,
+    @Args('input') input: GetRideByIdInput,
+  ) {
+    return this.ridesService.getRideById(input.rideId, user._id);
+  }
+
+  @Mutation(() => CancelRideResponse)
+  async cancelRide(
+    @CurrentUser() user: User,
+    @Args('input') input: CancelRideInput,
+  ) {
+    return this.ridesService.cancelRide(user, input);
+  }
 }

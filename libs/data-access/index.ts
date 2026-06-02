@@ -86,6 +86,8 @@ export * from './dtos/input/create-notification.input';
 export * from './dtos/input/matchmaking.input';
 export * from './dtos/input/scheduled-ride.input';
 export * from './dtos/input/matchmaking-service-input';
+export * from './dtos/input/get-ride-by-id.input';
+export * from './dtos/input/update-ride.input';
 
 
 // dtos - response
@@ -106,6 +108,7 @@ export * from './dtos/response/ride-list-with-pagination.response';
 export * from './dtos/response/notification-listing-with-curson-pagination.response';
 export * from './dtos/response/match-making.response'
 export * from './dtos/response/matchmaking-service-response.dto'
+export * from './dtos/response/update-ride.response';
 
 //interfaces
 export * from './interfaces/location.interface'

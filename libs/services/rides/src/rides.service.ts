@@ -4,6 +4,7 @@ import {  HttpStatus, Injectable } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 import { ErrorException } from '@libs/common/exceptions';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
+import { UpdateRideInput } from '@libs/data-access/dtos/input/update-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 import { toMongoId } from '@libs/common';
@@ -297,6 +298,165 @@ export class RidesService {
     });
   }
 
+  /**
+   * Gets ride details by ID with all populated information (vehicle, driver, passenger).
+   * Only the passenger who owns the ride can access it.
+   */
+  async getRideById(rideId: string, userId: Types.ObjectId): Promise<any> {
+    const rideDocument = await this.rideRepository.findByIdWithAllDetails(rideId);
+
+    if (!rideDocument) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    const ride = rideDocument.toObject() as any;
+
+    // Verify that the user is the passenger of this ride
+    if (ride.passengerId._id.toString() !== userId.toString()) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    transformToEntityNameObjectFromId(ride, ['vehicleId', 'vehicle']);
+
+    // Fetch detailed driver information
+    const driverDetails = ride.driverId
+      ? await this.userDetailsRepository.findOne(
+          { userId: toMongoId(ride.driverId._id.toString()) },
+          null,
+          {
+            fullName: 1,
+            profileImage: 1,
+            rating: 1,
+          },
+        )
+      : null;
+
+    // Fetch detailed passenger information
+    const passengerDetails = ride.passengerId
+      ? await this.userDetailsRepository.findOne(
+          { userId: toMongoId(ride.passengerId._id.toString()) },
+          null,
+          {
+            fullName: 1,
+            profileImage: 1,
+            rating: 1,
+          },
+        )
+      : null;
+
+    return {
+      ...ride,
+      _id: ride._id.toString(),
+      driver: driverDetails
+        ? {
+            fullName: driverDetails.fullName || ride.driverId.fullName || 'Driver',
+            profileImage: driverDetails.profileImage || '',
+            rating: driverDetails.rating ?? 0,
+            phone: ride.driverId.phone,
+          }
+        : null,
+      passenger: passengerDetails
+        ? {
+            fullName: passengerDetails.fullName || ride.passengerId.fullName || 'Passenger',
+            profileImage: passengerDetails.profileImage || '',
+            phone: ride.passengerId.phone,
+            rating: passengerDetails.rating ?? 0,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Updates an upcoming confirmed ride's booking time, pickup location, and/or dropoff location.
+   * Only rides with rideStatus CONFIRMED and bookingTime in the future can be updated.
+   * Returns the updated ride document with a localized message.
+   */
+  async updateRide(
+    user: User,
+    input: UpdateRideInput,
+  ): Promise<any> {
+    // Find the upcoming confirmed ride for this passenger
+    const existingRide = await this.rideRepository.findUpcomingConfirmedRideById(
+      input.rideId,
+      user._id,
+    );
+
+    if (!existingRide) {
+      ErrorException(
+        null,
+        'RIDES.UPDATE_RIDE_NOT_FOUND',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // Build update data - only include fields that are provided
+    const updateData: {
+      bookingTime?: Date;
+      pickupLocation?: any;
+      dropoffLocation?: any;
+    } = {};
+
+    if (input.bookingTime) {
+      updateData.bookingTime = input.bookingTime;
+    }
+
+    if (input.pickupLocation) {
+      updateData.pickupLocation = {
+        type: 'Point',
+        coordinates: [
+          input.pickupLocation.longitude,
+          input.pickupLocation.latitude,
+        ],
+        address: input.pickupLocation.address,
+        city: input.pickupLocation.city || '',
+        province: input.pickupLocation.province || ProvinceEnum.BAGMATI,
+        district: input.pickupLocation.district || '',
+        fullAddress: input.pickupLocation.fullAddress,
+      };
+    }
+
+    if (input.dropoffLocation) {
+      updateData.dropoffLocation = {
+        type: 'Point',
+        coordinates: [
+          input.dropoffLocation.longitude,
+          input.dropoffLocation.latitude,
+        ],
+        address: input.dropoffLocation.address,
+        city: input.dropoffLocation.city || '',
+        province: input.dropoffLocation.province || ProvinceEnum.BAGMATI,
+        district: input.dropoffLocation.district || '',
+        fullAddress: input.dropoffLocation.fullAddress,
+      };
+    }
+
+    const updatedRide = await this.rideRepository.updateUpcomingConfirmedRide(
+      input.rideId,
+      user._id,
+      updateData,
+    );
+
+    if (!updatedRide) {
+      ErrorException(
+        null,
+        'RIDES.UPDATE_RIDE_FAILED',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const ride = updatedRide.toObject() as any;
+    transformToEntityNameObjectFromId(ride, ['vehicleId', 'vehicle']);
+
+    return {
+      _id: ride._id.toString(),
+      ride: {
+        ...ride,
+        _id: ride._id.toString(),
+      },
+      message: 'RIDES.UPDATE_RIDE_SUCCESS',
+    };
+  }
+
   async getOngoingRideWithDetails(rideId: string, userId: Types.ObjectId): Promise<any> {
     const rideDocument = await this.rideRepository.getOngoingRideWithDetails(
       rideId,
@@ -323,9 +483,10 @@ export class RidesService {
       _id: ride._id.toString(),
       driver: driverDetails
         ? {
-          fullName: driverDetails.fullName,
+          fullName: driverDetails.fullName || ride.driverId?.fullName || "Driver",
           profileImage: driverDetails.profileImage || "",
-          rating: Math.floor(Math.random() * 5) + 1 // Random rating between 1 and 5 for testing,
+          rating: driverDetails.rating ?? 0,
+          phone: ride.driverId?.phone
         }
         : null,
       ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
@@ -334,4 +495,3 @@ export class RidesService {
 
   }
 }
-
