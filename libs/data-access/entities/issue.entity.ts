@@ -16,7 +16,7 @@ export class Issue {
 
   // who submitted — set from JWT token, never from input
   @Field(() => String)
-  @Prop({ required: true, type: Types.ObjectId, ref: 'User', index: true })
+  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
   reportedBy: string;
 
   @Field(() => ReportedByType)
@@ -25,7 +25,7 @@ export class Issue {
 
   // nullable — null means general issue not tied to a ride
   @Field(() => String, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'Rides', default: null, index: true })
+  @Prop({ type: Types.ObjectId, ref: 'Rides', default: null })
   rideId?: string;
 
 @Field(() => IssueCategoryEmbed, { nullable: true })
