@@ -11,12 +11,14 @@ import { MatchmakingIntegrationService } from "./matchmaking-integration.service
 import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
 
 import { PassengerRidesResolver } from "./resolver/rides.resolver";
+import { S3Module } from "@libs/s3/s3.module";
 @Module({
     imports: [
         RidePersistentModule,
         UserPersistenceModule,
         TransactionModule,
         IssuePersistenceModule,
+        S3Module,
         MongooseModule.forFeature([
             { name: Rides.name, schema: RidesSchema },
             { name: Vehicle.name, schema: VehicleSchema },
