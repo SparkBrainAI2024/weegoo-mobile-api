@@ -1,6 +1,8 @@
 import { ErrorException, toMongoId } from "@libs/common";
 import { CreateUserDetailsInput, DriverOnlineStatus, UserDetailsRepository, UserRepository } from "@libs/data-access";
+import { ImageStatus } from "@libs/data-access/enums/upload.enum";
 import { HttpStatus, Injectable } from "@nestjs/common";
+import { stat } from "fs";
 import { Types } from "mongoose";
 
 
@@ -25,12 +27,33 @@ export class UserDetailsService {
         await this.userRepository.updateById(toMongoId(userId), { email: input.email });
       }
       const details = await this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
-      if (!details)
-        return await this.userDetailsRepository.create({ userId: toMongoId(userId), ...input });
+      if (!details) {
+        const profileImagesArr = input.profileImage ? [{
+          s3Key: input.profileImage,
+          status: ImageStatus.ACTIVE,
+          createdAt: new Date(),
+        }] : [];
+        delete input.profileImage;
+        return await this.userDetailsRepository.create({ userId: toMongoId(userId), ...input, profileImages: profileImagesArr });
+      }
+
+      if (input.profileImage && details.profileImages.every(img => img.s3Key !== input.profileImage)) {
+        //set all existing image to inactive
+        //set this new one to active status
+        details.profileImages.forEach(img => {
+          img.status = ImageStatus.INACTIVE;
+        });
+        details.profileImages.push({
+          s3Key: input.profileImage,
+          status: ImageStatus.ACTIVE,
+          createdAt: new Date(),
+        });
+      }
+      delete input.profileImage;
 
       await this.userDetailsRepository.updateOne(
         { userId: toMongoId(userId) },
-        { ...input },
+        { ...input, profileImages: details.profileImages },
       );
 
       await this.userRepository.updateOne(
@@ -82,6 +105,6 @@ export class UserDetailsService {
   }
 
   async setOnlineStatus(userId: string, driverOnlineStatus: DriverOnlineStatus) {
-  return this.userDetailsRepository.setOnlineStatus(userId, driverOnlineStatus);
-}
+    return this.userDetailsRepository.setOnlineStatus(userId, driverOnlineStatus);
+  }
 }
