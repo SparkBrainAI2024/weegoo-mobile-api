@@ -1,8 +1,8 @@
-import { Field, InputType, Float, Int } from "@nestjs/graphql";
-import { IsEnum, IsNotEmpty, IsOptional, Min, ValidateNested } from "class-validator";
-import { RideTypes } from "@libs/data-access/enums/rides.enum";
+import { Field, InputType, Int } from "@nestjs/graphql";
+import { IsEnum, IsNotEmpty, Min, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { RideLocationInput } from "./ride-location.input";
+import { VehicleType } from "@libs/data-access/enums/vehicle.enum";
 
 @InputType()
 export class TriggerScheduledMatchmakingInput {
@@ -16,9 +16,9 @@ export class TriggerScheduledMatchmakingInput {
   @Type(() => RideLocationInput)
   dropoffLocation: RideLocationInput;
 
-  @Field(() => RideTypes)
-  @IsEnum(RideTypes)
-  rideType: RideTypes;
+  @Field(() => VehicleType)
+  @IsEnum(VehicleType)
+  vehicleType: VehicleType;
 
   @Field(() => Date)
   @IsNotEmpty()

@@ -52,7 +52,7 @@ export class MatchmakingResolver {
       user._id.toString(),
       input.pickupLocation,
       input.dropoffLocation,
-      input.rideType,
+      input.vehicleType,
       input.bookingTime,
       input.noOfPassengers || 1,
     );
