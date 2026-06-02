@@ -29,4 +29,15 @@ export class Fare {
     @ApiProperty({ nullable: false })
     noOfPassengers: Number;
 
+
+    @Field(() => Number)
+    @Prop({ type: Number, default: 0, required: true })
+    @ApiProperty({ nullable: false })
+    discountAmount: Number;
+
+    @Field(() => String, { nullable: true })
+    @Prop({ type: Types.ObjectId, ref: 'PromoCode', default: null })
+    @ApiProperty({ nullable: true })
+    promoCodeId?: Types.ObjectId;
+
 }

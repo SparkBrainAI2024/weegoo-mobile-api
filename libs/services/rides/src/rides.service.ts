@@ -232,8 +232,8 @@ export class RidesService {
         adminId: adminId.toString(),
         riderId: newRide.passengerId.toString(),
         driverId: newRide.driverId.toString(),
-        totalFare: newRide.estimatedFare,
-        commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
+        totalFare: Number(newRide.estimatedFare),
+        commission: Number(newRide.estimatedFare) * 0.2, // Assuming 20% commission for testing
       });
     }
 
@@ -396,10 +396,49 @@ export class RidesService {
       bookingTime?: Date;
       pickupLocation?: any;
       dropoffLocation?: any;
+      noOfPassengers?: number;
     } = {};
 
     if (input.bookingTime) {
+      const now = new Date();
+      const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      if (input.bookingTime < now) {
+        ErrorException(null, 'RIDES.INVALID_BOOKING_TIME', HttpStatus.BAD_REQUEST);
+      }
+
+      if (input.bookingTime > oneDayFromNow) {
+        ErrorException(null, 'RIDES.BOOKING_TIME_LIMIT_EXCEEDED', HttpStatus.BAD_REQUEST);
+      }
+
+      // Check for overlapping rides within a 1-hour window
+      const bufferMinutes = 60;
+      const startTime = new Date(input.bookingTime.getTime() - bufferMinutes * 60000);
+      const endTime = new Date(input.bookingTime.getTime() + bufferMinutes * 60000);
+
+      const overlapFilter: any = {
+        _id: { $ne: toMongoId(input.rideId) },
+        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+        bookingTime: { $gte: startTime, $lte: endTime },
+        deleted: false,
+      };
+
+      if (user.loginAs === roles.USER) {
+        overlapFilter.passengerId = user._id;
+      } else {
+        overlapFilter.driverId = user._id;
+      }
+
+      const overlappingRide = await this.rideRepository.findOne(overlapFilter);
+      if (overlappingRide) {
+        ErrorException(null, 'RIDES.RIDE_OVERLAP', HttpStatus.BAD_REQUEST);
+      }
+
       updateData.bookingTime = input.bookingTime;
+    }
+
+    if (input.noOfPassengers) {
+      updateData.noOfPassengers = input.noOfPassengers;
     }
 
     if (input.pickupLocation) {
@@ -502,10 +541,36 @@ export class RidesService {
     if (!ride || ride.passengerId.toString() !== user._id.toString()) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
+    
+    if (ride.rideStatus !== RideStatus.COMPLETED) {
+      ErrorException(null, 'RIDES.PROMO_NOT_APPLICABLE_FOR_STATUS', HttpStatus.BAD_REQUEST);
+    }
 
     const promo = await this.promoCodeModel.findById(toMongoId(promoCodeId)).exec();
-    if (!promo || promo.status !== PromoCodeStatusEnum.ACTIVE || promo.expiryDateTime < new Date()) {
+    if (!promo) {
       ErrorException(null, 'RIDES.PROMO_CODE_NOT_FOUND', HttpStatus.BAD_REQUEST);
+    }
+
+    const now = new Date();
+    // Check if expired
+    if (promo.status === PromoCodeStatusEnum.EXPIRED || promo.expiryDateTime < now) {
+      ErrorException(null, 'RIDES.PROMO_EXPIRED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check if not started
+    if (promo.startDateTime > now) {
+      ErrorException(null, 'RIDES.PROMO_NOT_STARTED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check if active
+    if (promo.status !== PromoCodeStatusEnum.ACTIVE) {
+      ErrorException(null, 'RIDES.PROMO_INACTIVE', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check total usage limit
+    const totalUsage = await this.promoCodeUsedModel.countDocuments({ promoCodeId: promo._id });
+    if (totalUsage >= promo.totalUsageLimit) {
+      ErrorException(null, 'RIDES.PROMO_TOTAL_LIMIT_REACHED', HttpStatus.BAD_REQUEST);
     }
 
     // Check perUserLimit
@@ -519,19 +584,19 @@ export class RidesService {
     }
 
     // Check minimum fare
-    if (ride.estimatedFare < (promo.minimumFare || 0)) {
+    if (Number(ride.estimatedFare) < (Number(promo.minimumFare) || 0)) {
       ErrorException(null, 'RIDES.MIN_FARE_NOT_MET', HttpStatus.BAD_REQUEST);
     }
 
     // Calculate discount
     let discount = 0;
     if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
-      discount = ride.estimatedFare * ((promo.percentageAmount || 0) / 100);
-      if (promo.maxDiscount && discount > promo.maxDiscount) {
-        discount = promo.maxDiscount;
+      discount = Number(ride.estimatedFare) * ((Number(promo.percentageAmount) || 0) / 100);
+      if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
+        discount = Number(promo.maxDiscount);
       }
     } else {
-      discount = promo.flatAmount || 0;
+      discount = Number(promo.flatAmount) || 0;
     }
 
     // Update ride
@@ -539,9 +604,11 @@ export class RidesService {
       { _id: ride._id },
       {
         $set: {
-          estimatedFare: Math.max(0, ride.estimatedFare - discount),
-          'fare.discountAmount': discount,
-          'fare.promoCodeId': promo._id
+          estimatedFare: Math.max(0, Number(ride.estimatedFare) - Number(discount)),
+          'fare.discountAmount': Number(discount),
+          'fare.promoCodeId': promo._id,
+          'paymentDetails.promoCodeId': promo._id,
+          'paymentDetails.discountAmount': Number(discount)
         }
       },
       { new: true }
@@ -582,9 +649,11 @@ export class RidesService {
       { _id: ride._id },
       {
         $set: {
-          estimatedFare: ride.estimatedFare + discountAmount,
+          estimatedFare: Number(ride.estimatedFare) + Number(discountAmount),
           'fare.discountAmount': 0,
-          'fare.promoCodeId': null
+          'fare.promoCodeId': null,
+           'paymentDetails.promoCodeId': null,
+            'paymentDetails.discountAmount': 0,
         }
       },
       { new: true }
