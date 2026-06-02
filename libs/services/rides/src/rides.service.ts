@@ -1,5 +1,5 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository } from '@libs/data-access';
-import { Types } from 'mongoose';
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, PromoCode, PromoCodeDocument, PromoCodeStatusEnum, DiscountTypeEnum } from '@libs/data-access';
+import { Model, Types } from 'mongoose';
 import {  HttpStatus, Injectable } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 import { ErrorException } from '@libs/common/exceptions';
@@ -9,14 +9,16 @@ import { IssueRepository } from '@libs/data-access/repositories/issue.repository
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 import { toMongoId } from '@libs/common';
 import { transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
-
+import { InjectModel } from '@nestjs/mongoose';
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
     private readonly transactionService: TransactionService,
     private readonly issueRepository: IssueRepository,
-    private readonly userDetailsRepository: UserDetailsRepository
+    private readonly userDetailsRepository: UserDetailsRepository,
+    @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
+    @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
   ) { }
 
   /**
@@ -493,5 +495,115 @@ export class RidesService {
     };
     return rideObject;
 
+  }
+
+  async applyPromoCode(user: User, rideId: string, promoCodeId: string): Promise<any> {
+    const ride = await this.rideRepository.findById(toMongoId(rideId));
+    if (!ride || ride.passengerId.toString() !== user._id.toString()) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    const promo = await this.promoCodeModel.findById(toMongoId(promoCodeId)).exec();
+    if (!promo || promo.status !== PromoCodeStatusEnum.ACTIVE || promo.expiryDateTime < new Date()) {
+      ErrorException(null, 'RIDES.PROMO_CODE_NOT_FOUND', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check perUserLimit
+    const usageCount = await this.promoCodeUsedModel.countDocuments({
+      userId: user._id,
+      promoCodeId: promo._id
+    });
+
+    if (usageCount >= promo.perUserLimit) {
+      ErrorException(null, 'RIDES.PROMO_LIMIT_REACHED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check minimum fare
+    if (ride.estimatedFare < (promo.minimumFare || 0)) {
+      ErrorException(null, 'RIDES.MIN_FARE_NOT_MET', HttpStatus.BAD_REQUEST);
+    }
+
+    // Calculate discount
+    let discount = 0;
+    if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
+      discount = ride.estimatedFare * ((promo.percentageAmount || 0) / 100);
+      if (promo.maxDiscount && discount > promo.maxDiscount) {
+        discount = promo.maxDiscount;
+      }
+    } else {
+      discount = promo.flatAmount || 0;
+    }
+
+    // Update ride
+    const updatedRide = await this.rideRepository.findOneAndUpdate(
+      { _id: ride._id },
+      {
+        $set: {
+          estimatedFare: Math.max(0, ride.estimatedFare - discount),
+          'fare.discountAmount': discount,
+          'fare.promoCodeId': promo._id
+        }
+      },
+      { new: true }
+    );
+
+    // Create usage record
+    await this.promoCodeUsedModel.create({
+      userId: user._id,
+      promoCodeId: promo._id,
+      rideId: ride._id
+    });
+
+    const rideObj = updatedRide.toObject() as any;
+    transformToEntityNameObjectFromId(rideObj, ['vehicleId', 'vehicle']);
+
+    return {
+      message: 'RIDES.PROMO_APPLIED',
+      success: true,
+      ride: rideObj
+    };
+  }
+
+  async removePromoCode(user: User, rideId: string): Promise<any> {
+    const ride = await this.rideRepository.findById(toMongoId(rideId));
+    if (!ride || ride.passengerId.toString() !== user._id.toString()) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    if (!ride.fare || !ride.fare['promoCodeId']) {
+      return { success: true, message: 'RIDES.PROMO_REMOVED' };
+    }
+
+    const discountAmount = ride.fare['discountAmount'] || 0;
+    const promoId = ride.fare['promoCodeId'];
+
+    // Update ride - revert estimated fare and clear fields
+    const updatedRide = await this.rideRepository.findOneAndUpdate(
+      { _id: ride._id },
+      {
+        $set: {
+          estimatedFare: ride.estimatedFare + discountAmount,
+          'fare.discountAmount': 0,
+          'fare.promoCodeId': null
+        }
+      },
+      { new: true }
+    );
+
+    // Delete usage record
+    await this.promoCodeUsedModel.deleteOne({
+      rideId: ride._id,
+      promoCodeId: promoId,
+      userId: user._id
+    });
+
+    const rideObj = updatedRide.toObject() as any;
+    transformToEntityNameObjectFromId(rideObj, ['vehicleId', 'vehicle']);
+
+    return {
+      message: 'RIDES.PROMO_REMOVED',
+      success: true,
+      ride: rideObj
+    };
   }
 }

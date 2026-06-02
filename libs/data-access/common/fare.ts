@@ -1,6 +1,7 @@
 import { Field, ObjectType } from "@nestjs/graphql";
 import { Prop } from "@nestjs/mongoose";
 import { ApiProperty } from "@nestjs/swagger";
+import { Types } from "mongoose";
 @ObjectType()
 export class Fare {
     @Field(() => Number)
