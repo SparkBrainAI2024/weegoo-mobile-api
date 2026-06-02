@@ -378,7 +378,7 @@ export class RidesService {
     // Find the upcoming confirmed ride for this passenger
     const existingRide = await this.rideRepository.findUpcomingConfirmedRideById(
       input.rideId,
-      user._id,
+      user,
     );
 
     if (!existingRide) {
@@ -432,7 +432,7 @@ export class RidesService {
 
     const updatedRide = await this.rideRepository.updateUpcomingConfirmedRide(
       input.rideId,
-      user._id,
+      user,
       updateData,
     );
 

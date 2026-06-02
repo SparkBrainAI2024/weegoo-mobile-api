@@ -251,15 +251,20 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    */
   async findUpcomingConfirmedRideById(
     rideId: string,
-    passengerId: Types.ObjectId,
+    user: Partial<User>,
   ): Promise<RidesDocument | null> {
-    const filter = {
+    const filter: any = {
       _id: rideId,
-      passengerId: new Types.ObjectId(passengerId),
       rideStatus: RideStatus.CONFIRMED,
       bookingTime: { $gt: new Date() },
       deleted: false,
     };
+
+    if (user.loginAs === roles.USER) {
+      filter.passengerId = new Types.ObjectId(user._id);
+    } else if (user.loginAs === roles.RIDER) {
+      filter.driverId = new Types.ObjectId(user._id);
+    }
 
     const populate: Populate = [
       {
@@ -281,20 +286,25 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    */
   async updateUpcomingConfirmedRide(
     rideId: string,
-    passengerId: Types.ObjectId,
+    user: Partial<User>,
     updateData: {
       bookingTime?: Date;
       pickupLocation?: any;
       dropoffLocation?: any;
     },
   ): Promise<RidesDocument | null> {
-    const filter = {
+    const filter: any = {
       _id: rideId,
-      passengerId: new Types.ObjectId(passengerId),
       rideStatus: RideStatus.CONFIRMED,
       bookingTime: { $gt: new Date() },
       deleted: false,
     };
+
+    if (user.loginAs === roles.USER) {
+      filter.passengerId = new Types.ObjectId(user._id);
+    } else if (user.loginAs === roles.RIDER) {
+      filter.driverId = new Types.ObjectId(user._id);
+    }
 
     const setFields: any = {};
     if (updateData.bookingTime) {
