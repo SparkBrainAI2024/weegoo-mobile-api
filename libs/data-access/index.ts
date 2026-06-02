@@ -50,6 +50,7 @@ export * from './common/phone';
 export * from './common/ride.location';
 export * from './common/fare';
 export * from './common/payment-details';
+export * from './common/ride-user-snapshot';
 
 
 //plugins

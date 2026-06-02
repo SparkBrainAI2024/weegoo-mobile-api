@@ -7,13 +7,16 @@ import { RideLocation } from "../common/ride.location";
 import { Fare } from "../common/fare";
 import { PaymentDetails } from "../common/payment-details";
 import { Vehicle } from "./vehicle.entity";
-import { customAlphabet } from 'nanoid'
+import { customAlphabet } from "nanoid";
 import { CancellationDetail } from "../dtos/response/cancel-ride.response";
-const nanoid = customAlphabet('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 16);
+import { RideUserSnapshot } from "../common/ride-user-snapshot";
+const nanoid = customAlphabet(
+  "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  16,
+);
 @ObjectType()
 @Schema({ timestamps: true })
 export class Rides extends BaseEntity {
-
   @Field(() => RideTypes)
   @Prop({ type: String, enum: RideTypes, required: true })
   rideType: RideTypes;
@@ -26,13 +29,18 @@ export class Rides extends BaseEntity {
   @Prop({ type: String, enum: RideStatus, required: true })
   rideStatus: RideStatus;
 
-
   @Field(() => String)
   @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
   passengerId: Types.ObjectId;
 
   @Field(() => String, { nullable: true })
-  @Prop({ type: Types.ObjectId, required: false, ref: "User", index: true, default: null })
+  @Prop({
+    type: Types.ObjectId,
+    required: false,
+    ref: "User",
+    index: true,
+    default: null,
+  })
   driverId?: Types.ObjectId;
 
   @Field(() => RideLocation, { nullable: true })
@@ -48,7 +56,7 @@ export class Rides extends BaseEntity {
     type: String,
     required: true,
     unique: true,
-    default: () => "WG-" + nanoid()
+    default: () => "WG-" + nanoid(),
   })
   rideUUId: string;
 
@@ -78,7 +86,7 @@ export class Rides extends BaseEntity {
 
   @Field(() => Fare, { nullable: true })
   @Prop({ type: Fare, required: false })
-  fare?: Fare
+  fare?: Fare;
 
   @Field(() => PaymentDetails, { nullable: true })
   @Prop({ type: PaymentDetails, required: false })
@@ -108,20 +116,26 @@ export class Rides extends BaseEntity {
   @Prop({ type: String, required: false })
   ablyChannelId?: string;
 
-
-
-  @Prop({ type: Types.ObjectId, required: true, ref: Vehicle.name, index: true })
+  @Prop({
+    type: Types.ObjectId,
+    required: true,
+    ref: Vehicle.name,
+    index: true,
+  })
   vehicleId: Types.ObjectId;
 
   @Field(() => Vehicle, { nullable: true })
   vehicle?: Vehicle;
 
+  @Field(() => CancellationDetail, { nullable: true })
+  @Prop({ type: CancellationDetail, default: null })
+  cancellationDetail: CancellationDetail | null;
 
-@Field(() => CancellationDetail, { nullable: true })
-@Prop({ type: CancellationDetail, default: null })
-cancellationDetail: CancellationDetail | null;
+  @Field(() => RideUserSnapshot, { nullable: true })
+  passenger?: RideUserSnapshot;
 
-
+  @Field(() => RideUserSnapshot, { nullable: true })
+  driver?: RideUserSnapshot;
 }
 export type RidesDocument = HydratedDocument<Rides>;
 export const RidesSchema = SchemaFactory.createForClass(Rides);
@@ -132,7 +146,7 @@ RidesSchema.pre<RidesDocument>("save", function (next) {
     // Assume avg speed of 30km/h => 2 minutes per km
     this.timeToReachPassengerInMinutes = Math.ceil(this.distanceInKm * 2);
     this.timeToReachPassenger = new Date(
-      this.bookingTime.getTime() + this.timeToReachPassengerInMinutes * 60000
+      this.bookingTime.getTime() + this.timeToReachPassengerInMinutes * 60000,
     );
   }
 
