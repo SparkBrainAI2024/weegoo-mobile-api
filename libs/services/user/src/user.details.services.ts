@@ -1,6 +1,7 @@
 import { ErrorException, toMongoId } from "@libs/common";
 import { CreateUserDetailsInput, DriverOnlineStatus, UserDetailsRepository, UserRepository } from "@libs/data-access";
 import { ImageStatus } from "@libs/data-access/enums/upload.enum";
+import { S3Service } from "@libs/s3";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { stat } from "fs";
 import { Types } from "mongoose";
@@ -11,6 +12,7 @@ export class UserDetailsService {
   constructor(
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly userRepository: UserRepository,
+    private readonly s3: S3Service
   ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
@@ -91,10 +93,22 @@ export class UserDetailsService {
       }
 
       const details = await this.userDetailsRepository.findOne({ userId });
+     
       if (!details)
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+const toObjectDetails:Record<string, any> = details.toObject();
+ const profileImages = details.profileImages.filter(img => {
+        return img.status === ImageStatus.ACTIVE
+          
+     
+      });
+      if(profileImages.length > 0) {
+        toObjectDetails.profileImage = this.s3.getPublicUrl(profileImages[0].s3Key);
+      }
+      delete toObjectDetails.profileImages;
 
-      return { email: user.email, ...details.toObject() };
+      return { email: user.email, ...toObjectDetails };
+
     } catch (e) {
       ErrorException(
         e,
