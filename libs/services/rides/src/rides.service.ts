@@ -1,5 +1,5 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository } from '@libs/data-access';
-import { Types } from 'mongoose';
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeUsed, PromoCodeDocument, PromoCodeUsedDocument } from '@libs/data-access';
+import { Model, Types } from 'mongoose';
 import {  HttpStatus, Injectable } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 import { ErrorException } from '@libs/common/exceptions';
@@ -9,14 +9,16 @@ import { IssueRepository } from '@libs/data-access/repositories/issue.repository
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 import { toMongoId } from '@libs/common';
 import { transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
-
+import { InjectModel } from '@nestjs/mongoose';
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
     private readonly transactionService: TransactionService,
     private readonly issueRepository: IssueRepository,
-    private readonly userDetailsRepository: UserDetailsRepository
+    private readonly userDetailsRepository: UserDetailsRepository,
+    @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
+    @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
   ) { }
 
   /**
@@ -230,8 +232,8 @@ export class RidesService {
         adminId: adminId.toString(),
         riderId: newRide.passengerId.toString(),
         driverId: newRide.driverId.toString(),
-        totalFare: newRide.estimatedFare,
-        commission: newRide.estimatedFare * 0.2, // Assuming 20% commission for testing
+        totalFare: Number(newRide.estimatedFare),
+        commission: Number(newRide.estimatedFare) * 0.2, // Assuming 20% commission for testing
       });
     }
 
@@ -394,10 +396,49 @@ export class RidesService {
       bookingTime?: Date;
       pickupLocation?: any;
       dropoffLocation?: any;
+      noOfPassengers?: number;
     } = {};
 
     if (input.bookingTime) {
+      const now = new Date();
+      const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      if (input.bookingTime < now) {
+        ErrorException(null, 'RIDES.INVALID_BOOKING_TIME', HttpStatus.BAD_REQUEST);
+      }
+
+      if (input.bookingTime > oneDayFromNow) {
+        ErrorException(null, 'RIDES.BOOKING_TIME_LIMIT_EXCEEDED', HttpStatus.BAD_REQUEST);
+      }
+
+      // Check for overlapping rides within a 1-hour window
+      const bufferMinutes = 60;
+      const startTime = new Date(input.bookingTime.getTime() - bufferMinutes * 60000);
+      const endTime = new Date(input.bookingTime.getTime() + bufferMinutes * 60000);
+
+      const overlapFilter: any = {
+        _id: { $ne: toMongoId(input.rideId) },
+        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+        bookingTime: { $gte: startTime, $lte: endTime },
+        deleted: false,
+      };
+
+      if (user.loginAs === roles.USER) {
+        overlapFilter.passengerId = user._id;
+      } else {
+        overlapFilter.driverId = user._id;
+      }
+
+      const overlappingRide = await this.rideRepository.findOne(overlapFilter);
+      if (overlappingRide) {
+        ErrorException(null, 'RIDES.RIDE_OVERLAP', HttpStatus.BAD_REQUEST);
+      }
+
       updateData.bookingTime = input.bookingTime;
+    }
+
+    if (input.noOfPassengers) {
+      updateData.noOfPassengers = input.noOfPassengers;
     }
 
     if (input.pickupLocation) {
@@ -493,5 +534,145 @@ export class RidesService {
     };
     return rideObject;
 
+  }
+
+  async applyPromoCode(user: User, rideId: string, promoCodeId: string): Promise<any> {
+    const ride = await this.rideRepository.findById(toMongoId(rideId));
+    if (!ride || ride.passengerId.toString() !== user._id.toString()) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+    
+    if (ride.rideStatus !== RideStatus.COMPLETED) {
+      ErrorException(null, 'RIDES.PROMO_NOT_APPLICABLE_FOR_STATUS', HttpStatus.BAD_REQUEST);
+    }
+
+    const promo = await this.promoCodeModel.findById(toMongoId(promoCodeId)).exec();
+    if (!promo) {
+      ErrorException(null, 'RIDES.PROMO_CODE_NOT_FOUND', HttpStatus.BAD_REQUEST);
+    }
+
+    const now = new Date();
+    // Check if expired
+    if (promo.status === PromoCodeStatusEnum.EXPIRED || promo.expiryDateTime < now) {
+      ErrorException(null, 'RIDES.PROMO_EXPIRED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check if not started
+    if (promo.startDateTime > now) {
+      ErrorException(null, 'RIDES.PROMO_NOT_STARTED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check if active
+    if (promo.status !== PromoCodeStatusEnum.ACTIVE) {
+      ErrorException(null, 'RIDES.PROMO_INACTIVE', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check total usage limit
+    const totalUsage = await this.promoCodeUsedModel.countDocuments({ promoCodeId: promo._id });
+    if (totalUsage >= promo.totalUsageLimit) {
+      ErrorException(null, 'RIDES.PROMO_TOTAL_LIMIT_REACHED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check perUserLimit
+    const usageCount = await this.promoCodeUsedModel.countDocuments({
+      userId: user._id,
+      promoCodeId: promo._id
+    });
+
+    if (usageCount >= promo.perUserLimit) {
+      ErrorException(null, 'RIDES.PROMO_LIMIT_REACHED', HttpStatus.BAD_REQUEST);
+    }
+
+    // Check minimum fare
+    if (Number(ride.estimatedFare) < (Number(promo.minimumFare) || 0)) {
+      ErrorException(null, 'RIDES.MIN_FARE_NOT_MET', HttpStatus.BAD_REQUEST);
+    }
+
+    // Calculate discount
+    let discount = 0;
+    if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
+      discount = Number(ride.estimatedFare) * ((Number(promo.percentageAmount) || 0) / 100);
+      if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
+        discount = Number(promo.maxDiscount);
+      }
+    } else {
+      discount = Number(promo.flatAmount) || 0;
+    }
+
+    // Update ride
+    const updatedRide = await this.rideRepository.findOneAndUpdate(
+      { _id: ride._id },
+      {
+        $set: {
+          estimatedFare: Math.max(0, Number(ride.estimatedFare) - Number(discount)),
+          'fare.discountAmount': Number(discount),
+          'fare.promoCodeId': promo._id,
+          'paymentDetails.promoCodeId': promo._id,
+          'paymentDetails.discountAmount': Number(discount)
+        }
+      },
+      { new: true }
+    );
+
+    // Create usage record
+    await this.promoCodeUsedModel.create({
+      userId: user._id,
+      promoCodeId: promo._id,
+      rideId: ride._id
+    });
+
+    const rideObj = updatedRide.toObject() as any;
+    transformToEntityNameObjectFromId(rideObj, ['vehicleId', 'vehicle']);
+
+    return {
+      message: 'RIDES.PROMO_APPLIED',
+      success: true,
+      ride: rideObj
+    };
+  }
+
+  async removePromoCode(user: User, rideId: string): Promise<any> {
+    const ride = await this.rideRepository.findById(toMongoId(rideId));
+    if (!ride || ride.passengerId.toString() !== user._id.toString()) {
+      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
+
+    if (!ride.fare || !ride.fare['promoCodeId']) {
+      return { success: true, message: 'RIDES.PROMO_REMOVED' };
+    }
+
+    const discountAmount = ride.fare['discountAmount'] || 0;
+    const promoId = ride.fare['promoCodeId'];
+
+    // Update ride - revert estimated fare and clear fields
+    const updatedRide = await this.rideRepository.findOneAndUpdate(
+      { _id: ride._id },
+      {
+        $set: {
+          estimatedFare: Number(ride.estimatedFare) + Number(discountAmount),
+          'fare.discountAmount': 0,
+          'fare.promoCodeId': null,
+           'paymentDetails.promoCodeId': null,
+            'paymentDetails.discountAmount': 0,
+        }
+      },
+      { new: true }
+    );
+
+    // Delete usage record
+    await this.promoCodeUsedModel.deleteOne({
+      rideId: ride._id,
+      promoCodeId: promoId,
+      userId: user._id
+    });
+
+    const rideObj = updatedRide.toObject() as any;
+    transformToEntityNameObjectFromId(rideObj, ['vehicleId', 'vehicle']);
+
+    return {
+      message: 'RIDES.PROMO_REMOVED',
+      success: true,
+      ride: rideObj
+    };
   }
 }

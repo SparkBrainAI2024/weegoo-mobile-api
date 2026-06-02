@@ -20,4 +20,9 @@ export class UpdateRideInput {
   @Field(() => RideLocationInput, { nullable: true })
   @IsOptional()
   dropoffLocation?: RideLocationInput;
+
+  
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  noOfPassengers?: number;
 }

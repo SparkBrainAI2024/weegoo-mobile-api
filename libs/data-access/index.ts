@@ -18,7 +18,10 @@ export * from './entities/driver-document.entity';
 export * from './entities/document-file.embedded';
 export * from './entities/favourites.entity';
 export * from './entities/notification.entity';
-
+export * from './entities/promo-code-used.entity'
+export * from './entities/promo-code.entity';
+export * from './entities/transaction.entity';
+export * from './entities/issue.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -38,7 +41,10 @@ export * from './enums/vehicle.enum';
 export * from './enums/rides.enum';
 export * from './enums/cancellation.enum';
 export * from './enums/payment.enum';
-export * from './enums/notification.enum'
+export * from './enums/notification.enum';
+export * from './enums/issue.enum';
+export * from './enums/promo-code.enum';
+export * from './enums/transaction.enum';
 
 //interfaces
 export * from './interfaces/pagination.interface';

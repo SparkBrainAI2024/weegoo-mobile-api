@@ -70,7 +70,7 @@ export class Rides extends BaseEntity {
 
   @Field(() => Boolean, { nullable: true })
   @Prop({ type: Boolean, required: false, default: false })
-  isFavourite?: number;
+  isFavourite?: Number;
 
   @Field(() => Date, { nullable: true })
   @Prop({ type: Date, required: false })
