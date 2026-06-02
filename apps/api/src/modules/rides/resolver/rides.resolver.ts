@@ -2,13 +2,14 @@ import { CurrentUser } from "@libs/common";
 import { User } from "@libs/data-access/entities/user.entity";
 import { Rides } from "@libs/data-access";
 import { RidesResolver } from "@libs/services/rides/resolver/rides.resolver";
-import { Args, Query, Resolver, Mutation } from "@nestjs/graphql";
+import { Args, Query, Resolver, Mutation, ID } from "@nestjs/graphql";
 import { AuthGuard } from "@libs/guards/guard";
 import { UseGuards } from "@nestjs/common";
 import { RidesService } from "@libs/services/rides/rides.service";
 import { OngoingRideResponse } from "@libs/data-access/dtos/response/ongoing-ride-details.response";
 import { UpdateRideInput } from "@libs/data-access/dtos/input/update-ride.input";
 import { UpdateRideResponse } from "@libs/data-access/dtos/response/update-ride.response";
+import { UpdateRideResponse as BasicResponse } from "@libs/data-access/dtos/response/update-ride.response";
 
 
 @Resolver(() => Rides)
@@ -30,5 +31,22 @@ async getOngoingRide(
     @Args('input') input: UpdateRideInput,
   ) {
     return this.ridesService.updateRide(user, input);
+  }
+
+  @Mutation(() => BasicResponse)
+  async applyPromoCode(
+    @CurrentUser() user: User,
+    @Args('rideId', { type: () => ID }) rideId: string,
+    @Args('promoCodeId', { type: () => ID }) promoCodeId: string,
+  ) {
+    return this.ridesService.applyPromoCode(user, rideId, promoCodeId);
+  }
+
+  @Mutation(() => BasicResponse)
+  async removePromoCode(
+    @CurrentUser() user: User,
+    @Args('rideId', { type: () => ID }) rideId: string,
+  ) {
+    return this.ridesService.removePromoCode(user, rideId);
   }
 }

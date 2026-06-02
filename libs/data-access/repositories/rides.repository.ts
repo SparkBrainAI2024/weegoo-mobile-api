@@ -291,6 +291,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       bookingTime?: Date;
       pickupLocation?: any;
       dropoffLocation?: any;
+      noOfPassengers?: number;
     },
   ): Promise<RidesDocument | null> {
     const filter: any = {
@@ -315,6 +316,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     if (updateData.dropoffLocation) {
       setFields.dropoffLocation = updateData.dropoffLocation;
+    }
+    if (updateData.noOfPassengers) {
+      setFields.noOfPassengers = updateData.noOfPassengers;
     }
 
     const populate: Populate = [
