@@ -22,7 +22,7 @@ export class RidesService {
     private readonly transactionService: TransactionService,
     private readonly issueRepository: IssueRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
-    private readonly s3: S3Service
+    private readonly s3: S3Service,
     @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
   ) { }

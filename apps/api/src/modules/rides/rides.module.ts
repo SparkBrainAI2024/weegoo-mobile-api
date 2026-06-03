@@ -9,6 +9,8 @@ import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
 
 import { PassengerRidesResolver } from "./resolver/rides.resolver";
 import { S3Module } from "@libs/s3/s3.module";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Rides, RidesSchema, Vehicle, VehicleSchema } from "@libs/data-access";
 @Module({
     imports: [
         RidePersistentModule,
