@@ -6,6 +6,7 @@ export enum UploadPurpose {
   DRIVER_LICENSE     = "DRIVER_LICENSE",
   DRIVER_BLUEBOOK    = "DRIVER_BLUEBOOK",
   DRIVER_NATIONAL_ID = "DRIVER_NATIONAL_ID",
+  PROFILE_IMAGE    = "PROFILE_IMAGE",
 }
 
 export enum ImageStatus {

@@ -10,7 +10,10 @@ import { UpdateRideInput } from '@libs/data-access/dtos/input/update-ride.input'
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 import { toMongoId } from '@libs/common';
-import { transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
+import { getActiveProfileImageUrl, transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
+import { S3Service } from '@libs/s3/s3.service';
+
+
 import { InjectModel } from '@nestjs/mongoose';
 @Injectable()
 export class RidesService {
@@ -19,6 +22,7 @@ export class RidesService {
     private readonly transactionService: TransactionService,
     private readonly issueRepository: IssueRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
+    private readonly s3: S3Service,
     @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
   ) { }
@@ -354,7 +358,7 @@ export class RidesService {
       driver: driverDetails
         ? {
             fullName: driverDetails.fullName || ride.driverId.fullName || 'Driver',
-            profileImage: driverDetails.profileImage || '',
+            profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
             rating: driverDetails.rating ?? 0,
             phone: ride.driverId.phone,
           }
@@ -362,7 +366,7 @@ export class RidesService {
       passenger: passengerDetails
         ? {
             fullName: passengerDetails.fullName || ride.passengerId.fullName || 'Passenger',
-            profileImage: passengerDetails.profileImage || '',
+            profileImage: getActiveProfileImageUrl(passengerDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
             phone: ride.passengerId.phone,
             rating: passengerDetails.rating ?? 0,
           }
@@ -527,7 +531,7 @@ export class RidesService {
       driver: driverDetails
         ? {
           fullName: driverDetails.fullName || ride.driverId?.fullName || "Driver",
-          profileImage: driverDetails.profileImage || "",
+profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
           rating: driverDetails.rating ?? 0,
           phone: ride.driverId?.phone
         }

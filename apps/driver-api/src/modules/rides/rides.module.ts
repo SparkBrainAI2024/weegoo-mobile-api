@@ -6,12 +6,14 @@ import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persisten
 import { DriverRideAcceptanceService } from "./driver-ride-acceptance.service";
 import { DriverRideLocationResolver } from "./driver-ride-location.resolver";
 import { TransactionModule } from "../transaction/transaction.module";
+import { S3Module } from "@libs/s3";
 
 @Module({
     imports: [
         RidePersistentModule,
         UserPersistenceModule,
         TransactionModule,
+        S3Module,
         IssuePersistenceModule,
     ],
     providers: [

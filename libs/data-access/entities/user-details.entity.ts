@@ -4,6 +4,10 @@ import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
 import { GenderEnum, ridePreference, ProvinceEnum, DriverOnlineStatus } from "../enums/user.enum";
 import { BaseEntity } from "../base/base.entity";
+import { Vehicle } from "./vehicle.entity";
+import { VehicleImage } from "./vehicle-image.embedded";
+import { PublicImage } from "../common/public-image.entity";
+import { UserProfileImageEntity } from "../common/user-profile-image";
 
 export type UserDetailsDocument = UserDetails &
   HydratedDocument<UserDetails>;
@@ -26,9 +30,11 @@ export class UserDetails extends BaseEntity {
   @Prop({ required: false, type: String })
   address?: string;
 
-  @Field({ nullable: true })
-  @Prop({ required: false, type: String })
-  profileImage?: string;
+
+
+  @Field(()=> [UserProfileImageEntity])
+  @Prop({ type: [UserProfileImageEntity], default: [] })
+  profileImages: UserProfileImageEntity[];
 
   @Field({ nullable: true })
   @Prop({ required: false, type: Date, default: null })

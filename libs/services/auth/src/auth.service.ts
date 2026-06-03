@@ -46,6 +46,8 @@ import {
   getOtpSentResponse,
   getUpdatedRoles
 } from "@libs/common/utils/auth.utils";
+import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
+import { S3Service } from "@libs/s3/s3.service";
 
 export interface SignInResult {
   user: UserResponse;
@@ -96,6 +98,7 @@ export class AuthService {
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly envService: EnvService,
     private readonly socialAuthService: SocialAuthService,
+    private readonly s3: S3Service,
   ) { }
 
   // Helper method to check if user has valid non-expired OTP
@@ -194,7 +197,7 @@ export class AuthService {
     return {
       fullName: userDetails.fullName,
       address: userDetails.address,
-      profileImage: userDetails.profileImage,
+      profileImage: userDetails.profileImages?.length ? getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)) : null,
       dateOfBirth: userDetails.dateOfBirth,
       bio: userDetails.bio,
       gender: userDetails.gender,
@@ -976,7 +979,9 @@ export class AuthService {
       await this.userDetailsRepository.create({
         userId: user._id,
         fullName: socialUser.name || '',
-        profileImage: socialUser.picture || '',
+      profileImages:[{
+        socialPicture: socialUser.picture || '',
+      }] 
       });
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
       return {
