@@ -1,10 +1,13 @@
 import { ErrorException, toMongoId } from "@libs/common";
-import { CreateUserDetailsInput, DriverOnlineStatus, UserDetailsRepository, UserRepository } from "@libs/data-access";
+import { EnvService } from "@libs/common/config/env.service";
+import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
+import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsRepository, UserRepository } from "@libs/data-access";
 import { ImageStatus, UploadPurpose } from "@libs/data-access/enums/upload.enum";
 import { S3Service } from "@libs/s3";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { stat } from "fs";
 import { Types } from "mongoose";
+import { get } from "node_modules/axios/index.cjs";
 
 
 @Injectable()
@@ -12,7 +15,8 @@ export class UserDetailsService {
   constructor(
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly userRepository: UserRepository,
-    private readonly s3: S3Service
+    private readonly s3: S3Service,
+    private readonly envService: EnvService,
   ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
@@ -39,14 +43,14 @@ export class UserDetailsService {
         return await this.userDetailsRepository.create({ userId: toMongoId(userId), ...input, profileImages: profileImagesArr });
       }
 
-      if (input.profileImage && details.profileImages.every(img => img.s3Key !== input.profileImage)) {
+      if (input.profileImage && details.profileImages.every(img => (img.s3Key !== input.profileImage && img.socialPicture !== input.profileImage))) {
         //set all existing image to inactive
         //set this new one to active status
         details.profileImages.forEach(img => {
           img.status = ImageStatus.INACTIVE;
         });
         details.profileImages.push({
-          ...(input.profileImage.startsWith(UploadPurpose.USER_PROFILE_IMAGE.toLowerCase()) ? {s3Key: input.profileImage} : {socialPicture:input.profileImage}),
+          ...(input.profileImage.startsWith(this.envService.getAwsS3UploadPrefix() + "/" + UploadPurpose.USER_PROFILE_IMAGE.toLowerCase()) ? { s3Key: input.profileImage } : { socialPicture: input.profileImage }),
           status: ImageStatus.ACTIVE,
           createdAt: new Date(),
         });
@@ -70,10 +74,12 @@ export class UserDetailsService {
       const updatedUserDetails = await this.userDetailsRepository.findOne({
         userId: toMongoId(userId),
       });
-
+      const userDetailsObj: UserDetails & { profileImage?: string } = updatedUserDetails.toObject();
+      userDetailsObj.profileImage = getActiveProfileImageUrl(updatedUserDetails.profileImages, (key) => this.s3.getPublicUrl(key));
+      delete userDetailsObj.profileImages;
       return {
         email: updatedCoreUser.email,
-        ...updatedUserDetails.toObject(),
+        ...userDetailsObj
       };
     } catch (e) {
       ErrorException(
@@ -93,16 +99,16 @@ export class UserDetailsService {
       }
 
       const details = await this.userDetailsRepository.findOne({ userId });
-     
+
       if (!details)
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
-const toObjectDetails:Record<string, any> = details.toObject();
- const profileImages = details.profileImages.filter(img => {
+      const toObjectDetails: Record<string, any> = details.toObject();
+      const profileImages = details.profileImages.filter(img => {
         return img.status === ImageStatus.ACTIVE
-          
-     
+
+
       });
-      if(profileImages.length > 0) {
+      if (profileImages.length > 0) {
         toObjectDetails.profileImage = this.s3.getPublicUrl(profileImages[0].s3Key);
       }
       delete toObjectDetails.profileImages;
