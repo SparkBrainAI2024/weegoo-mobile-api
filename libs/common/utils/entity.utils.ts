@@ -19,7 +19,7 @@ export const getActiveProfileImageUrl = (
   profileImages: UserProfileImageEntity[],
   getPublicUrl: (key: string) => string,
 ): string => {
-  const social = profileImages?.find(img => img.socialPicture)?.socialPicture;
+  const social = profileImages?.find(img => img.socialPicture && img.status === ImageStatus.ACTIVE)?.socialPicture;
   if (social) return social;
   const key = profileImages?.find(img => img.status === ImageStatus.ACTIVE)?.s3Key;
   return key ? getPublicUrl(key) : "";
