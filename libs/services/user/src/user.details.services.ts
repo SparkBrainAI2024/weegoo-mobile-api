@@ -1,6 +1,6 @@
 import { ErrorException, toMongoId } from "@libs/common";
 import { CreateUserDetailsInput, DriverOnlineStatus, UserDetailsRepository, UserRepository } from "@libs/data-access";
-import { ImageStatus } from "@libs/data-access/enums/upload.enum";
+import { ImageStatus, UploadPurpose } from "@libs/data-access/enums/upload.enum";
 import { S3Service } from "@libs/s3";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { stat } from "fs";
@@ -46,7 +46,7 @@ export class UserDetailsService {
           img.status = ImageStatus.INACTIVE;
         });
         details.profileImages.push({
-          s3Key: input.profileImage,
+          ...(input.profileImage.startsWith(UploadPurpose.USER_PROFILE_IMAGE.toLowerCase()) ? {s3Key: input.profileImage} : {socialPicture:input.profileImage}),
           status: ImageStatus.ACTIVE,
           createdAt: new Date(),
         });
