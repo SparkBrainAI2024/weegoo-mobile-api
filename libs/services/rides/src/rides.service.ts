@@ -15,6 +15,7 @@ import { S3Service } from '@libs/s3/s3.service';
 
 
 import { InjectModel } from '@nestjs/mongoose';
+import { FilterRuleName } from '@aws-sdk/client-s3';
 @Injectable()
 export class RidesService {
   constructor(
@@ -246,6 +247,60 @@ export class RidesService {
     return newRide;
   }
 
+  /**
+   * Helper to enrich ride data with detailed driver and passenger information.
+   * Normalizes IDs, fetches user details, and constructs snapshots for the frontend.
+   */
+  private async enrichRideDetails(rideDocument: RidesDocument): Promise<any> {
+    const ride = rideDocument.toObject() as any;
+    console.log('Original ride document:', rideDocument);
+    console.log('Enriched ride:', ride);
+    // Normalize Vehicle
+    if (ride.vehicleId && typeof ride.vehicleId === 'object') {
+      ride.vehicle = ride.vehicleId;
+      ride.vehicleId = ride.vehicleId._id.toString();
+    }
+
+    const formatSnapshot = async (userRef: any, fallbackName: string) => {
+      if (!userRef) return null;
+      const isPopulated = typeof userRef === 'object' && userRef._id;
+      const userId = isPopulated ? userRef._id.toString() : userRef.toString();
+      const baseData = isPopulated ? userRef : {};
+
+      const details = await this.userDetailsRepository.findOne(
+        { userId: toMongoId(userId) },
+        null,
+        { fullName: 1, profileImages: 1, rating: 1 },
+      );
+
+      const combined = { ...baseData, ...details?.toObject() };
+      return {
+        fullName: combined.fullName || baseData.fullName || fallbackName,
+        profileImage: getActiveProfileImageUrl(combined.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        ),
+        rating: combined.rating ?? 0,
+        phone: combined.phone || baseData.phone || '',
+      };
+    };
+
+    const [driver, passenger] = await Promise.all([
+      formatSnapshot(ride.driverId, 'Driver'),
+      formatSnapshot(ride.passengerId, 'Passenger'),
+    ]);
+
+    if (ride.passengerId && typeof ride.passengerId === 'object') ride.passengerId = ride.passengerId._id.toString();
+    if (ride.driverId && typeof ride.driverId === 'object') ride.driverId = ride.driverId._id.toString();
+
+    return {
+      ...ride,
+      _id: ride._id.toString(),
+      driver,
+      passenger,
+      ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+    };
+  }
+
   async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
 
     const userLoginAs = user.loginAs === roles.RIDER ? "DRIVER" : "PASSENGER";
@@ -316,62 +371,15 @@ export class RidesService {
     if (!rideDocument) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-
-    const ride = rideDocument.toObject() as any;
-
+    console.log('Fetched ride document:', rideDocument);  
+    console.log('User ID:', userId.toString());
+    console.log('Passenger ID:', rideDocument.passengerId._id.toString());
     // Verify that the user is the passenger of this ride
-    if (ride.passengerId._id.toString() !== userId.toString()) {
+    if (rideDocument.passengerId._id.toString() !== userId.toString()) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-
-    transformToEntityNameObjectFromId(ride, ['vehicleId', 'vehicle']);
-
-    // Fetch detailed driver information
-    const driverDetails = ride.driverId
-      ? await this.userDetailsRepository.findOne(
-          { userId: toMongoId(ride.driverId._id.toString()) },
-          null,
-          {
-            fullName: 1,
-            profileImage: 1,
-            rating: 1,
-          },
-        )
-      : null;
-
-    // Fetch detailed passenger information
-    const passengerDetails = ride.passengerId
-      ? await this.userDetailsRepository.findOne(
-          { userId: toMongoId(ride.passengerId._id.toString()) },
-          null,
-          {
-            fullName: 1,
-            profileImage: 1,
-            rating: 1,
-          },
-        )
-      : null;
-
-    return {
-      ...ride,
-      _id: ride._id.toString(),
-      driver: driverDetails
-        ? {
-            fullName: driverDetails.fullName || ride.driverId.fullName || 'Driver',
-            profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
-            rating: driverDetails.rating ?? 0,
-            phone: ride.driverId.phone,
-          }
-        : null,
-      passenger: passengerDetails
-        ? {
-            fullName: passengerDetails.fullName || ride.passengerId.fullName || 'Passenger',
-            profileImage: getActiveProfileImageUrl(passengerDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
-            phone: ride.passengerId.phone,
-            rating: passengerDetails.rating ?? 0,
-          }
-        : null,
-    };
+   console.log('User is authorized to view this ride. Enriching details...');
+    return this.enrichRideDetails(rideDocument);
   }
 
   /**
@@ -407,13 +415,14 @@ export class RidesService {
 
     if (input.bookingTime) {
       const now = new Date();
-      const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const oneDayFromNow = new Date(existingRide.bookingTime.getTime() + 24 * 60 * 60 * 1000);
 
       if (input.bookingTime < now) {
         ErrorException(null, 'RIDES.INVALID_BOOKING_TIME', HttpStatus.BAD_REQUEST);
       }
-
-      if (input.bookingTime > oneDayFromNow) {
+      console.log('Input booking time:', input.bookingTime);
+       console.log('One day from now:', oneDayFromNow);
+      if (input.bookingTime < oneDayFromNow) {
         ErrorException(null, 'RIDES.BOOKING_TIME_LIMIT_EXCEEDED', HttpStatus.BAD_REQUEST);
       }
 
@@ -491,15 +500,10 @@ export class RidesService {
       );
     }
 
-    const ride = updatedRide.toObject() as any;
-    transformToEntityNameObjectFromId(ride, ['vehicleId', 'vehicle']);
-
+    const enrichedRide = await this.enrichRideDetails(updatedRide);
     return {
-      _id: ride._id.toString(),
-      ride: {
-        ...ride,
-        _id: ride._id.toString(),
-      },
+      _id: enrichedRide._id,
+      ride: enrichedRide,
       message: 'RIDES.UPDATE_RIDE_SUCCESS',
     };
   }
@@ -511,35 +515,8 @@ export class RidesService {
     );
     if (!rideDocument)
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
-    const ride = rideDocument.toObject();
 
-  
-    transformToEntityNameObjectFromId(ride, ['vehicleId', 'vehicle']);
-
-
-    const driverDetails = ride.driverId
-      ? await this.userDetailsRepository.findOne(
-        { userId: toMongoId(ride.driverId._id) },
-        null,
-        { fullName: 1, profileImage: 1, rating: 1 },
-      )
-      : null;
-
-    const rideObject = {
-      ...ride,
-      _id: ride._id.toString(),
-      driver: driverDetails
-        ? {
-          fullName: driverDetails.fullName || ride.driverId?.fullName || "Driver",
-profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
-          rating: driverDetails.rating ?? 0,
-          phone: ride.driverId?.phone
-        }
-        : null,
-      ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
-    };
-    return rideObject;
-
+    return this.enrichRideDetails(rideDocument);
   }
 
   async applyPromoCode(user: User, rideId: string, promoCodeId: string): Promise<any> {

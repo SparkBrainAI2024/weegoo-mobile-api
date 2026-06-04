@@ -109,27 +109,20 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
 
     // Check user roles and apply appropriate filter
-    // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
-    // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
-    if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
+    if (user.loginAs === roles.USER) {
       filter.passengerId = new Types.ObjectId(user._id);
     } else if (user.loginAs === roles.RIDER) {
       filter.driverId = new Types.ObjectId(user._id);
     }
 
-    // Populate vehicle data to include model and type/name
-    const populateOptions = {
-      path: "vehicleId",
-    };
-    // Apply pagination with the constructed filter and vehicle population
-    const result = await this.paginate(paginationInput, populateOptions as any, filter);
+    const populateOptions = [{ path: "vehicleId" }];
+    const result = await this.paginate(paginationInput, populateOptions, filter);
 
     // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
     result.data = result.data.map((ride: any) => {
       if (ride.vehicleId && typeof ride.vehicleId === 'object') {
         ride.vehicle = ride.vehicleId;
-        ride.vechicleId = ride.vehicleId._id;
-        delete ride.vehicleId;// Keep the original vehicleId for reference
+        ride.vehicleId = ride.vehicleId._id.toString();
       }
       return ride;
     });
@@ -148,7 +141,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       deleted: false, // Exclude soft-deleted rides
     };
 
-    if (user.loginAs === roles.USER || user.loginAs === roles.RIDER) {
+    if (user.loginAs === roles.USER) {
       filter.passengerId = new Types.ObjectId(user._id);
     } else if (user.loginAs === roles.RIDER) {
       filter.driverId = new Types.ObjectId(user._id);
@@ -173,16 +166,14 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const newUpcomingResult = upcomingResult.map((ride: any) => {
       if(ride.vehicleId && typeof ride.vehicleId === 'object'){
         ride.vehicle = ride.vehicleId;
-        ride.vechicleId = ride.vehicleId._id;
-        delete ride.vehicleId;// Keep 
+        ride.vehicleId = ride.vehicleId._id.toString();
       }
       return ride;
     })
     const newOngoingResult = ongoingResult.map((ride: any) => {
      if(ride.vehicleId && typeof ride.vehicleId === 'object'){
         ride.vehicle = ride.vehicleId;
-        ride.vechicleId = ride.vehicleId._id;
-        delete ride.vehicleId;// Keep 
+        ride.vehicleId = ride.vehicleId._id.toString();
      }
      return ride ;
     })
@@ -230,15 +221,14 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const populate: Populate = [
       {
         path: 'vehicleId',
-        select: 'vehicleModel year color numberPlate vehicleType',
       },
       {
         path: 'driverId',
-        select: '_id phone fullName',
+        select: '_id phone email',
       },
       {
         path: 'passengerId',
-        select: '_id fullName email phone',
+        select: '_id  email phone',
       },
     ];
 
@@ -269,11 +259,14 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const populate: Populate = [
       {
         path: 'vehicleId',
-        select: 'vehicleModel year color numberPlate vehicleType',
+      },
+      {
+        path: 'passengerId',
+        select: '_id phone email',
       },
       {
         path: 'driverId',
-        select: '_id',
+        select: '_id phone email',
       },
     ];
 
@@ -324,11 +317,14 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const populate: Populate = [
       {
         path: 'vehicleId',
-        select: 'vehicleModel year color numberPlate vehicleType',
+      },
+      {
+        path: 'passengerId',
+        select: '_id  email phone',
       },
       {
         path: 'driverId',
-        select: '_id',
+        select: '_id email phone',
       },
     ];
 
@@ -357,7 +353,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     },
     {
       path: 'driverId',
-      select: '_id fullName phone',
+      select: '_id email phone',
+    },
+    {
+      path: 'passengerId',
+      select: '_id phone email',
     },
   ];
 
@@ -380,6 +380,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     paymentDetails: 1,
     vehicleId: 1,
     driverId: 1,
+    passengerId: 1,
     ablyChannelId: 1,
   };
 
