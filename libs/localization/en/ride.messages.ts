@@ -27,5 +27,5 @@ export const RIDES = {
   INVALID_BOOKING_TIME: "Booking time cannot be in the past.",
   BOOKING_TIME_LIMIT_EXCEEDED: "Rides can only be scheduled up to 24 hours in advance.",
   RIDE_OVERLAP: "You already have another ride scheduled around this time.",
-  PROMO_NOT_APPLICABLE_FOR_STATUS: "Promo codes can only be applied to confirmed rides.",
+  PROMO_NOT_APPLICABLE_FOR_STATUS: "Promo codes can only be applied to completed rides.",
 }
