@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
-import { PaginationInput, Rides, User, RidesDocument, PromoCode, CreatePromoCodeInput } from '@libs/data-access';
+import { PaginationInput, Rides, User, RidesDocument, PromoCode, CreatePromoCodeInput, DashboardHomeResponse } from '@libs/data-access';
 import { RidesService } from '../rides.service';
 import { CurrentUser } from '@libs/common';
 import { RideListWithPaginationResponse } from '@libs/data-access/dtos/response/ride-list-with-pagination.response';
@@ -26,7 +26,7 @@ export class RidesResolver {
     );
   }
 
-   @Query(() => [Rides])
+   @Query(() => DashboardHomeResponse)
   async dashboardHomeApi(
     @CurrentUser() driver: User,
   ) {
