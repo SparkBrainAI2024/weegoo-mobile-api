@@ -9,13 +9,13 @@ import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input'
 import { UpdateRideInput } from '@libs/data-access/dtos/input/update-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
+import { CreatePromoCodeInput } from '@libs/data-access';
 import { toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl, transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
 
 
 import { InjectModel } from '@nestjs/mongoose';
-import { FilterRuleName } from '@aws-sdk/client-s3';
 @Injectable()
 export class RidesService {
   constructor(
@@ -248,6 +248,15 @@ export class RidesService {
   }
 
   /**
+   * Creates a new promo code in the database.
+   * @param input Data for the new promo code.
+   * @returns The created PromoCode document.
+   */
+  async createPromoCode(input: CreatePromoCodeInput): Promise<PromoCodeDocument> {
+    return this.promoCodeModel.create(input);
+  }
+
+  /**
    * Helper to enrich ride data with detailed driver and passenger information.
    * Normalizes IDs, fetches user details, and constructs snapshots for the frontend.
    */
@@ -415,14 +424,12 @@ export class RidesService {
 
     if (input.bookingTime) {
       const now = new Date();
-      const oneDayFromNow = new Date(existingRide.bookingTime.getTime() + 24 * 60 * 60 * 1000);
+      const minAllowedBookingTime = new Date(existingRide.bookingTime.getTime() - 24 * 60 * 60 * 1000);
 
       if (input.bookingTime < now) {
         ErrorException(null, 'RIDES.INVALID_BOOKING_TIME', HttpStatus.BAD_REQUEST);
       }
-      console.log('Input booking time:', input.bookingTime);
-       console.log('One day from now:', oneDayFromNow);
-      if (input.bookingTime < oneDayFromNow) {
+      if (input.bookingTime < minAllowedBookingTime) {
         ErrorException(null, 'RIDES.BOOKING_TIME_LIMIT_EXCEEDED', HttpStatus.BAD_REQUEST);
       }
 
