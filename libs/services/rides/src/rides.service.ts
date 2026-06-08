@@ -262,8 +262,6 @@ export class RidesService {
    */
   private async enrichRideDetails(rideDocument: RidesDocument): Promise<any> {
     const ride = rideDocument.toObject() as any;
-    console.log('Original ride document:', rideDocument);
-    console.log('Enriched ride:', ride);
     // Normalize Vehicle
     if (ride.vehicleId && typeof ride.vehicleId === 'object') {
       ride.vehicle = ride.vehicleId;

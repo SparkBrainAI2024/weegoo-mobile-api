@@ -24,6 +24,8 @@ import {
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { MATCHMAKING_CONFIG } from '@libs/common';
+import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
+import { S3Service } from '@libs/s3';
 
 @Injectable()
 export class MatchmakingService {
@@ -39,6 +41,7 @@ export class MatchmakingService {
     private readonly distanceCalculator: DistanceCalculatorService,
     private readonly pricingService: DynamicPricingService,
     private readonly notificationService: NotificationService,
+    private readonly s3: S3Service,
   ) {}
 
   // ════════════════════════════════════════════════════════════════
@@ -371,7 +374,7 @@ export class MatchmakingService {
         const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
         drivers.push({
           driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '',
-          profileImage: userDetails.profileImage || undefined,
+          profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)),
           vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate,
           distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes,
         });
@@ -439,7 +442,7 @@ export class MatchmakingService {
         const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
         drivers.push({
           driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '',
-          profileImage: userDetails.profileImage || undefined,
+          profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)),
           vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate,
           distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes,
         });
@@ -779,7 +782,9 @@ export class MatchmakingService {
         driverId,
         fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
-        profileImage: driverDetails?.profileImage || undefined,
+        profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        ),
         rating: driverDetails?.rating ?? 0
       },
       vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 },
@@ -802,7 +807,9 @@ export class MatchmakingService {
         driverId,
         fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
-        profileImage: driverDetails?.profileImage || undefined,
+        profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        ),
         rating: driverDetails?.rating ?? 0
       },
       vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 },
@@ -840,7 +847,9 @@ export class MatchmakingService {
         driverId: ride.driverId.toString(),
         fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
-        profileImage: driverDetails?.profileImage || undefined,
+        profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        ),
         rating: driverDetails?.rating ?? 0,
       };
     }
@@ -883,7 +892,9 @@ export class MatchmakingService {
         passengerId: ride.passengerId.toString(),
         fullName: passengerUser?.fullName || passengerDetails?.fullName || 'Passenger',
         phone: passengerUser?.phone || '',
-        profileImage: passengerDetails?.profileImage || undefined,
+        profileImage:getActiveProfileImageUrl(passengerDetails?.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        )
       },
       // Full driver details (with profile image from userDetails)
       driver,

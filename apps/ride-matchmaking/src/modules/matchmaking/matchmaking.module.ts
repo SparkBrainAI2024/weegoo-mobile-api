@@ -12,6 +12,7 @@ import { NotificationPersistentModule } from '@libs/services/notification';
 import { NotificationService } from '@libs/services/notification';
 import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
 import { EnvService } from '@libs/common/config/env.service';
+import { S3Service } from '@libs/s3';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { EnvService } from '@libs/common/config/env.service';
     FirebaseMessagingService,
     EnvService,
     NotificationService,
+    S3Service,
   ],
   exports: [MatchmakingService],
 })
