@@ -95,6 +95,8 @@ export * from './dtos/input/scheduled-ride.input';
 export * from './dtos/input/matchmaking-service-input';
 export * from './dtos/input/get-ride-by-id.input';
 export * from './dtos/input/update-ride.input';
+export * from './dtos/input/cancel-ride.input';
+export * from './dtos/input/create-promo-code.input';
 
 
 // dtos - response

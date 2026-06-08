@@ -28,4 +28,5 @@ export const RIDES = {
   BOOKING_TIME_LIMIT_EXCEEDED: "Rides can only be scheduled up to 24 hours in advance.",
   RIDE_OVERLAP: "You already have another ride scheduled around this time.",
   PROMO_NOT_APPLICABLE_FOR_STATUS: "Promo codes can only be applied to completed rides.",
+  PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE: "This promo code is not applicable for this ride type.",
 }

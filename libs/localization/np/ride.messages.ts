@@ -37,4 +37,5 @@ CANCEL_SHOULDNOT_EMPTY:
   BOOKING_TIME_LIMIT_EXCEEDED: "राइडहरू २४ घण्टा अगाडि मात्र बुक गर्न सकिन्छ।",
   RIDE_OVERLAP: "तपाईंको यस समयको आसपास अर्को राइड पहिले नै तय गरिएको छ।",
   PROMO_NOT_APPLICABLE_FOR_STATUS: "प्रोमो कोडहरू पुष्टि भएका राइडहरूमा मात्र लागू गर्न सकिन्छ।",
+  PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE: "यो प्रोमो कोड यो राइड प्रकारको लागि लागू हुँदैन।",
 };

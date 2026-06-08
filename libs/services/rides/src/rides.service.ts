@@ -1,7 +1,8 @@
 import {
   PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
-  DriverDocumentRepository, DriverOnlineStatus
+  DriverDocumentRepository, DriverOnlineStatus,AppliedToEnum
 } from '@libs/data-access';
+
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
 import { Model, Types } from 'mongoose';
 import { HttpStatus, Injectable } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { UpdateRideInput } from '@libs/data-access/dtos/input/update-ride.input'
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
 import { toMongoId, REQUIRED_SIDES } from '@libs/common';
+import { CreatePromoCodeInput } from '@libs/data-access';
 import { getActiveProfileImageUrl, transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
 
@@ -310,13 +312,20 @@ export class RidesService {
   }
 
   /**
+   * Creates a new promo code in the database.
+   * @param input Data for the new promo code.
+   * @returns The created PromoCode document.
+   */
+  async createPromoCode(input: CreatePromoCodeInput): Promise<PromoCodeDocument> {
+    return this.promoCodeModel.create(input);
+  }
+
+  /**
    * Helper to enrich ride data with detailed driver and passenger information.
    * Normalizes IDs, fetches user details, and constructs snapshots for the frontend.
    */
   private async enrichRideDetails(rideDocument: RidesDocument): Promise<any> {
     const ride = rideDocument.toObject() as any;
-    console.log('Original ride document:', rideDocument);
-    console.log('Enriched ride:', ride);
     // Normalize Vehicle
     if (ride.vehicleId && typeof ride.vehicleId === 'object') {
       ride.vehicle = ride.vehicleId;
@@ -477,14 +486,12 @@ export class RidesService {
 
     if (input.bookingTime) {
       const now = new Date();
-      const oneDayFromNow = new Date(existingRide.bookingTime.getTime() + 24 * 60 * 60 * 1000);
+      const minAllowedBookingTime = new Date(existingRide.bookingTime.getTime() - 24 * 60 * 60 * 1000);
 
       if (input.bookingTime < now) {
         ErrorException(null, 'RIDES.INVALID_BOOKING_TIME', HttpStatus.BAD_REQUEST);
       }
-      console.log('Input booking time:', input.bookingTime);
-       console.log('One day from now:', oneDayFromNow);
-      if (input.bookingTime < oneDayFromNow) {
+      if (input.bookingTime < minAllowedBookingTime) {
         ErrorException(null, 'RIDES.BOOKING_TIME_LIMIT_EXCEEDED', HttpStatus.BAD_REQUEST);
       }
 
@@ -595,7 +602,9 @@ export class RidesService {
     if (!promo) {
       ErrorException(null, 'RIDES.PROMO_CODE_NOT_FOUND', HttpStatus.BAD_REQUEST);
     }
-
+    if(promo.appliedTo !== ride.rideType as unknown as AppliedToEnum && promo.appliedTo !== AppliedToEnum.ALL_RIDES){
+      ErrorException(null, 'RIDES.PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE', HttpStatus.BAD_REQUEST);
+    }
     const now = new Date();
     // Check if expired
     if (promo.status === PromoCodeStatusEnum.EXPIRED || promo.expiryDateTime < now) {
@@ -720,4 +729,5 @@ export class RidesService {
       ride: rideObj
     };
   }
+  
 }

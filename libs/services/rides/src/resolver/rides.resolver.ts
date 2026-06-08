@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
-import { PaginationInput, Rides, User, RidesDocument } from '@libs/data-access';
+import { PaginationInput, Rides, User, RidesDocument, PromoCode, CreatePromoCodeInput } from '@libs/data-access';
 import { RidesService } from '../rides.service';
 import { CurrentUser } from '@libs/common';
 import { RideListWithPaginationResponse } from '@libs/data-access/dtos/response/ride-list-with-pagination.response';
@@ -79,5 +79,12 @@ export class RidesResolver {
     @Args('input') input: CancelRideInput,
   ) {
     return this.ridesService.cancelRide(user, input);
+  }
+  
+    @Mutation(() => PromoCode, { name: 'createPromoCode', description: 'Creates a new promo code' })
+  async createPromoCode(
+    @Args('input') input: CreatePromoCodeInput,
+  ): Promise<PromoCode> {
+    return this.ridesService.createPromoCode(input);
   }
 }
