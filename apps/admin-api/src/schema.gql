@@ -22,6 +22,23 @@ type GeoLocation {
   coordinates: [Float!]!
 }
 
+type UserProfileImageEntity {
+  s3Key: String!
+  status: ImageStatus!
+  createdAt: DateTime!
+  socialPicture: String
+}
+
+enum ImageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
 type RideLocation {
   type: String!
   coordinates: [Float!]!
@@ -62,6 +79,8 @@ type Fare {
   distanceAmount: Float!
   totalAmount: Float!
   noOfPassengers: Float!
+  discountAmount: Float!
+  promoCodeId: String
 }
 
 type PaymentDetails {
@@ -71,6 +90,8 @@ type PaymentDetails {
   noOfPassengers: Float!
   paymentMethod: PaymentMethodEnum
   discountAmount: Float!
+  promoCodeId: String
+  driverCommission: Float!
 }
 
 """Payment method for the ride"""
@@ -87,16 +108,6 @@ type VehicleImage {
   status: ImageStatus!
   createdAt: DateTime!
 }
-
-enum ImageStatus {
-  ACTIVE
-  INACTIVE
-}
-
-"""
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
-"""
-scalar DateTime
 
 type Vehicle {
   _id: String!
@@ -139,6 +150,13 @@ enum CategoryAccessedByRole {
   DRIVER
 }
 
+type RideUserSnapshot {
+  fullName: String
+  profileImage: String
+  rating: Float!
+  phone: String
+}
+
 type Rides {
   _id: String!
   createdAt: DateTime!
@@ -163,8 +181,14 @@ type Rides {
   paymentDetails: PaymentDetails
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
+  distanceToReachPassenger: Float
+  estimatedTimeToReachPassenger: Float
+  noOfPassengers: Float
+  ablyChannelId: String
   vehicle: Vehicle
   cancellationDetail: CancellationDetail
+  passenger: RideUserSnapshot
+  driver: RideUserSnapshot
 }
 
 """Types of rides"""
@@ -269,53 +293,9 @@ enum NotificationType {
   PAYMENT_CONFIRM
 }
 
-type BasicResponse {
-  message: String!
-  success: Boolean!
-}
-
-type CoreUserDetailsResponse {
-  email: String
-  verified: Boolean!
-  suspended: Boolean!
-  profileCompleted: Boolean!
-  _id: String!
-  language: String!
-  phone: String
-}
-
-type UserDetailsResponse {
-  _id: String
-  userId: String
-  fullName: String
-  gender: GenderEnum
-  address: String
-  email: String
-  profileImage: String
-  dateOfBirth: String
-  bio: String
-  ridePreference: RidePreference
-  district: String
-  streetName: String
-  province: ProvinceEnum
-  createdAt: String
-}
-
-enum GenderEnum {
-  MALE
-  FEMALE
-  OTHERS
-  UNPUBLISHED
-}
-
-"""The preference for booking a ride"""
-enum RidePreference {
-  """The ride is scheduled for a later time"""
-  SCHEDULED
-
-  """The ride is requested for immediate pickup"""
-  INSTANT
-  BOTH
+type Occasion {
+  type: String!
+  occasionId: ID!
 }
 
 type IssueCategoryEmbed {
@@ -370,9 +350,92 @@ enum IssueStatus {
   RESOLVED
 }
 
+type BasicResponse {
+  message: String!
+  success: Boolean!
+}
+
+type CoreUserDetailsResponse {
+  email: String
+  verified: Boolean!
+  suspended: Boolean!
+  profileCompleted: Boolean!
+  _id: String!
+  language: String!
+  phone: String
+}
+
+type UserDetailsResponse {
+  _id: String
+  userId: String
+  fullName: String
+  gender: GenderEnum
+  address: String
+  email: String
+  profileImage: String
+  dateOfBirth: String
+  bio: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
+  createdAt: String
+}
+
+enum GenderEnum {
+  MALE
+  FEMALE
+  OTHERS
+  UNPUBLISHED
+}
+
+"""The preference for booking a ride"""
+enum RidePreference {
+  """The ride is scheduled for a later time"""
+  SCHEDULED
+
+  """The ride is requested for immediate pickup"""
+  INSTANT
+  BOTH
+}
+
 type NotificationGroup {
   title: String!
   notifications: [Notification!]!
+}
+
+type MatchAttemptInfo {
+  attemptNumber: Int!
+  radiusKm: Float!
+  waitTimeSeconds: Int!
+  driversFound: Int!
+  driversRequested: Int!
+  driverAccepted: Boolean!
+  acceptedDriverId: String
+  timeoutExpired: Boolean!
+}
+
+type FareBreakdownGraphQL {
+  pickupCost: Float!
+  distanceCost: Float!
+  durationCost: Float!
+  total: Float!
+}
+
+type ScheduledFareBreakdownGraphQL {
+  baseFare: Float!
+  total: Float!
+}
+
+type MatchAttemptResultGraphQL {
+  attemptNumber: Int!
+  radiusKm: Float!
+  waitTimeSeconds: Int!
+  driversFound: Int!
+  driversRequested: Int!
+  driverAccepted: Boolean!
+  acceptedDriverId: String
+  timeoutExpired: Boolean!
 }
 
 type AdminUserResponse {

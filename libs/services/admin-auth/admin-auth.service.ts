@@ -56,12 +56,12 @@ async signup(fullName: string, email: string, password: string, lang: string): P
     async login(email: string, password: string,lang: string) {
       const admin = await this.adminUserRepository.findOne({ email });
       if (!admin) {
-        throw new HttpException('AUTH.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
+        throw new HttpException('ADMIN_USER.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
       }
 
       const isMatch = await comparePassword(password, admin.password);
       if (!isMatch) {
-        throw new HttpException('AUTH.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
+        throw new HttpException('ADMIN_USER.INVALID_CREDENTIALS', HttpStatus.UNAUTHORIZED);
       }
 
       const accessTokenJti = new Types.ObjectId().toString();
@@ -97,7 +97,7 @@ async signup(fullName: string, email: string, password: string, lang: string): P
     async forgotPassword(email: string, lang: string) {
       const admin = await this.adminUserRepository.findOne({ email });
       if (!admin) {
-        throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
+        ErrorException(null,'ADMIN_USER.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
       }
       const otp = GenerateRandomDigit(userOtpSalt);
 
@@ -117,7 +117,7 @@ async signup(fullName: string, email: string, password: string, lang: string): P
 async verifyOtp(email: string, otp: number, lang: string): Promise<any> {
   const admin = await this.adminUserRepository.findOne({ email });
   if (!admin) {
-    throw new HttpException('AUTH.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
+    ErrorException(null,'ADMIN_USER.ADMIN_NOT_FOUND', HttpStatus.NOT_FOUND);
   }
 
   const verification = await this.userVerificationRepository.findOne({
@@ -125,9 +125,9 @@ async verifyOtp(email: string, otp: number, lang: string): Promise<any> {
     otp,
     type: verificationType.RESET_PASSWORD,
 
-  });
+  });   
   if (!verification) {
-    throw new HttpException('AUTH.INVALID_OTP', HttpStatus.BAD_REQUEST);
+    ErrorException(null,'USER.INVALID_OTP', HttpStatus.BAD_REQUEST);
   }
   const resetPasswordToken = await generateToken(
     {
@@ -158,7 +158,7 @@ async resetPassword(resetPasswordToken: string, newPassword: string, lang: strin
   );
 
   if (!decoded || decoded.type !== tokenTypes.resetPasswordToken) {
-    throw new HttpException('AUTH.INVALID_TOKEN', HttpStatus.UNAUTHORIZED);
+    ErrorException(null,'USER.INVALID_RESET_PASSWORD_TOKEN', HttpStatus.UNAUTHORIZED);
   }
 
   const hashedPassword = await hashPassword(newPassword, passwordSalt);
