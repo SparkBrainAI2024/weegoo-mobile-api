@@ -54,9 +54,19 @@ export class RidesService {
   ): Promise<any> {
     const rides = await this.rideRepository.homeDashboardApi(user);
 
-    // Passengers receive the standard ride list
+    // Passengers receive the standard ride list with null stats
     if (user.loginAs !== roles.RIDER) {
-      return rides;
+      return {
+        rides,
+        verification: null,
+        stats: {
+          totalEarnings: null,
+          totalTrips: null,
+          rating: null,
+          onlineHoursToday: null,
+        },
+        onlineStatus: null,
+      };
     }
 
     const userId = toMongoId(user._id.toString());
