@@ -1,6 +1,6 @@
 import {
   PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
-  DriverDocumentRepository, DriverOnlineStatus,AppliedToEnum
+  DriverDocumentRepository, DriverOnlineStatus,AppliedToEnum, UserDailyOnlineStatusRepository
 } from '@libs/data-access';
 
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
@@ -19,6 +19,8 @@ import { S3Service } from '@libs/s3/s3.service';
 
 
 import { InjectModel } from '@nestjs/mongoose';
+import { DriverDocumentBundleStatus, DriverDocumentStatusCheck } from '@libs/data-access/enums/driver-document.enum';
+import { DRIVER_DOCUMENT } from '@libs/localization/en/driver-document.messages';
 @Injectable()
 export class RidesService {
   constructor(
@@ -28,6 +30,7 @@ export class RidesService {
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly driverDocumentRepository: DriverDocumentRepository,
     private readonly s3: S3Service,
+    private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
     @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
   ) { }
@@ -68,14 +71,13 @@ export class RidesService {
     const requiredTypes = Object.keys(REQUIRED_SIDES);
     const documentStatuses = requiredTypes.map((type: any) => {
       const doc = docs.find((d) => d.type === type);
-      if (!doc) return { type, status: 'ACTION_NEEDED' };
-      if (doc.status === DriverDocumentBundleStatus.APPROVED) return { type, status: 'REVIEWED' };
-      if (doc.status === DriverDocumentBundleStatus.PENDING_REVIEW) return { type, status: 'IN_REVIEW' };
-      return { type, status: '
-        ' }; // DRAFT or REJECTED
+      if (!doc) return { type, status: DriverDocumentStatusCheck.ACTION_NEEDED }; // No document uploaded for this type
+      if (doc.status === DriverDocumentBundleStatus.APPROVED) return { type, status: DriverDocumentStatusCheck.REVIEWED };
+      if (doc.status === DriverDocumentBundleStatus.PENDING_REVIEW) return { type, status: DriverDocumentStatusCheck.SUBMITTED };
+      return { type, status: DriverDocumentStatusCheck.REJECTED }; // DRAFT or REJECTED
     });
 
-    const verificationRequired = documentStatuses.some(d => d.status === 'ACTION_NEEDED');
+    const verificationRequired = documentStatuses.some(d => d.status !== DriverDocumentStatusCheck.REVIEWED);
 
     // 2. Aggregate Earnings (Today)
     // Per requirement: Total earnings 0 if verification is required
@@ -89,12 +91,18 @@ export class RidesService {
       rideStatus: RideStatus.COMPLETED,
     });
 
-    // 4. Online Hours Tracking
-    let onlineMinutesToday = 0;
-    if (details?.driverOnlineStatus === DriverOnlineStatus.ONLINE && (details as any).driverOnlineStartedAt) {
-      const diffMs = Date.now() - new Date((details as any).driverOnlineStartedAt).getTime();
-      onlineMinutesToday += Math.floor(diffMs / 60000);
+    // 4. Online Hours Tracking (from UserDailyOnlineStatus)
+    const today = new Date().toISOString().split('T')[0];
+    const onlineRecord = await this.userDailyOnlineStatusRepository.findOne({
+      userId: userId,
+      date: today,
+    });
+    let totalOnlineSeconds = onlineRecord?.totalOnlineSeconds || 0;
+    // If currently online, add elapsed time since lastOnlineAt
+    if (details?.driverOnlineStatus === DriverOnlineStatus.ONLINE && onlineRecord?.lastOnlineAt) {
+      totalOnlineSeconds += Math.floor((Date.now() - onlineRecord.lastOnlineAt.getTime()) / 1000);
     }
+    const onlineMinutesToday = Math.floor(totalOnlineSeconds / 60);
 
     return {
       rides,
