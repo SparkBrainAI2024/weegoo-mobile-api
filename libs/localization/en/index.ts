@@ -7,6 +7,7 @@ import { UPLOAD } from "./upload.messages";
 import { DRIVER_DOCUMENT } from "./driver-document.messages";
 import { ISSUE } from "./issue.messages";
 import { RIDES } from "./ride.messages";
+import { ADMIN_USER } from "./admin-user.messages";
 
 export const en_messages = {
   COMMON,
@@ -17,5 +18,6 @@ export const en_messages = {
   UPLOAD,
   DRIVER_DOCUMENT,
   ISSUE,
-  RIDES
+  RIDES,
+  ADMIN_USER
 };
