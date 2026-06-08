@@ -665,4 +665,5 @@ export class RidesService {
       ride: rideObj
     };
   }
+  
 }
