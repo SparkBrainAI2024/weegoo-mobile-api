@@ -1,4 +1,4 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum,PromoCode,PromoCodeDocument
+import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum,PromoCode,PromoCodeDocument, AppliedToEnum
  } from '@libs/data-access';
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
 import { Model, Types } from 'mongoose';
@@ -538,7 +538,9 @@ export class RidesService {
     if (!promo) {
       ErrorException(null, 'RIDES.PROMO_CODE_NOT_FOUND', HttpStatus.BAD_REQUEST);
     }
-
+    if(promo.appliedTo !== ride.rideType as unknown as AppliedToEnum && promo.appliedTo !== AppliedToEnum.ALL_RIDES){
+      ErrorException(null, 'RIDES.PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE', HttpStatus.BAD_REQUEST);
+    }
     const now = new Date();
     // Check if expired
     if (promo.status === PromoCodeStatusEnum.EXPIRED || promo.expiryDateTime < now) {
