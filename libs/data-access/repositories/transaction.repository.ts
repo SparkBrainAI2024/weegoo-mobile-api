@@ -83,14 +83,14 @@ async      earningsByDayForDriver                                               
   driverId: string,
   from?: Date,
   to?: Date,
-): Promise<{ date: string; total: number }[]> {
+): Promise<{ date: string; netEarning: number }[]> {
   const startDate = from || new Date();
   startDate.setHours(0, 0, 0, 0);
 
   const endDate = to || new Date();
   endDate.setHours(23, 59, 59, 999);
 
-  return this.model.aggregate([
+  const response = await  this.model.aggregate([
     {
       $match: {
         driverId: new Types.ObjectId(driverId),
@@ -123,5 +123,6 @@ async      earningsByDayForDriver                                               
       },
     },
   ]);
+  return response;
 }
 }

@@ -22,6 +22,7 @@ export * from './entities/promo-code-used.entity'
 export * from './entities/promo-code.entity';
 export * from './entities/transaction.entity';
 export * from './entities/issue.entity';
+export * from './entities/user-daily-online-status.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -34,6 +35,7 @@ export * from './repositories/driver-document.repository';
 export * from './repositories/transaction.repository';
 export * from './repositories/favourites.repository';
 export * from './repositories/notification.repository';
+export * from './repositories/user-daily-online-status.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';

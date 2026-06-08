@@ -1,13 +1,10 @@
 import { ErrorException, toMongoId } from "@libs/common";
 import { EnvService } from "@libs/common/config/env.service";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
-import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsRepository, UserRepository } from "@libs/data-access";
+import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsRepository, UserRepository, UserDailyOnlineStatusRepository } from "@libs/data-access";
 import { ImageStatus, UploadPurpose } from "@libs/data-access/enums/upload.enum";
 import { S3Service } from "@libs/s3";
 import { HttpStatus, Injectable } from "@nestjs/common";
-import { stat } from "fs";
-import { Types } from "mongoose";
-import { get } from "node_modules/axios/index.cjs";
 
 
 @Injectable()
@@ -17,6 +14,7 @@ export class UserDetailsService {
     private readonly userRepository: UserRepository,
     private readonly s3: S3Service,
     private readonly envService: EnvService,
+    private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
   ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
@@ -125,6 +123,33 @@ export class UserDetailsService {
   }
 
   async setOnlineStatus(userId: string, driverOnlineStatus: DriverOnlineStatus) {
+    const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+    
+    if (driverOnlineStatus === DriverOnlineStatus.ONLINE) {
+      // User is coming online - set lastOnlineAt timestamp
+      await this.userDailyOnlineStatusRepository.findOneAndUpdate(
+        { userId: toMongoId(userId), date: today },
+        { $set: { lastOnlineAt: new Date(), userId: toMongoId(userId), date: today } },
+        { upsert: true, new: true },
+      );
+    } else if (driverOnlineStatus === DriverOnlineStatus.OFFLINE) {
+      // User is going offline - calculate elapsed time since lastOnlineAt and add to totalOnlineSeconds
+      const record = await this.userDailyOnlineStatusRepository.findOne({
+        userId: toMongoId(userId),
+        date: today,
+      });
+      
+      if (record && record.lastOnlineAt) {
+        const elapsedSeconds = Math.floor((Date.now() - record.lastOnlineAt.getTime()) / 1000);
+        if (elapsedSeconds > 0) {
+          await this.userDailyOnlineStatusRepository.updateOne(
+            { _id: record._id },
+            { $inc: { totalOnlineSeconds: elapsedSeconds }, $set: { lastOnlineAt: null } },
+          );
+        }
+      }
+    }
+
     return this.userDetailsRepository.setOnlineStatus(userId, driverOnlineStatus);
   }
 }

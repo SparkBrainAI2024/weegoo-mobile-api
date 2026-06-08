@@ -1,21 +1,26 @@
-import { PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum,PromoCode,PromoCodeDocument, AppliedToEnum
- } from '@libs/data-access';
+import {
+  PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
+  DriverDocumentRepository, DriverOnlineStatus,AppliedToEnum, UserDailyOnlineStatusRepository
+} from '@libs/data-access';
+
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
 import { Model, Types } from 'mongoose';
-import {  HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 import { ErrorException } from '@libs/common/exceptions';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { UpdateRideInput } from '@libs/data-access/dtos/input/update-ride.input';
 import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
+import { toMongoId, REQUIRED_SIDES } from '@libs/common';
 import { CreatePromoCodeInput } from '@libs/data-access';
-import { toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl, transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
 
 
 import { InjectModel } from '@nestjs/mongoose';
+import { DriverDocumentBundleStatus, DriverDocumentStatusCheck } from '@libs/data-access/enums/driver-document.enum';
+import { DRIVER_DOCUMENT } from '@libs/localization/en/driver-document.messages';
 @Injectable()
 export class RidesService {
   constructor(
@@ -23,7 +28,9 @@ export class RidesService {
     private readonly transactionService: TransactionService,
     private readonly issueRepository: IssueRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
+    private readonly driverDocumentRepository: DriverDocumentRepository,
     private readonly s3: S3Service,
+    private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
     @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
   ) { }
@@ -44,8 +51,83 @@ export class RidesService {
 
   async homeDashboardApi(
     user: User,
-  ) {
-    return this.rideRepository.homeDashboardApi(user);
+  ): Promise<any> {
+    const rides = await this.rideRepository.homeDashboardApi(user);
+
+    // Passengers receive the standard ride list with null stats
+    if (user.loginAs !== roles.RIDER) {
+      return {
+        rides,
+        verification: null,
+        stats: {
+          totalEarnings: null,
+          totalTrips: null,
+          rating: null,
+          onlineHoursToday: null,
+        },
+        onlineStatus: null,
+      };
+    }
+
+    const userId = toMongoId(user._id.toString());
+    
+    // Fetch Driver Data: Details (Rating, Online Status) and Documents
+    const [details, docs] = await Promise.all([
+      this.userDetailsRepository.findOne({ userId }),
+      this.driverDocumentRepository.find({ driverId: userId }),
+    ]);
+
+    // 1. Evaluate Document Upload Status
+    const requiredTypes = Object.keys(REQUIRED_SIDES);
+    const documentStatuses = requiredTypes.map((type: any) => {
+      const doc = docs.find((d) => d.type === type);
+      if (!doc) return { type, status: DriverDocumentStatusCheck.ACTION_NEEDED }; // No document uploaded for this type
+      if (doc.status === DriverDocumentBundleStatus.APPROVED) return { type, status: DriverDocumentStatusCheck.REVIEWED };
+      if (doc.status === DriverDocumentBundleStatus.PENDING_REVIEW) return { type, status: DriverDocumentStatusCheck.SUBMITTED };
+      return { type, status: DriverDocumentStatusCheck.REJECTED }; // DRAFT or REJECTED
+    });
+
+    const verificationRequired = documentStatuses.some(d => d.status !== DriverDocumentStatusCheck.REVIEWED);
+
+    // 2. Aggregate Earnings (Today)
+    // Per requirement: Total earnings 0 if verification is required
+    const earningsData = !verificationRequired 
+      ? await this.transactionService.getDriversEarningByDate(user._id.toString())
+      : { netEarning: 0 };
+
+    // 3. Total Trip History
+    const totalTrips = await this.rideRepository.count({
+      driverId: userId,
+      rideStatus: RideStatus.COMPLETED,
+    });
+
+    // 4. Online Hours Tracking (from UserDailyOnlineStatus)
+    const today = new Date().toISOString().split('T')[0];
+    const onlineRecord = await this.userDailyOnlineStatusRepository.findOne({
+      userId: userId,
+      date: today,
+    });
+    let totalOnlineSeconds = onlineRecord?.totalOnlineSeconds || 0;
+    // If currently online, add elapsed time since lastOnlineAt
+    if (details?.driverOnlineStatus === DriverOnlineStatus.ONLINE && onlineRecord?.lastOnlineAt) {
+      totalOnlineSeconds += Math.floor((Date.now() - onlineRecord.lastOnlineAt.getTime()) / 1000);
+    }
+    const onlineMinutesToday = Math.floor(totalOnlineSeconds / 60);
+
+    return {
+      rides,
+      verification: {
+        verificationRequired,
+        documentStatuses,
+      },
+      stats: {
+        totalEarnings: earningsData.netEarning,
+        totalTrips,
+        rating: details?.rating || 0,
+        onlineHoursToday: (onlineMinutesToday / 60).toFixed(2),
+      },
+      onlineStatus: details?.driverOnlineStatus || DriverOnlineStatus.OFFLINE,
+    };
   }
   /**
    * Creates a new ride with an auto-generated rideUUId using nanoid.

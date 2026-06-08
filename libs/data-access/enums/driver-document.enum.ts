@@ -22,6 +22,14 @@ export enum DriverDocumentBundleStatus {
   REJECTED       = "REJECTED",
 }
 
+export enum DriverDocumentStatusCheck {
+  SUBMITTED= "SUBMITTED",
+  ACTION_NEEDED= "ACTION_NEEDED",
+  REVIEWED= "REVIEWED",
+  REJECTED = "REJECTED",
+}
+
+
 registerEnumType(DriverDocumentType,         { name: "DriverDocumentType"         });
 registerEnumType(DriverDocumentSide,         { name: "DriverDocumentSide"         });
 registerEnumType(DriverDocumentBundleStatus, { name: "DriverDocumentBundleStatus" });

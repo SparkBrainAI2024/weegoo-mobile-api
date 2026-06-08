@@ -1,4 +1,4 @@
-import { Device, DeviceRepository, DeviceSchema, User, UserDetails, UserDetailsRepository, UserDetailsSchema, UserRepository, UserSchema, UserVerification, UserVerificationRepository, UserVerificationSchema, UserTokenMeta, UserTokenMetaSchema, UserTokenMetaRepository } from "@libs/data-access";
+import { Device, DeviceRepository, DeviceSchema, User, UserDetails, UserDetailsRepository, UserDetailsSchema, UserRepository, UserSchema, UserVerification, UserVerificationRepository, UserVerificationSchema, UserTokenMeta, UserTokenMetaSchema, UserTokenMetaRepository, UserDailyOnlineStatus, UserDailyOnlineStatusSchema, UserDailyOnlineStatusRepository } from "@libs/data-access";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 
@@ -10,6 +10,7 @@ import { MongooseModule } from "@nestjs/mongoose";
       { name: UserDetails.name, schema: UserDetailsSchema },
       { name: Device.name, schema: DeviceSchema },
       { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
+      { name: UserDailyOnlineStatus.name, schema: UserDailyOnlineStatusSchema },
     ]),
   ],
   providers: [
@@ -18,6 +19,7 @@ import { MongooseModule } from "@nestjs/mongoose";
     DeviceRepository,
     UserDetailsRepository,
     UserTokenMetaRepository,
+    UserDailyOnlineStatusRepository,
   ],
   exports: [
     MongooseModule,
@@ -26,6 +28,7 @@ import { MongooseModule } from "@nestjs/mongoose";
     DeviceRepository,
     UserDetailsRepository,
     UserTokenMetaRepository,
+    UserDailyOnlineStatusRepository,
   ],
 })
 export class UserPersistenceModule {}
