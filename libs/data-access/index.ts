@@ -120,6 +120,7 @@ export * from './dtos/response/notification-listing-with-curson-pagination.respo
 export * from './dtos/response/match-making.response'
 export * from './dtos/response/matchmaking-service-response.dto'
 export * from './dtos/response/update-ride.response';
+export * from './dtos/response/dashboard-home.response';
 
 //interfaces
 export * from './interfaces/location.interface'

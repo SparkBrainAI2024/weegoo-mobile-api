@@ -33,3 +33,4 @@ export enum DriverDocumentStatusCheck {
 registerEnumType(DriverDocumentType,         { name: "DriverDocumentType"         });
 registerEnumType(DriverDocumentSide,         { name: "DriverDocumentSide"         });
 registerEnumType(DriverDocumentBundleStatus, { name: "DriverDocumentBundleStatus" });
+registerEnumType(DriverDocumentStatusCheck,  { name: "DriverDocumentStatusCheck"  });
