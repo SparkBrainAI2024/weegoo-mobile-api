@@ -21,13 +21,7 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: [
-      "https://ridehailing.com",
-      "https://www.ridehailing.com",
-      "http://localhost:3001",
-      "https://weegoo-admin-dev.vercel.app"
-
-    ],
+    origin:process.env.ALLOWED_ORIGINS,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
