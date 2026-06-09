@@ -7,11 +7,11 @@ export class BaseEntity {
   @Field(() => String)
   _id: Types.ObjectId;
 
-  @Field(() => Date)
+  @Field(() => Date, { nullable: true })
   @Prop({ type: Date, default: Date.now })
   createdAt?: Date;
 
-  @Field(() => Date)
+  @Field(() => Date, { nullable: true })
   @Prop({ type: Date, default: Date.now })
   updatedAt?: Date;
 

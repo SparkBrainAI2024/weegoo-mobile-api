@@ -5,24 +5,24 @@ import { Types } from "mongoose";
 import { PaymentMethodEnum } from "../enums/payment.enum";
 @ObjectType()
 export class PaymentDetails {
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     baseAmount: Number;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     distanceAmount: Number;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     totalAmount: Number;
 
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 1})
+    @Prop({ type: Number, default: 1, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     noOfPassengers: Number;
 
@@ -31,8 +31,8 @@ export class PaymentDetails {
     @ApiProperty({ nullable: true })
     paymentMethod?: PaymentMethodEnum;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     discountAmount: Number;
 
@@ -42,7 +42,7 @@ export class PaymentDetails {
     promoCodeId?: Types.ObjectId;
 
     @Field(() => Number,{defaultValue:0.2})
-    @Prop({ type: Number, default: 0.2, required: false })
+    @Prop({ type: Number, default: 0.2, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     driverCommission: Number;
 }
