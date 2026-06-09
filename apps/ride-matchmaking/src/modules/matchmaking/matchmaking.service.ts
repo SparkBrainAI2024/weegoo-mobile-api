@@ -510,6 +510,10 @@ export class MatchmakingService {
         return { success: false, message: 'Ride not found' };
       }
 
+      // Fetch driver name for the unified channel response
+      const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+      const driverName = driverUser?.fullName ?? null;
+
       if (action === 'accept') {
         // Only update if still PENDING (atomic lock)
         const updatedRide = await this.ridesModel.findOneAndUpdate(
@@ -544,6 +548,23 @@ export class MatchmakingService {
         await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
         await this.rideChannelService.publishRideTaken(ride.rideUUId, ride._id.toString());
 
+        // Publish driver-response to unified ride channel with full nullable format
+        await this.rideChannelService.publishDriverResponseToRideChannel(ride.rideUUId, {
+          rideId: ride._id.toString(),
+          driverId,
+          action: 'accept',
+          driverName,
+          driverImage: acceptDetails?.driver?.profileImage ?? null,
+          rating: acceptDetails?.driver?.rating ?? null,
+          vehicleType: acceptDetails?.vehicle?.vehicleType ?? null,
+          vehicleModel: acceptDetails?.vehicle?.vehicleModel ?? null,
+          color: acceptDetails?.vehicle?.color ?? null,
+          numberPlate: acceptDetails?.vehicle?.numberPlate ?? null,
+          estimatedFare: acceptDetails?.estimatedFare ?? ride.estimatedFare ?? null,
+          estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes ?? ride.estimatedTimeInMinutes ?? null,
+          distanceInKm: ride.distanceInKm ?? null,
+        });
+
         // Send notification to passenger
         if (ride.passengerId) {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
@@ -560,6 +581,23 @@ export class MatchmakingService {
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully' };
       } else if (action === 'reject') {
+        // Publish driver-response to unified ride channel with full nullable format
+        await this.rideChannelService.publishDriverResponseToRideChannel(ride.rideUUId, {
+          rideId: ride._id.toString(),
+          driverId,
+          action: 'reject',
+          driverName,
+          driverImage: null,
+          rating: null,
+          vehicleType: null,
+          vehicleModel: null,
+          color: null,
+          numberPlate: null,
+          estimatedFare: null,
+          estimatedTimeInMinutes: null,
+          distanceInKm: null,
+        });
+
         // Send notification to passenger
         if (ride.passengerId) {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();

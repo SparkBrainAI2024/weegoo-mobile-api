@@ -35,12 +35,56 @@ export class RideChannelService {
   // ════════════════════════════════════════════════════════════════
 
   /**
-   * Publish full ride details update (fare, distance, ETA, driver info, passenger info, vehicle info, locations, status).
+   * Publish to the matchmaking driver-response channel (internal matchmaking use).
    */
-  async publishRideDetails(rideUUId: string, data: RideDetailsPayload): Promise<void> {
+  async publishDriverResponse(rideUUId: string, driverId: string, action: 'accept' | 'reject'): Promise<void> {
+    const channel = `WG-RIDE-${rideUUId}:driver-response`;
+    await this.ablyService.publish(channel, 'driver-response', { driverId, action });
+    this.logger.debug(`Published driver-response for ride ${rideUUId}: ${action}`);
+  }
+
+  /**
+   * Publish driver response (accept/reject) to the unified ride channel.
+   * All fields are nullable if they don't exist, but eventName and timestamp are always present.
+   */
+  async publishDriverResponseToRideChannel(
+    rideUUId: string,
+    data: {
+      rideId: string;
+      driverId: string;
+      action: 'accept' | 'reject';
+      driverName?: string | null;
+      driverImage?: string | null;
+      rating?: number | null;
+      vehicleType?: string | null;
+      vehicleModel?: string | null;
+      color?: string | null;
+      numberPlate?: string | null;
+      estimatedFare?: number | null;
+      estimatedTimeInMinutes?: number | null;
+      distanceInKm?: number | null;
+    },
+  ): Promise<void> {
     const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'ride-details', data);
-    this.logger.debug(`Published ride-details for ride ${rideUUId}`);
+    await this.ablyService.publish(channel, 'driver-response', {
+      eventName: `driver-${data.action}`,
+      timestamp: new Date().toISOString(),
+      rideId: data.rideId ?? null,
+      rideUUId,
+      driverId: data.driverId ?? null,
+      action: data.action,
+      driverName: data.driverName ?? null,
+      driverImage: data.driverImage ?? null,
+      rating: data.rating ?? null,
+      vehicleType: data.vehicleType ?? null,
+      vehicleModel: data.vehicleModel ?? null,
+      color: data.color ?? null,
+      numberPlate: data.numberPlate ?? null,
+      estimatedFare: data.estimatedFare ?? null,
+      estimatedTimeInMinutes: data.estimatedTimeInMinutes ?? null,
+      distanceInKm: data.distanceInKm ?? null,
+    });
+    this.logger.debug(`Published driver-response to unified ride channel for ${rideUUId}: ${data.action}`);
   }
 
   /**
@@ -59,6 +103,15 @@ export class RideChannelService {
     const channel = RideChannelService.getChannelName(rideUUId);
     await this.ablyService.publish(channel, 'passenger-location-update', data);
     this.logger.debug(`Published passenger-location-update for ride ${rideUUId}`);
+  }
+
+  /**
+   * Publish full ride details update to the unified ride channel.
+   */
+  async publishRideDetails(rideUUId: string, data: RideDetailsPayload): Promise<void> {
+    const channel = RideChannelService.getChannelName(rideUUId);
+    await this.ablyService.publish(channel, 'ride-details', data);
+    this.logger.debug(`Published ride-details for ride ${rideUUId}`);
   }
 
   /**
@@ -104,15 +157,6 @@ export class RideChannelService {
       suggestedAction,
     });
     this.logger.debug(`Published match-failed for ride ${rideUUId}`);
-  }
-
-  /**
-   * Publish to the matchmaking driver-response channel (internal matchmaking use).
-   */
-  async publishDriverResponse(rideUUId: string, driverId: string, action: 'accept' | 'reject'): Promise<void> {
-    const channel = `WG-RIDE-${rideUUId}:driver-response`;
-    await this.ablyService.publish(channel, 'driver-response', { driverId, action });
-    this.logger.debug(`Published driver-response for ride ${rideUUId}: ${action}`);
   }
 
   /**
