@@ -43,9 +43,9 @@ export interface AppEnv {
   MAIL_USER: string;
   MAIL_PASS: string;
  
-  //Batoo
-  BATOO_API_KEY: string;
-  BATOO_API_URL: string;
+  //Baato
+  BAATO_API_KEY: string;
+  BAATO_API_URL: string;
   //Ably
   ABLY_API_KEY: string;
   //Firebase
@@ -101,9 +101,9 @@ export default (): AppEnv => ({
   //Ably
   ABLY_API_KEY: process.env.ABLY_API_KEY || '',
   
-  //Batoo
-  BATOO_API_KEY: process.env.BATOO_API_KEY || '',
-  BATOO_API_URL: process.env.BATOO_API_URL || '',
+  //Baato
+  BAATO_API_KEY: process.env.BAATO_API_KEY || '',
+  BAATO_API_URL: process.env.BAATO_API_URL || '',
   
   //Firebase 
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
