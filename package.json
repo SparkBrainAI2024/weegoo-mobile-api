@@ -71,6 +71,7 @@
         "firebase-admin": "^13.10.0",
         "graphql": "^16.13.2",
         "graphql-scalars": "^1.25.0",
+        "graphql-subscriptions": "^3.0.0",
         "handlebars": "^4.7.8",
         "helmet": "^8.1.0",
         "install": "^0.13.0",

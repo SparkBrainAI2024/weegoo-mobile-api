@@ -6,6 +6,7 @@ import { UserDetails, UserDetailsSchema } from '@libs/data-access/entities/user-
 import { Vehicle, VehicleSchema } from '@libs/data-access/entities/vehicle.entity';
 import { MatchmakingService } from './matchmaking.service';
 import { MatchmakingResolver } from './matchmaking.resolver';
+import { MatchmakingSubscriptionResolver } from './matchmaking-subscription.resolver';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { NotificationPersistentModule } from '@libs/services/notification';
@@ -13,6 +14,8 @@ import { NotificationService } from '@libs/services/notification';
 import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
 import { EnvService } from '@libs/common/config/env.service';
 import { S3Service } from '@libs/s3';
+import { AblyModule } from '@libs/services/ably';
+import { pubSubProvider } from './pubsub.provider';
 
 @Module({
   imports: [
@@ -23,9 +26,11 @@ import { S3Service } from '@libs/s3';
       { name: Vehicle.name, schema: VehicleSchema },
     ]),
     NotificationPersistentModule,
+    AblyModule,
   ],
   providers: [
     MatchmakingResolver,
+    MatchmakingSubscriptionResolver,
     MatchmakingService,
     DistanceCalculatorService,
     DynamicPricingService,
@@ -33,6 +38,7 @@ import { S3Service } from '@libs/s3';
     EnvService,
     NotificationService,
     S3Service,
+    pubSubProvider,
   ],
   exports: [MatchmakingService],
 })
