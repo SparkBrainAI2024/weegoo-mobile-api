@@ -5,6 +5,7 @@ import { EnvService } from "@libs/common/config/env.service";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { DriverRideAcceptanceService } from "./driver-ride-acceptance.service";
 import { DriverRideLocationResolver } from "./driver-ride-location.resolver";
+import { DriverRideResolver } from "./driver-ride.resolver";
 import { TransactionModule } from "../transaction/transaction.module";
 import { S3Module } from "@libs/s3";
 
@@ -22,6 +23,7 @@ import { S3Module } from "@libs/s3";
         EnvService,
         DriverRideAcceptanceService,
         DriverRideLocationResolver,
+        DriverRideResolver,
     ],
     exports: [RidesService]
 })

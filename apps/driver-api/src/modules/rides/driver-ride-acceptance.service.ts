@@ -1,11 +1,10 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { User, UserDocument } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
-import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { AblyRideListenerService, AblyService, RideChannelService } from '@libs/services/ably';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
@@ -52,7 +51,7 @@ export interface DriverAcceptDetails {
 }
 
 @Injectable()
-export class DriverRideAcceptanceService implements OnModuleInit {
+export class DriverRideAcceptanceService {
   private readonly logger = new Logger(DriverRideAcceptanceService.name);
   private driverId: string;
 
@@ -100,60 +99,104 @@ export class DriverRideAcceptanceService implements OnModuleInit {
 
   /**
    * Driver accepts a ride.
-   * Locks the ride atomically, then publishes full driver+vehicle+passenger details.
+   * Calls the matchmaking service GraphQL endpoint which handles atomic lock, DB update,
+   * Ably publishing, and notifications.
    */
   async acceptRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string; data?: DriverAcceptDetails }> {
     this.logger.log(`Driver ${driverId} attempting to accept ride ${rideId}`);
 
-    // Atomic lock: only update if still PENDING
-    const updatedRide = await this.ridesModel.findOneAndUpdate(
-      {
-        _id: new Types.ObjectId(rideId),
-        rideStatus: RideStatus.PENDING,
-      },
-      {
-        $set: {
-          driverId: new Types.ObjectId(driverId),
-          rideStatus: RideStatus.CONFIRMED,
-        },
-      },
-      { new: true },
-    ).exec();
-
-    if (!updatedRide) {
-      this.logger.warn(`Driver ${driverId}: Ride ${rideId} was already locked by another driver`);
-      return { success: false, message: 'Ride was already accepted by another driver' };
+    const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+    if (!ride) {
+      return { success: false, message: 'Ride not found' };
     }
 
-    this.logger.log(`Driver ${driverId} successfully locked ride ${rideId}`);
+    // Call matchmaking service via GraphQL
+    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
+    try {
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        {
+          query: `
+            mutation DriverRespondToRide($input: DriverResponseInput!) {
+              driverRespondToRide(input: $input) {
+                success
+                message
+              }
+            }
+          `,
+          variables: {
+            input: {
+              rideUUID: ride.rideUUId,
+              driverId,
+              action: 'accept',
+            },
+          },
+        },
+        { timeout: 10000 },
+      );
 
-    // Fetch full driver details with vehicle info
-    const acceptDetails = await this.buildAcceptDetails(updatedRide, driverId);
-
-    // Publish driver accepted to the unified ride channel
-    await this.rideChannelService.publishDriverAccepted(updatedRide.rideUUId, acceptDetails);
-
-    // Notify matchmaking service via its internal response channel
-    await this.rideChannelService.publishDriverResponse(updatedRide.rideUUId, driverId, 'accept');
-
-    // Notify all subscribers that ride is taken
-    await this.rideChannelService.publishRideTaken(updatedRide.rideUUId, rideId);
-
-    return { success: true, message: 'Ride accepted successfully', data: acceptDetails };
+      const result = response.data?.data?.driverRespondToRide;
+      if (result?.success) {
+        this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
+        return { success: true, message: result.message };
+      } else {
+        this.logger.warn(`Matchmaking service returned: ${result?.message}`);
+        return { success: false, message: result?.message || 'Failed to accept ride via matchmaking service' };
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to call matchmaking service for accept: ${error?.message || error}`);
+      return { success: false, message: 'Failed to communicate with matchmaking service' };
+    }
   }
 
   /**
    * Driver rejects a ride.
+   * Calls the matchmaking service GraphQL endpoint which handles notifications and continues matchmaking.
    */
   async rejectRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
 
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+    if (!ride) {
+      return { success: false, message: 'Ride not found' };
+    }
 
-    // Notify matchmaking service via the internal response channel
-    await this.rideChannelService.publishDriverResponse(ride.rideUUId, driverId, 'reject');
+    // Call matchmaking service via GraphQL
+    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
+    try {
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        {
+          query: `
+            mutation DriverRespondToRide($input: DriverResponseInput!) {
+              driverRespondToRide(input: $input) {
+                success
+                message
+              }
+            }
+          `,
+          variables: {
+            input: {
+              rideUUID: ride.rideUUId,
+              driverId,
+              action: 'reject',
+            },
+          },
+        },
+        { timeout: 10000 },
+      );
 
-    return { success: true, message: 'Ride rejected' };
+      const result = response.data?.data?.driverRespondToRide;
+      if (result?.success) {
+        this.logger.log(`Driver ${driverId} rejected ride ${rideId} via matchmaking service`);
+        return { success: true, message: result.message };
+      } else {
+        return { success: false, message: result?.message || 'Failed to reject ride via matchmaking service' };
+      }
+    } catch (error: any) {
+      this.logger.error(`Failed to call matchmaking service for reject: ${error?.message || error}`);
+      return { success: false, message: 'Failed to communicate with matchmaking service' };
+    }
   }
 
   /**

@@ -503,20 +503,67 @@ export class MatchmakingService {
   async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string }> {
     await this.ablyService.publish(`WG-RIDE-${rideUUID}:driver-response`, 'driver-response', { driverId, action });
 
-    // Find the ride to send notifications
+    // Find the ride
     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
-      if (ride && ride.passengerId) {
-        const passengerUser = await this.userModel.findById(ride.passengerId).exec();
-        if (passengerUser) {
-          if (action === 'accept') {
+      if (!ride) {
+        return { success: false, message: 'Ride not found' };
+      }
+
+      if (action === 'accept') {
+        // Only update if still PENDING (atomic lock)
+        const updatedRide = await this.ridesModel.findOneAndUpdate(
+          {
+            _id: ride._id,
+            rideStatus: RideStatus.PENDING,
+          },
+          {
+            $set: {
+              driverId: new Types.ObjectId(driverId),
+              rideStatus: RideStatus.CONFIRMED,
+            },
+          },
+          { new: true },
+        ).exec();
+
+        if (!updatedRide) {
+          this.logger.warn(`Driver ${driverId}: Ride ${rideUUID} was already locked by another driver`);
+          return { success: false, message: 'Ride was already accepted by another driver' };
+        }
+
+        // Build and publish driver accepted details
+        let acceptDetails: any;
+        if (ride.rideType === RideTypes.SCHEDULED) {
+          const fare = await this.getScheduledEstimatedFare(ride._id.toString());
+          acceptDetails = await this.buildScheduledAcceptDetails(updatedRide, driverId, fare);
+        } else {
+          const fare = await this.getEstimatedFare(ride._id.toString());
+          acceptDetails = await this.buildAcceptDetails(updatedRide, driverId, fare || { total: 0 } as FareBreakdown);
+        }
+
+        await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
+        await this.rideChannelService.publishRideTaken(ride.rideUUId, ride._id.toString());
+
+        // Send notification to passenger
+        if (ride.passengerId) {
+          const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+          if (passengerUser) {
             const notificationInput: CreateNotificationInput = {
               title: 'Ride Accepted',
               notificationType: NotificationType.RIDE_ACCEPTED,
               description: 'Your ride request has been accepted by a driver. They are on their way to pick you up!',
             };
             await this.notificationService.createNotification(notificationInput, passengerUser);
-          } else if (action === 'reject') {
+          }
+        }
+
+        this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
+        return { success: true, message: 'Ride accepted successfully' };
+      } else if (action === 'reject') {
+        // Send notification to passenger
+        if (ride.passengerId) {
+          const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+          if (passengerUser) {
             const notificationInput: CreateNotificationInput = {
               title: 'Ride Rejected',
               notificationType: NotificationType.RIDE_REQUEST,
@@ -525,17 +572,16 @@ export class MatchmakingService {
             await this.notificationService.createNotification(notificationInput, passengerUser);
           }
         }
+
+        this.logger.log(`Driver ${driverId} rejected ride ${rideUUID}`);
+        return { success: true, message: 'Ride rejected' };
       }
     } catch (err) {
-      this.logger.warn(`Failed to send notification for driver response: ${err}`);
+      this.logger.warn(`Failed to handle driver response: ${err}`);
+      return { success: false, message: 'Failed to process driver response' };
     }
 
-    if (action === 'reject') {
-      this.logger.log(`Driver ${driverId} rejected ride ${rideUUID}`);
-      return { success: true, message: 'Ride rejected' };
-    }
-    this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
-    return { success: true, message: 'Ride accepted' };
+    return { success: false, message: 'Invalid action' };
   }
 
   // ════════════════════════════════════════════════════════════════
