@@ -4,16 +4,21 @@ import { HydratedDocument, Types } from 'mongoose';
 import { BaseEntity } from '../base/base.entity';
 import { DiscountTypeEnum, AppliedToEnum, PromoCodeStatusEnum } from '../enums/promo-code.enum';
 
+export type OccasionDocument = Occasion & HydratedDocument<Occasion>;
+
+
 @ObjectType()
-export class Occasion {
+@Schema({timestamps:true})
+export class Occasion  extends BaseEntity{
+  @Field(() => ID)
+  _id: Types.ObjectId;
+
   @Field(() => String)
   @Prop({ type: String, required: true })
-  type: string; // e.g., 'HOLIDAY', 'EVENT'
-
-  @Field(() => ID)
-  @Prop({ type: Types.ObjectId, required: true })
-  occasionId: Types.ObjectId; // e.g., ID of a specific holiday or event
+  occasionName: string; // e.g., ID of a specific holiday or event
 }
+
+export const OccasionSchema = SchemaFactory.createForClass(Occasion);
 
 export type PromoCodeDocument = PromoCode & HydratedDocument<PromoCode>;
 
@@ -23,9 +28,9 @@ export class PromoCode extends BaseEntity {
   @Field(() => ID)
   _id: Types.ObjectId;
 
-  @Field(() => Occasion, { nullable: true })
-  @Prop({ type: Occasion, required: false })
-  occasion?: Occasion;
+  @Field(() => Occasion)
+  @Prop({ type: Types.ObjectId,ref:'Occasion', required: true })
+  occasion: Types.ObjectId;
 
   @Field(() => String)
   @Prop({ type: String, required: true, unique: true, trim: true })
@@ -82,3 +87,8 @@ export const promoCodeModel = {
   name: PromoCode.name,
   schema: PromoCodeSchema,
 };
+
+export const occasinModel = {
+  name: Occasion.name,
+  schema: OccasionSchema
+}
