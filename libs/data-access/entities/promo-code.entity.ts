@@ -48,12 +48,12 @@ export class PromoCode extends BaseEntity {
   @Prop({ type: Number, required: false, default: 0 })
   flatAmount?: number; // For FLAT type, e.g., 50 for $50 off
 
-  @Field(() => Number, { nullable: true })
-  @Prop({ type: Number, required: false, default: 0 })
-  maxDiscount?: number; // Maximum discount for percentage-based codes
+  @Field(() => Number, )
+  @Prop({ type: Number, required: true, default: 0 })
+  maxDiscount: number; // Maximum discount for percentage-based codes
 
-  @Field(() => Number, { nullable: true })
-  @Prop({ type: Number, required: false, default: 0 })
+  @Field(() => Number, )
+  @Prop({ type: Number, required: true, default: 0 })
   minimumFare?: number; // Minimum fare required to apply the promo code
 
   @Field(() => AppliedToEnum)

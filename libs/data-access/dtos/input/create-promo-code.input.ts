@@ -1,5 +1,5 @@
 import { Field, InputType, ID } from '@nestjs/graphql';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, IsDate } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min, IsDate, IsMongoId } from 'class-validator';
 import { DiscountTypeEnum, AppliedToEnum, PromoCodeStatusEnum } from '@libs/data-access';
 import { Type } from 'class-transformer';
 
@@ -82,4 +82,9 @@ export class CreatePromoCodeInput {
   @Field(() => PromoCodeStatusEnum, { defaultValue: PromoCodeStatusEnum.ACTIVE })
   @IsEnum(PromoCodeStatusEnum)
   status: PromoCodeStatusEnum;
+
+
+  @Field(()=>ID)
+  @IsMongoId()
+  occasionId:string
 }
