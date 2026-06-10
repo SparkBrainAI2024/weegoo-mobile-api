@@ -281,21 +281,21 @@ export class EnvService {
   }
 
   // ==========================================
-  // Batoo API helper methods
+  // Baato API helper methods
   // ==========================================
 
   /**
-   * Get Batoo API key for distance calculation
+   * Get Baato API key for distance calculation
    */
-  getBatooApiKey(): string {
-    return this.getString('BATOO_API_KEY', '');
+  getBaatoApiKey(): string {
+    return this.getString('BAATO_API_KEY', '');
   }
 
   /**
-   * Get Batoo API base URL
+   * Get Baato API base URL
    */
-  getBatooApiUrl(): string {
-    return this.getString('BATOO_API_URL', 'https://api.batoo.com');
+  getBaatoApiUrl(): string {
+    return this.getString('BAATO_API_URL', 'https://api.baato.io/api/v1');
   }
   
 }

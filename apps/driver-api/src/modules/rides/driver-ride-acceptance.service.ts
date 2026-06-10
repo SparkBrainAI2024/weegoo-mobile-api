@@ -10,6 +10,11 @@ import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
+import { RideStatus } from '@libs/data-access/enums/rides.enum';
+import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
+import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
+import { CompleteRideInput } from '@libs/data-access';
+import { ErrorException, MATCHMAKING_CONFIG } from '@libs/common';
 
 export interface DriverAcceptDetails {
   rideId: string;
@@ -65,7 +70,8 @@ export class DriverRideAcceptanceService {
     private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
     private readonly s3: S3Service,
-  ) {}
+    private readonly transactionService: TransactionService,
+  ) { }
 
   onModuleInit() {
     this.logger.log('Driver ride acceptance service initialized. Awaiting driver authentication.');
@@ -220,7 +226,7 @@ export class DriverRideAcceptanceService {
         driverId: driverId,
         fullName: driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
-        profileImage: driverDetails?.profileImages?.length>0 ? getActiveProfileImageUrl(driverDetails.profileImages, (key) => this.s3.getPublicUrl(key)) : null,
+        profileImage: driverDetails?.profileImages?.length > 0 ? getActiveProfileImageUrl(driverDetails.profileImages, (key) => this.s3.getPublicUrl(key)) : null,
         rating: 4.5, // placeholder — fetch from ratings collection in production
       },
       vehicle: {
@@ -253,25 +259,106 @@ export class DriverRideAcceptanceService {
     };
   }
 
-  async getMatchmakingResult(rideId: string): Promise<any> {
-    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
-    try {
-      const response = await axios.post(
-        `${matchmakingUrl}/graphql`,
-        {
-          query: `
-            query GetMatchStatus($input: EstimatedFareInput!) {
-              estimatedFare(input: $input) { total }
-            }
-          `,
-          variables: { input: { rideId } },
-        },
-        { timeout: 5000 },
-      );
-      return response.data?.data;
-    } catch (error: any) {
-      this.logger.warn(`Failed to get matchmaking result: ${error?.message || error}`);
-      return null;
+  /**
+   * Complete a ride. Called by driver when ride is finished.
+   * Handles:
+   * 1. Validating ride status and ownership
+   * 2. Calculating final fare
+   * 3. Creating transactions (passenger debit, driver credit, admin commission)
+   * 4. Updating ride status to COMPLETED
+   * 5. Updating payment details
+   */
+  async completeRide(input: CompleteRideInput, driverId: string): Promise<Rides> {
+    const { rideId, paymentMethod } = input;
+
+    this.logger.log(`Driver ${driverId} attempting to complete ride ${rideId}`);
+
+    // 1. Find the ride
+    const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+    if (!ride) {
+      throw ErrorException(null, 'RIDE.RIDE_NOT_FOUND', 404)
     }
+
+    // 2. Validate ride belongs to this driver
+    if (ride.driverId?.toString() !== driverId) {
+      throw ErrorException(null, 'RIDE.NOT_ASSOCIATED_WITH_DRIVER', 404)
+    }
+
+    // 3. Validate ride is in ONGOING status
+    if (ride.rideStatus !== RideStatus.ONGOING) {
+      throw ErrorException(null, 'RIDE.INVALID_STATUS', 400)
+    }
+
+    // 4. Calculate final fare
+    const distanceInKm = ride.distanceInKm || 0;
+    const durationInMinutes = ride.estimatedTimeInMinutes || 0;
+
+    // Fare calculation constants
+    const baseFare = MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST;
+    const perKmRate = MATCHMAKING_CONFIG.FARE.PER_KM_RATE;
+    const perMinuteRate = MATCHMAKING_CONFIG.FARE.PER_MINUTE_RATE;
+
+    const baseFareAmount = baseFare;
+    const distanceFare = distanceInKm * perKmRate;
+    const durationFare = durationInMinutes * perMinuteRate;
+    const totalFare = baseFareAmount + distanceFare + durationFare;
+
+    // 5. Get discount from payment details
+    const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
+    const finalAmount = totalFare - discountAmount;
+
+    // 6. Calculate commission (default 20% if not set)
+    const commissionRate = Number(ride.paymentDetails?.driverCommission) || 0.2;
+    const commissionAmount = Math.round(finalAmount * commissionRate * 100) / 100;
+    const driverEarning = Math.round((finalAmount - commissionAmount) * 100) / 100;
+
+    // 7. Get admin user ID (system admin)
+    const adminUser = await this.userModel.findOne({ loginAs: 'ADMIN' } as any).exec();
+    const adminId = adminUser?._id?.toString() || driverId; // fallback to driverId if no admin found
+
+    // 8. Create transactions atomically
+    try {
+      await this.transactionService.createRideTransactions({
+        tripId: rideId,
+        riderId: ride.passengerId.toString(),
+        driverId: driverId,
+        adminId: adminId,
+        totalFare: finalAmount,
+        commission: commissionAmount,
+        paymentMethod: paymentMethod || PaymentMethodEnum.CASH,
+      });
+
+      this.logger.log(`Transactions created for ride ${rideId}: passenger debit $${finalAmount}, driver credit $${driverEarning}, admin commission $${commissionAmount}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to create transactions for ride ${rideId}: ${error?.message || error}`);
+      throw ErrorException(null, 'COMMON.FAILED_TO_CREATE', 500);
+    }
+
+    // 9. Update ride status and payment details
+    const updatedRide = await this.ridesModel.findByIdAndUpdate(
+      rideId,
+      {
+        $set: {
+          rideStatus: RideStatus.COMPLETED,
+          rideCompletedAt: new Date(),
+          distanceInKm: distanceInKm,
+          estimatedTimeInMinutes: durationInMinutes,
+          estimatedFare: totalFare,
+          paymentDetails: {
+            baseAmount: baseFareAmount,
+            distanceAmount: distanceFare,
+            totalAmount: finalAmount,
+            noOfPassengers: ride.noOfPassengers || 1,
+            paymentMethod: paymentMethod || PaymentMethodEnum.CASH,
+            discountAmount: discountAmount,
+            promoCodeId: ride.paymentDetails?.promoCodeId || null,
+            driverCommission: Number(commissionRate),
+          },
+        },
+      },
+      { new: true },
+    ).exec();
+    return updatedRide
   }
+
 }
