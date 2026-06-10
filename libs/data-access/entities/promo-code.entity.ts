@@ -88,7 +88,7 @@ export const promoCodeModel = {
   schema: PromoCodeSchema,
 };
 
-export const occasinModel = {
+export const occasionModel = {
   name: Occasion.name,
   schema: OccasionSchema
 }

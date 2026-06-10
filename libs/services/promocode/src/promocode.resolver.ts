@@ -5,6 +5,7 @@ import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-
 import { PromocodeListWithPaginationResponse } from './types/promocode-paginated.type';
 import { UseGuards } from '@nestjs/common';
 import { AdminAuthGuard } from '@libs/guards/auth.admin.guard';
+import { PromoCodeFindAllInput } from '@libs/data-access/dtos/input/promocode-filter.input';
 
 
 
@@ -29,7 +30,7 @@ export class PromoCodeResolver {
 
   @Query(() => PromocodeListWithPaginationResponse, { name: 'promoCodes' })
   async findAll(
-    @Args('paginationInput') paginationInput: PaginationInput,
+    @Args('paginationInput') paginationInput: PromoCodeFindAllInput,
   ): Promise<PromocodeListWithPaginationResponse> {
     return this.promoCodeService.findAll(paginationInput);
   }

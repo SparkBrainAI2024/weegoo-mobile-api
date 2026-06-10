@@ -2,6 +2,7 @@
 // ─────────────────────────────────────────────────────────────
 import { toMongoId } from '@libs/common';
 import { CreatePromoCodeInput, IPaginatedResult, PaginationInput, PromoCodeDocument, PromoCodeStatusEnum } from '@libs/data-access';
+import { PromoCodeFindAllInput } from '@libs/data-access/dtos/input/promocode-filter.input';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
 import { PromoCodeRepository } from '@libs/data-access/repositories/promo-code.repository';
 import {
@@ -11,7 +12,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { Types } from 'mongoose';
+import { FilterQuery, Types } from 'mongoose';
 
 
 @Injectable()
@@ -74,12 +75,35 @@ export class PromoCodeService {
 
   // ── READ MANY ───────────────────────────────────────────────
   async findAll(
-    paginationInput: PaginationInput,
+    input: PromoCodeFindAllInput,
   ): Promise<IPaginatedResult<PromoCodeDocument>> {
-    return this.promoCodeRepository.paginate(
-      paginationInput,
-      { path: 'occasion' },
-    );
+    const filter: FilterQuery<PromoCodeDocument> = {};
+
+    if (input.filter?.status) {
+      filter.status = input.filter.status;
+    }
+
+    if (input.filter?.appliedTo) {
+      filter.appliedTo = input.filter.appliedTo;
+    }
+
+
+  if (input.filter?.occasion) {
+    const occasionId = input.filter.occasion.toString();
+    if (Types.ObjectId.isValid(occasionId)) {
+      filter.occasion = toMongoId(occasionId);
+    }
+  }
+
+  // Strip filter so paginate() doesn't overwrite your pre-built filter
+  const { filter: _, ...paginationOnly } = input;
+
+
+  return this.promoCodeRepository.paginate(
+    paginationOnly as PromoCodeFindAllInput,
+    { path: 'occasion' },
+    filter,
+  );
   }
 
   // ── UPDATE ──────────────────────────────────────────────────
