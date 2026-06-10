@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { PromoCodeService } from './promocode.service';
 import { CreatePromoCodeInput, PaginationInput, PromoCode } from '@libs/data-access';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
-import { PromoCodePaginatedResult } from './types/promocode-paginated.type';
+import { PromocodeListWithPaginationResponse } from './types/promocode-paginated.type';
 
 
 @Resolver(() => PromoCode)
@@ -23,10 +23,10 @@ export class PromoCodeResolver {
     return this.promoCodeService.findById(id);
   }
 
-  @Query(() => PromoCodePaginatedResult, { name: 'promoCodes' })
+  @Query(() => PromocodeListWithPaginationResponse, { name: 'promoCodes' })
   async findAll(
     @Args('paginationInput') paginationInput: PaginationInput,
-  ): Promise<PromoCodePaginatedResult> {
+  ): Promise<PromocodeListWithPaginationResponse> {
     return this.promoCodeService.findAll(paginationInput);
   }
 
