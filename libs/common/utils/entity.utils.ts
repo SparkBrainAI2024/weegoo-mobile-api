@@ -1,4 +1,3 @@
-import { PublicImage } from "@libs/data-access/common/public-image.entity";
 import { UserProfileImageEntity } from "@libs/data-access/common/user-profile-image";
 import { ImageStatus } from "@libs/data-access/enums/upload.enum";
 

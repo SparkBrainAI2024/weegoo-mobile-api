@@ -19,8 +19,7 @@ import { S3Service } from '@libs/s3/s3.service';
 
 
 import { InjectModel } from '@nestjs/mongoose';
-import { DriverDocumentBundleStatus, DriverDocumentStatusCheck } from '@libs/data-access/enums/driver-document.enum';
-import { DRIVER_DOCUMENT } from '@libs/localization/en/driver-document.messages';
+import { DriverDocumentBundleStatus } from '@libs/data-access/enums/driver-document.enum';
 @Injectable()
 export class RidesService {
   constructor(
@@ -81,13 +80,11 @@ export class RidesService {
     const requiredTypes = Object.keys(REQUIRED_SIDES);
     const documentStatuses = requiredTypes.map((type: any) => {
       const doc = docs.find((d) => d.type === type);
-      if (!doc) return { type, status: DriverDocumentStatusCheck.ACTION_NEEDED }; // No document uploaded for this type
-      if (doc.status === DriverDocumentBundleStatus.APPROVED) return { type, status: DriverDocumentStatusCheck.REVIEWED };
-      if (doc.status === DriverDocumentBundleStatus.PENDING_REVIEW) return { type, status: DriverDocumentStatusCheck.SUBMITTED };
-      return { type, status: DriverDocumentStatusCheck.REJECTED }; // DRAFT or REJECTED
+      if (!doc) return { type, status: DriverDocumentBundleStatus.NOT_SUBMITTED }; // No document uploaded for this type
+       return {type,status: doc.status}
     });
 
-    const verificationRequired = documentStatuses.some(d => d.status !== DriverDocumentStatusCheck.REVIEWED);
+    const verificationRequired = documentStatuses.some(d => d.status !== DriverDocumentBundleStatus.APPROVED);
 
     // 2. Aggregate Earnings (Today)
     // Per requirement: Total earnings 0 if verification is required

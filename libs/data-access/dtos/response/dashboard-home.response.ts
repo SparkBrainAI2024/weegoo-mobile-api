@@ -1,15 +1,15 @@
 import { Field, ObjectType, Int, Float } from '@nestjs/graphql';
 import { Rides } from '../../entities/rides.entity';
 import { DriverOnlineStatus } from '../../enums/user.enum';
-import { DriverDocumentStatusCheck } from '../../enums/driver-document.enum';
+import { DriverDocumentBundleStatus, DriverDocumentType } from '../../enums/driver-document.enum';
 
 @ObjectType()
 export class DocumentStatus {
-  @Field(() => String)
-  type: string;
+  @Field(() => DriverDocumentType)
+  type: DriverDocumentType;
 
-  @Field(() => DriverDocumentStatusCheck)
-  status: DriverDocumentStatusCheck;
+  @Field(() => DriverDocumentBundleStatus)
+  status: DriverDocumentBundleStatus;
 }
 
 @ObjectType()

@@ -4,34 +4,34 @@ import { ApiProperty } from "@nestjs/swagger";
 import { Types } from "mongoose";
 @ObjectType()
 export class Fare {
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     baseAmount: Number;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+   @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     trafficCongestionAmount: Number;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     distanceAmount: Number;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     totalAmount: Number;
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 1})
+    @Prop({ type: Number, default: 1, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     noOfPassengers: Number;
 
 
-    @Field(() => Number)
-    @Prop({ type: Number, default: 0, required: true })
+    @Field(() => Number,{defaultValue: 0})
+    @Prop({ type: Number, default: 0, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     discountAmount: Number;
 
