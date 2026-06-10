@@ -226,4 +226,17 @@ export class PromoCodeService {
     }
   }
 
+   async remove(id: string): Promise<boolean> {
+    try {
+      const promoCode = await this.findOrThrow(id);
+      if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
+        ErrorException(null, 'PROMO_CODE.DELETE_ONLY_DRAFT', HttpStatus.BAD_REQUEST)
+      }
+      await this.promoCodeRepository.softDeleteById(new Types.ObjectId(id));
+      return true;
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.DELETE', HttpStatus.BAD_REQUEST);
+    }
+  }
+
 }
