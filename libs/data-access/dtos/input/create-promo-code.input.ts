@@ -17,10 +17,6 @@ export class OccasionInput {
 
 @InputType()
 export class CreatePromoCodeInput {
-  @Field(() => OccasionInput, { nullable: true })
-  @IsOptional()
-  @Type(() => OccasionInput)
-  occasion?: OccasionInput;
 
   @Field({ description: 'The alphanumeric code name, e.g., "WELCOME50"' })
   @IsString()
@@ -55,16 +51,16 @@ export class CreatePromoCodeInput {
   @Min(0)
   minimumFare?: number;
 
-  @Field(() => AppliedToEnum, { defaultValue: AppliedToEnum.ALL_RIDES })
+  @Field(() => AppliedToEnum)
   @IsEnum(AppliedToEnum)
   appliedTo: AppliedToEnum;
 
-  @Field({ defaultValue: 1, description: 'Maximum number of times this code can be used in total' })
+  @Field({  description: 'Maximum number of times this code can be used in total' })
   @IsNumber()
   @Min(1)
   totalUsageLimit: number;
 
-  @Field({ defaultValue: 1, description: 'Maximum number of times a single user can use this code' })
+  @Field({  description: 'Maximum number of times a single user can use this code' })
   @IsNumber()
   @Min(1)
   perUserLimit: number;
@@ -73,15 +69,10 @@ export class CreatePromoCodeInput {
   @IsDate()
   @Type(() => Date)
   startDateTime: Date;
-
   @Field({ description: 'When the promo code expires' })
   @IsDate()
   @Type(() => Date)
   expiryDateTime: Date;
-
-  @Field(() => PromoCodeStatusEnum, { defaultValue: PromoCodeStatusEnum.ACTIVE })
-  @IsEnum(PromoCodeStatusEnum)
-  status: PromoCodeStatusEnum;
 
 
   @Field(()=>ID)

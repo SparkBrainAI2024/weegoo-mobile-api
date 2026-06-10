@@ -1,5 +1,6 @@
 // promo-code.service.ts
 // ─────────────────────────────────────────────────────────────
+import { toMongoId } from '@libs/common';
 import { CreatePromoCodeInput, IPaginatedResult, PaginationInput, PromoCodeDocument, PromoCodeStatusEnum } from '@libs/data-access';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
 import { PromoCodeRepository } from '@libs/data-access/repositories/promo-code.repository';
@@ -8,12 +9,14 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { Types } from 'mongoose';
 
 
 @Injectable()
 export class PromoCodeService {
+   private readonly logger = new Logger(PromoCodeService.name);
   constructor(private readonly promoCodeRepository: PromoCodeRepository) {}
 
   // ── HELPERS ─────────────────────────────────────────────────
@@ -66,7 +69,7 @@ export class PromoCodeService {
 
   // ── READ ONE ────────────────────────────────────────────────
   async findById(id: string): Promise<PromoCodeDocument> {
-    return this.findOrThrow(id);
+    return this.promoCodeRepository.findById(toMongoId(id), "occasion");
   }
 
   // ── READ MANY ───────────────────────────────────────────────
@@ -98,34 +101,42 @@ export class PromoCodeService {
         throw new BadRequestException(
           'Inactive promo codes cannot be edited. Create a new promo code instead',
         );
+case PromoCodeStatusEnum.ACTIVE: {
+  this.logger.debug(`Promo code is ACTIVE — only time fields allowed, id: ${id}`, input);
 
-      case PromoCodeStatusEnum.ACTIVE: {
-        // Only time fields allowed — reject if anything else was passed
-        const { startDateTime, expiryDateTime, ...rest } = input;
-        const nonTimeFields = Object.keys(rest).filter(
-          (k) => rest[k as keyof typeof rest] !== undefined,
-        );
-        if (nonTimeFields.length > 0) {
-          throw new BadRequestException(
-            `Active promo codes only allow updating startDateTime and expiryDateTime. ` +
-            `To change other fields, deactivate first and create a new promo code`,
-          );
-        }
-        // Build minimal update
-        const timeUpdate: any = {};
-        if (startDateTime) timeUpdate.startDateTime = startDateTime;
-        if (expiryDateTime) timeUpdate.expiryDateTime = expiryDateTime;
+  // Only time fields allowed — reject if anything else was passed
+  const { startDateTime, expiryDateTime, ...rest } = input;
+  const nonTimeFields = Object.keys(rest).filter(
+    (k) => rest[k as keyof typeof rest] !== undefined,
+  );
 
-        if (Object.keys(timeUpdate).length === 0) {
-          throw new BadRequestException('No valid fields provided for update');
-        }
+  if (nonTimeFields.length > 0) {
+    this.logger.debug(`Non-time fields detected on ACTIVE promo code update — rejected fields: ${nonTimeFields.join(', ')}`);
+    throw new BadRequestException(
+      `Active promo codes only allow updating startDateTime and expiryDateTime. ` +
+      `To change other fields, deactivate first and create a new promo code`,
+    );
+  }
+  this.logger.debug('No non-time fields detected — proceeding with time update');
 
-        return this.promoCodeRepository.updateById(
-          new Types.ObjectId(id),
-          { $set: timeUpdate },
-          { path: 'occasion' },
-        );
-      }
+  // Build minimal update
+  const timeUpdate: any = {};
+  if (startDateTime) timeUpdate.startDateTime = startDateTime;
+  if (expiryDateTime) timeUpdate.expiryDateTime = expiryDateTime;
+
+  if (Object.keys(timeUpdate).length === 0) {
+    this.logger.debug('Neither startDateTime nor expiryDateTime provided — nothing to update');
+    throw new BadRequestException('No valid fields provided for update');
+  }
+
+  this.logger.debug(`Updating time fields — ${JSON.stringify(timeUpdate)}`);
+
+  return this.promoCodeRepository.updateById(
+    new Types.ObjectId(id),
+    { $set: timeUpdate },
+    { path: 'occasion' },
+  );
+}
 
       case PromoCodeStatusEnum.DRAFT: {
         // Full edit — check name uniqueness if name is being changed

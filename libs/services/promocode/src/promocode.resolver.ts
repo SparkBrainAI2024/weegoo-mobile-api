@@ -3,8 +3,12 @@ import { PromoCodeService } from './promocode.service';
 import { CreatePromoCodeInput, PaginationInput, PromoCode } from '@libs/data-access';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
 import { PromocodeListWithPaginationResponse } from './types/promocode-paginated.type';
+import { UseGuards } from '@nestjs/common';
+import { AdminAuthGuard } from '@libs/guards/auth.admin.guard';
 
 
+
+@UseGuards(AdminAuthGuard)
 @Resolver(() => PromoCode)
 export class PromoCodeResolver {
   constructor(private readonly promoCodeService: PromoCodeService) {}
