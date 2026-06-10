@@ -1,249 +1,229 @@
 // promo-code.service.ts
 // ─────────────────────────────────────────────────────────────
-import { toMongoId } from '@libs/common';
+import { ErrorException, toMongoId } from '@libs/common';
 import { CreatePromoCodeInput, IPaginatedResult, PaginationInput, PromoCodeDocument, PromoCodeStatusEnum } from '@libs/data-access';
 import { PromoCodeFindAllInput } from '@libs/data-access/dtos/input/promocode-filter.input';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
 import { PromoCodeRepository } from '@libs/data-access/repositories/promo-code.repository';
+import { PROMO_CODE } from '@libs/localization/en/promocode.messages';
 import {
   Injectable,
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
   Logger,
+  HttpStatus,
 } from '@nestjs/common';
 import { FilterQuery, Types } from 'mongoose';
 
 
+
 @Injectable()
 export class PromoCodeService {
-   private readonly logger = new Logger(PromoCodeService.name);
+  private readonly logger = new Logger(PromoCodeService.name);
+
   constructor(private readonly promoCodeRepository: PromoCodeRepository) {}
 
   // ── HELPERS ─────────────────────────────────────────────────
 
   private async findOrThrow(id: string): Promise<PromoCodeDocument> {
-    const promoCode = await this.promoCodeRepository.findById(
-      new Types.ObjectId(id),
-      { path: 'occasion' },
-    );
-    if (!promoCode) {
-      throw new NotFoundException(`Promo code with id "${id}" not found`);
+    try {
+      const promoCode = await this.promoCodeRepository.findById(
+        new Types.ObjectId(id),
+        { path: 'occasion' },
+      );
+      if (!promoCode) {
+        ErrorException(null, 'PROMO_CODE.NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
+      return promoCode;
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-    return promoCode;
   }
 
-  // Uniqueness check: ignore EXPIRED ones — same name can be reused
   private async assertNameUnique(name: string, excludeId?: string): Promise<void> {
-    const filter: any = {
-      name: name.toUpperCase(),
-      status: { $ne: PromoCodeStatusEnum.EXPIRED },
-    };
-    if (excludeId) {
-      filter._id = { $ne: new Types.ObjectId(excludeId) };
-    }
-    const existing = await this.promoCodeRepository.findOne(filter);
-    if (existing) {
-      throw new ConflictException(
-        `An active promo code with name "${name}" already exists`,
-      );
+    try {
+      const filter: any = {
+        name: name.toUpperCase(),
+        status: { $ne: PromoCodeStatusEnum.EXPIRED },
+      };
+      if (excludeId) {
+        filter._id = { $ne: new Types.ObjectId(excludeId) };
+      }
+      const existing = await this.promoCodeRepository.findOne(filter);
+      if (existing) {
+        ErrorException(null, 'PROMO_CODE.NAME_ALREADY_EXISTS', HttpStatus.CONFLICT);
+      }
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.NAME_ALREADY_EXISTS', HttpStatus.CONFLICT);
     }
   }
 
   // ── CREATE ──────────────────────────────────────────────────
-  // New promo codes start as DRAFT — must be explicitly activated
   async create(input: CreatePromoCodeInput): Promise<PromoCodeDocument> {
-    await this.assertNameUnique(input.name);
-
-    return this.promoCodeRepository.create(
-      {
-        ...input,
-        name: input.name.toUpperCase(), // normalize for consistent uniqueness checks
-        status: PromoCodeStatusEnum.DRAFT, // always start as draft
-        occasion: input.occasionId
-          ? new Types.ObjectId(input.occasionId)
-          : undefined,
-      },
-      { path: 'occasion' },
-    );
+    try {
+      await this.assertNameUnique(input.name);
+      return this.promoCodeRepository.create(
+        {
+          ...input,
+          name: input.name.toUpperCase(),
+          status: PromoCodeStatusEnum.DRAFT,
+          occasion: input.occasionId
+            ? new Types.ObjectId(input.occasionId)
+            : undefined,
+        },
+        { path: 'occasion' },
+      );
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.CREATE', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   // ── READ ONE ────────────────────────────────────────────────
   async findById(id: string): Promise<PromoCodeDocument> {
-    return this.promoCodeRepository.findById(toMongoId(id), "occasion");
+    try {
+      return this.promoCodeRepository.findById(toMongoId(id), 'occasion');
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.NOT_FOUND', HttpStatus.NOT_FOUND);
+    }
   }
 
   // ── READ MANY ───────────────────────────────────────────────
   async findAll(
     input: PromoCodeFindAllInput,
   ): Promise<IPaginatedResult<PromoCodeDocument>> {
-    const filter: FilterQuery<PromoCodeDocument> = {};
+    try {
+      const filter: FilterQuery<PromoCodeDocument> = {};
 
-    if (input.filter?.status) {
-      filter.status = input.filter.status;
+      if (input.filter?.status) filter.status = input.filter.status;
+      if (input.filter?.appliedTo) filter.appliedTo = input.filter.appliedTo;
+      if (input.filter?.occasion) {
+        const occasionId = input.filter.occasion.toString();
+        if (Types.ObjectId.isValid(occasionId)) {
+          filter.occasion = toMongoId(occasionId);
+        }
+      }
+
+      const { filter: _, ...paginationOnly } = input;
+
+      return this.promoCodeRepository.paginate(
+        paginationOnly as PromoCodeFindAllInput,
+        { path: 'occasion' },
+        filter,
+      );
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.FIND_ALL', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    if (input.filter?.appliedTo) {
-      filter.appliedTo = input.filter.appliedTo;
-    }
-
-
-  if (input.filter?.occasion) {
-    const occasionId = input.filter.occasion.toString();
-    if (Types.ObjectId.isValid(occasionId)) {
-      filter.occasion = toMongoId(occasionId);
-    }
-  }
-
-  // Strip filter so paginate() doesn't overwrite your pre-built filter
-  const { filter: _, ...paginationOnly } = input;
-
-
-  return this.promoCodeRepository.paginate(
-    paginationOnly as PromoCodeFindAllInput,
-    { path: 'occasion' },
-    filter,
-  );
   }
 
   // ── UPDATE ──────────────────────────────────────────────────
-  // Rules:
-  //   DRAFT    → full edit allowed
-  //   ACTIVE   → only startDateTime / expiryDateTime allowed
-  //   EXPIRED  → no edits allowed
-  //   INACTIVE → no edits allowed (create new instead)
   async update(id: string, input: UpdatePromoCodeInput): Promise<PromoCodeDocument> {
-    const promoCode = await this.findOrThrow(id);
+    try {
+      const promoCode = await this.findOrThrow(id);
 
-    switch (promoCode.status) {
-      case PromoCodeStatusEnum.EXPIRED:
-        throw new BadRequestException(
-          'Expired promo codes cannot be edited',
-        );
+      switch (promoCode.status) {
+        case PromoCodeStatusEnum.EXPIRED:
+          ErrorException(null, 'PROMO_CODE.EXPIRED_NO_EDIT', HttpStatus.BAD_REQUEST);
+          break;
 
-      case PromoCodeStatusEnum.INACTIVE:
-        throw new BadRequestException(
-          'Inactive promo codes cannot be edited. Create a new promo code instead',
-        );
-case PromoCodeStatusEnum.ACTIVE: {
+        case PromoCodeStatusEnum.INACTIVE:
+          ErrorException(null, 'PROMO_CODE.INACTIVE_NO_EDIT', HttpStatus.BAD_REQUEST);
+          break;
 
-  // Only time fields allowed — reject if anything else was passed
-  const { startDateTime, expiryDateTime, ...rest } = input;
-  const nonTimeFields = Object.keys(rest).filter(
-    (k) => rest[k as keyof typeof rest] !== undefined,
-  );
+        case PromoCodeStatusEnum.ACTIVE: {
+          const { startDateTime, expiryDateTime, ...rest } = input;
+          const nonTimeFields = Object.keys(rest).filter(
+            (k) => rest[k as keyof typeof rest] !== undefined,
+          );
 
-  if (nonTimeFields.length > 0) {
-    throw new BadRequestException(
-      `Active promo codes only allow updating startDateTime and expiryDateTime. ` +
-      `To change other fields, deactivate first and create a new promo code`,
-    );
-  }
+          if (nonTimeFields.length > 0) {
+            ErrorException(null, 'PROMO_CODE.ACTIVE_LIMITED_EDIT', HttpStatus.BAD_REQUEST);
+          }
 
-  // Build minimal update
-  const timeUpdate: any = {};
-  if (startDateTime) timeUpdate.startDateTime = startDateTime;
-  if (expiryDateTime) timeUpdate.expiryDateTime = expiryDateTime;
+          const timeUpdate: any = {};
+          if (startDateTime) timeUpdate.startDateTime = startDateTime;
+          if (expiryDateTime) timeUpdate.expiryDateTime = expiryDateTime;
 
-  if (Object.keys(timeUpdate).length === 0) {
-    throw new BadRequestException('No valid fields provided for update');
-  }
+          if (Object.keys(timeUpdate).length === 0) {
+            ErrorException(null, 'PROMO_CODE.NO_VALID_FIELDS', HttpStatus.BAD_REQUEST);
+          }
 
-
-  return this.promoCodeRepository.updateById(
-    new Types.ObjectId(id),
-    { $set: timeUpdate },
-    { path: 'occasion' },
-  );
-}
-
-      case PromoCodeStatusEnum.DRAFT: {
-        // Full edit — check name uniqueness if name is being changed
-        if (input.name && input.name.toUpperCase() !== promoCode.name) {
-          await this.assertNameUnique(input.name, id);
+          return this.promoCodeRepository.updateById(
+            new Types.ObjectId(id),
+            { $set: timeUpdate },
+            { path: 'occasion' },
+          );
         }
 
-        const updatePayload: any = {
-          ...input,
-          ...(input.name && { name: input.name.toUpperCase() }),
-          ...(input.occasionId && {
-            occasion: new Types.ObjectId(input.occasionId),
-          }),
-        };
-        delete updatePayload.occasionId;
+        case PromoCodeStatusEnum.DRAFT: {
+          if (input.name && input.name.toUpperCase() !== promoCode.name) {
+            await this.assertNameUnique(input.name, id);
+          }
 
-        return this.promoCodeRepository.updateById(
-          new Types.ObjectId(id),
-          { $set: updatePayload },
-          { path: 'occasion' },
-        );
+          const updatePayload: any = {
+            ...input,
+            ...(input.name && { name: input.name.toUpperCase() }),
+            ...(input.occasionId && {
+              occasion: new Types.ObjectId(input.occasionId),
+            }),
+          };
+          delete updatePayload.occasionId;
+
+          return this.promoCodeRepository.updateById(
+            new Types.ObjectId(id),
+            { $set: updatePayload },
+            { path: 'occasion' },
+          );
+        }
       }
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.UPDATE', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   // ── STATUS TRANSITIONS ───────────────────────────────────────
-
-  // DRAFT → ACTIVE
   async activate(id: string): Promise<PromoCodeDocument> {
-    const promoCode = await this.findOrThrow(id);
-
-    if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
-      throw new BadRequestException(
-        `Only DRAFT promo codes can be activated. Current status: ${promoCode.status}`,
+    try {
+      const promoCode = await this.findOrThrow(id);
+      if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
+        ErrorException(null, 'PROMO_CODE.ACTIVATE_ONLY_DRAFT', HttpStatus.BAD_REQUEST);
+      }
+      return this.promoCodeRepository.updateById(
+        new Types.ObjectId(id),
+        { $set: { status: PromoCodeStatusEnum.ACTIVE } },
+        { path: 'occasion' },
       );
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.ACTIVATE', HttpStatus.BAD_REQUEST);
     }
-
-    return this.promoCodeRepository.updateById(
-      new Types.ObjectId(id),
-      { $set: { status: PromoCodeStatusEnum.ACTIVE } },
-      { path: 'occasion' },
-    );
   }
 
-  // ACTIVE → INACTIVE
   async deactivate(id: string): Promise<PromoCodeDocument> {
-    const promoCode = await this.findOrThrow(id);
-
-    if (promoCode.status !== PromoCodeStatusEnum.ACTIVE) {
-      throw new BadRequestException(
-        `Only ACTIVE promo codes can be deactivated. Current status: ${promoCode.status}`,
+    try {
+      const promoCode = await this.findOrThrow(id);
+      if (promoCode.status !== PromoCodeStatusEnum.ACTIVE) {
+        ErrorException(null, 'PROMO_CODE.DEACTIVATE_ONLY_ACTIVE', HttpStatus.BAD_REQUEST);
+      }
+      return this.promoCodeRepository.updateById(
+        new Types.ObjectId(id),
+        { $set: { status: PromoCodeStatusEnum.INACTIVE } },
+        { path: 'occasion' },
       );
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.DEACTIVATE', HttpStatus.BAD_REQUEST);
     }
-
-    return this.promoCodeRepository.updateById(
-      new Types.ObjectId(id),
-      { $set: { status: PromoCodeStatusEnum.INACTIVE } },
-      { path: 'occasion' },
-    );
   }
 
-  // ── CRON: EXPIRE PROMO CODES ─────────────────────────────────
-  // Called by PromoCodeCronService — marks all ACTIVE codes
-  // where expiryDateTime has passed as EXPIRED
+  // ── CRON ─────────────────────────────────────────────────────
   async expireOutdatedPromoCodes(): Promise<void> {
-    await this.promoCodeRepository.updateMany(
-      {
-        status: PromoCodeStatusEnum.ACTIVE,
-        expiryDateTime: { $lt: new Date() },
-      },
-      { $set: { status: PromoCodeStatusEnum.EXPIRED } },
-    );
-  }
-
-  // ── SOFT DELETE ──────────────────────────────────────────────
-  // Only DRAFT promo codes can be deleted
-  // ACTIVE/INACTIVE/EXPIRED are part of history — soft delete only as last resort
-  async remove(id: string): Promise<boolean> {
-    const promoCode = await this.findOrThrow(id);
-
-    if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
-      throw new BadRequestException(
-        `Only DRAFT promo codes can be deleted. Use deactivate for ACTIVE codes`,
+    try {
+      await this.promoCodeRepository.updateMany(
+        {
+          status: PromoCodeStatusEnum.ACTIVE,
+          expiryDateTime: { $lt: new Date() },
+        },
+        { $set: { status: PromoCodeStatusEnum.EXPIRED } },
       );
+    } catch (e) {
+      ErrorException(e, 'PROMO_CODE.EXPIRE_CRON', HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    await this.promoCodeRepository.softDeleteById(new Types.ObjectId(id));
-    return true;
   }
-}
 
+}
