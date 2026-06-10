@@ -1,6 +1,8 @@
 export const RIDES = {
     RIDE_NOT_FOUND: "Ride does not exist",
     INVALID_RIDE_ID:"Invalid ride ID",
+    INVALID_STATUS: "Invalid ride status for this operation",
+    NOT_ASSOCIATED_WITH_DRIVER: "This ride does not belong to you",
       CANCEL_ALREADY_COMPLETED: 'This ride has already been completed and cannot be cancelled.',
   CANCEL_IN_PROGRESS: 'This ride is currently in progress and cannot be cancelled.',
   CANCEL_PENDING: 'This ride is still pending and cannot be cancelled.',
