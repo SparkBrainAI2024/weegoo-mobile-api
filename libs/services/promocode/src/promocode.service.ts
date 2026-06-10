@@ -102,7 +102,6 @@ export class PromoCodeService {
           'Inactive promo codes cannot be edited. Create a new promo code instead',
         );
 case PromoCodeStatusEnum.ACTIVE: {
-  this.logger.debug(`Promo code is ACTIVE — only time fields allowed, id: ${id}`, input);
 
   // Only time fields allowed — reject if anything else was passed
   const { startDateTime, expiryDateTime, ...rest } = input;
@@ -111,13 +110,11 @@ case PromoCodeStatusEnum.ACTIVE: {
   );
 
   if (nonTimeFields.length > 0) {
-    this.logger.debug(`Non-time fields detected on ACTIVE promo code update — rejected fields: ${nonTimeFields.join(', ')}`);
     throw new BadRequestException(
       `Active promo codes only allow updating startDateTime and expiryDateTime. ` +
       `To change other fields, deactivate first and create a new promo code`,
     );
   }
-  this.logger.debug('No non-time fields detected — proceeding with time update');
 
   // Build minimal update
   const timeUpdate: any = {};
@@ -125,11 +122,9 @@ case PromoCodeStatusEnum.ACTIVE: {
   if (expiryDateTime) timeUpdate.expiryDateTime = expiryDateTime;
 
   if (Object.keys(timeUpdate).length === 0) {
-    this.logger.debug('Neither startDateTime nor expiryDateTime provided — nothing to update');
     throw new BadRequestException('No valid fields provided for update');
   }
 
-  this.logger.debug(`Updating time fields — ${JSON.stringify(timeUpdate)}`);
 
   return this.promoCodeRepository.updateById(
     new Types.ObjectId(id),
