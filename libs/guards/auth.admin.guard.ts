@@ -1,10 +1,10 @@
-// apps/admin/src/guards/admin-auth.guard.ts
 import {
   CanActivate,
   ExecutionContext,
   Injectable,
   HttpException,
   HttpStatus,
+  Logger,
 } from "@nestjs/common";
 import { GqlExecutionContext } from "@nestjs/graphql";
 import { AUTHORIZATION_HEADER, tokenTypes } from "@libs/common/constants";
@@ -28,6 +28,8 @@ function extractBearerToken(request: any): string | null {
 
 @Injectable()
 export class AdminAuthGuard implements CanActivate {
+  private readonly logger = new Logger(AdminAuthGuard.name);
+
   constructor(
     private readonly adminUserRepository: AdminUserRepository,
     private readonly userTokenMetaRepository: UserTokenMetaRepository,
@@ -37,6 +39,7 @@ export class AdminAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const ctx = GqlExecutionContext.create(context);
     const request = ctx.getContext().req;
+
 
     const token = extractBearerToken(request);
     if (!token) {

@@ -14,7 +14,7 @@ export class DriverDocument extends BaseEntity {
   @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
   driverId: Types.ObjectId;
 
-  @Field(() => String)
+  @Field(() => DriverDocumentType)
   @Prop({ type: String, required: true, enum: DriverDocumentType, index: true })
   type: DriverDocumentType;
 
@@ -25,11 +25,11 @@ export class DriverDocument extends BaseEntity {
   files: DocumentFile[];
 
   // Bundle-level review status
-  @Field(() => String)
+  @Field(() => DriverDocumentBundleStatus)
   @Prop({
     type:    String,
     enum:    DriverDocumentBundleStatus,
-    default: DriverDocumentBundleStatus.DRAFT,
+    default: DriverDocumentBundleStatus.PENDING,
     index:   true,
   })
   status: DriverDocumentBundleStatus;

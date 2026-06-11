@@ -1,6 +1,6 @@
 import {
   PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
-  DriverDocumentRepository, DriverOnlineStatus,AppliedToEnum, UserDailyOnlineStatusRepository
+  DriverDocumentRepository, DriverOnlineStatus, AppliedToEnum, UserDailyOnlineStatusRepository
 } from '@libs/data-access';
 
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
@@ -69,7 +69,7 @@ export class RidesService {
     }
 
     const userId = toMongoId(user._id.toString());
-    
+
     // Fetch Driver Data: Details (Rating, Online Status) and Documents
     const [details, docs] = await Promise.all([
       this.userDetailsRepository.findOne({ userId }),
@@ -88,7 +88,7 @@ export class RidesService {
 
     // 2. Aggregate Earnings (Today)
     // Per requirement: Total earnings 0 if verification is required
-    const earningsData = !verificationRequired 
+    const earningsData = !verificationRequired
       ? await this.transactionService.getDriversEarningByDate(user._id.toString())
       : { netEarning: 0 };
 
@@ -457,14 +457,10 @@ export class RidesService {
     if (!rideDocument) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-    console.log('Fetched ride document:', rideDocument);  
-    console.log('User ID:', userId.toString());
-    console.log('Passenger ID:', rideDocument.passengerId._id.toString());
     // Verify that the user is the passenger of this ride
     if (rideDocument.passengerId._id.toString() !== userId.toString()) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-   console.log('User is authorized to view this ride. Enriching details...');
     return this.enrichRideDetails(rideDocument);
   }
 
@@ -608,7 +604,7 @@ export class RidesService {
     if (!ride || ride.passengerId.toString() !== user._id.toString()) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-    
+
     if (ride.rideStatus !== RideStatus.COMPLETED) {
       ErrorException(null, 'RIDES.PROMO_NOT_APPLICABLE_FOR_STATUS', HttpStatus.BAD_REQUEST);
     }
@@ -617,7 +613,7 @@ export class RidesService {
     if (!promo) {
       ErrorException(null, 'RIDES.PROMO_CODE_NOT_FOUND', HttpStatus.BAD_REQUEST);
     }
-    if(promo.appliedTo !== ride.rideType as unknown as AppliedToEnum && promo.appliedTo !== AppliedToEnum.ALL_RIDES){
+    if (promo.appliedTo !== ride.rideType as unknown as AppliedToEnum && promo.appliedTo !== AppliedToEnum.ALL_RIDES) {
       ErrorException(null, 'RIDES.PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE', HttpStatus.BAD_REQUEST);
     }
     const now = new Date();
@@ -690,6 +686,11 @@ export class RidesService {
       rideId: ride._id
     });
 
+    //update the promoCodeUsedCount
+    await this.promoCodeModel.updateOne(
+      { _id: promo._id },
+      { $inc: { promoCodeUsedCount: 1 } },
+    );
     const rideObj = updatedRide.toObject() as any;
     transformToEntityNameObjectFromId(rideObj, ['vehicleId', 'vehicle']);
 
@@ -721,8 +722,8 @@ export class RidesService {
           estimatedFare: Number(ride.estimatedFare) + Number(discountAmount),
           'fare.discountAmount': 0,
           'fare.promoCodeId': null,
-           'paymentDetails.promoCodeId': null,
-            'paymentDetails.discountAmount': 0,
+          'paymentDetails.promoCodeId': null,
+          'paymentDetails.discountAmount': 0,
         }
       },
       { new: true }
@@ -744,5 +745,5 @@ export class RidesService {
       ride: rideObj
     };
   }
-  
+
 }

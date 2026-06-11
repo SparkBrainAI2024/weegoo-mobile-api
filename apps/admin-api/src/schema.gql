@@ -113,6 +113,8 @@ type Vehicle {
   _id: String!
   createdAt: DateTime
   updatedAt: DateTime
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
@@ -294,8 +296,54 @@ enum NotificationType {
 }
 
 type Occasion {
-  type: String!
-  occasionId: ID!
+  _id: ID!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  occasionName: String!
+}
+
+type PromoCode {
+  _id: ID!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  occasion: Occasion!
+  name: String!
+  discountType: DiscountTypeEnum!
+  percentageAmount: Float
+  flatAmount: Float
+  maxDiscount: Float!
+  minimumFare: Float!
+  appliedTo: AppliedToEnum!
+  totalUsageLimit: Float!
+  perUserLimit: Float!
+  startDateTime: DateTime!
+  expiryDateTime: DateTime!
+  status: PromoCodeStatusEnum!
+}
+
+"""Type of discount (percentage or flat amount)"""
+enum DiscountTypeEnum {
+  PERCENTAGE
+  FLAT
+}
+
+"""To which ride types the promo code applies"""
+enum AppliedToEnum {
+  ALL_RIDES
+  INSTANT
+  SCHEDULED
+}
+
+"""Status of the promo code"""
+enum PromoCodeStatusEnum {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  EXPIRED
 }
 
 type IssueCategoryEmbed {
@@ -436,8 +484,27 @@ type MatchAttemptResultGraphQL {
   driverAccepted: Boolean!
   acceptedDriverId: String
   timeoutExpired: Boolean!
-  status: String!
+ 
 }
+
+
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
+enum DriverDocumentBundleStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  NOT_SUBMITTED
+}
+
+
+
+
 
 type RideWithoutRelations {
   _id: String!
@@ -471,22 +538,15 @@ type RideWithoutRelations {
 }
 
 type DocumentStatus {
-  type: DriverDocumentType!
-  status: DriverDocumentBundleStatus!
+  type: String!
+  status: DriverDocumentStatusCheck!
 }
 
-enum DriverDocumentType {
-  NATIONAL_ID
-  DRIVING_LICENSE
-  BLUEBOOK
-}
-
-enum DriverDocumentBundleStatus {
-  DRAFT
-  PENDING_REVIEW
-  APPROVED
+enum DriverDocumentStatusCheck {
+  SUBMITTED
+  ACTION_NEEDED
+  REVIEWED
   REJECTED
-  NOT_SUBMITTED
 }
 
 type VerificationInfo {
@@ -555,6 +615,12 @@ type PageListWithPaginationResponse {
   pagination: Pagination!
 }
 
+type PromocodeListWithPaginationResponse {
+  message: String
+  data: [PromoCode!]
+  pagination: Pagination!
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -565,6 +631,32 @@ type Query {
 input PaginationInputOnly {
   page: Int! = 0
   limit: Int! = 5
+  promoCode(id: ID!): PromoCode!
+  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
+}
+
+input PromoCodeFindAllInput {
+  page: Int! = 0
+  limit: Int! = 5
+  orderBy: String
+  order: SortBy! = desc
+  searchText: String
+  filter: PromoCodeFilterInput
+}
+
+"""Order by direction for pagination"""
+enum SortBy {
+  """Ascending order"""
+  asc
+
+  """Descending order"""
+  desc
+}
+
+input PromoCodeFilterInput {
+  status: PromoCodeStatusEnum
+  appliedTo: AppliedToEnum
+  occasion: ID
 }
 
 type Mutation {
@@ -578,6 +670,11 @@ type Mutation {
   publishPage(id: ID!): Page!
   unpublishPage(id: ID!): Page!
   removePage(id: ID!): Boolean!
+  createPromoCode(input: CreatePromoCodeInput!): PromoCode!
+  updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromoCode!
+  activatePromoCode(id: ID!): PromoCode!
+  deactivatePromoCode(id: ID!): PromoCode!
+  removePromoCode(id: ID!): Boolean!
 }
 
 input AdminSignUpInput {
@@ -619,4 +716,76 @@ input UpdatePageInput {
   title: String
   type: PageType
   content: String
+}
+
+input CreatePromoCodeInput {
+  """
+  The alphanumeric code name, e.g., "WELCOME50"
+  """
+  name: String!
+
+  """Whether the discount is a percentage or flat amount"""
+  discountType: DiscountTypeEnum!
+
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
+  percentageAmount: Float
+
+  """Fixed currency amount if discountType is FLAT"""
+  flatAmount: Float
+
+  """Cap on the discount amount for percentage-based promos"""
+  maxDiscount: Float
+
+  """Minimum ride fare required to apply this code"""
+  minimumFare: Float
+  appliedTo: AppliedToEnum!
+
+  """Maximum number of times this code can be used in total"""
+  totalUsageLimit: Float!
+
+  """Maximum number of times a single user can use this code"""
+  perUserLimit: Float!
+
+  """When the promo code becomes valid"""
+  startDateTime: DateTime!
+
+  """When the promo code expires"""
+  expiryDateTime: DateTime!
+  occasionId: ID!
+}
+
+input UpdatePromoCodeInput {
+  """
+  The alphanumeric code name, e.g., "WELCOME50"
+  """
+  name: String
+
+  """Whether the discount is a percentage or flat amount"""
+  discountType: DiscountTypeEnum
+
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
+  percentageAmount: Float
+
+  """Fixed currency amount if discountType is FLAT"""
+  flatAmount: Float
+
+  """Cap on the discount amount for percentage-based promos"""
+  maxDiscount: Float
+
+  """Minimum ride fare required to apply this code"""
+  minimumFare: Float
+  appliedTo: AppliedToEnum
+
+  """Maximum number of times this code can be used in total"""
+  totalUsageLimit: Float
+
+  """Maximum number of times a single user can use this code"""
+  perUserLimit: Float
+
+  """When the promo code becomes valid"""
+  startDateTime: DateTime
+
+  """When the promo code expires"""
+  expiryDateTime: DateTime
+  occasionId: ID
 }
