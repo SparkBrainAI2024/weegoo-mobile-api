@@ -9,32 +9,81 @@ import { Types } from "mongoose";
 
 @Injectable()
 export class RatingRepository extends BaseRepository<RatingDocument> {
-    constructor(@InjectModel(Rating.name) private readonly _model: BaseModel<RatingDocument>) {
-        super(_model);
-    }
+  constructor(
+    @InjectModel(Rating.name)
+    private readonly _model: BaseModel<RatingDocument>,
+  ) {
+    super(_model);
+  }
 
-    async createRating(data: Partial<RatingDocument>): Promise<RatingDocument> {
-        return this._model.create(data);
-    }
+  async createRating(data: Partial<RatingDocument>): Promise<RatingDocument> {
+    return this._model.create(data);
+  }
 
-    async listRatings(paginationInput: PaginationInput, filter: any = {}): Promise<IPaginatedResult<RatingDocument>> {
-        return this.paginate(paginationInput, [{ path: 'ratedBy', select: 'fullName phone' }, { path: 'ratedTo', select: 'fullName phone' }, { path: 'rideId' }], filter);
-    }
+  async listRatings(
+    paginationInput: PaginationInput,
+    filter: any = {},
+  ): Promise<IPaginatedResult<RatingDocument>> {
+    return this.paginate(
+      paginationInput,
+      [
+        { path: "ratedBy", select: "fullName phone" },
+        { path: "ratedTo", select: "fullName phone" },
+        { path: "rideId" },
+      ],
+      filter,
+    );
+  }
 
-    async getRatingByUser(userId: Types.ObjectId, paginationInput: PaginationInput): Promise<IPaginatedResult<RatingDocument>> {
-        return this.paginate(paginationInput, [{ path: 'ratedBy', select: 'fullName phone' }, { path: 'ratedTo', select: 'fullName phone' }, { path: 'rideId' }], { ratedTo: userId });
-    }
+  async getRatingByUser(
+    userId: Types.ObjectId,
+    paginationInput: PaginationInput,
+  ): Promise<IPaginatedResult<RatingDocument>> {
+    return this.paginate(
+      paginationInput,
+      [
+        { path: "ratedBy", select: "fullName phone" },
+        { path: "ratedTo", select: "fullName phone" },
+        { path: "rideId" },
+      ],
+      { ratedTo: userId },
+    );
+  }
 
-    async getAverageRatingByUser(userId: Types.ObjectId): Promise<number> {
-        const result = await this._model.aggregate([
-            { $match: { ratedTo: userId } },
-            { $group: { _id: null, averageRating: { $avg: "$rating" } } },
-        ]);
-        return result.length > 0 ? Math.round(result[0].averageRating * 10) / 10 : 0;
-    }
+  async getAverageRatingByUser(userId: Types.ObjectId): Promise<number> {
+    const result = await this._model.aggregate([
+      { $match: { ratedTo: userId } },
+      {
+        $group: {
+          _id: null,
+          totalRating: { $sum: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          averageRating: {
+            $cond: {
+              if: { $gt: ["$totalReviews", 0] },
+              then: { $divide: ["$totalRating", "$totalReviews"] },
+              else: 0,
+            },
+          },
+        },
+      },
+    ]);
 
-    async existsByUserAndRide(ratedBy: Types.ObjectId, rideId: Types.ObjectId): Promise<boolean> {
-        const rating = await this._model.findOne({ ratedBy: new Types.ObjectId(ratedBy), rideId: new Types.ObjectId(rideId) });
-        return !!rating;
-    }
+    return result.length ? Math.round(result[0].averageRating * 10) / 10 : 0;
+  }
+  async existsByUserAndRide(
+    ratedBy: Types.ObjectId,
+    rideId: Types.ObjectId,
+  ): Promise<boolean> {
+    const rating = await this._model.findOne({
+      ratedBy: new Types.ObjectId(ratedBy),
+      rideId: new Types.ObjectId(rideId),
+    });
+    return !!rating;
+  }
 }
