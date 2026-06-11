@@ -9,15 +9,9 @@ import { PageListWithPaginationResponse } from '@libs/data-access/dtos/response/
 import { PaginationInputOnly } from '@libs/data-access';
 import { UpdatePageInput } from '@libs/data-access/dtos/input/update.-page.input';
 
-@UseGuards(AdminAuthGuard)
 @Resolver(() => Page)
 export class PageResolver {
   constructor(private readonly pageService: PageService) {}
-
-  @Mutation(() => Page)
-  async createPage(@Args('input') input: CreatePageInput): Promise<Page> {
-    return this.pageService.create(input);
-  }
 
   @Query(() => Page, { name: 'page' })
   async findOne(@Args('id', { type: () => ID }) id: string): Promise<Page> {
@@ -36,27 +30,7 @@ export class PageResolver {
     return this.pageService.findAll(paginationInput);
   }
 
-  @Mutation(() => Page)
-  async updatePage(
-    @Args('id', { type: () => ID }) id: string,
-    @Args('input') input: UpdatePageInput,
-  ): Promise<Page> {
-    return this.pageService.update(id, input);
-  }
 
-  // Status transitions — explicit mutations, not hidden inside update
-  @Mutation(() => Page)
-  async publishPage(@Args('id', { type: () => ID }) id: string): Promise<Page> {
-    return this.pageService.publish(id);
-  }
 
-  @Mutation(() => Page)
-  async unpublishPage(@Args('id', { type: () => ID }) id: string): Promise<Page> {
-    return this.pageService.unpublish(id);
-  }
 
-  @Mutation(() => Boolean)
-  async removePage(@Args('id', { type: () => ID }) id: string): Promise<boolean> {
-    return this.pageService.remove(id);
-  }
 }
