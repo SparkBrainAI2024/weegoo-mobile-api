@@ -17,6 +17,7 @@ import { UserFavouritesModule } from "./modules/user-favourites/user-favourites.
 import { IssueModule } from "./modules/issue/issue.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { PageModule } from "./modules/page/page.module";
+import { RatingIModule } from "./modules/rating/rating.module";
 
 @Module({
   imports: [
@@ -53,7 +54,8 @@ import { PageModule } from "./modules/page/page.module";
     IssueModule,
     UserFavouritesModule,
     NotificationModule,
-    PageModule
+    PageModule,
+    RatingIModule
   ],
   providers: [HealthResolver],
 })
