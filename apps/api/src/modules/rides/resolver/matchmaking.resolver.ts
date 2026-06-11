@@ -1,11 +1,9 @@
-import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
-import { Logger, UseGuards } from '@nestjs/common';
+import { Resolver, Mutation, Args, Query, Int } from '@nestjs/graphql';
+import { Logger, UseGuards, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, UpdateLocationInput, User, RideLocationInput } from '@libs/data-access';
+import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, UpdateLocationInput, User,TriggerMatchmakingResultResponse, LocationUpdateResult, VehicleEstimateGraphQL, RideLocationInput } from '@libs/data-access';
 import { MatchmakingIntegrationService } from '../matchmaking-integration.service';
-import { TriggerMatchmakingResultResponse, LocationUpdateResult, VehicleEstimateGraphQL } from '../../../../../../libs/data-access/dtos/response/matchmaking-service-response.dto';
-
 @Resolver()
 @UseGuards(AuthGuard)
 export class MatchmakingResolver {
@@ -89,10 +87,19 @@ export class MatchmakingResolver {
   async getVehicleEstimates(
     @Args('pickupLocation') pickup: RideLocationInput,
     @Args('dropoffLocation') dropoff: RideLocationInput,
+    @Args('noOfPassengers', { type: () => Int }) noOfPassengers: number,
   ): Promise<VehicleEstimateGraphQL[]> {
+    if (noOfPassengers < 1) {
+      throw new BadRequestException('Minimum number of passengers is 1');
+    }
+    if (noOfPassengers > 4) {
+      throw new BadRequestException('Maximum number of passengers is 4');
+    }
+
     return this.matchmakingIntegration.getVehicleEstimates(
       pickup,
       dropoff,
+      noOfPassengers,
     );
   }
 }

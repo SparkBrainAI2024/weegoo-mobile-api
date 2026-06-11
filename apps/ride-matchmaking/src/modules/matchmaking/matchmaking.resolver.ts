@@ -1,7 +1,8 @@
-import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
-import { Logger } from '@nestjs/common';
+import { Resolver, Mutation, Query, Args, Int } from '@nestjs/graphql';
+import { Logger, BadRequestException } from '@nestjs/common';
 import { MatchmakingService } from './matchmaking.service';
 import {
+  VehicleEstimateGraphQL,
   MatchResultGraphQL,
   DriverResponseResultGraphQL,
   FareBreakdownGraphQL,
@@ -15,6 +16,7 @@ import {
   ScheduledFareInput,
   UpdateDriverLocationInput,
   UpdatePassengerLocationInput,
+  RideLocationInput,
   RainCondition, 
   HistoricalTraffic
 } from '@libs/data-access';
@@ -126,5 +128,32 @@ export class MatchmakingResolver {
     const fare = await this.matchmakingService.getScheduledEstimatedFare(input.rideId, (input.rain as unknown as RainCondition) || undefined, (input.historicalTraffic as unknown as HistoricalTraffic) || undefined);
     if (!fare) return null;
     return { baseFare: fare.baseFare,  total: fare.total };
+  }
+
+  @Query(() => [VehicleEstimateGraphQL], {
+    name: 'getVehicleEstimates',
+    description: 'Get estimates for different vehicle types',
+  })
+  async getVehicleEstimates(
+    @Args('pickupLocation') pickup: RideLocationInput,
+    @Args('dropoffLocation') dropoff: RideLocationInput,
+    @Args('noOfPassengers', { type: () => Int }) noOfPassengers: number,
+  ): Promise<VehicleEstimateGraphQL[]> {
+    this.logger.log(`GraphQL: Getting vehicle estimates for ${noOfPassengers} passengers`);
+    
+    if (noOfPassengers < 1) {
+      throw new BadRequestException('Minimum number of passengers is 1');
+    }
+    if (noOfPassengers > 4) {
+      throw new BadRequestException('Maximum number of passengers is 4');
+    }
+
+    return this.matchmakingService.getVehicleEstimates({
+      pickupLat: pickup.latitude,
+      pickupLng: pickup.longitude,
+      dropoffLat: dropoff.latitude,
+      dropoffLng: dropoff.longitude,
+      noOfPassengers,
+    });
   }
 }

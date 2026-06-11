@@ -859,12 +859,16 @@ export class MatchmakingService {
     pickupLng: number;
     dropoffLat: number;
     dropoffLng: number;
+    noOfPassengers: number;
   }): Promise<VehicleEstimateGraphQL[]> {
     const route = await this.distanceCalculator.calculateDistance(
       params.pickupLat, params.pickupLng, params.dropoffLat, params.dropoffLng
     );
 
-    const vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
+    let vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
+    if (params.noOfPassengers > 1) {
+      vehicleTypes = [VehicleType.CAR];
+    }
 
     return vehicleTypes.map((type) => {
       const fare = this.pricingService.calculateFare({
@@ -881,8 +885,10 @@ export class MatchmakingService {
         hasAC = true;
       } else if (type === VehicleType.MOTORBIKE) {
         comfortType = 'Affordable and quick';
+           hasAC = false;
       } else if (type === VehicleType.SCOOTER) {
         comfortType = 'Short and quick ride';
+        hasAC = false;
       }
 
       return {
@@ -892,6 +898,7 @@ export class MatchmakingService {
         estimatedTimeInMinutes: route.durationMinutes,
         comfortType,
         hasAC,
+        noOfPassengers: params.noOfPassengers,
       };
     });
   }

@@ -343,6 +343,7 @@ export class MatchmakingIntegrationService {
   async getVehicleEstimates(
     pickup: RideLocationInput,
     dropoff: RideLocationInput,
+    noOfPassengers: number,
   ): Promise<VehicleEstimateGraphQL[]> {
     const matchmakingUrl = this.getMatchmakingUrl();
     try {
@@ -352,18 +353,19 @@ export class MatchmakingIntegrationService {
         `${matchmakingUrl}/graphql`,
         {
           query: `
-            query GetVehicleEstimates($pickup: RideLocationInput!, $dropoff: RideLocationInput!) {
-              getVehicleEstimates(pickupLocation: $pickup, dropoffLocation: $dropoff) {
+            query GetVehicleEstimates($pickup: RideLocationInput!, $dropoff: RideLocationInput!, $noOfPassengers: Int!) {
+              getVehicleEstimates(pickupLocation: $pickup, dropoffLocation: $dropoff, noOfPassengers: $noOfPassengers) {
                 vehicleType
                 estimatedFare
                 distanceKm
                 estimatedTimeInMinutes
                 comfortType
                 hasAC
+                noOfPassengers
               }
             }
           `,
-          variables: { pickup, dropoff },
+          variables: { pickup, dropoff, noOfPassengers },
         },
         { timeout: 15000 },
       );

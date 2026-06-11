@@ -149,3 +149,27 @@ export class LocationUpdateResultGraphQL {
   @Field(() => String)
   updatedAt: string;
 }
+
+@ObjectType()
+export class VehicleEstimateGraphQL {
+  @Field(() => String)
+  vehicleType: string;
+
+  @Field(() => Float)
+  estimatedFare: number;
+
+  @Field(() => Float)
+  distanceKm: number;
+
+  @Field(() => Int)
+  estimatedTimeInMinutes: number;
+
+  @Field(() => String)
+  comfortType: string;
+
+  @Field(() => Boolean, { nullable: true })
+  hasAC?: boolean;
+
+  @Field(() => Int)
+  noOfPassengers: number;
+}
