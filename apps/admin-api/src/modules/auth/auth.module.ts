@@ -24,6 +24,6 @@ import { AdminAuthService } from "@libs/services/admin-auth";
     MailService,
     AdminAuthGuard
   ],
-  exports: [AdminAuthService, AdminAuthGuard,AdminUserRepository],
+  exports: [AdminAuthService, AdminAuthGuard, AdminUserRepository],
 })
 export class AdminAuthModule {}

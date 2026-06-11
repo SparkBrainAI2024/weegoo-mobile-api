@@ -321,6 +321,7 @@ type PromoCode {
   startDateTime: DateTime!
   expiryDateTime: DateTime!
   status: PromoCodeStatusEnum!
+  promoCodeUsedCount: Float!
 }
 
 """Type of discount (percentage or flat amount)"""
@@ -482,6 +483,7 @@ type MatchAttemptResultGraphQL {
   driverAccepted: Boolean!
   acceptedDriverId: String
   timeoutExpired: Boolean!
+  status: String!
 }
 
 type RideWithoutRelations {
@@ -516,15 +518,21 @@ type RideWithoutRelations {
 }
 
 type DocumentStatus {
-  type: String!
-  status: DriverDocumentStatusCheck!
+  type: DriverDocumentType!
+  status: DriverDocumentBundleStatus!
 }
 
-enum DriverDocumentStatusCheck {
-  SUBMITTED
-  ACTION_NEEDED
-  REVIEWED
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
+enum DriverDocumentBundleStatus {
+  PENDING
+  APPROVED
   REJECTED
+  NOT_SUBMITTED
 }
 
 type VerificationInfo {
@@ -563,6 +571,36 @@ type AdminVerifyOTPResponse {
   resetPasswordToken: String!
 }
 
+type Page {
+  _id: ID!
+  title: String!
+  slug: String!
+  type: PageType!
+  content: String!
+  status: PageStatus!
+  publishedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Type of the page"""
+enum PageType {
+  LEGAL
+  INFO
+}
+
+"""Publication status of the page"""
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+}
+
+type PageListWithPaginationResponse {
+  message: String
+  data: [Page!]
+  pagination: Pagination!
+}
+
 type PromocodeListWithPaginationResponse {
   message: String
   data: [PromoCode!]
@@ -571,8 +609,16 @@ type PromocodeListWithPaginationResponse {
 
 type Query {
   health: String!
+  page(id: ID!): Page!
+  pageBySlug(slug: String!): Page!
+  pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
+}
+
+input PaginationInputOnly {
+  page: Int! = 0
+  limit: Int! = 5
 }
 
 input PromoCodeFindAllInput {
