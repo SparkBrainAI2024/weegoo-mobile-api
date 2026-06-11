@@ -111,8 +111,8 @@ type VehicleImage {
 
 type Vehicle {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
@@ -159,8 +159,8 @@ type RideUserSnapshot {
 
 type Rides {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   rideType: RideTypes!
@@ -245,8 +245,8 @@ enum DocumentFileStatus {
 
 type Favourites {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   rideType: RideTypes!
@@ -261,8 +261,8 @@ type Favourites {
 
 type Notification {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   title: String!
@@ -436,6 +436,69 @@ type MatchAttemptResultGraphQL {
   driverAccepted: Boolean!
   acceptedDriverId: String
   timeoutExpired: Boolean!
+  status: String!
+}
+
+type RideWithoutRelations {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  rideType: RideTypes!
+  bookingTime: DateTime!
+  rideStatus: RideStatus!
+  passengerId: String!
+  driverId: String
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  rideUUId: String
+  estimatedTimeInMinutes: Float
+  estimatedFare: Float
+  isFavourite: Boolean
+  rideStartedAt: DateTime
+  rideCompletedAt: DateTime
+  distanceInKm: Float
+  fare: Fare
+  paymentDetails: PaymentDetails
+  timeToReachPassengerInMinutes: Float
+  timeToReachPassenger: DateTime
+  distanceToReachPassenger: Float
+  estimatedTimeToReachPassenger: Float
+  noOfPassengers: Float
+  ablyChannelId: String
+  cancellationDetail: CancellationDetail
+}
+
+type DocumentStatus {
+  type: DriverDocumentType!
+  status: DriverDocumentBundleStatus!
+}
+
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
+enum DriverDocumentBundleStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  NOT_SUBMITTED
+}
+
+type VerificationInfo {
+  verificationRequired: Boolean!
+  documentStatuses: [DocumentStatus!]!
+}
+
+type DashboardStats {
+  totalEarnings: Float
+  totalTrips: Int
+  rating: Float
+  onlineHoursToday: String
 }
 
 type AdminUserResponse {
