@@ -1,10 +1,10 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
 import { Logger, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, UpdateLocationInput, User } from '@libs/data-access';
+import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, UpdateLocationInput, User, RideLocationInput } from '@libs/data-access';
 import { MatchmakingIntegrationService } from '../matchmaking-integration.service';
-import { TriggerMatchmakingResultResponse, LocationUpdateResult } from '../../../../../../libs/data-access/dtos/response/match-making.response';
+import { TriggerMatchmakingResultResponse, LocationUpdateResult, VehicleEstimateGraphQL } from '../../../../../../libs/data-access/dtos/response/matchmaking-service-response.dto';
 
 @Resolver()
 @UseGuards(AuthGuard)
@@ -76,6 +76,23 @@ export class MatchmakingResolver {
       user._id.toString(),
       input.latitude,
       input.longitude,
+    );
+  }
+
+  /**
+   * Get list of vehicle estimates (Car, Motorbike, Scooter) for a given route.
+   */
+  @Query(() => [VehicleEstimateGraphQL], {
+    name: 'getVehicleEstimates',
+    description: 'Calculate estimates for CAR, MOTORBIKE, and SCOOTER between pickup and dropoff',
+  })
+  async getVehicleEstimates(
+    @Args('pickupLocation') pickup: RideLocationInput,
+    @Args('dropoffLocation') dropoff: RideLocationInput,
+  ): Promise<VehicleEstimateGraphQL[]> {
+    return this.matchmakingIntegration.getVehicleEstimates(
+      pickup,
+      dropoff,
     );
   }
 }
