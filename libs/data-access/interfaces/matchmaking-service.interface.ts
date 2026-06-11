@@ -34,6 +34,7 @@ export interface MatchAttemptResult {
   driverAccepted: boolean;
   acceptedDriverId?: string;
   timeoutExpired: boolean;
+  status: 'no_drivers_found' | 'waiting_for_response' | 'accepted' | 'timeout';
 }
 
 export interface MatchResult {

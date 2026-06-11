@@ -48,7 +48,7 @@ export class MatchmakingResolver {
       attempts: result.attempts.map((a) => ({
         attemptNumber: a.attemptNumber, radiusKm: a.radiusKm, waitTimeSeconds: a.waitTimeSeconds,
         driversFound: a.driversFound, driversRequested: a.driversRequested, driverAccepted: a.driverAccepted,
-        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired,
+        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
       })),
       message: result.message,
     };
@@ -74,7 +74,7 @@ export class MatchmakingResolver {
       attempts: result.attempts.map((a) => ({
         attemptNumber: a.attemptNumber, radiusKm: a.radiusKm, waitTimeSeconds: a.waitTimeSeconds,
         driversFound: a.driversFound, driversRequested: a.driversRequested, driverAccepted: a.driverAccepted,
-        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired,
+        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
       })),
       message: result.message,
     };

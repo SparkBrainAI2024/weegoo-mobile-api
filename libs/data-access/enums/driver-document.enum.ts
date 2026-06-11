@@ -16,8 +16,7 @@ export enum DriverDocumentSide {
 }
 
 export enum DriverDocumentBundleStatus {
-  DRAFT          = "DRAFT",
-  PENDING_REVIEW = "PENDING_REVIEW",
+  PENDING = "PENDING",
   APPROVED       = "APPROVED",
   REJECTED       = "REJECTED",
   NOT_SUBMITTED   = "NOT_SUBMITTED",

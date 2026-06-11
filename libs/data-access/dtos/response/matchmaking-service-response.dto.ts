@@ -49,6 +49,9 @@ export class MatchAttemptResultGraphQL {
 
   @Field(() => Boolean)
   timeoutExpired: boolean;
+
+  @Field(() => String)
+  status: string; // 'no_drivers_found' | 'waiting_for_response' | 'accepted' | 'timeout'
 }
 
 @ObjectType()

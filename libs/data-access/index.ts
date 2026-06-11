@@ -99,6 +99,7 @@ export * from './dtos/input/get-ride-by-id.input';
 export * from './dtos/input/update-ride.input';
 export * from './dtos/input/cancel-ride.input';
 export * from './dtos/input/create-promo-code.input';
+export * from './dtos/input/complete-ride.input';
 
 
 // dtos - response

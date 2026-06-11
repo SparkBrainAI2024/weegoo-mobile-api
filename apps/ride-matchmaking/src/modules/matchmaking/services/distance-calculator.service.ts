@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
+import { VehicleType } from '@libs/data-access';
 
 export interface DistanceResult {
   distanceKm: number;
@@ -15,8 +16,10 @@ export class DistanceCalculatorService {
   constructor(private readonly envService: EnvService) {}
 
   /**
-   * Calculate distance and duration between two coordinates using Batoo API.
-   * Batoo is a Nepal-based mapping and routing service.
+   * Calculate distance and duration between two coordinates using Baato API.
+   * Baato is a Nepal-based mapping and routing service.
+   *
+   * API Format: https://api.baato.io/api/v1/directions?key=YOUR_KEY&points[]=lat,lng&points[]=lat,lng&mode=car
    *
    * @param originLat - Origin latitude
    * @param originLng - Origin longitude
@@ -28,26 +31,28 @@ export class DistanceCalculatorService {
     originLng: number,
     destLat: number,
     destLng: number,
+    requestedType: string,
   ): Promise<DistanceResult> {
-    const apiKey = this.envService.getBatooApiKey();
-    const baseUrl = this.envService.getBatooApiUrl();
+    const apiKey = this.envService.getBaatoApiKey();
+    const baseUrl = this.envService.getBaatoApiUrl();
 
     if (!apiKey) {
-      this.logger.warn('Batoo API key not configured. Using fallback Haversine calculation.');
+      this.logger.warn('Baato API key not configured. Using fallback Haversine calculation.');
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     }
 
     try {
+      this.logger.log(`Calling Baato API for distance calculation: origin (${originLat},${originLng}), destination (${destLat},${destLng}),${baseUrl} ${apiKey}`);
+      const params = new URLSearchParams();
+      params.append('key', `${apiKey}`);
+      params.append('points[]', `${originLat},${originLng}`);
+      params.append('points[]', `${destLat},${destLng}`);
+      params.append('mode', requestedType === VehicleType.CAR.toLocaleLowerCase() ? 'car' : requestedType.toLocaleLowerCase() === VehicleType.MOTORBIKE ? 'bike' : 'scooter');
+      // Baato API format: points[]=lat,lng
+      this.logger.debug(`Baato API request params: ${params.toString()}`);
       const response = await axios.get(`${baseUrl}/directions`, {
-        params: {
-          origin: `${originLat},${originLng}`,
-          destination: `${destLat},${destLng}`,
-          alternatives: false,
-          key: apiKey,
-        },
-        timeout: 5000,
+        params: params,
       });
-
       const route = response.data?.routes?.[0];
       if (route) {
         return {
@@ -60,13 +65,13 @@ export class DistanceCalculatorService {
       // Fallback if no route found
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     } catch (error: any) {
-      this.logger.error(`Batoo API error: ${error?.message || error}. Using Haversine fallback.`);
+      this.logger.error(`Baato API error: ${error}. Using Haversine fallback.`);
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     }
   }
 
   /**
-   * Calculate straight-line distance from pickup to a driver's location using Batoo API.
+   * Calculate distance from pickup to a driver's location using Baato API.
    * Used for the initial driver proximity check during matching.
    *
    * @param pickupLat - Pickup latitude
@@ -79,12 +84,13 @@ export class DistanceCalculatorService {
     pickupLng: number,
     driverLat: number,
     driverLng: number,
+    requestedType: string,
   ): Promise<DistanceResult> {
-    return this.calculateDistance(pickupLat, pickupLng, driverLat, driverLng);
+    return this.calculateDistance(pickupLat, pickupLng, driverLat, driverLng, requestedType);
   }
 
   /**
-   * Haversine formula fallback when Batoo API is unavailable.
+   * Haversine formula fallback when Baato API is unavailable.
    * Calculates great-circle distance between two points.
    */
   private haversineFallback(
