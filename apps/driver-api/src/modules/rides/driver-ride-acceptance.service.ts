@@ -298,10 +298,10 @@ export class DriverRideAcceptanceService {
     const perKmRate = MATCHMAKING_CONFIG.FARE.PER_KM_RATE;
     const perMinuteRate = MATCHMAKING_CONFIG.FARE.PER_MINUTE_RATE;
 
-    const baseFareAmount = baseFare;
-    const distanceFare = distanceInKm * perKmRate;
-    const durationFare = durationInMinutes * perMinuteRate;
-    const totalFare = baseFareAmount + distanceFare + durationFare;
+    const baseFareAmount = Number(baseFare);
+    const distanceFare = Number(distanceInKm) * Number(perKmRate);
+    const durationFare = Number(durationInMinutes) * Number(perMinuteRate);
+    const totalFare = Number(baseFareAmount) + Number(distanceFare) + Number(durationFare);
 
     // 5. Get discount from payment details
     const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
