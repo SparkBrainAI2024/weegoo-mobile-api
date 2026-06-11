@@ -7,7 +7,6 @@ import { PageListWithPaginationResponse } from '@libs/data-access/dtos/response/
 import { UpdatePageInput } from '@libs/data-access/dtos/input/update.-page.input';
 import { Page } from '@libs/data-access/entities/page.entity';
 import { ErrorException, toMongoId } from '@libs/common';
-import { PAGE } from '@libs/localization/en/page.messages';
 
 
 @Injectable()
