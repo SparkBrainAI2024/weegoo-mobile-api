@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { BaseModel, BaseRepository, IPaginatedResult, PaginationInput, PaginationInputOnly, SortBy } from '@libs/data-access';
+import { BaseModel, BaseRepository, IPaginatedResult, PaginationInputOnly, SortBy } from '@libs/data-access';
 import { Page, PageDocument } from '../entities/page.entity';
 
 @Injectable()
