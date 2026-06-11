@@ -43,13 +43,7 @@ async upsertDocumentFile(
         input.documentType,
       );
 
-      // If not, create draft with empty files array
-      if (!doc) {
-        doc = await this.repository.createDraftDocument(
-          driverId,
-          input.documentType,
-        );
-      }
+    
 
       // If all sides are approved, the document will have APPROVED status.
       // In that case we should not allow upload of a new file without admin

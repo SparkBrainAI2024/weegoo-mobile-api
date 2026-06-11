@@ -8,6 +8,7 @@ import { join } from 'path';
 import { envConfiguration, HealthResolver } from '@libs/common';
 import { UserAuthModule } from '@libs/services/auth/auth.module';
 import { AdminAuthModule } from './modules/auth/auth.module';
+import { PageModule } from './modules/page/page.module';
 import { PromoCodeModule } from './modules/promocode/promocode.module';
 
 @Module({
@@ -33,7 +34,7 @@ import { PromoCodeModule } from './modules/promocode/promocode.module';
         })
       : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
   ],     }),
- AdminAuthModule, UserAuthModule , PromoCodeModule],
+ AdminAuthModule, UserAuthModule ,PageModule ,PromoCodeModule],
   providers: [HealthResolver],
 })
 export class AppModule {}
