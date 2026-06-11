@@ -17,6 +17,7 @@ import { RidesModule } from './modules/rides/rides.module';
 import { IssueModule } from './modules/issue/issue.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { TransactionModule } from './modules/transaction/transaction.module';
+import { PageModule } from '@admin-api/modules/page/page.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { TransactionModule } from './modules/transaction/transaction.module';
     IssueModule,
     NotificationModule,
     TransactionModule,
+    PageModule
   ],
   providers: [HealthResolver],
 })
