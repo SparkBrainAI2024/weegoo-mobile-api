@@ -20,6 +20,7 @@ import {
   RainCondition,
   HistoricalTraffic,
   ScheduledFareBreakdown,
+  VehicleEstimateGraphQL,
 } from 'libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
@@ -496,18 +497,20 @@ export class MatchmakingService {
   async getEstimatedFare(rideId: string,vehicleType?: string): Promise<FareBreakdown | null> {
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
     if (!ride) return null;
+    const vehicle = ride.vehicle || (await this.vehicleModel.findById(ride.vehicleId).exec());
+    const vehicleTypeNew = (vehicle?.vehicleType as string) || 'CAR';
     const pickupCoords = ride.pickupLocation?.coordinates;
     const dropoffCoords = ride.dropoffLocation?.coordinates;
     let distanceKm = ride.distanceInKm || 5;
     let durationMinutes = ride.estimatedTimeInMinutes || 15;
     if (pickupCoords && dropoffCoords && pickupCoords.length >= 2 && dropoffCoords.length >= 2) {
       try {
-        const route = await this.distanceCalculator.calculateDistance(pickupCoords[1], pickupCoords[0], dropoffCoords[1], dropoffCoords[0], vehicleType?.toLowerCase() || 'car');
+        const route = await this.distanceCalculator.calculateDistance(pickupCoords[1], pickupCoords[0], dropoffCoords[1], dropoffCoords[0], vehicleTypeNew?.toLowerCase() || 'car');
         distanceKm = route.distanceKm;
         durationMinutes = route.durationMinutes;
       } catch {}
     }
-    return this.pricingService.calculateFare({ distanceKm, durationMinutes });
+    return this.pricingService.calculateFare({ distanceKm, durationMinutes, vehicleType });
   }
 
   async updateDriverLocation(driverId: string, latitude: number, longitude: number): Promise<{ success: boolean; message: string }> {
@@ -619,6 +622,54 @@ export class MatchmakingService {
       }
     }
     return this.pricingService.calculateScheduledFare({ distanceKm, durationMinutes, vehicleType });
+  }
+
+  async getVehicleEstimates(params: {
+    pickupLat: number;
+    pickupLng: number;
+    dropoffLat: number;
+    dropoffLng: number;
+    noOfPassengers: number;
+  }): Promise<VehicleEstimateGraphQL[]> {
+ 
+
+    let vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
+    if (params.noOfPassengers > 1) {
+      vehicleTypes = [VehicleType.CAR];
+    }
+
+    return Promise.all(vehicleTypes.map(async (type) => {
+      const route =await this.distanceCalculator.calculateDistance(params.pickupLat, params.pickupLng, params.dropoffLat, params.dropoffLng, type.toLowerCase());
+      const fare = this.pricingService.calculateFare({
+        distanceKm: route.distanceKm,
+        durationMinutes: route.durationMinutes,
+        vehicleType: type as VehicleType,
+      });
+
+      let comfortType = '';
+      let hasAC: boolean | undefined = undefined;
+
+      if (type === VehicleType.CAR) {
+        comfortType = 'Comfortable city ride with fast pickup';
+        hasAC = true;
+      } else if (type === VehicleType.MOTORBIKE) {
+        comfortType = 'Affordable and quick';
+           hasAC = false;
+      } else if (type === VehicleType.SCOOTER) {
+        comfortType = 'Short and quick ride';
+        hasAC = false;
+      }
+
+      return {
+        vehicleType: type as VehicleType,
+        estimatedFare: fare.total,
+        distanceKm: Math.round(route.distanceKm * 100) / 100,
+        estimatedTimeInMinutes: route.durationMinutes,
+        comfortType,
+        hasAC,
+        noOfPassengers: params.noOfPassengers,
+      };
+    }));
   }
 
   // ════════════════════════════════════════════════════════════════

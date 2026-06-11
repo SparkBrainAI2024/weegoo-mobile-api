@@ -6,7 +6,7 @@ import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
-import { RideLocationInput, TriggerMatchmakingResult, UpdateLocationResult } from '@libs/data-access';
+import { RideLocationInput, TriggerMatchmakingResult, UpdateLocationResult, VehicleEstimateGraphQL } from '@libs/data-access';
 
 @Injectable()
 export class MatchmakingIntegrationService {
@@ -334,6 +334,46 @@ export class MatchmakingIntegrationService {
     } catch (error: any) {
       this.logger.error(`Failed to update passenger location: ${error?.message || error}`);
       return { success: false, message: 'Matchmaking service unavailable', latitude, longitude, updatedAt: new Date().toISOString() };
+    }
+  }
+
+  /**
+   * Get list of vehicle estimates (Car, Motorbike, Scooter) from the matchmaking service.
+   */
+  async getVehicleEstimates(
+    pickup: RideLocationInput,
+    dropoff: RideLocationInput,
+    noOfPassengers: number,
+  ): Promise<VehicleEstimateGraphQL[]> {
+    const matchmakingUrl = this.getMatchmakingUrl();
+    try {
+      this.logger.log(`Fetching vehicle estimates for route from ${pickup.address} to ${dropoff.address}`);
+
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        {
+          query: `
+            query GetVehicleEstimates($pickup: RideLocationInput!, $dropoff: RideLocationInput!, $noOfPassengers: Int!) {
+              getVehicleEstimates(pickupLocation: $pickup, dropoffLocation: $dropoff, noOfPassengers: $noOfPassengers) {
+                vehicleType
+                estimatedFare
+                distanceKm
+                estimatedTimeInMinutes
+                comfortType
+                hasAC
+                noOfPassengers
+              }
+            }
+          `,
+          variables: { pickup, dropoff, noOfPassengers },
+        },
+        { timeout: 15000 },
+      );
+
+      return response.data?.data?.getVehicleEstimates || [];
+    } catch (error: any) {
+      this.logger.error(`Failed to get vehicle estimates: ${error?.message || error}`);
+      return [];
     }
   }
 

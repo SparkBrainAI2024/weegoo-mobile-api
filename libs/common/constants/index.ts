@@ -42,16 +42,43 @@ export const MATCHMAKING_CONFIG = {
 
   // ─── INSTANT Fare Config ───
   FARE: {
-    BASE_PICKUP_COST: 1.0,
-    PER_KM_RATE: 1.2,
-    PER_MINUTE_RATE: 0.3,
+    // Base pickup cost per vehicle type
+    BASE_PICKUP_COST: {
+      CAR: 50,
+      MOTORBIKE: 30,
+      SCOOTER: 35,
+    },
+    PER_KM_RATE: {
+      CAR: 20,
+      MOTORBIKE: 12,
+      SCOOTER: 15,
+    },
+    PER_MINUTE_RATE: {
+      CAR: 5,
+      MOTORBIKE: 3,
+      SCOOTER: 4,
+    },
   },
 
   // ─── SCHEDULED Fare Config (multiplicative) ───
   SCHEDULED_FARE: {
-    PER_KM_RATE: 1.2,
-    PER_MINUTE_RATE: 0.3,
-    RIDE_TYPE_MULTIPLIER: { CAR: 1.0, MOTORBIKE: 0.7 },
+    // Base pickup cost per vehicle type for scheduled rides
+    BASE_PICKUP_COST: {
+      CAR: 45,
+      MOTORBIKE: 25,
+      SCOOTER: 30,
+    },
+    PER_KM_RATE: {
+      CAR: 18,
+      MOTORBIKE: 10,
+      SCOOTER: 13,
+    },
+    PER_MINUTE_RATE: {
+      CAR: 4,
+      MOTORBIKE: 2.5,
+      SCOOTER: 3,
+    },
+    RIDE_TYPE_MULTIPLIER: { CAR: 1.0, MOTORBIKE: 0.7, SCOOTER: 0.8 },
     RAIN_MULTIPLIER: { light: 1.1, heavy: 1.3 },
     SCHEDULED_TRAFFIC_MULTIPLIER: { moderate: 1.2, heavy: 1.4 },
   },
