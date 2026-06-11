@@ -80,7 +80,7 @@ async upsertDocumentFile(
       // If the document was previously rejected, reset to DRAFT so it
       // re-enters the admin review queue.
       if (doc.status === DriverDocumentBundleStatus.REJECTED) {
-        doc.status = DriverDocumentBundleStatus.DRAFT;
+        doc.status = DriverDocumentBundleStatus.PENDING;
       }
 
      const document =  await this.repository.save(doc);
@@ -118,7 +118,7 @@ async upsertDocumentFile(
       );
     }
 
-    if (doc.status === DriverDocumentBundleStatus.PENDING_REVIEW) {
+    if (doc.status === DriverDocumentBundleStatus.PENDING) {
       ErrorException(
         null,
         "DRIVER_DOCUMENT.ALREADY_SUBMITTED",
@@ -152,7 +152,7 @@ async upsertDocumentFile(
       );
     }
 
-    doc.status = DriverDocumentBundleStatus.PENDING_REVIEW;
+    doc.status = DriverDocumentBundleStatus.PENDING;
     doc.submittedAt = new Date();
 
     await this.repository.save(doc);
