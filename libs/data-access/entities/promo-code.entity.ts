@@ -79,6 +79,10 @@ export class PromoCode extends BaseEntity {
   @Field(() => PromoCodeStatusEnum)
   @Prop({ type: String, enum: PromoCodeStatusEnum, required: true, default: PromoCodeStatusEnum.ACTIVE })
   status: PromoCodeStatusEnum;
+
+  @Field(()=>Number)
+  @Prop({type:Number, required:true, default:0})
+  promoCodeUsedCount:number;
 }
 
 export const PromoCodeSchema = SchemaFactory.createForClass(PromoCode);
