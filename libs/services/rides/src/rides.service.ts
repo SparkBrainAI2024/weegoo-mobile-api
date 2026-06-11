@@ -460,14 +460,10 @@ export class RidesService {
     if (!rideDocument) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-    console.log('Fetched ride document:', rideDocument);
-    console.log('User ID:', userId.toString());
-    console.log('Passenger ID:', rideDocument.passengerId._id.toString());
     // Verify that the user is the passenger of this ride
     if (rideDocument.passengerId._id.toString() !== userId.toString()) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-    console.log('User is authorized to view this ride. Enriching details...');
     return this.enrichRideDetails(rideDocument);
   }
 
