@@ -2,21 +2,20 @@ import { RidePersistentModule, RidesService, RidesResolver } from "@libs/service
 import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
-import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
-import { IssueService } from "@libs/services/issue/src/issue.service";
-import { UsersIssueResolver } from "@libs/services/issue/src/resolver/users-issue.resolver";
 import { PageService } from "@libs/services/pages/page.service";
-import { PageRepository } from "@libs/data-access/repositories/page.repository";
 import { PagePersistenceModule } from "@libs/services/pages/page.persistence.module";
+import { PageResolver } from "@libs/services/pages/resolver/page.resolver";
+import { AdminAuthModule } from "../auth/auth.module";
 
 @Module({
     imports: [
-        PagePersistenceModule,
         UserPersistenceModule,
+        PagePersistenceModule,
+        AdminAuthModule
     ],
     providers: [
         EnvService,
-        PageService
+        PageService,PageResolver
     ],
     exports: [PageService, ]
 })

@@ -525,8 +525,46 @@ type AdminVerifyOTPResponse {
   resetPasswordToken: String!
 }
 
+type Page {
+  _id: ID!
+  title: String!
+  slug: String!
+  type: PageType!
+  content: String!
+  status: PageStatus!
+  publishedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"""Type of the page"""
+enum PageType {
+  LEGAL
+  INFO
+}
+
+"""Publication status of the page"""
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+}
+
+type PageListWithPaginationResponse {
+  message: String
+  data: [Page!]
+  pagination: Pagination!
+}
+
 type Query {
   health: String!
+  page(id: ID!): Page!
+  pageBySlug(slug: String!): Page!
+  pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
+}
+
+input PaginationInputOnly {
+  page: Int! = 0
+  limit: Int! = 5
 }
 
 type Mutation {
@@ -535,6 +573,11 @@ type Mutation {
   adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
   adminVerifyOtp(input: AdminVerifyOtpInput!): AdminVerifyOTPResponse!
   adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
+  createPage(input: CreatePageInput!): Page!
+  updatePage(id: ID!, input: UpdatePageInput!): Page!
+  publishPage(id: ID!): Page!
+  unpublishPage(id: ID!): Page!
+  removePage(id: ID!): Boolean!
 }
 
 input AdminSignUpInput {
@@ -560,4 +603,20 @@ input AdminVerifyOtpInput {
 input AdminResetPasswordInput {
   resetPasswordToken: String!
   newPassword: String!
+}
+
+input CreatePageInput {
+  """Title of the page; slug is auto-generated from this"""
+  title: String!
+  type: PageType!
+
+  """HTML or markdown content of the page"""
+  content: String!
+}
+
+input UpdatePageInput {
+  """Title of the page; slug is regenerated if changed"""
+  title: String
+  type: PageType
+  content: String
 }
