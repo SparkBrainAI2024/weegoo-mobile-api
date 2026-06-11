@@ -111,8 +111,8 @@ type VehicleImage {
 
 type Vehicle {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
@@ -159,8 +159,8 @@ type RideUserSnapshot {
 
 type Rides {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   rideType: RideTypes!
@@ -245,8 +245,8 @@ enum DocumentFileStatus {
 
 type Favourites {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   rideType: RideTypes!
@@ -261,8 +261,8 @@ type Favourites {
 
 type Notification {
   _id: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
+  createdAt: DateTime
+  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   title: String!
@@ -294,8 +294,54 @@ enum NotificationType {
 }
 
 type Occasion {
-  type: String!
-  occasionId: ID!
+  _id: ID!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  occasionName: String!
+}
+
+type PromoCode {
+  _id: ID!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  occasion: Occasion!
+  name: String!
+  discountType: DiscountTypeEnum!
+  percentageAmount: Float
+  flatAmount: Float
+  maxDiscount: Float!
+  minimumFare: Float!
+  appliedTo: AppliedToEnum!
+  totalUsageLimit: Float!
+  perUserLimit: Float!
+  startDateTime: DateTime!
+  expiryDateTime: DateTime!
+  status: PromoCodeStatusEnum!
+}
+
+"""Type of discount (percentage or flat amount)"""
+enum DiscountTypeEnum {
+  PERCENTAGE
+  FLAT
+}
+
+"""To which ride types the promo code applies"""
+enum AppliedToEnum {
+  ALL_RIDES
+  INSTANT
+  SCHEDULED
+}
+
+"""Status of the promo code"""
+enum PromoCodeStatusEnum {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  EXPIRED
 }
 
 type IssueCategoryEmbed {
@@ -438,6 +484,61 @@ type MatchAttemptResultGraphQL {
   timeoutExpired: Boolean!
 }
 
+type RideWithoutRelations {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  rideType: RideTypes!
+  bookingTime: DateTime!
+  rideStatus: RideStatus!
+  passengerId: String!
+  driverId: String
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  rideUUId: String
+  estimatedTimeInMinutes: Float
+  estimatedFare: Float
+  isFavourite: Boolean
+  rideStartedAt: DateTime
+  rideCompletedAt: DateTime
+  distanceInKm: Float
+  fare: Fare
+  paymentDetails: PaymentDetails
+  timeToReachPassengerInMinutes: Float
+  timeToReachPassenger: DateTime
+  distanceToReachPassenger: Float
+  estimatedTimeToReachPassenger: Float
+  noOfPassengers: Float
+  ablyChannelId: String
+  cancellationDetail: CancellationDetail
+}
+
+type DocumentStatus {
+  type: String!
+  status: DriverDocumentStatusCheck!
+}
+
+enum DriverDocumentStatusCheck {
+  SUBMITTED
+  ACTION_NEEDED
+  REVIEWED
+  REJECTED
+}
+
+type VerificationInfo {
+  verificationRequired: Boolean!
+  documentStatuses: [DocumentStatus!]!
+}
+
+type DashboardStats {
+  totalEarnings: Float
+  totalTrips: Int
+  rating: Float
+  onlineHoursToday: String
+}
+
 type AdminUserResponse {
   _id: String!
   fullName: String!
@@ -462,8 +563,40 @@ type AdminVerifyOTPResponse {
   resetPasswordToken: String!
 }
 
+type PromocodeListWithPaginationResponse {
+  message: String
+  data: [PromoCode!]
+  pagination: Pagination!
+}
+
 type Query {
   health: String!
+  promoCode(id: ID!): PromoCode!
+  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
+}
+
+input PromoCodeFindAllInput {
+  page: Int! = 0
+  limit: Int! = 5
+  orderBy: String
+  order: SortBy! = desc
+  searchText: String
+  filter: PromoCodeFilterInput
+}
+
+"""Order by direction for pagination"""
+enum SortBy {
+  """Ascending order"""
+  asc
+
+  """Descending order"""
+  desc
+}
+
+input PromoCodeFilterInput {
+  status: PromoCodeStatusEnum
+  appliedTo: AppliedToEnum
+  occasion: ID
 }
 
 type Mutation {
@@ -472,6 +605,11 @@ type Mutation {
   adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
   adminVerifyOtp(input: AdminVerifyOtpInput!): AdminVerifyOTPResponse!
   adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
+  createPromoCode(input: CreatePromoCodeInput!): PromoCode!
+  updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromoCode!
+  activatePromoCode(id: ID!): PromoCode!
+  deactivatePromoCode(id: ID!): PromoCode!
+  removePromoCode(id: ID!): Boolean!
 }
 
 input AdminSignUpInput {
@@ -497,4 +635,76 @@ input AdminVerifyOtpInput {
 input AdminResetPasswordInput {
   resetPasswordToken: String!
   newPassword: String!
+}
+
+input CreatePromoCodeInput {
+  """
+  The alphanumeric code name, e.g., "WELCOME50"
+  """
+  name: String!
+
+  """Whether the discount is a percentage or flat amount"""
+  discountType: DiscountTypeEnum!
+
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
+  percentageAmount: Float
+
+  """Fixed currency amount if discountType is FLAT"""
+  flatAmount: Float
+
+  """Cap on the discount amount for percentage-based promos"""
+  maxDiscount: Float
+
+  """Minimum ride fare required to apply this code"""
+  minimumFare: Float
+  appliedTo: AppliedToEnum!
+
+  """Maximum number of times this code can be used in total"""
+  totalUsageLimit: Float!
+
+  """Maximum number of times a single user can use this code"""
+  perUserLimit: Float!
+
+  """When the promo code becomes valid"""
+  startDateTime: DateTime!
+
+  """When the promo code expires"""
+  expiryDateTime: DateTime!
+  occasionId: ID!
+}
+
+input UpdatePromoCodeInput {
+  """
+  The alphanumeric code name, e.g., "WELCOME50"
+  """
+  name: String
+
+  """Whether the discount is a percentage or flat amount"""
+  discountType: DiscountTypeEnum
+
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
+  percentageAmount: Float
+
+  """Fixed currency amount if discountType is FLAT"""
+  flatAmount: Float
+
+  """Cap on the discount amount for percentage-based promos"""
+  maxDiscount: Float
+
+  """Minimum ride fare required to apply this code"""
+  minimumFare: Float
+  appliedTo: AppliedToEnum
+
+  """Maximum number of times this code can be used in total"""
+  totalUsageLimit: Float
+
+  """Maximum number of times a single user can use this code"""
+  perUserLimit: Float
+
+  """When the promo code becomes valid"""
+  startDateTime: DateTime
+
+  """When the promo code expires"""
+  expiryDateTime: DateTime
+  occasionId: ID
 }

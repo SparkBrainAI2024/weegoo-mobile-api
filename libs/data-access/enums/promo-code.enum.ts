@@ -12,6 +12,7 @@ export enum AppliedToEnum {
 }
 
 export enum PromoCodeStatusEnum {
+  DRAFT='DRAFT',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
   EXPIRED = 'EXPIRED',
