@@ -12,17 +12,24 @@ export class DynamicPricingService {
   /**
    * Calculate the estimated fare for an INSTANT ride.
    * total = pickupCost + distanceCost + durationCost
+   * Uses vehicle-specific rates from MATCHMAKING_CONFIG
    */
   calculateFare(params: {
     distanceKm: number;
     durationMinutes: number;
+    vehicleType?: string;
   }): FareBreakdown {
-    const { distanceKm, durationMinutes } = params;
+    const { distanceKm, durationMinutes, vehicleType = 'CAR' } = params;
     const { FARE } = MATCHMAKING_CONFIG;
 
-    const pickupCost = FARE.BASE_PICKUP_COST;
-    const distanceCost = distanceKm * FARE.PER_KM_RATE;
-    const durationCost = durationMinutes * FARE.PER_MINUTE_RATE;
+    // Get vehicle-specific rates (fallback to CAR if type not found)
+    const basePickupCost = FARE.BASE_PICKUP_COST[vehicleType] || FARE.BASE_PICKUP_COST['CAR'];
+    const perKmRate = FARE.PER_KM_RATE[vehicleType] || FARE.PER_KM_RATE['CAR'];
+    const perMinuteRate = FARE.PER_MINUTE_RATE[vehicleType] || FARE.PER_MINUTE_RATE['CAR'];
+
+    const pickupCost = basePickupCost;
+    const distanceCost = distanceKm * perKmRate;
+    const durationCost = durationMinutes * perMinuteRate;
     const total = pickupCost + distanceCost + durationCost;
 
     const fare: FareBreakdown = {
@@ -32,13 +39,14 @@ export class DynamicPricingService {
       total: this.round(total),
     };
 
-    this.logger.debug(`[INSTANT] Fare calculated: ${JSON.stringify(fare)}`);
+    this.logger.debug(`[INSTANT][${vehicleType}] Fare calculated: ${JSON.stringify(fare)}`);
     return fare;
   }
 
   /**
    * Calculate the estimated fare for a SCHEDULED ride (multiplicative model).
-   * Final = Base fare × ride_mult × rain_mult × traffic_mult
+   * Final = (basePickupCost + distanceCost + durationCost) × ride_mult
+   * Uses vehicle-specific rates from MATCHMAKING_CONFIG
    */
   calculateScheduledFare(params: {
     distanceKm: number;
@@ -53,13 +61,18 @@ export class DynamicPricingService {
 
     const { SCHEDULED_FARE } = MATCHMAKING_CONFIG;
 
+    // Get vehicle-specific rates (fallback to CAR if type not found)
+    const basePickupCost = SCHEDULED_FARE.BASE_PICKUP_COST[vehicleType] || SCHEDULED_FARE.BASE_PICKUP_COST['CAR'];
+    const perKmRate = SCHEDULED_FARE.PER_KM_RATE[vehicleType] || SCHEDULED_FARE.PER_KM_RATE['CAR'];
+    const perMinuteRate = SCHEDULED_FARE.PER_MINUTE_RATE[vehicleType] || SCHEDULED_FARE.PER_MINUTE_RATE['CAR'];
+
     const baseFare =
-      distanceKm * SCHEDULED_FARE.PER_KM_RATE +
-      durationMinutes * SCHEDULED_FARE.PER_MINUTE_RATE;
+      basePickupCost +
+      distanceKm * perKmRate +
+      durationMinutes * perMinuteRate;
 
     const rideTypeMultiplier =
       SCHEDULED_FARE.RIDE_TYPE_MULTIPLIER[vehicleType] || 1.0;
-
 
     const total = baseFare * rideTypeMultiplier;
 
@@ -68,7 +81,7 @@ export class DynamicPricingService {
       total: this.round(total),
     };
 
-    this.logger.debug(`[SCHEDULED] Fare calculated: ${JSON.stringify(fare)}`);
+    this.logger.debug(`[SCHEDULED][${vehicleType}] Fare calculated: ${JSON.stringify(fare)}`);
     return fare;
   }
 

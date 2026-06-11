@@ -237,7 +237,7 @@ export class MatchmakingService {
     }
 
     const estimatedFare = this.pricingService.calculateFare({
-      distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes,
+      distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes, vehicleType: requestedType,
     });
 
     const radii = MATCHMAKING_CONFIG.FALLBACK_RADII_KM;
@@ -629,6 +629,8 @@ export class MatchmakingService {
   async getEstimatedFare(rideId: string): Promise<FareBreakdown | null> {
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
     if (!ride) return null;
+    const vehicle = ride.vehicle || (await this.vehicleModel.findById(ride.vehicleId).exec());
+    const vehicleType = (vehicle?.vehicleType as string) || 'CAR';
     const pickupCoords = ride.pickupLocation?.coordinates;
     const dropoffCoords = ride.dropoffLocation?.coordinates;
     let distanceKm = ride.distanceInKm || 5;
@@ -640,7 +642,7 @@ export class MatchmakingService {
         durationMinutes = route.durationMinutes;
       } catch {}
     }
-    return this.pricingService.calculateFare({ distanceKm, durationMinutes });
+    return this.pricingService.calculateFare({ distanceKm, durationMinutes, vehicleType });
   }
 
   async updateDriverLocation(driverId: string, latitude: number, longitude: number): Promise<{ success: boolean; message: string }> {
