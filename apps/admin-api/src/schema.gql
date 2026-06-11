@@ -113,8 +113,6 @@ type Vehicle {
   _id: String!
   createdAt: DateTime
   updatedAt: DateTime
-  createdAt: DateTime
-  updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
@@ -323,6 +321,7 @@ type PromoCode {
   startDateTime: DateTime!
   expiryDateTime: DateTime!
   status: PromoCodeStatusEnum!
+  promoCodeUsedCount: Float!
 }
 
 """Type of discount (percentage or flat amount)"""
@@ -484,27 +483,8 @@ type MatchAttemptResultGraphQL {
   driverAccepted: Boolean!
   acceptedDriverId: String
   timeoutExpired: Boolean!
- 
+  status: String!
 }
-
-
-enum DriverDocumentType {
-  NATIONAL_ID
-  DRIVING_LICENSE
-  BLUEBOOK
-}
-
-enum DriverDocumentBundleStatus {
-  DRAFT
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
-  NOT_SUBMITTED
-}
-
-
-
-
 
 type RideWithoutRelations {
   _id: String!
@@ -538,15 +518,21 @@ type RideWithoutRelations {
 }
 
 type DocumentStatus {
-  type: String!
-  status: DriverDocumentStatusCheck!
+  type: DriverDocumentType!
+  status: DriverDocumentBundleStatus!
 }
 
-enum DriverDocumentStatusCheck {
-  SUBMITTED
-  ACTION_NEEDED
-  REVIEWED
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
+enum DriverDocumentBundleStatus {
+  PENDING
+  APPROVED
   REJECTED
+  NOT_SUBMITTED
 }
 
 type VerificationInfo {
@@ -626,13 +612,13 @@ type Query {
   page(id: ID!): Page!
   pageBySlug(slug: String!): Page!
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
+  promoCode(id: ID!): PromoCode!
+  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
 }
 
 input PaginationInputOnly {
   page: Int! = 0
   limit: Int! = 5
-  promoCode(id: ID!): PromoCode!
-  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
 }
 
 input PromoCodeFindAllInput {
@@ -665,11 +651,6 @@ type Mutation {
   adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
   adminVerifyOtp(input: AdminVerifyOtpInput!): AdminVerifyOTPResponse!
   adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
-  createPage(input: CreatePageInput!): Page!
-  updatePage(id: ID!, input: UpdatePageInput!): Page!
-  publishPage(id: ID!): Page!
-  unpublishPage(id: ID!): Page!
-  removePage(id: ID!): Boolean!
   createPromoCode(input: CreatePromoCodeInput!): PromoCode!
   updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromoCode!
   activatePromoCode(id: ID!): PromoCode!
@@ -700,22 +681,6 @@ input AdminVerifyOtpInput {
 input AdminResetPasswordInput {
   resetPasswordToken: String!
   newPassword: String!
-}
-
-input CreatePageInput {
-  """Title of the page; slug is auto-generated from this"""
-  title: String!
-  type: PageType!
-
-  """HTML or markdown content of the page"""
-  content: String!
-}
-
-input UpdatePageInput {
-  """Title of the page; slug is regenerated if changed"""
-  title: String
-  type: PageType
-  content: String
 }
 
 input CreatePromoCodeInput {

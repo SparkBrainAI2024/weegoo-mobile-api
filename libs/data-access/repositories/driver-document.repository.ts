@@ -33,14 +33,7 @@ export class DriverDocumentRepository extends BaseRepository<DriverDocumentDocum
     });
   }
 
-  createDraftDocument(driverId: string, type: DriverDocumentType) {
-    return this.model.create({
-      driverId: new Types.ObjectId(driverId),
-      type,
-      files: [],
-      status: DriverDocumentBundleStatus.DRAFT,
-    });
-  }
+
 
   save(doc: DriverDocumentDocument) {
   return this.model.create(doc);
