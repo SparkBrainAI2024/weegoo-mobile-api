@@ -13,7 +13,7 @@ export interface DistanceResult {
 export class DistanceCalculatorService {
   private readonly logger = new Logger(DistanceCalculatorService.name);
 
-  constructor(private readonly envService: EnvService) {}
+  constructor(private readonly envService: EnvService) { }
 
   /**
    * Calculate distance and duration between two coordinates using Baato API.
@@ -47,18 +47,24 @@ export class DistanceCalculatorService {
       params.append('key', `${apiKey}`);
       params.append('points[]', `${originLat},${originLng}`);
       params.append('points[]', `${destLat},${destLng}`);
-      params.append('mode', requestedType === VehicleType.CAR.toLocaleLowerCase() ? 'car' : requestedType.toLocaleLowerCase() === VehicleType.MOTORBIKE ? 'bike' : 'scooter');
+      params.append('mode', requestedType === VehicleType.CAR.toLocaleLowerCase() ? 'car' : requestedType.toLocaleLowerCase() === VehicleType.MOTORBIKE ? 'bike' : 'bike');
       // Baato API format: points[]=lat,lng
       this.logger.debug(`Baato API request params: ${params.toString()}`);
+      const queryString = params.toString();
+
+      this.logger.log(
+        `${baseUrl}/directions?${queryString}`,
+      );
       const response = await axios.get(`${baseUrl}/directions`, {
         params: params,
       });
-      const route = response.data?.routes?.[0];
+        this.logger.debug(`Baato API response: ${response.toString()}`);
+      const route = response.data?.data?.[0];
       if (route) {
         return {
-          distanceKm: route.distance / 1000, // convert meters to km
-          durationMinutes: Math.ceil(route.duration / 60), // convert seconds to minutes
-          polyline: route.polyline?.encodedPolyline,
+          distanceKm: route.distanceInMeters / 1000,
+          durationMinutes: Math.ceil(route.timeInMs / 1000 / 60),
+          polyline: route.encodedPolyline,
         };
       }
 
@@ -105,9 +111,9 @@ export class DistanceCalculatorService {
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(this.toRad(lat1)) *
-        Math.cos(this.toRad(lat2)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      Math.cos(this.toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distanceKm = R * c;
 

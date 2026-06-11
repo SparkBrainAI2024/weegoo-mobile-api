@@ -38,7 +38,7 @@ export class DriverDocumentRepository extends BaseRepository<DriverDocumentDocum
       driverId: new Types.ObjectId(driverId),
       type,
       files: [],
-      status: DriverDocumentBundleStatus.DRAFT,
+      status: DriverDocumentBundleStatus.PENDING,
     });
   }
 
