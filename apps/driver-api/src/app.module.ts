@@ -18,6 +18,7 @@ import { IssueModule } from './modules/issue/issue.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { TransactionModule } from './modules/transaction/transaction.module';
 import { PageModule } from './modules/page/page.module';
+import { RatingIModule } from './modules/rating/rating.module';
 
 @Module({
   imports: [
@@ -54,7 +55,8 @@ import { PageModule } from './modules/page/page.module';
     IssueModule,
     NotificationModule,
     TransactionModule,
-    PageModule
+    PageModule,
+    RatingIModule
   ],
   providers: [HealthResolver],
 })

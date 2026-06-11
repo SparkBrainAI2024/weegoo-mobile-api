@@ -23,6 +23,7 @@ export * from './entities/promo-code.entity';
 export * from './entities/transaction.entity';
 export * from './entities/issue.entity';
 export * from './entities/user-daily-online-status.entity';
+export * from './entities/rating.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -36,6 +37,7 @@ export * from './repositories/transaction.repository';
 export * from './repositories/favourites.repository';
 export * from './repositories/notification.repository';
 export * from './repositories/user-daily-online-status.repository';
+export * from './repositories/rating.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -100,6 +102,7 @@ export * from './dtos/input/update-ride.input';
 export * from './dtos/input/cancel-ride.input';
 export * from './dtos/input/create-promo-code.input';
 export * from './dtos/input/complete-ride.input';
+export * from './dtos/input/create-rating.input';
 
 
 // dtos - response
@@ -122,6 +125,7 @@ export * from './dtos/response/match-making.response'
 export * from './dtos/response/matchmaking-service-response.dto'
 export * from './dtos/response/update-ride.response';
 export * from './dtos/response/dashboard-home.response';
+export * from './dtos/response/rating-list-with-pagination.response';
 
 //interfaces
 export * from './interfaces/location.interface'
