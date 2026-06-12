@@ -278,7 +278,7 @@ export class DriverRideAcceptanceService {
     this.logger.log(`Driver ${driverId} attempting to complete ride ${rideId}`);
 
     // 1. Find the ride
-    const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+    const ride = await this.ridesModel.findById(rideId).exec();
     if (!ride) {
       throw ErrorException(null, 'RIDE.RIDE_NOT_FOUND', 404)
     }
