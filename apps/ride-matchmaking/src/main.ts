@@ -32,6 +32,9 @@ async function bootstrap() {
       "https://ridehailing.com",
       "https://www.ridehailing.com",
       "http://localhost:3000",
+      "http://localhost:3002",
+      "https://wegoo-passenger-api-development.up.railway.app",
+      "https://wegoo-driver-api-development.up.railway.app"
     ],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: [
