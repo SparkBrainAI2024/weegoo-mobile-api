@@ -280,17 +280,17 @@ export class DriverRideAcceptanceService {
     // 1. Find the ride
     const ride = await this.ridesModel.findById(rideId).exec();
     if (!ride) {
-      throw ErrorException(null, 'RIDE.RIDE_NOT_FOUND', 404)
+      throw ErrorException(null, 'RIDES.RIDE_NOT_FOUND', 404)
     }
 
     // 2. Validate ride belongs to this driver
     if (ride.driverId?.toString() !== driverId) {
-      throw ErrorException(null, 'RIDE.NOT_ASSOCIATED_WITH_DRIVER', 404)
+      throw ErrorException(null, 'RIDES.NOT_ASSOCIATED_WITH_DRIVER', 404)
     }
 
     // 3. Validate ride is in ONGOING status
     if (ride.rideStatus !== RideStatus.ONGOING) {
-      throw ErrorException(null, 'RIDE.INVALID_STATUS', 400)
+      throw ErrorException(null, 'RIDES.INVALID_STATUS', 400)
     }
 
     // 4. Calculate final fare
