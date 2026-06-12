@@ -34,7 +34,7 @@ export class DriverDocumentRepository extends BaseRepository<DriverDocumentDocum
   }
 
 
-  save(doc: DriverDocumentDocument) {
+  save(doc: DriverDocument | Partial<DriverDocument>) {
   return this.model.create(doc);
 }
 }

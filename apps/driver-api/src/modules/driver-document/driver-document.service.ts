@@ -28,10 +28,10 @@ export class DriverDocumentService {
   constructor(
     private readonly repository: DriverDocumentRepository,
     private readonly s3: S3Service,
-  ) {}
+  ) { }
 
   // ─── Upsert document ──────────────────────────────────────────────────────────
-async upsertDocumentFile(
+  async upsertDocumentFile(
     driverId: string,
     input: UpsertDocumentFileInput,
     lang: string,
@@ -43,7 +43,36 @@ async upsertDocumentFile(
         input.documentType,
       );
 
-    
+      if (!doc) {
+          const document = await this.repository.save({
+            driverId: new Types.ObjectId(driverId),
+            type: input.documentType,
+            status: DriverDocumentBundleStatus.PENDING,
+            files: [
+              {
+                side: input.side,
+                s3Key: input.s3Key,
+                isActive: true,
+                status: DocumentFileStatus.PENDING,
+                verifiedBy: null,
+                verifiedAt: null,
+                createdAt: new Date(),
+              },
+            ],
+            submittedAt: new Date(),
+            reviewedBy: null,
+            reviewedAt: null,
+            rejectionReason: null,
+          });
+
+          return {
+            driverDocument: document,
+            success: true,
+            message: Message(lang, 'DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS'),
+          };
+        }
+
+
 
       // If all sides are approved, the document will have APPROVED status.
       // In that case we should not allow upload of a new file without admin
@@ -77,7 +106,7 @@ async upsertDocumentFile(
         doc.status = DriverDocumentBundleStatus.PENDING;
       }
 
-     const document =  await this.repository.save(doc);
+      const document = await this.repository.save(doc);
 
       return {
         driverDocument: document,
@@ -85,7 +114,7 @@ async upsertDocumentFile(
         message: Message(lang, "DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS"),
       };
     } catch (e) {
-      
+
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -157,17 +186,17 @@ async upsertDocumentFile(
   // ─── Get my docs ──────────────────────────────────────────────────────────────
   async getMyDocuments(driverId: string) {
     const myDocs = await this.repository.getDriverDocuments(driverId);
-  
-  return myDocs.map(doc => ({
-    ...doc.toObject(),
-    files: doc.files.filter(f => f.isActive),
-  }));
-}
+
+    return myDocs.map(doc => ({
+      ...doc.toObject(),
+      files: doc.files.filter(f => f.isActive),
+    }));
+  }
 
 
 
 
-  
+
   // ─── Driver URL ───────────────────────────────────────────────────────────────
   async getDocumentViewUrl(params: {
     driverId: string;
@@ -229,7 +258,7 @@ async upsertDocumentFile(
       );
     }
 
-  
+
     const file = findActiveFileBySide(doc, params.side);
 
     if (!file) {
