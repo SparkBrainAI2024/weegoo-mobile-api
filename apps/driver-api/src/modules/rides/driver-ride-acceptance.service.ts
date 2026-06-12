@@ -271,7 +271,11 @@ export class DriverRideAcceptanceService {
    * 5. Updating payment details
    */
   async completeRide(input: CompleteRideInput, driverId: string): Promise<Rides> {
-    const { rideId, paymentMethod } = input;
+    const { rideId, paymentMethod } = input || {};
+
+    if (!rideId) {
+      throw ErrorException(null, 'RIDES.RIDE_ID_REQUIRED', 400);
+    }
 
     this.logger.log(`Driver ${driverId} attempting to complete ride ${rideId}`);
 
