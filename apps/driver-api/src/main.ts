@@ -32,7 +32,7 @@ async function bootstrap() {
     // ✅ ADD THIS
     app.useGlobalPipes(
       new TrimPipe(),
-      new ValidationPipe({ transform: true, whitelist: true }),
+      new ValidationPipe({ transform: true, whitelist: true,forbidNonWhitelisted:true }),
     );
 
   app.setGlobalPrefix("api");
