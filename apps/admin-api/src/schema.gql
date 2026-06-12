@@ -610,7 +610,6 @@ type PromocodeListWithPaginationResponse {
 type Query {
   health: String!
   page(id: ID!): Page!
-  pageBySlug(slug: String!): Page!
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
@@ -651,6 +650,11 @@ type Mutation {
   adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
   adminVerifyOtp(input: AdminVerifyOtpInput!): AdminVerifyOTPResponse!
   adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
+  createPage(input: CreatePageInput!): Page!
+  updatePage(id: ID!, input: UpdatePageInput!): Page!
+  publishPage(id: ID!): Page!
+  unpublishPage(id: ID!): Page!
+  removePage(id: ID!): Boolean!
   createPromoCode(input: CreatePromoCodeInput!): PromoCode!
   updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromoCode!
   activatePromoCode(id: ID!): PromoCode!
@@ -681,6 +685,22 @@ input AdminVerifyOtpInput {
 input AdminResetPasswordInput {
   resetPasswordToken: String!
   newPassword: String!
+}
+
+input CreatePageInput {
+  """Title of the page; slug is auto-generated from this"""
+  title: String!
+  type: PageType!
+
+  """HTML or markdown content of the page"""
+  content: String!
+}
+
+input UpdatePageInput {
+  """Title of the page; slug is regenerated if changed"""
+  title: String
+  type: PageType
+  content: String
 }
 
 input CreatePromoCodeInput {

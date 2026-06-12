@@ -4,8 +4,8 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { EnvService } from "@libs/common/config/env.service";
 import { PageService } from "@libs/services/pages/page.service";
 import { PagePersistenceModule } from "@libs/services/pages/page.persistence.module";
-import { PageResolver } from "@libs/services/pages/resolver/page.resolver";
 import { AdminAuthModule } from "../auth/auth.module";
+import { AdminPageResolver } from "./resolver/admin-page.resolver";
 
 @Module({
     imports: [
@@ -15,7 +15,7 @@ import { AdminAuthModule } from "../auth/auth.module";
     ],
     providers: [
         EnvService,
-        PageService,PageResolver
+        PageService,AdminPageResolver
     ],
     exports: [PageService, ]
 })
