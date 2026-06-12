@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
@@ -27,9 +27,6 @@ import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { MATCHMAKING_CONFIG } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
-import { PUB_SUB } from './pubsub.provider';
-import { DRIVER_MATCH_FOUND } from './matchmaking-subscription.resolver';
-import { DriverMatchFoundEvent } from './driver-match-found.event';
 
 @Injectable()
 export class MatchmakingService {
@@ -46,7 +43,6 @@ export class MatchmakingService {
     private readonly pricingService: DynamicPricingService,
     private readonly notificationService: NotificationService,
     private readonly s3: S3Service,
-    @Inject(PUB_SUB) private readonly pubSub: any,
   ) {}
 
   // ════════════════════════════════════════════════════════════════
@@ -213,20 +209,6 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        const matchEvent: DriverMatchFoundEvent = {
-          rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(),
-          driverId: driver.driverId, driverName: driver.fullName, driverImage: driver.profileImage || null,
-          rating: driver.rating || null, vehicleType: driver.vehicleType || null, vehicleModel: driver.vehicleModel || null,
-          color: driver.color || null, numberPlate: driver.numberPlate || null,
-          estimatedFare: estimatedFare.total || null, estimatedTimeInMinutes: routeDurationMinutes || null,
-          distanceInKm: routeDistanceKm || null, distanceToPickupKm: driver.distanceToPickupKm || null,
-          attemptNumber: attemptIdx + 1, status: 'waiting_for_response',
-          message: `Driver ${driver.fullName} found within ${radiusKm}km. Waiting for response.`, timestamp: new Date().toISOString(),
-        };
-
-        this.pubSub.publish(DRIVER_MATCH_FOUND, { driverMatchFound: matchEvent });
-        this.logger.log(`Published driverMatchFound event for ride ${ride.rideUUId}: driver ${driver.driverId}`);
-
         await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'ride-details', {
           rideId, rideUUId: ride.rideUUId, rideType: ride.rideType,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
@@ -263,27 +245,6 @@ export class MatchmakingService {
         const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
         await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
         await this.rideChannelService.publishRideTaken(ride.rideUUId, rideId);
-
-        this.pubSub.publish(DRIVER_MATCH_FOUND, {
-          driverMatchFound: {
-            rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(),
-            driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage || null,
-            rating: acceptedRating || null, vehicleType: acceptedDriver?.vehicleType || null,
-            vehicleModel: acceptedDriver?.vehicleModel || null, color: acceptedDriver?.color || null,
-            numberPlate: acceptedDriver?.numberPlate || null, estimatedFare: estimatedFare.total || null,
-            estimatedTimeInMinutes: routeDurationMinutes || null, distanceInKm: routeDistanceKm || null,
-            distanceToPickupKm: acceptedDriver?.distanceToPickupKm || null, attemptNumber: attemptIdx + 1,
-            status: 'accepted', message: `Driver ${acceptedDriverName} accepted the ride.`, timestamp: new Date().toISOString(),
-          },
-        });
-      } else {
-        this.pubSub.publish(DRIVER_MATCH_FOUND, {
-          driverMatchFound: {
-            rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(),
-            attemptNumber: attemptIdx + 1, status: 'timeout',
-            message: `No driver responded within ${waitTimeSeconds} seconds. Searching in wider area.`, timestamp: new Date().toISOString(),
-          },
-        });
       }
 
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
@@ -291,9 +252,6 @@ export class MatchmakingService {
 
     if (!matched) {
       const failMessage = 'No available drivers found within 10 km radius. Please try scheduling your ride.';
-      this.pubSub.publish(DRIVER_MATCH_FOUND, {
-        driverMatchFound: { rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attemptNumber: radii.length, status: 'match_failed', message: failMessage, timestamp: new Date().toISOString() },
-      });
       await this.rideChannelService.publishMatchFailed(ride.rideUUId, rideId, failMessage, 'schedule');
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: failMessage };
     }
