@@ -66,8 +66,6 @@ export class DriverRideAcceptanceService {
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly ablyListenerService: AblyRideListenerService,
-    private readonly ablyService: AblyService,
-    private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
     private readonly s3: S3Service,
     private readonly transactionService: TransactionService,
@@ -279,6 +277,8 @@ export class DriverRideAcceptanceService {
 
     // 1. Find the ride
     const ride = await this.ridesModel.findById(rideId).exec();
+    this.logger.debug(`Ride found: ${ride ? 'Yes' : 'No'}`);
+    const vehicle = await this.vehicleModel.findById(ride?.vehicleId).exec();
     if (!ride) {
       throw ErrorException(null, 'RIDES.RIDE_NOT_FOUND', 404)
     }
@@ -298,9 +298,9 @@ export class DriverRideAcceptanceService {
     const durationInMinutes = ride.estimatedTimeInMinutes || 0;
 
     // Fare calculation constants
-    const baseFare = MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST;
-    const perKmRate = MATCHMAKING_CONFIG.FARE.PER_KM_RATE;
-    const perMinuteRate = MATCHMAKING_CONFIG.FARE.PER_MINUTE_RATE;
+    const baseFare = MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0;
+    const perKmRate = MATCHMAKING_CONFIG.FARE[vehicle?.vehicleType]?.PER_KM_RATE || 0;
+    const perMinuteRate = MATCHMAKING_CONFIG.FARE[vehicle?.vehicleType]?.PER_MINUTE_RATE || 0;
 
     const baseFareAmount = Number(baseFare);
     const distanceFare = Number(distanceInKm) * Number(perKmRate);
