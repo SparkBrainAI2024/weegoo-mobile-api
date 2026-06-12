@@ -126,14 +126,15 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'scheduled-ride-details', {
-          rideId, rideUUId: ride.rideUUId, rideType: ride.rideType, bookingTime: ride.bookingTime,
+        await this.rideChannelService.publishMatchmakingRideRequest(ride.rideUUId, {
+          rideId, rideType: ride.rideType, bookingTime: ride.bookingTime?.toISOString(),
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
           dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
           distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes,
           passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1, isScheduled: true,
           driverImage: driver.profileImage || null, rating: driver.rating,
+          driverId: driver.driverId, driverName: driver.fullName,
         });
       }
 
@@ -209,15 +210,15 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        await this.ablyService.publish(`driver:${driver.driverId}:rides`, 'ride-details', {
-          rideId, rideUUId: ride.rideUUId, rideType: ride.rideType,
+        await this.rideChannelService.publishMatchmakingRideRequest(ride.rideUUId, {
+          rideId, rideType: ride.rideType,
           pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
           dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
           distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
           passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
           driverImage: driver.profileImage || null, rating: driver.rating,
-          ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+          driverId: driver.driverId, driverName: driver.fullName,
         });
 
         try {
@@ -372,11 +373,12 @@ export class MatchmakingService {
         resolve({ accepted: false });
       }, timeoutMs);
 
+      const channelName = `WG-RIDE-${rideUUID}-ride-details`;
       const unsubscribe = this.ablyService.subscribe(
-        `WG-RIDE-${rideUUID}:driver-response`, 'driver-response',
+        channelName, 'ride-detail',
         (message) => {
-          const response = message.data as { driverId: string; action: 'accept' | 'reject' };
-          if (response.action === 'accept' && driverIds.includes(response.driverId)) {
+          const response = message.data as { eventType?: string; driverId: string; action: 'accept' | 'reject' };
+          if (response.eventType === 'driver-response' && response.action === 'accept' && driverIds.includes(response.driverId)) {
             clearTimeout(timeout);
             unsubscribe();
             resolve({ accepted: true, driverId: response.driverId });
@@ -387,7 +389,7 @@ export class MatchmakingService {
   }
 
   async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string }> {
-    await this.ablyService.publish(`WG-RIDE-${rideUUID}:driver-response`, 'driver-response', { driverId, action });
+    await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };

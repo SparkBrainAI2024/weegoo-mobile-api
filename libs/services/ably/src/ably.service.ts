@@ -100,4 +100,16 @@ export class AblyService implements OnModuleInit {
   getChannel(channelName: string): Ably.RealtimeChannel {
     return this.realtime?.channels.get(channelName);
   }
+
+  /**
+   * Release (remove) a channel after ride completion.
+   * This cleans up the channel from the Ably client.
+   * @param channelName - The name of the channel to release
+   */
+  releaseChannel(channelName: string): void {
+    if (!this.realtime) return;
+    const channel = this.realtime.channels.get(channelName);
+    channel.detach();
+    this.logger.log(`Released Ably channel: ${channelName}`);
+  }
 }
