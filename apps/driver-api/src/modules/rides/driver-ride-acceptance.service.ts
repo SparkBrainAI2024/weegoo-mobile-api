@@ -119,7 +119,7 @@ export class DriverRideAcceptanceService {
     // Call matchmaking service via GraphQL
     const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
     this.logger.log(`Calling matchmaking service at ${matchmakingUrl} for ride acceptance`);
-    this.logger.debug(`Payload: rideUUID=${ride.rideUUId}, driverId=${driverId}, action=accept`);
+    this.logger.debug(`Payload: rideUUID=${ride.rideUUId}, driverId=${driverId}, action=accept ,rideId=${rideId}`);
     try {
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
