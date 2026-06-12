@@ -136,6 +136,7 @@ export class DriverRideAcceptanceService {
             input: {
               rideUUID: ride.rideUUId,
               driverId,
+              rideId,
               action: 'accept',
             },
           },
@@ -185,6 +186,7 @@ export class DriverRideAcceptanceService {
           `,
           variables: {
             input: {
+              rideId,
               rideUUID: ride.rideUUId,
               driverId,
               action: 'reject',
