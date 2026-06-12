@@ -13,8 +13,8 @@ import { S3Service } from '@libs/s3/s3.service';
 import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
-import { CompleteRideInput } from '@libs/data-access';
-import { ErrorException, MATCHMAKING_CONFIG } from '@libs/common';
+import { CompleteRideInput, RidesRepository } from '@libs/data-access';
+import { ErrorException, MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 
 export interface DriverAcceptDetails {
   rideId: string;
@@ -61,7 +61,7 @@ export class DriverRideAcceptanceService {
   private driverId: string;
 
   constructor(
-    @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
+    private readonly ridesRepository: RidesRepository,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
@@ -109,7 +109,7 @@ export class DriverRideAcceptanceService {
   async acceptRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string; data?: DriverAcceptDetails }> {
     this.logger.log(`Driver ${driverId} attempting to accept ride ${rideId}`);
 
-    const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+    const ride = await this.ridesRepository.findById(toMongoId(rideId));
     if (!ride) {
       return { success: false, message: 'Ride not found' };
     }
@@ -163,7 +163,7 @@ export class DriverRideAcceptanceService {
   async rejectRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
 
-    const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+    const ride = await this.ridesRepository.findById(toMongoId(rideId));
     if (!ride) {
       return { success: false, message: 'Ride not found' };
     }
@@ -276,7 +276,7 @@ export class DriverRideAcceptanceService {
     this.logger.log(`Driver ${driverId} attempting to complete ride ${rideId}`);
 
     // 1. Find the ride
-    const ride = await this.ridesModel.findById(rideId).exec();
+    const ride = await this.ridesRepository.findById(toMongoId(rideId));
     this.logger.debug(`Ride found: ${ride ? 'Yes' : 'No'}`);
     const vehicle = await this.vehicleModel.findById(ride?.vehicleId).exec();
     if (!ride) {
@@ -339,8 +339,8 @@ export class DriverRideAcceptanceService {
     }
 
     // 9. Update ride status and payment details
-    const updatedRide = await this.ridesModel.findByIdAndUpdate(
-      rideId,
+    const updatedRide = await this.ridesRepository.updateById(
+      toMongoId(rideId),
       {
         $set: {
           rideStatus: RideStatus.COMPLETED,
@@ -360,8 +360,7 @@ export class DriverRideAcceptanceService {
           },
         },
       },
-      { new: true },
-    ).exec();
+    )
     return updatedRide
   }
 
