@@ -462,7 +462,7 @@ export class MatchmakingService {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
           if (passengerUser) {
             const notificationInput: CreateNotificationInput = { title: 'Ride Accepted', notificationType: NotificationType.RIDE_ACCEPTED, description: 'Your ride request has been accepted by a driver. They are on their way to pick you up!' };
-            await this.notificationService.createNotification(notificationInput, passengerUser);
+             this.notificationService.createNotification(notificationInput, passengerUser);
           }
         }
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
@@ -477,7 +477,7 @@ export class MatchmakingService {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
           if (passengerUser) {
             const notificationInput: CreateNotificationInput = { title: 'Ride Rejected', notificationType: NotificationType.RIDE_REQUEST, description: 'A driver has declined your ride request. We are looking for other drivers.' };
-            await this.notificationService.createNotification(notificationInput, passengerUser);
+            this.notificationService.createNotification(notificationInput, passengerUser);
           }
         }
         this.logger.log(`Driver ${driverId} rejected ride ${rideUUID}`);
