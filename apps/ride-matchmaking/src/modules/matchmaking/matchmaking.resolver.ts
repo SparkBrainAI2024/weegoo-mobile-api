@@ -51,6 +51,7 @@ export class MatchmakingResolver {
         acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
       })),
       message: result.message,
+      ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
     };
   }
 
@@ -77,6 +78,7 @@ export class MatchmakingResolver {
         acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
       })),
       message: result.message,
+      ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
     };
   }
 
@@ -87,7 +89,40 @@ export class MatchmakingResolver {
   async driverRespondToRide(@Args('input') input: DriverResponseInput): Promise<DriverResponseResultGraphQL> {
     this.logger.log(`GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideUUID}`);
     const result = await this.matchmakingService.handleDriverResponse(input.rideUUID, input.driverId, input.action as unknown as 'accept' | 'reject');
-    return { success: result.success, message: result.message };
+    
+    const ablyChannelId = `WG-RIDE-${input.rideUUID}-ride-details`;
+    const response: DriverResponseResultGraphQL = {
+      success: result.success,
+      message: result.message,
+      ablyChannelId,
+    };
+
+    // If accepted, fetch accept details to return in the response
+    if (result.success && (input.action as unknown as string) === 'accept') {
+      try {
+        const acceptDetails = (result as any).acceptedDetails;
+        if (acceptDetails) {
+          response.acceptedDetails = {
+            rideId: acceptDetails.rideId,
+            rideUUId: acceptDetails.rideUUId,
+            driverId: acceptDetails.driver.driverId,
+            driverName: acceptDetails.driver.fullName,
+            driverImage: acceptDetails.driver.profileImage || null,
+            rating: acceptDetails.driver.rating || null,
+            vehicleType: acceptDetails.vehicle.vehicleType || null,
+            vehicleModel: acceptDetails.vehicle.vehicleModel || null,
+            color: acceptDetails.vehicle.color || null,
+            numberPlate: acceptDetails.vehicle.numberPlate || null,
+            estimatedFare: acceptDetails.estimatedFare || null,
+            estimatedTimeInMinutes: acceptDetails.estimatedTimeInMinutes || null,
+            distanceInKm: acceptDetails.distanceInKm || null,
+            ablyChannelId,
+          };
+        }
+      } catch {}
+    }
+
+    return response;
   }
 
   @Mutation(() => LocationUpdateResultGraphQL, {

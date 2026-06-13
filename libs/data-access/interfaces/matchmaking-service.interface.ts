@@ -49,6 +49,7 @@ export interface MatchResult {
   estimatedFare?: FareBreakdown;
   attempts: MatchAttemptResult[];
   message: string;
+  ablyChannelId?: string;
 }
 
 export interface ScheduledFareBreakdown {

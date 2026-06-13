@@ -4,22 +4,31 @@ import { AblyService } from './ably.service';
 /**
  * Service for managing the unified ride channel.
  * 
- * Each ride has ONE Ably channel: `WG-RIDE-${rideUUId}-ride-details`
+ * Each ride has ONE Ably channel: `WG-RIDE-${rideUUId}-ride-details` (the ablyChannelId).
  * 
- * All ride-related information is published to this single channel
- * with different event names to differentiate message types:
+ * ALL ride-related information is published to this single channel
+ * with the same event name: `ride-detail`.
  * 
- * - `ride-details`              → Full ride information update (fare, distance, ETA, locations, driver, passenger, vehicle, status)
- * - `driver-location-update`    → Driver's current location (lat/lng, distance to passenger, ETA)
- * - `passenger-location-update` → Passenger's current location (lat/lng)
- * - `ride-status-update`        → Ride status changed (CONFIRMED, ONGOING, PICKUP, COMPLETED)
- * - `driver-accepted`           → Driver accepted the ride (full details)
+ * Clients subscribe to `ride-detail` and use the `eventType` field
+ * in the payload to differentiate message types:
+ * 
+ * - `driver-ride-request`       → Matchmaking: ride request sent to a driver
+ * - `driver-accepted`           → Driver accepted the ride
+ * - `driver-rejected`           → Driver rejected the ride
  * - `ride-taken`                → Ride taken by another driver
  * - `match-failed`              → No driver found
+ * - `driver-location-update`    → Driver's current location
+ * - `passenger-location-update` → Passenger's current location
+ * - `ride-status-update`        → Ride status changed
+ * - `ride-details`              → Full ride information update
+ * - `driver-response`           → Driver accept/reject (for internal flow)
  */
 @Injectable()
 export class RideChannelService {
   private readonly logger = new Logger(RideChannelService.name);
+
+  /** The single event name used for ALL ride channel publications */
+  static readonly RIDE_EVENT = 'ride-detail';
 
   constructor(private readonly ablyService: AblyService) {}
 
@@ -41,18 +50,36 @@ export class RideChannelService {
   // ════════════════════════════════════════════════════════════════
   //  Publishing Methods
   // ══════════════════════════════════════════
+  //  Core Publish (single channel + single event)
+  // ════════════════════════════════════════════════════════════════
+
   /**
-   * Publish to the matchmaking driver-response channel (internal matchmaking use).
+   * Publish to the ride channel with the unified `ride-detail` event.
+   * @param rideUUId - The ride UUID
+   * @param eventType - The type of event (e.g. 'driver-accepted', 'ride-taken')
+   * @param data - The data payload (will be merged with rideUUId, eventType, timestamp)
    */
-  async publishDriverResponse(rideUUId: string, driverId: string, action: 'accept' | 'reject'): Promise<void> {
-    const channel = `WG-RIDE-${rideUUId}:driver-response`;
-    await this.ablyService.publish(channel, 'driver-response', { driverId, action });
-    this.logger.debug(`Published driver-response for ride ${rideUUId}: ${action}`);
+  async publishRideEvent(
+    rideUUId: string,
+    eventType: string,
+    data: Record<string, any>,
+  ): Promise<void> {
+    const channel = RideChannelService.getChannelName(rideUUId);
+    await this.ablyService.publish(channel, RideChannelService.RIDE_EVENT, {
+      ...data,
+      rideUUId,
+      eventType,
+      timestamp: new Date().toISOString(),
+    });
+    this.logger.debug(`Published ${eventType} to channel ${channel}`);
   }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Publishing Methods (all use ride-detail event)
+  // ════════════════════════════════════════════════════════════════
 
   /**
    * Publish driver response (accept/reject) to the unified ride channel.
-   * All fields are nullable if they don't exist, but eventName and timestamp are always present.
    */
   async publishDriverResponseToRideChannel(
     rideUUId: string,
@@ -72,12 +99,8 @@ export class RideChannelService {
       distanceInKm?: number | null;
     },
   ): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'driver-response', {
-      eventName: `driver-${data.action}`,
-      timestamp: new Date().toISOString(),
+    await this.publishRideEvent(rideUUId, `driver-${data.action}`, {
       rideId: data.rideId ?? null,
-      rideUUId,
       driverId: data.driverId ?? null,
       action: data.action,
       driverName: data.driverName ?? null,
@@ -91,93 +114,94 @@ export class RideChannelService {
       estimatedTimeInMinutes: data.estimatedTimeInMinutes ?? null,
       distanceInKm: data.distanceInKm ?? null,
     });
-    this.logger.debug(`Published driver-response to unified ride channel for ${rideUUId}: ${data.action}`);
   }
 
   /**
    * Publish driver location update to the ride channel.
    */
   async publishDriverLocationUpdate(rideUUId: string, data: DriverLocationPayload): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'driver-location-update', data);
-    this.logger.debug(`Published driver-location-update for ride ${rideUUId}`);
+    await this.publishRideEvent(rideUUId, 'driver-location-update', data as any);
   }
 
   /**
    * Publish passenger location update to the ride channel.
    */
   async publishPassengerLocationUpdate(rideUUId: string, data: PassengerLocationPayload): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'passenger-location-update', data);
-    this.logger.debug(`Published passenger-location-update for ride ${rideUUId}`);
+    await this.publishRideEvent(rideUUId, 'passenger-location-update', data as any);
   }
 
   /**
    * Publish full ride details update to the unified ride channel.
    */
   async publishRideDetails(rideUUId: string, data: RideDetailsPayload): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'ride-details', data);
-    this.logger.debug(`Published ride-details for ride ${rideUUId}`);
+    await this.publishRideEvent(rideUUId, 'ride-details', data as any);
   }
 
   /**
    * Publish ride status change.
    */
   async publishRideStatusUpdate(rideUUId: string, data: RideStatusPayload): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'ride-status-update', data);
-    this.logger.debug(`Published ride-status-update for ride ${rideUUId}: ${data.status}`);
+    await this.publishRideEvent(rideUUId, 'ride-status-update', data as any);
   }
 
   /**
    * Publish driver accepted event with full driver/vehicle/passenger details.
    */
   async publishDriverAccepted(rideUUId: string, data: DriverAcceptedPayload): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'driver-accepted', data);
-    this.logger.debug(`Published driver-accepted for ride ${rideUUId}`);
+    await this.publishRideEvent(rideUUId, 'driver-accepted', data as any);
   }
 
   /**
    * Publish ride-taken event (ride accepted by another driver).
    */
   async publishRideTaken(rideUUId: string, rideId: string): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'ride-taken', {
+    await this.publishRideEvent(rideUUId, 'ride-taken', {
       rideId,
-      rideUUId,
       message: 'This ride has been accepted by another driver',
     });
-    this.logger.debug(`Published ride-taken for ride ${rideUUId}`);
   }
 
   /**
    * Publish match-failed event (no driver found).
    */
   async publishMatchFailed(rideUUId: string, rideId: string, message: string, suggestedAction?: string): Promise<void> {
-    const channel = RideChannelService.getChannelName(rideUUId);
-    await this.ablyService.publish(channel, 'match-failed', {
+    await this.publishRideEvent(rideUUId, 'match-failed', {
       rideId,
-      rideUUId,
       message,
       suggestedAction,
     });
-    this.logger.debug(`Published match-failed for ride ${rideUUId}`);
   }
 
   /**
-   * Subscribe to driver response for matchmaking (internal use).
+   * Publish a matchmaking ride request event to the ride channel.
+   * Used during instant/scheduled matchmaking to notify about driver requests.
    */
-  subscribeToDriverResponse(
-    rideUUId: string,
-    callback: (data: { driverId: string; action: 'accept' | 'reject' }) => void,
-  ): () => void {
-    const channel = `WG-RIDE-${rideUUId}:driver-response`;
-    return this.ablyService.subscribe(channel, 'driver-response', (message) => {
-      callback(message.data);
-    });
+  async publishMatchmakingRideRequest(rideUUId: string, data: {
+    rideId: string;
+    rideType?: string;
+    pickupLocation?: any;
+    dropoffLocation?: any;
+    distanceInKm?: number;
+    estimatedFare?: number;
+    estimatedTimeInMinutes?: number;
+    passengerId?: string;
+    driverScore?: number;
+    distanceToPickupKm?: number;
+    expirySeconds?: number;
+    attemptNumber?: number;
+    isScheduled?: boolean;
+    bookingTime?: string;
+    driverImage?: string | null;
+    rating?: number | null;
+    driverId?: string;
+    driverName?: string;
+  }): Promise<void> {
+    await this.publishRideEvent(rideUUId, 'driver-ride-request', data);
   }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Channel Release
+  // ════════════════════════════════════════════════════════════════
 
   /**
    * Publish driver location to the driver's personal location channel.
@@ -245,16 +269,29 @@ export class RideChannelService {
 
   /**
    * Subscribe to the unified ride channel for a specific event.
+   * Release the ride channel after ride completion or cancellation.
+   * Cleans up the Ably channel from the client.
+   */
+  releaseRideChannel(rideUUId: string): void {
+    const channel = RideChannelService.getChannelName(rideUUId);
+    this.ablyService.releaseChannel(channel);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  Subscriptions
+  // ════════════════════════════════════════════════════════════════
+
+  /**
+   * Subscribe to the unified ride channel for the ride-detail event.
    * Returns an unsubscribe function.
    */
-  subscribeToRideChannel(
+  subscribeToRideEvent(
     rideUUId: string,
-    eventName: string,
-    callback: (data: any) => void,
+    callback: (eventType: string, data: any) => void,
   ): () => void {
     const channel = RideChannelService.getChannelName(rideUUId);
-    return this.ablyService.subscribe(channel, eventName, (message) => {
-      callback(message.data);
+    return this.ablyService.subscribe(channel, RideChannelService.RIDE_EVENT, (message) => {
+      callback(message.data.eventType, message.data);
     });
   }
 

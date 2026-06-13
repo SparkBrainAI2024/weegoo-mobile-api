@@ -88,6 +88,9 @@ export class MatchResultGraphQL {
 
   @Field(() => String)
   message: string;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
 }
 
 @ObjectType()
@@ -124,6 +127,54 @@ export class ScheduledMatchResultGraphQL {
 
   @Field(() => String)
   message: string;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
+}
+
+@ObjectType()
+export class DriverAcceptedDetailsGraphQL {
+  @Field(() => String)
+  rideId: string;
+
+  @Field(() => String)
+  rideUUId: string;
+
+  @Field(() => String)
+  driverId: string;
+
+  @Field(() => String, { nullable: true })
+  driverName?: string;
+
+  @Field(() => String, { nullable: true })
+  driverImage?: string;
+
+  @Field(() => Float, { nullable: true })
+  rating?: number;
+
+  @Field(() => String, { nullable: true })
+  vehicleType?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleModel?: string;
+
+  @Field(() => String, { nullable: true })
+  color?: string;
+
+  @Field(() => String, { nullable: true })
+  numberPlate?: string;
+
+  @Field(() => Float, { nullable: true })
+  estimatedFare?: number;
+
+  @Field(() => Float, { nullable: true })
+  estimatedTimeInMinutes?: number;
+
+  @Field(() => Float, { nullable: true })
+  distanceInKm?: number;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
 }
 
 @ObjectType()
@@ -133,6 +184,12 @@ export class DriverResponseResultGraphQL {
 
   @Field(() => String)
   message: string;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
+
+  @Field(() => DriverAcceptedDetailsGraphQL, { nullable: true })
+  acceptedDetails?: DriverAcceptedDetailsGraphQL;
 }
 
 @ObjectType()
