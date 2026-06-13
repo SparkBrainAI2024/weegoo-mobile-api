@@ -30,10 +30,17 @@ export class RideChannelService {
     return `WG-RIDE-${rideUUId}-ride-details`;
   }
 
+  static getDriverLocationChannelName(driverId: string): string {
+    return `WG-DRIVER-${driverId}-driver-location`;
+  }
+
+  static getPassengerLocationChannelName(passengerId: string): string {
+    return `WG-PASSENGER-${passengerId}-passenger-location`;
+  }
+
   // ════════════════════════════════════════════════════════════════
   //  Publishing Methods
-  // ════════════════════════════════════════════════════════════════
-
+  // ══════════════════════════════════════════
   /**
    * Publish to the matchmaking driver-response channel (internal matchmaking use).
    */
@@ -168,6 +175,70 @@ export class RideChannelService {
   ): () => void {
     const channel = `WG-RIDE-${rideUUId}:driver-response`;
     return this.ablyService.subscribe(channel, 'driver-response', (message) => {
+      callback(message.data);
+    });
+  }
+
+  /**
+   * Publish driver location to the driver's personal location channel.
+   * Other services (matchmaking, passenger app) can subscribe to this channel
+   * to receive real-time driver location updates.
+   */
+  async publishDriverLocationToChannel(driverId: string, data: {
+    driverId: string;
+    latitude: number;
+    longitude: number;
+    updatedAt: string;
+  }): Promise<void> {
+    const channel = RideChannelService.getDriverLocationChannelName(driverId);
+    await this.ablyService.publish(channel, 'driver-location-update', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+    this.logger.debug(`Published driver-location-update to channel ${channel}`);
+  }
+
+  /**
+   * Publish passenger location to the passenger's personal location channel.
+   */
+  async publishPassengerLocationToChannel(passengerId: string, data: {
+    passengerId: string;
+    latitude: number;
+    longitude: number;
+    updatedAt: string;
+  }): Promise<void> {
+    const channel = RideChannelService.getPassengerLocationChannelName(passengerId);
+    await this.ablyService.publish(channel, 'passenger-location-update', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+    this.logger.debug(`Published passenger-location-update to channel ${channel}`);
+  }
+
+  /**
+   * Subscribe to a driver's personal location channel.
+   * Returns an unsubscribe function.
+   */
+  subscribeToDriverLocationChannel(
+    driverId: string,
+    callback: (data: any) => void,
+  ): () => void {
+    const channel = RideChannelService.getDriverLocationChannelName(driverId);
+    return this.ablyService.subscribe(channel, 'driver-location-update', (message) => {
+      callback(message.data);
+    });
+  }
+
+  /**
+   * Subscribe to a passenger's personal location channel.
+   * Returns an unsubscribe function.
+   */
+  subscribeToPassengerLocationChannel(
+    passengerId: string,
+    callback: (data: any) => void,
+  ): () => void {
+    const channel = RideChannelService.getPassengerLocationChannelName(passengerId);
+    return this.ablyService.subscribe(channel, 'passenger-location-update', (message) => {
       callback(message.data);
     });
   }
