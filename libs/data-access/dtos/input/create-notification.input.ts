@@ -16,4 +16,9 @@ export class CreateNotificationInput {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  ablyChannelId?: string;
 }

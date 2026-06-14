@@ -37,32 +37,26 @@ export class AblyRideListenerService implements OnModuleDestroy {
   constructor(private readonly ablyService: AblyService) {}
 
   /**
-   * Subscribe to ride requests directed to a specific driver.
+   * Subscribe to the unified ride channel for a specific ride.
+   * All events come through the `ride-detail` event on the ride's ablyChannelId.
+   * Uses the `eventType` field in the payload to differentiate.
    * Returns an unsubscribe function.
    */
-  subscribeToDriverRideRequests(
-    driverId: string,
-    onRideRequest: (event: RideRequestEvent) => void,
-    onRideTaken: (data: any) => void,
+  subscribeToRideChannel(
+    rideUUId: string,
+    rideId: string,
+    callback: (eventType: string, data: any) => void,
   ): () => void {
-    const channel = `driver:${driverId}:rides`;
-    const key = `ride-request-${driverId}`;
+    const channel = `WG-RIDE-${rideUUId}-ride-details`;
+    const key = `ride-channel-${rideUUId}`;
 
-    const unsubscribe = this.ablyService.subscribe(channel, 'ride-request', (message) => {
-      this.logger.log(`Ride request received for driver ${driverId}`);
-      onRideRequest(message.data as RideRequestEvent);
+    const unsubscribe = this.ablyService.subscribe(channel, 'ride-detail', (message) => {
+      const data = message.data;
+      this.logger.log(`Received ride-detail event (${data.eventType}) for ride ${rideId}`);
+      callback(data.eventType, data);
     });
 
-    const unsubscribeTaken = this.ablyService.subscribe(channel, 'ride-taken', (message) => {
-      this.logger.log(`Ride taken notification for driver ${driverId}`);
-      onRideTaken(message.data);
-    });
-
-    this.subscriptions.set(key, () => {
-      unsubscribe();
-      unsubscribeTaken();
-    });
-
+    this.subscriptions.set(key, unsubscribe);
     return () => {
       const unsub = this.subscriptions.get(key);
       if (unsub) {
@@ -73,54 +67,10 @@ export class AblyRideListenerService implements OnModuleDestroy {
   }
 
   /**
-   * Subscribe to scheduled ride requests directed to a specific driver.
-   */
-  subscribeToDriverScheduledRequests(
-    driverId: string,
-    onRideRequest: (event: RideRequestEvent) => void,
-  ): () => void {
-    const channel = `driver:${driverId}:rides`;
-    const key = `scheduled-ride-request-${driverId}`;
-
-    const unsubscribe = this.ablyService.subscribe(channel, 'scheduled-ride-request', (message) => {
-      this.logger.log(`Scheduled ride request received for driver ${driverId}`);
-      onRideRequest(message.data as RideRequestEvent);
-    });
-
-    this.subscriptions.set(key, unsubscribe);
-    return unsubscribe;
-  }
-
-  /**
-   * Subscribe to passenger channel for match updates.
-   */
-  subscribeToPassengerUpdates(
-    rideId: string,
-    onMatchResult: (data: any) => void,
-    onDriverAccepted: (data: any) => void,
-    onMatchFailed: (data: any) => void,
-  ): () => void {
-    const channel = `ride:${rideId}:passenger`;
-    const key = `passenger-${rideId}`;
-
-    const unsub1 = this.ablyService.subscribe(channel, 'driver-match', onMatchResult);
-    const unsub2 = this.ablyService.subscribe(channel, 'driver-accepted', onDriverAccepted);
-    const unsub3 = this.ablyService.subscribe(channel, 'match-failed', onMatchFailed);
-
-    const unsubAll = () => { unsub1(); unsub2(); unsub3(); };
-    this.subscriptions.set(key, unsubAll);
-    return unsubAll;
-  }
-
-  /**
    * Acknowledge the ride request as read (for metrics).
    */
   async acknowledgeRideRequest(driverId: string, rideId: string): Promise<void> {
-    await this.ablyService.publish(
-      `driver:${driverId}:ack`,
-      'ride-request-ack',
-      { driverId, rideId, acknowledgedAt: new Date().toISOString() },
-    );
+    // No-op: acknowledgments are no longer published separately
   }
 
   onModuleDestroy() {

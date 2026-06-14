@@ -5,7 +5,7 @@ import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { User, UserDocument } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
-import { AblyRideListenerService, AblyService, RideChannelService } from '@libs/services/ably';
+import { RideChannelService } from '@libs/services/ably';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
@@ -65,7 +65,7 @@ export class DriverRideAcceptanceService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
-    private readonly ablyListenerService: AblyRideListenerService,
+    private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
     private readonly s3: S3Service,
     private readonly transactionService: TransactionService,
@@ -78,27 +78,12 @@ export class DriverRideAcceptanceService {
   /**
    * Subscribe a specific driver to ride requests.
    * Called when a driver comes online.
+   * Note: The driver receives ride details via the unified ride channel.
+   * This can be called when a driver needs to listen to a specific ride's events.
    */
   async subscribeForDriver(driverId: string): Promise<void> {
     this.driverId = driverId;
-
-    this.ablyListenerService.subscribeToDriverRideRequests(
-      driverId,
-      (rideRequest) => {
-        this.logger.log(
-          `Driver ${driverId}: Received ride request for ride ${rideRequest.rideUUId} (${rideRequest.distanceInKm}km, $${rideRequest.estimatedFare})`,
-        );
-      },
-      (rideTaken) => {
-        this.logger.log(`Driver ${driverId}: Ride ${rideTaken.rideId} was taken by another driver`);
-      },
-    );
-
-    this.ablyListenerService.subscribeToDriverScheduledRequests(driverId, (rideRequest) => {
-      this.logger.log(`Driver ${driverId}: Received scheduled ride request for ride ${rideRequest.rideUUId}`);
-    });
-
-    this.logger.log(`Driver ${driverId} subscribed to ride requests`);
+    this.logger.log(`Driver ${driverId} is now ready to receive ride events via unified channel`);
   }
 
   /**
@@ -365,6 +350,11 @@ export class DriverRideAcceptanceService {
         },
       },
     )
+    // Release the Ably channel after ride completion
+    if (updatedRide?.rideUUId) {
+      this.rideChannelService.releaseRideChannel(updatedRide.rideUUId);
+    }
+
     return updatedRide
   }
 

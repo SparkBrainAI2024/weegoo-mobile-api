@@ -31,8 +31,7 @@ export class UserDetails extends BaseEntity {
   address?: string;
 
 
-
-  @Field(()=> [UserProfileImageEntity])
+  @Field(() => [UserProfileImageEntity])
   @Prop({ type: [UserProfileImageEntity], default: [] })
   profileImages: UserProfileImageEntity[];
 
@@ -64,9 +63,9 @@ export class UserDetails extends BaseEntity {
   })
   ridePreference?: string;
 
-@Field(() => DriverOnlineStatus, { nullable: true })
-@Prop({ type: String, enum: DriverOnlineStatus, default: null })
-driverOnlineStatus?: DriverOnlineStatus;
+  @Field(() => DriverOnlineStatus, { nullable: true })
+  @Prop({ type: String, enum: DriverOnlineStatus, default: null })
+  driverOnlineStatus?: DriverOnlineStatus;
 
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
@@ -84,9 +83,13 @@ driverOnlineStatus?: DriverOnlineStatus;
   })
   province?: string;
 
-  @Field({ nullable: true ,defaultValue: 0})
+  @Field({ nullable: true, defaultValue: 0 })
   @Prop({ required: false, type: Number, defaultValue: 0 })
   rating?: number;
+
+  @Field({ nullable: true })
+  @Prop({ required: false, type: String })
+  locationChannelId?: String;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 

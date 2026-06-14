@@ -63,14 +63,19 @@ export class NotificationService {
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
         const token = await this.userTokenRepository.findOne({ userId: userId, grant:TokenGrantType.REFRESH_TOKEN }, null, null, { sort: { createdAt: -1 } });
         if (token?.firebaseToken) {
+            const firebaseData: Record<string, string> = {
+                title: notification.title,
+                body: notification.description,
+                notificationType: String(notification.notificationType),
+                notificationId: notification._id.toString(),
+                desc: notification.description,
+            };
+            // Include ablyChannelId if present in the notification payload
+            if ((notificationPayload as any).ablyChannelId) {
+                firebaseData.ablyChannelId = (notificationPayload as any).ablyChannelId;
+            }
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
-                data: {
-                    title: notification.title,
-                    body: notification.description,
-                    notificationType: String(notification.notificationType),
-                    notificationId: notification._id.toString(),
-                    desc: notification.description,
-                },
+                data: firebaseData,
                 token: token.firebaseToken,
                 notification: {
                     title: notification.title,

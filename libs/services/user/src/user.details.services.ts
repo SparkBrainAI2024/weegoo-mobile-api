@@ -1,11 +1,22 @@
 import { ErrorException, toMongoId } from "@libs/common";
 import { EnvService } from "@libs/common/config/env.service";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
-import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsRepository, UserRepository, UserDailyOnlineStatusRepository } from "@libs/data-access";
-import { ImageStatus, UploadPurpose } from "@libs/data-access/enums/upload.enum";
+import {
+  CreateUserDetailsInput,
+  DriverOnlineStatus,
+  UserDetails,
+  UserDetailsRepository,
+  UserRepository,
+  UserDailyOnlineStatusRepository,
+  GeoLocationInput,
+} from "@libs/data-access";
+import {
+  ImageStatus,
+  UploadPurpose,
+} from "@libs/data-access/enums/upload.enum";
 import { S3Service } from "@libs/s3";
 import { HttpStatus, Injectable } from "@nestjs/common";
-
+import { RideChannelService } from "@libs/services/ably";
 
 @Injectable()
 export class UserDetailsService {
@@ -26,29 +37,58 @@ export class UserDetailsService {
       }
       if (input.email && input.email !== user.email) {
         if (await this.userRepository.findByEmail(input.email)) {
-          ErrorException(null, "USER.EMAIL_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
+          ErrorException(
+            null,
+            "USER.EMAIL_ALREADY_EXISTS",
+            HttpStatus.BAD_REQUEST,
+          );
         }
-        await this.userRepository.updateById(toMongoId(userId), { email: input.email });
+        await this.userRepository.updateById(toMongoId(userId), {
+          email: input.email,
+        });
       }
-      const details = await this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
       if (!details) {
-        const profileImagesArr = input.profileImage ? [{
-          s3Key: input.profileImage,
-          status: ImageStatus.ACTIVE,
-          createdAt: new Date(),
-        }] : [];
+        const profileImagesArr = input.profileImage
+          ? [
+            {
+              s3Key: input.profileImage,
+              status: ImageStatus.ACTIVE,
+              createdAt: new Date(),
+            },
+          ]
+          : [];
         delete input.profileImage;
-        return await this.userDetailsRepository.create({ userId: toMongoId(userId), ...input, profileImages: profileImagesArr });
+        return await this.userDetailsRepository.create({
+          userId: toMongoId(userId),
+          ...input,
+          profileImages: profileImagesArr,
+        });
       }
 
-      if (input.profileImage && details.profileImages.every(img => (img.s3Key !== input.profileImage && img.socialPicture !== input.profileImage))) {
+      if (
+        input.profileImage &&
+        details.profileImages.every(
+          (img) =>
+            img.s3Key !== input.profileImage &&
+            img.socialPicture !== input.profileImage,
+        )
+      ) {
         //set all existing image to inactive
         //set this new one to active status
-        details.profileImages.forEach(img => {
+        details.profileImages.forEach((img) => {
           img.status = ImageStatus.INACTIVE;
         });
         details.profileImages.push({
-          ...(input.profileImage.startsWith(this.envService.getAwsS3UploadPrefix() + "/" + UploadPurpose.USER_PROFILE_IMAGE.toLowerCase()) ? { s3Key: input.profileImage } : { socialPicture: input.profileImage }),
+          ...(input.profileImage.startsWith(
+            this.envService.getAwsS3UploadPrefix() +
+            "/" +
+            UploadPurpose.USER_PROFILE_IMAGE.toLowerCase(),
+          )
+            ? { s3Key: input.profileImage }
+            : { socialPicture: input.profileImage }),
           status: ImageStatus.ACTIVE,
           createdAt: new Date(),
         });
@@ -72,12 +112,16 @@ export class UserDetailsService {
       const updatedUserDetails = await this.userDetailsRepository.findOne({
         userId: toMongoId(userId),
       });
-      const userDetailsObj: UserDetails & { profileImage?: string } = updatedUserDetails.toObject();
-      userDetailsObj.profileImage = getActiveProfileImageUrl(updatedUserDetails.profileImages, (key) => this.s3.getPublicUrl(key));
+      const userDetailsObj: UserDetails & { profileImage?: string } =
+        updatedUserDetails.toObject();
+      userDetailsObj.profileImage = getActiveProfileImageUrl(
+        updatedUserDetails.profileImages,
+        (key) => this.s3.getPublicUrl(key),
+      );
       delete userDetailsObj.profileImages;
       return {
         email: updatedCoreUser.email,
-        ...userDetailsObj
+        ...userDetailsObj,
       };
     } catch (e) {
       ErrorException(
@@ -101,18 +145,17 @@ export class UserDetailsService {
       if (!details)
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
       const toObjectDetails: Record<string, any> = details.toObject();
-      const profileImages = details.profileImages.filter(img => {
-        return img.status === ImageStatus.ACTIVE
-
-
+      const profileImages = details.profileImages.filter((img) => {
+        return img.status === ImageStatus.ACTIVE;
       });
       if (profileImages.length > 0) {
-        toObjectDetails.profileImage = this.s3.getPublicUrl(profileImages[0].s3Key);
+        toObjectDetails.profileImage = this.s3.getPublicUrl(
+          profileImages[0].s3Key,
+        );
       }
       delete toObjectDetails.profileImages;
 
       return { email: user.email, ...toObjectDetails };
-
     } catch (e) {
       ErrorException(
         e,
@@ -122,14 +165,24 @@ export class UserDetailsService {
     }
   }
 
-  async setOnlineStatus(userId: string, driverOnlineStatus: DriverOnlineStatus) {
-    const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
-    
+  async setOnlineStatus(
+    userId: string,
+    driverOnlineStatus: DriverOnlineStatus,
+    location: GeoLocationInput,
+  ): Promise<UserDetails> {
+    const today = new Date().toISOString().split("T")[0]; // 'YYYY-MM-DD'
+
     if (driverOnlineStatus === DriverOnlineStatus.ONLINE) {
       // User is coming online - set lastOnlineAt timestamp
       await this.userDailyOnlineStatusRepository.findOneAndUpdate(
         { userId: toMongoId(userId), date: today },
-        { $set: { lastOnlineAt: new Date(), userId: toMongoId(userId), date: today } },
+        {
+          $set: {
+            lastOnlineAt: new Date(),
+            userId: toMongoId(userId),
+            date: today,
+          },
+        },
         { upsert: true, new: true },
       );
     } else if (driverOnlineStatus === DriverOnlineStatus.OFFLINE) {
@@ -138,18 +191,30 @@ export class UserDetailsService {
         userId: toMongoId(userId),
         date: today,
       });
-      
+
       if (record && record.lastOnlineAt) {
-        const elapsedSeconds = Math.floor((Date.now() - record.lastOnlineAt.getTime()) / 1000);
+        const elapsedSeconds = Math.floor(
+          (Date.now() - record.lastOnlineAt.getTime()) / 1000,
+        );
         if (elapsedSeconds > 0) {
           await this.userDailyOnlineStatusRepository.updateOne(
             { _id: record._id },
-            { $inc: { totalOnlineSeconds: elapsedSeconds }, $set: { lastOnlineAt: null } },
+            {
+              $inc: { totalOnlineSeconds: elapsedSeconds },
+              $set: { lastOnlineAt: null },
+            },
           );
         }
       }
     }
 
-    return this.userDetailsRepository.setOnlineStatus(userId, driverOnlineStatus);
+    const locationChannelId = RideChannelService.getDriverLocationChannelName(userId);
+
+    return this.userDetailsRepository.setOnlineStatus(
+      userId,
+      driverOnlineStatus,
+      locationChannelId,
+      location,
+    );
   }
 }

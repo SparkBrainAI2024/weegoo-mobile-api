@@ -1,5 +1,5 @@
 import { CurrentLang, CurrentUser } from "@libs/common";
-import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsResponse } from "@libs/data-access";
+import { CreateUserDetailsInput, DriverOnlineStatus, GeoLocationInput, UserDetails, UserDetailsResponse } from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
 import { UserDetailsService } from "@libs/services/user/user.details.services";
 import { UseGuards } from "@nestjs/common";
@@ -17,8 +17,9 @@ export class DriverUserResolver {
 async setDriverOnlineStatus(
   @CurrentUser() user,
   @Args('onlineStatus') driverOnlineStatus: DriverOnlineStatus,
+  @Args('location') location: GeoLocationInput,
 ): Promise<UserDetails> {
-  return this.userDetailsService.setOnlineStatus(user._id, driverOnlineStatus);
+  return this.userDetailsService.setOnlineStatus(user._id, driverOnlineStatus,location);
 }
 
 }
