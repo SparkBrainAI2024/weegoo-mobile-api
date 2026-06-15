@@ -230,17 +230,6 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
       for (const driver of requestBatch) {
-        await this.rideChannelService.publishMatchmakingRideRequest(ride.rideUUId, {
-          rideId, rideType: ride.rideType,
-          pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
-          dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-          distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
-          passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
-          expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
-          driverImage: driver.profileImage || null, rating: driver.rating,
-          driverId: driver.driverId, driverName: driver.fullName,
-        });
-
         try {
           const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
           if (driverUser) {
@@ -254,6 +243,16 @@ export class MatchmakingService {
             };
             await this.notificationService.createNotification(notificationInput, driverUser);
           }
+          await this.rideChannelService.publishMatchmakingRideRequest(ride.rideUUId, {
+          rideId, rideType: ride.rideType,
+          pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
+          dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
+          distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
+          passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
+          expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
+          driverImage: driver.profileImage || null, rating: driver.rating,
+          driverId: driver.driverId, driverName: driver.fullName,
+        });
         } catch (err) {
           this.logger.warn(`Failed to send ride request notification to driver ${driver.driverId}: ${err}`);
         }
