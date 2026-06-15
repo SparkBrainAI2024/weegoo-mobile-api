@@ -313,7 +313,7 @@ export class MatchmakingService {
       const userDetails = await this.userDetailsModel.findOne({ userId: driver._id }).exec();
       this.logger.log(`Found user details for driver ${userDetails?.userId?.toString()} ${userDetails?.driverOnlineStatus.toString()}`)
       if (userDetails?.driverOnlineStatus !== DriverOnlineStatus.ONLINE){
-        this.logger.log(`Skipping driver not online ${driver._id.toString()}`)
+        this.logger.log(`Skipping driver not online and user details empty ${driver._id.toString()}`)
         continue;
       }
       const activeRide = await this.ridesModel.findOne({ driverId: driver._id, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] }, deleted: false }).exec();
