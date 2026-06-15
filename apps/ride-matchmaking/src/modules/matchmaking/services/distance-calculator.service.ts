@@ -58,7 +58,7 @@ export class DistanceCalculatorService {
       const response = await axios.get(`${baseUrl}/directions`, {
         params: params,
       });
-        this.logger.debug(`Baato API response: ${response.toString()}`);
+      this.logger.debug(`Baato API response status: ${response.status}`);
       const route = response.data?.data?.[0];
       if (route) {
         return {
@@ -69,10 +69,11 @@ export class DistanceCalculatorService {
       }
 
       // Fallback if no route found
+      this.logger.warn(`Baato API returned no routes for ${originLat},${originLng} to ${destLat},${destLng}`);
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     } catch (error: any) {
-      
-      this.logger.error(`Baato API error: ${error}. Using Haversine fallback.`);
+      const errorDetail = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      this.logger.error(`Baato API error: ${errorDetail}. Using Haversine fallback.`);
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     }
   }
