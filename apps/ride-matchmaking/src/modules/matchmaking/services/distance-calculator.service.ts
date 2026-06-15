@@ -71,6 +71,7 @@ export class DistanceCalculatorService {
       // Fallback if no route found
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     } catch (error: any) {
+      
       this.logger.error(`Baato API error: ${error}. Using Haversine fallback.`);
       return this.haversineFallback(originLat, originLng, destLat, destLng);
     }

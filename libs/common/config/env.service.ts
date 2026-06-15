@@ -288,7 +288,7 @@ export class EnvService {
    * Get Baato API key for distance calculation
    */
   getBaatoApiKey(): string {
-    return this.getString('BAATO_API_KEY', '');
+    return this.getString('BAATO_API_KEY', 'bpk.sMFRR7lmyMy-6jnTdq9oopV8q5C8KHHM6Q-Tj_8jooND');
   }
 
   /**
