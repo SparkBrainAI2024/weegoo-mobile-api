@@ -294,20 +294,37 @@ export class MatchmakingService {
   private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, passengerId?: string): Promise<DriverScore[]> {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     const drivers: DriverScore[] = [];
+    this.logger.log(`Found ${vehicles.length} vehicles of type ${vehicleType} for driver filtering`);
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
       if (!driver) continue;
       // Skip if the driver is the same as the passenger (passenger can also be a driver)
-      if (passengerId && driver._id.toString() === passengerId) continue;
-      if (driver.loginAs !== roles.RIDER) continue;
-      if (driver.suspended || !driver.verified) continue;
+      if (passengerId && driver._id.toString() === passengerId){
+        this.logger.log(`Skipping driver is passenger also same id ${driver._id.toString()}`)
+        continue;
+      } 
+      if (driver.loginAs !== roles.RIDER){
+        this.logger.log(`Skipping driver not login as rider ${driver._id.toString()}`)
+        continue;
+      }
+      if (driver.suspended || !driver.verified){
+        this.logger.log(`Skipping driver suspended or not verified ${driver._id.toString()}`)
+        continue;
+      }
       const userDetails = await this.userDetailsModel.findOne({ userId: driver._id, deleted: false }).exec();
-      if (!userDetails || userDetails.driverOnlineStatus !== DriverOnlineStatus.ONLINE) continue;
+      if (!userDetails || userDetails.driverOnlineStatus !== DriverOnlineStatus.ONLINE){
+        this.logger.log(`Skipping driver not online ${driver._id.toString()}`)
+        continue;
+      }
       const activeRide = await this.ridesModel.findOne({ driverId: driver._id, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] }, deleted: false }).exec();
-      if (activeRide) continue;
-      const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
+      if (activeRide){
+        this.logger.log(`Skipping driver has active ride ${driver._id.toString()}`)
+        continue; 
+      }
+      /*const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
+    
+      if (driverRating < minRating) continue;*/
       const driverRating = userDetails.rating ?? 0;
-      if (driverRating < minRating) continue;
       let driverLat: number;
       let driverLng: number;
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
@@ -327,6 +344,8 @@ export class MatchmakingService {
           vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate,
           distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes,
         });
+      }else{
+        this.logger.log(`Driver is not within radius ${distResult.distanceKm}`)
       }
     }
     return drivers;
