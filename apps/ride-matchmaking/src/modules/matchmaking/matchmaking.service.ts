@@ -250,6 +250,7 @@ export class MatchmakingService {
               notificationType: NotificationType.RIDE_REQUEST, 
               description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}. Estimated fare: Rs. ${estimatedFare.total}`,
               ablyChannelId,
+              waitTimeSeconds:DRIVER_RESPONSE_TIMEOUT_SECONDS
             };
             await this.notificationService.createNotification(notificationInput, driverUser);
           }

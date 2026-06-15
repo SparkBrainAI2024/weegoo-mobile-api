@@ -74,6 +74,9 @@ export class NotificationService {
             if ((notificationPayload as any).ablyChannelId) {
                 firebaseData.ablyChannelId = (notificationPayload as any).ablyChannelId;
             }
+              if ((notificationPayload as any).waitTimeSeconds) {
+                firebaseData.waitTimeSeconds = (notificationPayload as any).waitTimeSeconds.toString();
+            }
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: firebaseData,
                 token: token.firebaseToken,

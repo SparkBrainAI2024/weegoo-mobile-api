@@ -21,4 +21,9 @@ export class CreateNotificationInput {
   @IsOptional()
   @IsString()
   ablyChannelId?: string;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsString()
+  waitTimeSeconds?: Number;
 }
