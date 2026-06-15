@@ -116,7 +116,7 @@ export class MatchmakingService {
       const waitTimeSeconds = MATCHMAKING_CONFIG.SCHEDULED_ATTEMPT_WAIT_SECONDS;
       this.logger.log(`[SCHEDULED] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km radius`);
 
-      const drivers = await this.findAvailableScheduledDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx, ride.bookingTime);
+      const drivers = await this.findAvailableScheduledDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx, ride.bookingTime, ride.passengerId.toString());
 
       if (drivers.length === 0) {
         attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: 0, driversRequested: 0, driverAccepted: false, timeoutExpired: false, status: 'no_drivers_found' });
@@ -138,6 +138,24 @@ export class MatchmakingService {
           driverImage: driver.profileImage || null, rating: driver.rating,
           driverId: driver.driverId, driverName: driver.fullName,
         });
+
+        // Send push notification + save to notification DB for scheduled ride request
+        try {
+          const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
+          if (driverUser) {
+            const bookingTimeStr = ride.bookingTime ? ` for ${new Date(ride.bookingTime).toLocaleString()}` : '';
+            const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
+            const notificationInput: CreateNotificationInput = { 
+              title: 'New Scheduled Ride Request', 
+              notificationType: NotificationType.RIDE_REQUEST, 
+              description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'}${bookingTimeStr}. Estimated fare: Rs. ${scheduledFare.total}`,
+              ablyChannelId,
+            };
+            await this.notificationService.createNotification(notificationInput, driverUser);
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to send scheduled ride request notification to driver ${driver.driverId}: ${err}`);
+        }
       }
 
       const driverResponse = await this.waitForDriverResponse(rideId, requestBatch.map((d) => d.driverId), waitTimeSeconds * 1000);
@@ -200,7 +218,7 @@ export class MatchmakingService {
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
-      const drivers = await this.findAvailableDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx);
+      const drivers = await this.findAvailableDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx, ride.passengerId.toString());
 
       if (drivers.length === 0) {
         attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: 0, driversRequested: 0, driverAccepted: false, timeoutExpired: false, status: 'no_drivers_found' });
@@ -226,7 +244,13 @@ export class MatchmakingService {
         try {
           const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
           if (driverUser) {
-            const notificationInput: CreateNotificationInput = { title: 'New Ride Request', notificationType: NotificationType.RIDE_REQUEST, description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}` };
+            const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
+            const notificationInput: CreateNotificationInput = { 
+              title: 'New Ride Request', 
+              notificationType: NotificationType.RIDE_REQUEST, 
+              description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}. Estimated fare: Rs. ${estimatedFare.total}`,
+              ablyChannelId,
+            };
             await this.notificationService.createNotification(notificationInput, driverUser);
           }
         } catch (err) {
@@ -266,12 +290,14 @@ export class MatchmakingService {
   //  Driver filtering (INSTANT)
   // ════════════════════════════════════════════════════════════════
 
-  private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number): Promise<DriverScore[]> {
+  private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, passengerId?: string): Promise<DriverScore[]> {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     const drivers: DriverScore[] = [];
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
       if (!driver) continue;
+      // Skip if the driver is the same as the passenger (passenger can also be a driver)
+      if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
       if (driver.suspended || !driver.verified) continue;
       const userDetails = await this.userDetailsModel.findOne({ userId: driver._id, deleted: false }).exec();
@@ -309,12 +335,14 @@ export class MatchmakingService {
   //  Driver filtering (SCHEDULED)
   // ════════════════════════════════════════════════════════════════
 
-  private async findAvailableScheduledDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, bookingTime: Date): Promise<DriverScore[]> {
+  private async findAvailableScheduledDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, bookingTime: Date, passengerId?: string): Promise<DriverScore[]> {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     const drivers: DriverScore[] = [];
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
       if (!driver) continue;
+      // Skip if the driver is the same as the passenger (passenger can also be a driver)
+      if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
       if (driver.suspended || !driver.verified) continue;
       const userDetails = await this.userDetailsModel.findOne({ userId: driver._id, deleted: false }).exec();
