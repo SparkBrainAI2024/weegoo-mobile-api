@@ -11,4 +11,5 @@ export const VEHICLE = {
   NUMBER_PLATE_INVALID: "सवारी साधनको नम्बर प्लेट अमान्य छ।",
   COLOR_REQUIRED: "सवारी साधनको रंग आवश्यक छ।",
   COLOR_INVALID: "सवारी साधनको रंग अमान्य छ।",
+  INVALID_MODEL_TYPE:"सवारी साधनको मोडेल प्रकार अमान्य छ।",
 };

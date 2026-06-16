@@ -61,6 +61,7 @@ export * from './common/ride.location';
 export * from './common/fare';
 export * from './common/payment-details';
 export * from './common/ride-user-snapshot';
+export * from './common/saved-location';
 
 
 //plugins
@@ -125,6 +126,7 @@ export * from './dtos/response/match-making.response'
 export * from './dtos/response/matchmaking-service-response.dto'
 export * from './dtos/response/update-ride.response';
 export * from './dtos/response/dashboard-home.response';
+export * from './dtos/response/passenger-home.response';
 export * from './dtos/response/rating-list-with-pagination.response';
 
 //interfaces

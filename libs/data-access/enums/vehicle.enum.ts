@@ -5,7 +5,14 @@ export enum VehicleType {
   MOTORBIKE = "MOTORBIKE",
   SCOOTER = "SCOOTER",
 }
+export enum VehicleModelType {
+  EV='EV',
+  PETROL='PETROL'
+}
 
 registerEnumType(VehicleType, {
   name: "VehicleType",
+});
+registerEnumType(VehicleModelType, {
+  name: "VechileModelType",
 });
