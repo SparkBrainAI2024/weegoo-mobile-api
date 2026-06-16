@@ -2,6 +2,7 @@ import { Field, ID, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
+import { SavedLocation } from "../common/saved-location";
 import { GenderEnum, ridePreference, ProvinceEnum, DriverOnlineStatus } from "../enums/user.enum";
 import { BaseEntity } from "../base/base.entity";
 import { Vehicle } from "./vehicle.entity";
@@ -90,6 +91,14 @@ export class UserDetails extends BaseEntity {
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
   locationChannelId?: String;
+
+  @Field(() => SavedLocation, { nullable: true })
+  @Prop({ required: false, type: Object, default: null })
+  homeLocation?: SavedLocation;
+
+  @Field(() => SavedLocation, { nullable: true })
+  @Prop({ required: false, type: Object, default: null })
+  workLocation?: SavedLocation;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
