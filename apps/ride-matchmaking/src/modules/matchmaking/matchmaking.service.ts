@@ -234,6 +234,7 @@ export class MatchmakingService {
           const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
           if (driverUser) {
             const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
+            this.logger.log(`Sending ride request notification to driver ${driver.driverId}`);
             const notificationInput: CreateNotificationInput = { 
               title: 'New Ride Request', 
               notificationType: NotificationType.RIDE_REQUEST, 
