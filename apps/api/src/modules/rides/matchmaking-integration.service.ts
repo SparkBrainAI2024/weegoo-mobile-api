@@ -115,7 +115,7 @@ export class MatchmakingIntegrationService {
       }
 
       // Step 4a: Matchmaking did not find a driver — delete the ride
-      this.logger.warn(`Matchmaking failed for ride ${ride.rideUUId}: ${result?.message}. Deleting ride.`);
+      this.logger.warn(`Matchmaking failed for ride ${ride.rideUUId}. Deleting ride.`);
       await this.ridesModel.findByIdAndDelete(ride._id).exec();
       return {
         success: false,
