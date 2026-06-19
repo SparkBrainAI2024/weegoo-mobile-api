@@ -350,6 +350,7 @@ export class MatchmakingService {
         this.logger.log(`Driver is not within radius ${distResult.distanceKm}`)
       }
     }
+       this.logger.log(`Driver length ${drivers.length}`)
     return drivers;
   }
 
