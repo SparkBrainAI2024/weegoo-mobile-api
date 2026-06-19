@@ -328,9 +328,10 @@ export class MatchmakingService {
       const driverRating = userDetails.rating ?? 0;
       let driverLat: number;
       let driverLng: number;
+      console.log("location",userDetails.geoLocation.coordinates)
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
-        driverLng = userDetails.geoLocation.coordinates[0];
-        driverLat = userDetails.geoLocation.coordinates[1];
+        driverLat = userDetails.geoLocation.coordinates[0];
+        driverLng = userDetails.geoLocation.coordinates[1];
       } else {
         driverLat = pickupLat + (Math.random() - 0.5) * (radiusKm / 55.5);
         driverLng = pickupLng + (Math.random() - 0.5) * (radiusKm / 55.5);
