@@ -1,6 +1,6 @@
 import {
   PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
-  DriverDocumentRepository, DriverOnlineStatus, AppliedToEnum, UserDailyOnlineStatusRepository
+  DriverDocumentRepository, DriverOnlineStatus, AppliedToEnum, UserDailyOnlineStatusRepository, GetAllRidesPaginationInput
 } from '@libs/data-access';
 
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
@@ -43,9 +43,9 @@ export class RidesService {
    */
   async findRides(
     user: User,
-    options: PaginationInput,
+    options: GetAllRidesPaginationInput,
   ) {
-    return this.rideRepository.findRidesByUserWithPagination(user, options);
+    return this.rideRepository.findRidesByUserWithCursorPagination(user, options);
   }
 
   async homeDashboardApi(
