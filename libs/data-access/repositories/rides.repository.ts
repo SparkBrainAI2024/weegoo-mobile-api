@@ -4,8 +4,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Rides, RidesDocument } from "../entities/rides.entity";
 import { BaseModel } from "../base/base.model";
 import { User } from "../entities/user.entity";
-import { PaginationInput } from "../base/base.input";
-import { IPaginatedResult } from "../interfaces/pagination.interface";
+import { GetAllRidesPaginationInput, RideFilterStatus, RideSortBy } from "../dtos/input/get-all-rides.input";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
@@ -87,25 +86,35 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   }
 
   /**
-   * Atomic query to fetch rides based on user role with pagination.
-   * - USER role: fetches rides where user is the rider (riderId)
-   * - DRIVER role: fetches rides where user is the driver (driverId)
-   * - Populates vehicle data to include vehicleModel and vehicleType
-   * - Returns paginated results
+   * Fetches rides for a user with cursor-based pagination, grouped by date.
+   * Supports filtering by ride status (ongoing, completed, canceled, all)
+   * and sorting by bookingTime or createdAt.
    */
-  async findRidesByUserWithPagination(
+  async findRidesByUserWithCursorPagination(
     user: Partial<User>,
-    paginationInput: PaginationInput,
-  ): Promise<IPaginatedResult<RidesDocument>> {
+    paginationInput: GetAllRidesPaginationInput,
+  ): Promise<{ data: any[]; pageInfo: { nextCursor: string | null; hasNextPage: boolean } }> {
     // Build filter based on user role
     const filter: any = {
-      ...paginationInput.filter,
-      deleted: false, // Exclude soft-deleted rides
     };
 
-    if (filter.rideStatus === UpcomingRideStatus) {
-      filter.bookingTime = { $gt: new Date() }; // Only upcoming rides
-      filter.rideStatus = { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] }; // Upcoming rides are a subset of scheduled rides
+    // Apply ride status filter
+    if (paginationInput.filter) {
+      switch (paginationInput.filter) {
+        case RideFilterStatus.ONGOING:
+          filter.rideStatus = { $in: [RideStatus.ONGOING, RideStatus.PICKUP] };
+          break;
+        case RideFilterStatus.COMPLETED:
+          filter.rideStatus = RideStatus.COMPLETED;
+          break;
+        case RideFilterStatus.CANCELLED:
+          filter.rideStatus = RideStatus.CANCELLED;
+          break;
+        case RideFilterStatus.ALL:
+        default:
+          // No filter by status - return all
+          break;
+      }
     }
 
     // Check user roles and apply appropriate filter
@@ -115,11 +124,59 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       filter.driverId = new Types.ObjectId(user._id);
     }
 
-    const populateOptions = [{ path: "vehicleId" }];
-    const result = await this.paginate(paginationInput, populateOptions, filter);
+    const limit = paginationInput.limit ?? 5;
+    const sortField = paginationInput.sortBy || RideSortBy.BOOKING_TIME;
+    const sortDirection = paginationInput.order === 1 ? 1 : -1;
+    const cursor = paginationInput.cursor;
 
-    // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
-    result.data = result.data.map((ride: any) => {
+    // Build cursor query if cursor is provided
+    if (cursor) {
+      const decoded = this.decodeCursor(cursor);
+      const cursorValue = decoded[sortField];
+      const cursorId = decoded._id;
+
+      if (sortDirection === -1) {
+        filter.$or = [
+          { [sortField]: { $lt: new Date(cursorValue) } },
+          {
+            [sortField]: new Date(cursorValue),
+            _id: { $lt: new Types.ObjectId(cursorId) },
+          },
+        ];
+      } else {
+        filter.$or = [
+          { [sortField]: { $gt: new Date(cursorValue) } },
+          {
+            [sortField]: new Date(cursorValue),
+            _id: { $gt: new Types.ObjectId(cursorId) },
+          },
+        ];
+      }
+    }
+
+    // Fetch limit + 1 to determine if there's a next page
+    const docs = await this._model
+      .find(filter)
+      .populate([{ path: "vehicleId" }])
+      .sort({ [sortField]: sortDirection, _id: sortDirection })
+      .limit(limit + 1)
+      .exec();
+    console.log("docs",docs)
+    let hasNextPage = false;
+    let nextCursor: string | null = null;
+
+    if (docs.length > limit) {
+      hasNextPage = true;
+      const nextItem = docs[limit];
+      nextCursor = this.encodeCursor({
+        [sortField]: (nextItem as any)[sortField],
+        _id: nextItem._id,
+      });
+      docs.pop(); // Remove the extra item
+    }
+
+    // Map populated vehicleId to vehicle field for GraphQL
+    const mappedDocs = docs.map((ride: any) => {
       if (ride.vehicleId && typeof ride.vehicleId === 'object') {
         ride.vehicle = ride.vehicleId;
         ride.vehicleId = ride.vehicleId._id.toString();
@@ -127,18 +184,61 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       return ride;
     });
 
-    return result;
+    // Custom grouping: order by status priority then group by month+year
+    // Priority: Ongoing/Pickup (1) > Scheduled upcoming (2) > Completed (3) > Cancelled (4)
+    const statusPriority: Record<string, number> = {
+      [RideStatus.ONGOING]: 1,
+      [RideStatus.PICKUP]: 1,
+      [RideStatus.CONFIRMED]: 2,
+      [RideStatus.PENDING]: 2,
+      [RideStatus.COMPLETED]: 3,
+      [RideStatus.CANCELLED]: 4,
+    };
+
+    const getMonthYearLabel = (date: Date): string => {
+      return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+    };
+
+    // Sort mappedDocs by status priority first, then by sortField descending
+    const sortedDocs = [...mappedDocs].sort((a: any, b: any) => {
+      const aPriority = statusPriority[a.rideStatus] || 99;
+      const bPriority = statusPriority[b.rideStatus] || 99;
+      if (aPriority !== bPriority) return aPriority - bPriority;
+      // Within same status, sort by the configured sortField descending
+      const aVal = new Date(a[sortField]).getTime();
+      const bVal = new Date(b[sortField]).getTime();
+      return bVal - aVal;
+    });
+
+    // Group by month+year
+    const groupMap = new Map<string, any[]>();
+    for (const ride of sortedDocs) {
+      const date = new Date(ride.createdAt);
+      const label = getMonthYearLabel(date);
+      if (!groupMap.has(label)) groupMap.set(label, []);
+      groupMap.get(label)!.push(ride);
+    }
+
+    const groupedData = Array.from(groupMap.entries()).map(([title, rides]) => ({
+      title,
+      rides,
+    }));
+
+    return {
+      data: groupedData,
+      pageInfo: {
+        nextCursor,
+        hasNextPage,
+      },
+    };
   }
 
   async homeDashboardApi(
     user: Partial<User>,
   ): Promise<RidesDocument[]> {
     // Build filter based on user role
-    // Check user roles and apply appropriate filter
-    // Note: Assuming 'roles.RIDER' is the passenger and 'roles.DRIVER' is the driver.
-    // If your enum naming differs (e.g., roles.USER for passenger), adjust accordingly.
     let filter: any = {
-      deleted: false, // Exclude soft-deleted rides
+      deleted: false,
     };
 
     if (user.loginAs === roles.USER) {
@@ -146,15 +246,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     } else if (user.loginAs === roles.RIDER) {
       filter.driverId = new Types.ObjectId(user._id);
     }
-    // Populate vehicle data to include model and type/name
     const populateOptions = {
       path: "vehicleId",
     };
-    // Apply pagination with the constructed filter and vehicle population
     const upcomingResult = await this.model.find({
      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
       ...filter
-    
     }).populate(populateOptions).limit(3)
 
     const ongoingResult = await this.model.find({
@@ -162,7 +259,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       ...filter
     }).populate(populateOptions).sort({createdAt: -1}).limit(1)
 
-    // Map the populated 'vehicleId' object to the 'vehicle' field for GraphQL clarity
     const newUpcomingResult = upcomingResult.map((ride: any) => {
       if(ride.vehicleId && typeof ride.vehicleId === 'object'){
         ride.vehicle = ride.vehicleId;
@@ -177,10 +273,10 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
      }
      return ride ;
     })
-    
   
     return [...newOngoingResult,...newUpcomingResult];
   }
+
   async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
     const rideWithVechile = await this._model.findOne({ _id: new Types.ObjectId(rideId), passengerId: new Types.ObjectId(passengerId) }).populate('vehicleId').exec();
     if (rideWithVechile?.vehicleId && typeof rideWithVechile?.vehicleId === 'object') {
@@ -189,6 +285,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     return rideWithVechile;
   }
+
   async cancelRide(params: CancelRideParams): Promise<RidesDocument> {
     return this._model.findByIdAndUpdate(
       new Types.ObjectId(params.rideId),
@@ -207,11 +304,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     );
   }
 
-
-/**
-   * Finds a ride by ID with all details populated (vehicle, driver, passenger).
-   * Used for getting complete ride information.
-   */
   async findByIdWithAllDetails(rideId: string): Promise<RidesDocument | null> {
     const filter = {
       _id: rideId,
@@ -219,26 +311,14 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
 
     const populate: Populate = [
-      {
-        path: 'vehicleId',
-      },
-      {
-        path: 'driverId',
-        select: '_id phone email',
-      },
-      {
-        path: 'passengerId',
-        select: '_id  email phone',
-      },
+      { path: 'vehicleId' },
+      { path: 'driverId', select: '_id phone email' },
+      { path: 'passengerId', select: '_id  email phone' },
     ];
 
     return this.findOne(filter, populate);
   }
 
-  /**
-   * Finds an upcoming confirmed ride by ID for a specific passenger.
-   * Upcoming confirmed rides have rideStatus CONFIRMED and bookingTime in the future.
-   */
   async findUpcomingConfirmedRideById(
     rideId: string,
     user: Partial<User>,
@@ -257,26 +337,14 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
 
     const populate: Populate = [
-      {
-        path: 'vehicleId',
-      },
-      {
-        path: 'passengerId',
-        select: '_id phone email',
-      },
-      {
-        path: 'driverId',
-        select: '_id phone email',
-      },
+      { path: 'vehicleId' },
+      { path: 'passengerId', select: '_id phone email' },
+      { path: 'driverId', select: '_id phone email' },
     ];
 
     return this.findOne(filter, populate);
   }
 
-  /**
-   * Updates an upcoming confirmed ride with new booking time, pickup, or dropoff location.
-   * Returns the updated document.
-   */
   async updateUpcomingConfirmedRide(
     rideId: string,
     user: Partial<User>,
@@ -301,93 +369,59 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
 
     const setFields: any = {};
-    if (updateData.bookingTime) {
-      setFields.bookingTime = updateData.bookingTime;
-    }
-    if (updateData.pickupLocation) {
-      setFields.pickupLocation = updateData.pickupLocation;
-    }
-    if (updateData.dropoffLocation) {
-      setFields.dropoffLocation = updateData.dropoffLocation;
-    }
-    if (updateData.noOfPassengers) {
-      setFields.noOfPassengers = updateData.noOfPassengers;
-    }
+    if (updateData.bookingTime) setFields.bookingTime = updateData.bookingTime;
+    if (updateData.pickupLocation) setFields.pickupLocation = updateData.pickupLocation;
+    if (updateData.dropoffLocation) setFields.dropoffLocation = updateData.dropoffLocation;
+    if (updateData.noOfPassengers) setFields.noOfPassengers = updateData.noOfPassengers;
 
     const populate: Populate = [
-      {
-        path: 'vehicleId',
-      },
-      {
-        path: 'passengerId',
-        select: '_id  email phone',
-      },
-      {
-        path: 'driverId',
-        select: '_id email phone',
-      },
+      { path: 'vehicleId' },
+      { path: 'passengerId', select: '_id  email phone' },
+      { path: 'driverId', select: '_id email phone' },
     ];
 
-    return this.findOneAndUpdate(
-      filter,
-      { $set: setFields },
-      { new: true },
-      populate,
-    );
+    return this.findOneAndUpdate(filter, { $set: setFields }, { new: true }, populate);
   }
 
   async getOngoingRideWithDetails(
-  rideId: string,
-  passengerId: Types.ObjectId,
-): Promise<any> {
-  const filter = {
-    _id: rideId,
-    passengerId: new Types.ObjectId(passengerId),
-    rideStatus: RideStatus.ONGOING,
-  };
+    rideId: string,
+    passengerId: Types.ObjectId,
+  ): Promise<any> {
+    const filter = {
+      _id: rideId,
+      passengerId: new Types.ObjectId(passengerId),
+      rideStatus: RideStatus.ONGOING,
+    };
 
-  const populate: Populate = [
-    {
-      path: 'vehicleId',
-      select: 'vehicleModel year color numberPlate vehicleType',
-    },
-    {
-      path: 'driverId',
-      select: '_id email phone',
-    },
-    {
-      path: 'passengerId',
-      select: '_id phone email',
-    },
-  ];
+    const populate: Populate = [
+      { path: 'vehicleId', select: 'vehicleModel year color numberPlate vehicleType' },
+      { path: 'driverId', select: '_id email phone' },
+      { path: 'passengerId', select: '_id phone email' },
+    ];
 
     const projection = {
-    _id: 1,
-    rideUUId: 1,
-    rideStatus: 1,
-    rideType: 1,
-    bookingTime: 1,
-    rideStartedAt: 1,
-    rideCompletedAt: 1,
-    estimatedTimeInMinutes: 1,
-    estimatedFare: 1,
-    distanceInKm: 1,
-    distanceToReachPassenger: 1,
-    estimatedTimeToReachPassenger: 1,
-    pickupLocation: 1,
-    dropoffLocation: 1,
-    fare: 1,
-    paymentDetails: 1,
-    vehicleId: 1,
-    driverId: 1,
-    passengerId: 1,
-    ablyChannelId: 1,
-  };
+      _id: 1, rideUUId: 1, rideStatus: 1, rideType: 1,
+      bookingTime: 1, rideStartedAt: 1, rideCompletedAt: 1,
+      estimatedTimeInMinutes: 1, estimatedFare: 1, distanceInKm: 1,
+      distanceToReachPassenger: 1, estimatedTimeToReachPassenger: 1,
+      pickupLocation: 1, dropoffLocation: 1, fare: 1, paymentDetails: 1,
+      vehicleId: 1, driverId: 1, passengerId: 1, ablyChannelId: 1,
+    };
 
-  return this.findOne(filter, populate, projection);
+    return this.findOne(filter, populate, projection);
+  }
 
+  /**
+   * Encodes a cursor from a data object for pagination.
+   */
+  protected encodeCursor(data: any): string {
+    return Buffer.from(JSON.stringify(data)).toString('base64');
+  }
 
-
-}
-
+  /**
+   * Decodes a cursor string back to a data object.
+   */
+  protected decodeCursor(cursor: string): any {
+    return JSON.parse(Buffer.from(cursor, 'base64').toString());
+  }
 }

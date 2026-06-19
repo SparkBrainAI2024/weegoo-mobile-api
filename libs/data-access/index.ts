@@ -102,6 +102,7 @@ export * from './dtos/input/get-ride-by-id.input';
 export * from './dtos/input/update-ride.input';
 export * from './dtos/input/cancel-ride.input';
 export * from './dtos/input/create-promo-code.input';
+export * from './dtos/input/get-all-rides.input';
 export * from './dtos/input/complete-ride.input';
 export * from './dtos/input/create-rating.input';
 
@@ -128,6 +129,8 @@ export * from './dtos/response/update-ride.response';
 export * from './dtos/response/dashboard-home.response';
 export * from './dtos/response/passenger-home.response';
 export * from './dtos/response/rating-list-with-pagination.response';
+export * from './dtos/response/ride-group.response';
+export * from './dtos/response/rides-list-with-cursor-pagination.response';
 
 //interfaces
 export * from './interfaces/location.interface'

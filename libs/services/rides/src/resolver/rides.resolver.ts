@@ -1,10 +1,10 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
-import { PaginationInput, Rides, User, RidesDocument, PromoCode, CreatePromoCodeInput, DashboardHomeResponse } from '@libs/data-access';
+import { PaginationInput, Rides, User, RidesDocument, PromoCode, CreatePromoCodeInput, DashboardHomeResponse, GetAllRidesPaginationInput } from '@libs/data-access';
 import { RidesService } from '../rides.service';
 import { CurrentUser } from '@libs/common';
-import { RideListWithPaginationResponse } from '@libs/data-access/dtos/response/ride-list-with-pagination.response';
+import { RidesListWithCursorPaginationResponse } from '@libs/data-access/dtos/response/rides-list-with-cursor-pagination.response';
 import { Types } from 'mongoose';
 import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
 import { CancelRideResponse } from '@libs/data-access/dtos/response/cancel-ride.response';
@@ -15,10 +15,10 @@ import { GetRideByIdInput } from '@libs/data-access/dtos/input/get-ride-by-id.in
 export class RidesResolver {
   constructor(private readonly ridesService: RidesService) { }
 
-  @Query(() => RideListWithPaginationResponse)
+  @Query(() => RidesListWithCursorPaginationResponse)
   async getAllRides(
     @CurrentUser() driver: User,
-    @Args('input') input: PaginationInput,
+    @Args('input') input: GetAllRidesPaginationInput,
   ) {
     return this.ridesService.findRides(
       driver,
