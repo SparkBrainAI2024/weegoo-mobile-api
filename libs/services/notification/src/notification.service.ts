@@ -74,8 +74,34 @@ export class NotificationService {
             if ((notificationPayload as any).ablyChannelId) {
                 firebaseData.ablyChannelId = (notificationPayload as any).ablyChannelId;
             }
-              if ((notificationPayload as any).waitTimeSeconds) {
+            if ((notificationPayload as any).waitTimeSeconds) {
                 firebaseData.waitTimeSeconds = (notificationPayload as any).waitTimeSeconds.toString();
+            }
+            // Include all ride-related fields (nullable) in the Firebase payload
+            const payload = notificationPayload as any;
+            if (payload.pickupLocation) {
+                firebaseData.pickupLocation = JSON.stringify(payload.pickupLocation);
+            }
+            if (payload.dropoffLocation !== undefined) {
+                firebaseData.dropoffLocation = payload.dropoffLocation ? JSON.stringify(payload.dropoffLocation) : 'null';
+            }
+            if (payload.distanceInKm !== undefined && payload.distanceInKm !== null) {
+                firebaseData.distanceInKm = String(payload.distanceInKm);
+            }
+            if (payload.estimatedTimeInMinutes !== undefined && payload.estimatedTimeInMinutes !== null) {
+                firebaseData.estimatedTimeInMinutes = String(payload.estimatedTimeInMinutes);
+            }
+            if (payload.passengerId) {
+                firebaseData.passengerId = payload.passengerId;
+            }
+            if (payload.driverScore !== undefined && payload.driverScore !== null) {
+                firebaseData.driverScore = String(payload.driverScore);
+            }
+            if (payload.distanceToPickupKm !== undefined && payload.distanceToPickupKm !== null) {
+                firebaseData.distanceToPickupKm = String(payload.distanceToPickupKm);
+            }
+            if (payload.estimatedFare !== undefined && payload.estimatedFare !== null) {
+                firebaseData.estimatedFare = String(payload.estimatedFare);
             }
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: firebaseData,
