@@ -40,4 +40,10 @@ export class EditVehicleInput {
   @IsNotEmpty()
   @IsEnum(VehicleModelType, { message: "VEHICLE.INVALID_MODEL_TYPE" })
   vehicleModelType?: VehicleModelType;
+
+  
+  @Field(()=> String)
+  @IsNotEmpty()
+  @IsString()
+  name: string;
 }

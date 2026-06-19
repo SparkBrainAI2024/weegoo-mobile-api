@@ -47,7 +47,7 @@ export class VehicleService {
 async editVehicle(driverId: string, vehicleId: string, input: EditVehicleInput, lang: string) {
   // Check vehicle exists and belongs to driver
   const vehicleExists = await this.vehicleRepository.findById(new Types.ObjectId(vehicleId));
-  if (!vehicleExists || vehicleExists.driverId.toString() !== driverId) {
+  if (!vehicleExists || vehicleExists.driverId.toString() !== driverId.toString()) {
     ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
   }
 

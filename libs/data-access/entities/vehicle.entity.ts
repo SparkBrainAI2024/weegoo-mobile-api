@@ -19,6 +19,10 @@ export class Vehicle extends BaseEntity {
   @Prop({ type: String, required: true, enum: ["CAR", "MOTORBIKE", "SCOOTER"] })
   vehicleType: VehicleType;
 
+  @Field(()=> String)
+  @Prop({ type: String, required: true })
+  name: string;
+
   @Field()
   @Prop({ type: String, required: true })
   vehicleModel: string;
