@@ -13,7 +13,7 @@ import { S3Service } from '@libs/s3/s3.service';
 import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
-import { CompleteRideInput, RidesRepository } from '@libs/data-access';
+import { CompleteRideInput, DriverRideResponse, RidesRepository } from '@libs/data-access';
 import { ErrorException, MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 
 export interface DriverAcceptDetails {
@@ -130,7 +130,9 @@ export class DriverRideAcceptanceService {
       const result = response.data?.data?.driverRespondToRide;
       if (result?.success) {
         this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
-        return { success: true, message: result.message };
+        // Build and return full ride details
+        const acceptDetails = await this.buildAcceptDetails(ride, driverId);
+        return { success: true, message: result.message, data: acceptDetails };
       } else {
         this.logger.warn(`Matchmaking service returned: ${result?.message}`);
         return { success: false, message: result?.message || 'Failed to accept ride via matchmaking service' };
@@ -145,7 +147,7 @@ export class DriverRideAcceptanceService {
    * Driver rejects a ride.
    * Calls the matchmaking service GraphQL endpoint which handles notifications and continues matchmaking.
    */
-  async rejectRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
+  async rejectRide(rideId: string, driverId: string): Promise<DriverRideResponse> {
     this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
 
     const ride = await this.ridesRepository.findById(toMongoId(rideId));
@@ -181,8 +183,10 @@ export class DriverRideAcceptanceService {
 
       const result = response.data?.data?.driverRespondToRide;
       if (result?.success) {
-        this.logger.log(`Driver ${driverId} rejected ride ${rideId} via matchmaking service`);
-        return { success: true, message: result.message };
+        this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
+        // Build and return full ride details
+        const acceptDetails = await this.buildAcceptDetails(ride, driverId);
+        return { success: true, message: result.message, data: acceptDetails };
       } else {
         return { success: false, message: result?.message || 'Failed to reject ride via matchmaking service' };
       }
@@ -214,7 +218,7 @@ export class DriverRideAcceptanceService {
         fullName: driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
         profileImage: driverDetails?.profileImages?.length > 0 ? getActiveProfileImageUrl(driverDetails.profileImages, (key) => this.s3.getPublicUrl(key)) : null,
-        rating: 4.5, // placeholder — fetch from ratings collection in production
+        rating: driverDetails?.rating || 0, // placeholder — fetch from ratings collection in production
       },
       vehicle: {
         vehicleId: vehicle?._id?.toString() || '',
@@ -276,7 +280,6 @@ export class DriverRideAcceptanceService {
     if (ride.driverId?.toString() !== driverId) {
       throw ErrorException(null, 'RIDES.NOT_ASSOCIATED_WITH_DRIVER', 404)
     }
-
     // 3. Validate ride is in ONGOING status
     if (ride.rideStatus !== RideStatus.ONGOING) {
       throw ErrorException(null, 'RIDES.INVALID_STATUS', 400)

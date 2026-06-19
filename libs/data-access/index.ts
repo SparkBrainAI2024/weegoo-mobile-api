@@ -131,6 +131,7 @@ export * from './dtos/response/passenger-home.response';
 export * from './dtos/response/rating-list-with-pagination.response';
 export * from './dtos/response/ride-group.response';
 export * from './dtos/response/rides-list-with-cursor-pagination.response';
+export * from './dtos/response/driver-ride-response.dto';
 
 //interfaces
 export * from './interfaces/location.interface'
