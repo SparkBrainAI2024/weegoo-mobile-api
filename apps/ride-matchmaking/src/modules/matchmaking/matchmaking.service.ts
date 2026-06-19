@@ -292,11 +292,12 @@ export class MatchmakingService {
   // ════════════════════════════════════════════════════════════════
 
   private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, passengerId?: string): Promise<DriverScore[]> {
-    const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
+    const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     const drivers: DriverScore[] = [];
     this.logger.log(`Found ${vehicles.length} vehicles of type ${vehicleType} for driver filtering`);
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
+       this.logger.log(`Calculating data for  ${driver._id.toString()}`)
       if (!driver) continue;
       // Skip if the driver is the same as the passenger (passenger can also be a driver)
       if (passengerId && driver._id.toString() === passengerId){
@@ -317,7 +318,7 @@ export class MatchmakingService {
         this.logger.log(`Skipping driver not online and user details empty ${driver._id.toString()}`)
         continue;
       }
-      const activeRide = await this.ridesModel.findOne({ driverId: driver._id, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] }, deleted: false }).exec();
+      const activeRide = await this.ridesModel.findOne({ driverId: driver._id, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] } }).exec();
       if (activeRide){
         this.logger.log(`Skipping driver has active ride ${driver._id.toString()}`)
         continue; 
@@ -328,7 +329,6 @@ export class MatchmakingService {
       const driverRating = userDetails.rating ?? 0;
       let driverLat: number;
       let driverLng: number;
-      console.log("location",userDetails.geoLocation.coordinates)
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
         driverLat = userDetails.geoLocation.coordinates[0];
         driverLng = userDetails.geoLocation.coordinates[1];
