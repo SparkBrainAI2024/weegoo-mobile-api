@@ -103,6 +103,45 @@ export class NotificationService {
             if (payload.estimatedFare !== undefined && payload.estimatedFare !== null) {
                 firebaseData.estimatedFare = String(payload.estimatedFare);
             }
+            // Include passenger info fields
+            if (payload.passengerName) {
+                firebaseData.passengerName = payload.passengerName;
+            }
+            if (payload.passengerPhone) {
+                firebaseData.passengerPhone = payload.passengerPhone;
+            }
+            if (payload.passengerGender) {
+                firebaseData.passengerGender = payload.passengerGender;
+            }
+            if (payload.passengerProfileImages && Array.isArray(payload.passengerProfileImages) && payload.passengerProfileImages.length > 0) {
+                firebaseData.passengerProfileImages = JSON.stringify(payload.passengerProfileImages);
+            }
+            // Include driver info fields
+            if (payload.driverName) {
+                firebaseData.driverName = payload.driverName;
+            }
+            if (payload.driverPhone) {
+                firebaseData.driverPhone = payload.driverPhone;
+            }
+            if (payload.driverProfileImage) {
+                firebaseData.driverProfileImage = payload.driverProfileImage;
+            }
+            if (payload.driverRating !== undefined && payload.driverRating !== null) {
+                firebaseData.driverRating = String(payload.driverRating);
+            }
+            // Include vehicle info fields
+            if (payload.vehicleType) {
+                firebaseData.vehicleType = payload.vehicleType;
+            }
+            if (payload.vehicleModel) {
+                firebaseData.vehicleModel = payload.vehicleModel;
+            }
+            if (payload.vehicleColor) {
+                firebaseData.vehicleColor = payload.vehicleColor;
+            }
+            if (payload.vehicleNumberPlate) {
+                firebaseData.vehicleNumberPlate = payload.vehicleNumberPlate;
+            }
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: firebaseData,
                 token: token.firebaseToken,

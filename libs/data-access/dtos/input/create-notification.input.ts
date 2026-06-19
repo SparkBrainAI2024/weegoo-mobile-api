@@ -1,4 +1,6 @@
 import { NotificationType } from "@libs/data-access/enums/notification.enum";
+import { GenderEnum } from "@libs/data-access/enums/user.enum";
+import { UserProfileImageEntity } from "@libs/data-access/common/user-profile-image";
 import { Field, InputType, Float } from "@nestjs/graphql";
 import { IsEnum, IsOptional, IsString, IsNumber, IsArray, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
@@ -82,4 +84,64 @@ export class CreateNotificationInput {
   @Field(() => Number, { nullable: true })
   @IsOptional()
   distanceToPickupKm?: number;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  passengerName?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  passengerPhone?: string;
+
+  @Field(() => GenderEnum, { nullable: true, defaultValue: GenderEnum.UNPUBLISHED })
+  @IsOptional()
+  @IsEnum(GenderEnum)
+  passengerGender?: string;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  passengerProfileImages?: string[];
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  driverName?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  driverPhone?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  driverProfileImage?: string;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  driverRating?: number;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  vehicleType?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  vehicleModel?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  vehicleColor?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  vehicleNumberPlate?: string;
 }
