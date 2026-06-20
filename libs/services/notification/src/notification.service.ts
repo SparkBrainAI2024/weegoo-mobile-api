@@ -61,7 +61,7 @@ export class NotificationService {
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
-        const token = await this.userTokenRepository.findOne({ userId: userId, grant:TokenGrantType.REFRESH_TOKEN }, null, null, { sort: { createdAt: -1 } });
+        const token = await this.userTokenRepository.findOne({ userId: userId, grant: TokenGrantType.REFRESH_TOKEN }, null, null, { sort: { createdAt: -1 } });
         if (token?.firebaseToken) {
             const firebaseData: Record<string, string> = {
                 title: notification.title,
@@ -79,6 +79,9 @@ export class NotificationService {
             }
             // Include all ride-related fields (nullable) in the Firebase payload
             const payload = notificationPayload as any;
+            if (payload.rideId) {
+                firebaseData.rideId = JSON.stringify(payload.rideId);
+            }
             if (payload.pickupLocation) {
                 firebaseData.pickupLocation = JSON.stringify(payload.pickupLocation);
             }
@@ -142,6 +145,13 @@ export class NotificationService {
             if (payload.vehicleNumberPlate) {
                 firebaseData.vehicleNumberPlate = payload.vehicleNumberPlate;
             }
+            // Include passenger/driver snapshot fields
+            if (payload.passengerSnapshot) {
+                firebaseData.passengerSnapshot = JSON.stringify(payload.passengerSnapshot);
+            }
+            if (payload.driverSnapshot) {
+                firebaseData.driverSnapshot = JSON.stringify(payload.driverSnapshot);
+            }
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: firebaseData,
                 token: token.firebaseToken,
@@ -151,7 +161,7 @@ export class NotificationService {
                 }
             });
         }
-        console.log("firebase token",token?.firebaseToken)
+        console.log("firebase token", token?.firebaseToken)
         return notification;
     }
 

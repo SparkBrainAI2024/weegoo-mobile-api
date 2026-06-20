@@ -112,6 +112,12 @@ export class MatchmakingService {
     const passengerPhone = passengerUser?.phone || '';
     const passengerGender = passengerDetails?.gender;
     const passengerProfileImages = passengerDetails?.profileImages?.map(img => getActiveProfileImageUrl([img], (key) => this.s3.getPublicUrl(key))).filter(Boolean) || [];
+    const passengerSnapshot = {
+      fullName: passengerName,
+      profileImage: passengerProfileImages?.[0] || '',
+      rating: (passengerDetails?.rating ?? 0),
+      phone: passengerPhone,
+    };
     const radii = MATCHMAKING_CONFIG.SCHEDULED_FALLBACK_RADII_KM;
     const attempts: MatchAttemptResult[] = [];
     let matched = false;
@@ -154,6 +160,7 @@ export class MatchmakingService {
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1, isScheduled: true,
           driverImage: driver.profileImage || null, rating: driver.rating,
           driverId: driver.driverId, driverName: driver.fullName,
+          passengerSnapshot,
         });
 
         // Send push notification + save to notification DB for scheduled ride request
@@ -171,10 +178,7 @@ export class MatchmakingService {
               dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
               distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes,
               passengerId: ride.passengerId.toString(),
-              passengerName,
-              passengerPhone,
-              passengerGender,
-              passengerProfileImages,
+              passengerSnapshot,
             };
             await this.notificationService.createNotification(notificationInput, driverUser);
           }
@@ -220,8 +224,13 @@ export class MatchmakingService {
     const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
     const passengerName = passengerUser?.fullName || passengerDetails?.fullName || 'Passenger';
     const passengerPhone = passengerUser?.phone || '';
-    const passengerGender = passengerDetails?.gender;
     const passengerProfileImages = passengerDetails?.profileImages?.map(img => getActiveProfileImageUrl([img], (key) => this.s3.getPublicUrl(key))).filter(Boolean) || [];
+    const passengerSnapshot = {
+      fullName: passengerName,
+      profileImage: passengerProfileImages?.[0] || '',
+      rating: (passengerDetails?.rating ?? 0),
+      phone: passengerPhone,
+    };
     const pickupCoords = ride.pickupLocation?.coordinates;
     const pickupLat = pickupCoords[1];
     const pickupLng = pickupCoords[0];
@@ -290,10 +299,7 @@ export class MatchmakingService {
               dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
               distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
               passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
-              passengerName,
-              passengerPhone,
-              passengerGender,
-              passengerProfileImages,
+              passengerSnapshot,
             };
             await this.notificationService.createNotification(notificationInput, driverUser);
           }
@@ -306,6 +312,7 @@ export class MatchmakingService {
           expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
           driverImage: driver.profileImage || null, rating: driver.rating,
           driverId: driver.driverId, driverName: driver.fullName,
+          passengerSnapshot,
         });
         } catch (err) {
           this.logger.warn(`Failed to send ride request notification to driver ${driver.driverId}: ${err}`);
@@ -551,6 +558,12 @@ export class MatchmakingService {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
           if (passengerUser) {
             const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
+            const driverSnapshot = {
+              fullName: acceptDetails?.driver?.fullName || driverName || 'Driver',
+              profileImage: acceptDetails?.driver?.profileImage || null,
+              rating: acceptDetails?.driver?.rating || null,
+              phone: acceptDetails?.driver?.phone || driverUser?.phone || '',
+            };
             const notificationInput: CreateNotificationInput = { 
               title: 'Ride Accepted', 
               notificationType: NotificationType.RIDE_ACCEPTED, 
@@ -569,6 +582,7 @@ export class MatchmakingService {
               distanceInKm: ride.distanceInKm || null,
               estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
               estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
+              driverSnapshot,
             };
              this.notificationService.createNotification(notificationInput, passengerUser);
           }

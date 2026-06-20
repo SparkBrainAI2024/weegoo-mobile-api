@@ -101,8 +101,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     // Apply ride status filter
     if (paginationInput.filter) {
       switch (paginationInput.filter) {
-        case RideFilterStatus.ONGOING:
-          filter.rideStatus = { $in: [RideStatus.ONGOING, RideStatus.PICKUP] };
+        case RideFilterStatus.PENDING:
+          filter.rideStatus = { $in: [RideStatus.PENDING] };
           break;
         case RideFilterStatus.COMPLETED:
           filter.rideStatus = RideStatus.COMPLETED;

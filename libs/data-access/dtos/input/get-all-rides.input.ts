@@ -3,7 +3,7 @@ import { IsOptional, Min } from 'class-validator';
 import { SortBy } from '../../base/base.input';
 
 export enum RideFilterStatus {
-  ONGOING = 'ongoing',
+  PENDING = 'pending',
   COMPLETED = 'completed',
   ALL = 'all',
   CANCELLED = 'canceled',
@@ -18,7 +18,7 @@ registerEnumType(RideFilterStatus, {
   name: 'RideFilterStatus',
   description: 'Filter options for rides listing',
   valuesMap: {
-    ONGOING: { description: 'Ongoing rides' },
+    PENDING: { description: 'Pending rides' },
     COMPLETED: { description: 'Completed rides' },
     ALL: { description: 'All rides' },
     CANCELLED: { description: 'Cancelled rides' },

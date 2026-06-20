@@ -195,6 +195,13 @@ export class RideChannelService {
     rating?: number | null;
     driverId?: string;
     driverName?: string;
+    /** Passenger snapshot with fullName, profileImage, rating, phone */
+    passengerSnapshot?: {
+      fullName?: string;
+      profileImage?: string;
+      rating?: number;
+      phone?: string;
+    };
   }): Promise<void> {
     await this.publishRideEvent(rideUUId, 'driver-ride-request', data);
   }

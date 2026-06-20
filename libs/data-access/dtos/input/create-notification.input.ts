@@ -1,6 +1,6 @@
 import { NotificationType } from "@libs/data-access/enums/notification.enum";
 import { GenderEnum } from "@libs/data-access/enums/user.enum";
-import { UserProfileImageEntity } from "@libs/data-access/common/user-profile-image";
+import { RideUserInputSnapshot } from "@libs/data-access/common/ride-user-snapshot";
 import { Field, InputType, Float } from "@nestjs/graphql";
 import { IsEnum, IsOptional, IsString, IsNumber, IsArray, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
@@ -144,4 +144,16 @@ export class CreateNotificationInput {
   @IsOptional()
   @IsString()
   vehicleNumberPlate?: string;
+
+  @Field(() => RideUserInputSnapshot, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RideUserInputSnapshot)
+  passengerSnapshot?: RideUserInputSnapshot;
+
+  @Field(() => RideUserInputSnapshot, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RideUserInputSnapshot)
+  driverSnapshot?: RideUserInputSnapshot;
 }
