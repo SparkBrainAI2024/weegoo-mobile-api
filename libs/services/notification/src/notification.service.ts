@@ -147,10 +147,10 @@ export class NotificationService {
             }
             // Include passenger/driver snapshot fields
             if (payload.passengerSnapshot) {
-                firebaseData.passengerSnapshot = JSON.stringify(payload.passengerSnapshot);
+                firebaseData.passenger = JSON.stringify(payload.passengerSnapshot);
             }
             if (payload.driverSnapshot) {
-                firebaseData.driverSnapshot = JSON.stringify(payload.driverSnapshot);
+                firebaseData.driver = JSON.stringify(payload.driverSnapshot);
             }
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: firebaseData,
