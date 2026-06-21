@@ -1,8 +1,8 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { PromoCodeService } from './promocode.service';
-import { CreatePromoCodeInput, PaginationInput, PromoCode } from '@libs/data-access';
+import { CreatePromoCodeInput, Occasion, PaginationInput, PaginationInputOnly, PromoCode } from '@libs/data-access';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
-import { PromocodeListWithPaginationResponse } from './types/promocode-paginated.type';
+import { OcassionListWithPaginationResponse, PromocodeListWithPaginationResponse } from './types/promocode-paginated.type';
 import { UseGuards } from '@nestjs/common';
 import { AdminAuthGuard } from '@libs/guards/auth.admin.guard';
 import { PromoCodeFindAllInput } from '@libs/data-access/dtos/input/promocode-filter.input';
@@ -33,6 +33,13 @@ export class PromoCodeResolver {
     @Args('paginationInput') paginationInput: PromoCodeFindAllInput,
   ): Promise<PromocodeListWithPaginationResponse> {
     return this.promoCodeService.findAll(paginationInput);
+  }
+
+    @Query(() => [Occasion], { name: 'occasion' })
+  async findAllOccasion(
+    @Args('paginationInput') paginationInput: PaginationInputOnly,
+  ): Promise<Occasion[]> {
+    return this.promoCodeService.findAllOcassions(paginationInput);
   }
 
   @Mutation(() => PromoCode)

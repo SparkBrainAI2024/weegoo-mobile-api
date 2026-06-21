@@ -22,6 +22,12 @@ type GeoLocation {
   coordinates: [Float!]!
 }
 
+type SavedLocation {
+  address: String
+  latitude: Float
+  longitude: Float
+}
+
 type UserProfileImageEntity {
   s3Key: String!
   status: ImageStatus!
@@ -117,6 +123,7 @@ type Vehicle {
   deleted: Boolean
   driverId: String!
   vehicleType: VehicleType!
+  name: String!
   vehicleModel: String!
   year: Int!
   color: String!
@@ -397,6 +404,19 @@ enum IssueStatus {
   RESOLVED
 }
 
+type Rating {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  rating: Float!
+  ratedBy: String!
+  ratedTo: String!
+  rideId: String!
+  ratingRemarks: String
+}
+
 type BasicResponse {
   message: String!
   success: Boolean!
@@ -486,6 +506,23 @@ type MatchAttemptResultGraphQL {
   status: String!
 }
 
+type DriverAcceptedDetailsGraphQL {
+  rideId: String!
+  rideUUId: String!
+  driverId: String!
+  driverName: String
+  driverImage: String
+  rating: Float
+  vehicleType: String
+  vehicleModel: String
+  color: String
+  numberPlate: String
+  estimatedFare: Float
+  estimatedTimeInMinutes: Float
+  distanceInKm: Float
+  ablyChannelId: String
+}
+
 type RideWithoutRelations {
   _id: String!
   createdAt: DateTime
@@ -545,6 +582,80 @@ type DashboardStats {
   totalTrips: Int
   rating: Float
   onlineHoursToday: String
+}
+
+type PassengerLocationResponse {
+  address: String
+  latitude: Float
+  longitude: Float
+}
+
+type PassengerPromoCodeResponse {
+  name: String!
+  amount: Float!
+  expiryTime: DateTime!
+  offerAvailableTime: DateTime!
+  promocodeType: String!
+  discountPercentage: Float
+}
+
+type BasicVehicleEstimateResponse {
+  vehicleType: String!
+  estimatedFare: Float!
+  comfortType: String!
+  hasAC: Boolean
+}
+
+type RideGroup {
+  title: String!
+  rides: [Rides!]!
+}
+
+type LocationInfo {
+  address: String
+  coordinates: [Float!]
+  city: String
+}
+
+type DriverInfo {
+  driverId: String!
+  fullName: String
+  phone: String
+  profileImage: String
+  rating: Float
+}
+
+type PassengerInfo {
+  passengerId: String!
+  fullName: String
+  phone: String
+  profileImage: String
+  gender: String
+}
+
+type VehicleInfo {
+  vehicleId: String
+  vehicleModel: String
+  vehicleType: String
+  color: String
+  numberPlate: String
+  year: Float
+}
+
+type DriverRideDetails {
+  rideId: String!
+  rideUUId: String!
+  rideType: String
+  rideStatus: String
+  pickupLocation: LocationInfo
+  dropoffLocation: LocationInfo
+  distanceInKm: Float
+  estimatedFare: Float
+  estimatedTimeInMinutes: Float
+  driver: DriverInfo
+  passenger: PassengerInfo
+  vehicle: VehicleInfo
+  acceptedAt: String
 }
 
 type AdminUserResponse {
@@ -613,6 +724,7 @@ type Query {
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
+  occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
 }
 
 input PaginationInputOnly {

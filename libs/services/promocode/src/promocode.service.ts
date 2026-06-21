@@ -1,7 +1,7 @@
 // promo-code.service.ts
 // ─────────────────────────────────────────────────────────────
 import { ErrorException, toMongoId } from '@libs/common';
-import { CreatePromoCodeInput, IPaginatedResult, PaginationInput, PromoCodeDocument, PromoCodeStatusEnum } from '@libs/data-access';
+import { BaseModel, CreatePromoCodeInput, IPaginatedResult, Occasion, OccasionDocument, PaginationInput, PaginationInputOnly, PromoCodeDocument, PromoCodeStatusEnum } from '@libs/data-access';
 import { PromoCodeFindAllInput } from '@libs/data-access/dtos/input/promocode-filter.input';
 import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
 import { PromoCodeRepository } from '@libs/data-access/repositories/promo-code.repository';
@@ -11,6 +11,7 @@ import {
   Logger,
   HttpStatus,
 } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Types } from 'mongoose';
 
 
@@ -18,8 +19,9 @@ import { FilterQuery, Types } from 'mongoose';
 @Injectable()
 export class PromoCodeService {
   private readonly logger = new Logger(PromoCodeService.name);
-
-  constructor(private readonly promoCodeRepository: PromoCodeRepository) {}
+    
+  constructor(private readonly promoCodeRepository: PromoCodeRepository,  @InjectModel(Occasion.name)
+      private readonly ocassionModel: BaseModel<OccasionDocument>) {}
 
   // ── HELPERS ─────────────────────────────────────────────────
 
@@ -111,6 +113,10 @@ export class PromoCodeService {
     } catch (e) {
       ErrorException(e, 'PROMO_CODE.FIND_ALL', HttpStatus.INTERNAL_SERVER_ERROR);
     }
+  }
+
+  async findAllOcassions(input:PaginationInputOnly){
+    return this.ocassionModel.find();
   }
 
   // ── UPDATE ──────────────────────────────────────────────────
