@@ -1,12 +1,17 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
 import { TransactionPersistenceModule } from './transaction-persistence.module';
 import { UserPersistenceModule } from '@libs/services/user/user-persistent.module';
-import { TransactionResolver } from '@driver-api/modules/transaction/resolver/transaction.resolver';
+import { WalletModule } from '../wallet/wallet.module';
+import { UserTransactionResolver } from './resolver/transaction.resolver';
 
 @Module({
-  imports: [TransactionPersistenceModule, UserPersistenceModule],
-  providers: [TransactionService],
-  exports: [TransactionService],
+  imports: [
+    TransactionPersistenceModule,
+    UserPersistenceModule,
+    forwardRef(() => WalletModule),
+  ],
+  providers: [TransactionService, UserTransactionResolver],
+  exports: [TransactionService, UserTransactionResolver],
 })
 export class TransactionModule {}

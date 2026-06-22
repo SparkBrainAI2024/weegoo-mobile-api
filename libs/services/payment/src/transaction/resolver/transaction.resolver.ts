@@ -1,10 +1,40 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@libs/guards';
+import { UseGuards, SetMetadata } from '@nestjs/common';
+import { AuthGuard, RoleGuard } from '@libs/guards';
+import { CurrentUser } from '@libs/common';
+import { User, roles } from '@libs/data-access';
+import { TransactionService } from '../transaction.service';
+import { TransactionListWithPaginationResponse } from '@libs/data-access/dtos/response/transaction-list-with-pagination.response';
+import { TransactionPaginationInput } from '@libs/data-access/dtos/input/transaction-pagination.input';
+import { Transaction } from '@libs/data-access/entities/transaction.entity';
+import { Pagination } from '@libs/data-access/base/base.response';
 
 @Resolver()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RoleGuard)
+@SetMetadata('roles', [roles.USER, roles.RIDER])
 export class UserTransactionResolver {
-  constructor(
-  ) {}
+  constructor(private readonly transactionService: TransactionService) {}
+
+  @Query(() => TransactionListWithPaginationResponse, {
+    name: 'getTransactionHistory',
+    description:
+      'Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.',
+  })
+  async getTransactionHistory(
+    @CurrentUser() user: User,
+    @Args('input', { type: () => TransactionPaginationInput })
+    input: TransactionPaginationInput,
+  ): Promise<TransactionListWithPaginationResponse> {
+    const result = await this.transactionService.getTransactionHistory(
+      user._id.toString(),
+      input.page,
+      input.limit,
+    );
+
+    return {
+      data: result.data,
+      pagination: result.pagination as Pagination,
+      walletAmount: result.walletAmount,
+    };
+  }
 }

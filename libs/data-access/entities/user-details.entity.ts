@@ -99,6 +99,10 @@ export class UserDetails extends BaseEntity {
   @Field(() => SavedLocation, { nullable: true })
   @Prop({ required: false, type: Object, default: null })
   workLocation?: SavedLocation;
+
+  @Field(() => Number, { nullable: true, defaultValue: 0 })
+  @Prop({ required: false, type: Number, default: 0 })
+  walletAmount?: number;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
