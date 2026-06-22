@@ -2,7 +2,9 @@ import { registerEnumType } from "@nestjs/graphql";
 
 export enum PaymentMethodEnum {
     CASH = 'CASH',
-    WALLET = 'WALLET'
+    WALLET = 'WALLET',
+    ESEWA = 'ESEWA',
+    KHALTI = 'KHALTI',
 }
 registerEnumType(PaymentMethodEnum, {
     name: 'PaymentMethodEnum',
@@ -12,7 +14,30 @@ registerEnumType(PaymentMethodEnum, {
             description: 'Payment method is cash',
         },
         WALLET: {
-            description: 'Payment method is wallet',
+            description: 'Payment via internal wallet',
+        },
+        ESEWA: {
+            description: 'Payment via eSewa',
+        },
+        KHALTI: {
+            description: 'Payment via Khalti',
         },
     },
-}); 
+});
+
+export enum PaymentMediumEnum {
+    ESEWA = 'ESEWA',
+    KHALTI = 'KHALTI',
+}
+registerEnumType(PaymentMediumEnum, {
+    name: 'PaymentMediumEnum',
+    description: 'Payment medium/gateway used for the transaction',
+    valuesMap: {
+        ESEWA: {
+            description: 'Payment processed through eSewa gateway',
+        },
+        KHALTI: {
+            description: 'Payment processed through Khalti gateway',
+        },
+    },
+});

@@ -19,6 +19,7 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { TransactionModule } from './modules/transaction/transaction.module';
 import { PageModule } from './modules/page/page.module';
 import { RatingIModule } from './modules/rating/rating.module';
+import { WalletApiModule } from './modules/wallet/wallet.module';
 
 @Module({
   imports: [
@@ -38,9 +39,9 @@ import { RatingIModule } from './modules/rating/rating.module';
         // Install a landing page plugin based on NODE_ENV
         process.env.NODE_ENV === 'production'
           ? ApolloServerPluginLandingPageProductionDefault({
-            graphRef: 'admin-api@current',
-            footer: false,
-          })
+              graphRef: "admin-api@current",
+              footer: false,
+            })
           : ApolloServerPluginLandingPageLocalDefault({ footer: false }),
       ],
     }),
@@ -56,7 +57,8 @@ import { RatingIModule } from './modules/rating/rating.module';
     NotificationModule,
     TransactionModule,
     PageModule,
-    RatingIModule
+    RatingIModule,
+    WalletApiModule
   ],
   providers: [HealthResolver],
 })

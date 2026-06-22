@@ -9,14 +9,17 @@ import {
   TransactionStatus,
   TransactionType,
 } from '@libs/data-access/enums/transaction.enum';
-import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
+import { PaymentMethodEnum, PaymentMediumEnum } from '@libs/data-access/enums/payment.enum';
 import { EnvService } from '@libs/common/config/env.service';
 import { Transaction } from '@libs/data-access';
+import { EsewaService } from '../esewa/esewa.service';
+import { KhaltiService } from '../khalti/khalti.service';
 
 export interface TopupInput {
   userId: string;
   amount: number;
   paymentMethod: PaymentMethodEnum;
+  paymentMedium: PaymentMediumEnum;
 }
 
 export interface WithdrawInput {
@@ -32,6 +35,8 @@ export class WalletService {
     private readonly transactionRepo: TransactionRepository,
     private readonly userDetailsRepo: UserDetailsRepository,
     private readonly envService: EnvService,
+    private readonly esewaService: EsewaService,
+    private readonly khaltiService: KhaltiService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -76,16 +81,18 @@ export class WalletService {
     await this.syncUserDetailsWalletAmount(userId);
   }
 
-  // ── eSewa Topup: Initiate ────────────────────────────────────
+  // ── Topup: Initiate (supports ESEWA and KHALTI) ──────────────
   async initiateTopup(input: TopupInput): Promise<{
     transactionId: string;
     amount: number;
     status: TransactionStatus;
     esewaPayload?: Record<string, any>;
+    khaltiPayload?: Record<string, any>;
+    gatewayUrl?: string;
     successUrl: string;
     failureUrl: string;
   }> {
-    // Create a PENDING transaction
+    // Create a PENDING transaction with paymentMedium
     const [txn] = await this.transactionRepo.createMany([
       {
         riderId: input.userId,
@@ -93,39 +100,58 @@ export class WalletService {
         type: TransactionType.TOPUP,
         amount: input.amount,
         paymentMethod: input.paymentMethod,
+        paymentMedium: input.paymentMedium,
         status: TransactionStatus.PENDING,
       },
     ]);
 
     // Build callback URLs from the server's base URL
     const baseUrl = this.envService.getString('API_BASE_URL', 'http://localhost:3000');
-    const successUrl = `${baseUrl}/payment/esewa/success?transactionId=${txn._id}`;
-    const failureUrl = `${baseUrl}/payment/esewa/failure?transactionId=${txn._id}`;
+    const txnId = txn._id.toString();
+    const successUrl = `${baseUrl}/payment/topup/success?transactionId=${txnId}`;
+    const failureUrl = `${baseUrl}/payment/topup/failure?transactionId=${txnId}`;
 
-    // Generate eSewa payload (mock — replace with real eSewa integration)
-    const esewaPayload = {
-      amt: input.amount,
-      psc: 0,
-      pdc: 0,
-      txAmt: 0,
-      tAmt: input.amount,
-      pid: txn._id.toString(),
-      scd: 'EPAYTEST',
-      su: successUrl,
-      fu: failureUrl,
-    };
+    let esewaPayload: Record<string, any> | undefined;
+    let khaltiPayload: Record<string, any> | undefined;
+    let gatewayUrl: string | undefined;
+
+    if (input.paymentMedium === PaymentMediumEnum.ESEWA) {
+      const payload = this.esewaService.generatePaymentPayload({
+        transactionId: txnId,
+        amount: input.amount,
+        successUrl,
+        failureUrl,
+      });
+      esewaPayload = payload as unknown as Record<string, any>;
+      gatewayUrl = this.esewaService.getPaymentUrl();
+    } else if (input.paymentMedium === PaymentMediumEnum.KHALTI) {
+      const payload = this.khaltiService.generatePaymentPayload({
+        transactionId: txnId,
+        amount: input.amount,
+        returnUrl: successUrl,
+        websiteUrl: baseUrl,
+      });
+      khaltiPayload = payload as unknown as Record<string, any>;
+      gatewayUrl = this.khaltiService.getPaymentUrl({
+        transactionId: txnId,
+        amount: input.amount,
+        returnUrl: successUrl,
+      });
+    }
 
     return {
-      transactionId: txn._id.toString(),
+      transactionId: txnId,
       amount: input.amount,
       status: TransactionStatus.PENDING,
       esewaPayload,
+      khaltiPayload,
+      gatewayUrl,
       successUrl,
       failureUrl,
     };
   }
 
-  // ── eSewa Topup: Success Callback ────────────────────────────
+  // ── Topup: Success Callback (used by both ESEWA and KHALTI) ──
   async completeTopup(transactionId: string, verifiedAmount: number): Promise<void> {
     const session = await this.connection.startSession();
     try {
@@ -143,7 +169,7 @@ export class WalletService {
 
         // Update transaction to COMPLETED
         txn.status = TransactionStatus.COMPLETED;
-        txn.reference = `esewa-verify-${verifiedAmount}`;
+        txn.reference = `gateway-verify-${verifiedAmount}`;
         await txn.save({ session });
 
         // Credit wallet (riderId is the userId for topup)
@@ -154,7 +180,7 @@ export class WalletService {
     }
   }
 
-  // ── eSewa Topup: Failure Callback ────────────────────────────
+  // ── Topup: Failure Callback ────────────────────────────
   async failTopup(transactionId: string, remarks?: string): Promise<void> {
     const txn = await this.transactionRepo['model'].findById(transactionId);
 
@@ -166,7 +192,7 @@ export class WalletService {
     }
 
     txn.status = TransactionStatus.FAILED;
-    txn.remarks = remarks || 'eSewa payment failed';
+    txn.remarks = remarks || 'Payment failed';
     await txn.save();
   }
 
@@ -190,6 +216,7 @@ export class WalletService {
         type: TransactionType.WITHDRAWAL,
         amount: input.amount,
         paymentMethod: input.paymentMethod,
+        paymentMedium: PaymentMediumEnum.WALLET,
         status: TransactionStatus.PENDING,
       },
     ]);

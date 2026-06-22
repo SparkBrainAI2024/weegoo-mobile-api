@@ -1,6 +1,5 @@
 import { Controller, Post, Query, Body, HttpCode, HttpStatus, Logger, Get } from '@nestjs/common';
 import { WalletService } from '@libs/services/payment/src/wallet/wallet.service';
-import { PaymentMediumEnum } from '@libs/data-access/enums/payment.enum';
 
 /**
  * REST controller to handle eSewa and Khalti payment callbacks.
@@ -14,11 +13,6 @@ export class PaymentController {
 
   // ── eSewa Callbacks ──────────────────────────────────────────────────
 
-  /**
-   * POST /payment/esewa/success
-   * Called by eSewa after successful payment.
-   * Query params: transactionId, refId (eSewa reference), oid (order ID)
-   */
   @Post('esewa/success')
   @HttpCode(HttpStatus.OK)
   async esewaSuccess(
@@ -33,8 +27,7 @@ export class PaymentController {
     }
 
     try {
-      // Verify with eSewa server using refId
-      const verifiedAmount = await this.walletService.completeTopup(transactionId, 0);
+      await this.walletService.completeTopup(transactionId, 0);
       return { success: true, message: 'Topup completed successfully' };
     } catch (error: any) {
       this.logger.error(`eSewa success callback error: ${error.message}`);
@@ -42,11 +35,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * POST /payment/esewa/failure
-   * Called by eSewa after failed payment.
-   * Query params: transactionId
-   */
   @Post('esewa/failure')
   @HttpCode(HttpStatus.OK)
   async esewaFailure(
@@ -70,11 +58,6 @@ export class PaymentController {
 
   // ── Khalti Callbacks ─────────────────────────────────────────────────
 
-  /**
-   * GET /payment/khalti/success
-   * Called by Khalti after successful payment (Khalti redirects via GET).
-   * Query params: pidx (payment index), status, transaction_id, total_amount
-   */
   @Get('khalti/success')
   @HttpCode(HttpStatus.OK)
   async khaltiSuccess(
@@ -90,7 +73,7 @@ export class PaymentController {
     }
 
     try {
-      const amount = totalAmount ? parseFloat(totalAmount) / 100 : 0; // Khalti sends amount in paisa
+      const amount = totalAmount ? parseFloat(totalAmount) / 100 : 0;
       await this.walletService.completeTopup(transactionId, amount);
       return { success: true, message: 'Topup completed successfully' };
     } catch (error: any) {
@@ -99,11 +82,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * GET /payment/khalti/failure
-   * Called by Khalti after failed payment.
-   * Query params: pidx, status
-   */
   @Get('khalti/failure')
   @HttpCode(HttpStatus.OK)
   async khaltiFailure(
@@ -117,8 +95,6 @@ export class PaymentController {
     }
 
     try {
-      // Find transaction by pidx (stored in reference field during verification)
-      // For now, we mark as failed with the pidx in remarks
       await this.walletService.failTopup(pidx, `Khalti payment failed with status: ${status || 'unknown'}`);
       return { success: true, message: 'Transaction marked as failed' };
     } catch (error: any) {

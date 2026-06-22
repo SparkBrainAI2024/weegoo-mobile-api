@@ -51,13 +51,13 @@ export class WithdrawInitiateResponse {
 
 @Resolver()
 @UseGuards(AuthGuard, RoleGuard)
-@SetMetadata('roles', [roles.USER, roles.RIDER])
+@SetMetadata('roles', [roles.RIDER])
 export class WalletResolver {
   constructor(private readonly walletService: WalletService) {}
 
   @Query(() => Wallet, {
     name: 'getMyWallet',
-    description: 'Get the wallet (including balance) for the logged-in user',
+    description: 'Get the wallet (including balance) for the logged-in driver',
   })
   async getMyWallet(@CurrentUser() user: User): Promise<Wallet> {
     return this.walletService.getWallet(user._id.toString());

@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, ClientSession, Types } from 'mongoose';
 import { Transaction, TransactionDocument } from '../entities/transaction.entity';
 import { TransactionDirection, TransactionStatus, TransactionType } from '../enums/transaction.enum';
-import { PaymentMethodEnum } from '../enums/payment.enum';
+import { PaymentMethodEnum, PaymentMediumEnum } from '../enums/payment.enum';
 import { toMongoId } from '@libs/common';
 
 export interface CreateTransactionDto {
@@ -16,6 +16,7 @@ export interface CreateTransactionDto {
   type: TransactionType;
   amount: number;
   paymentMethod?: PaymentMethodEnum;
+  paymentMedium?: PaymentMediumEnum;
   reference?: string;
   status?: TransactionStatus;
 }
