@@ -13,6 +13,7 @@ import { AblyModule } from "@libs/services/ably";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
 import { RidesModule } from "./modules/rides/rides.module";
+import { ProfileModule } from "@libs/services/profile";
 import { UserFavouritesModule } from "./modules/user-favourites/user-favourites.module";
 import { IssueModule } from "./modules/issue/issue.module";
 import { NotificationModule } from "./modules/notification/notification.module";
@@ -52,6 +53,7 @@ import { WalletApiModule } from "./modules/wallet/wallet.module";
     AuthModule,
     UserModule,
     RidesModule,
+    ProfileModule,
     IssueModule,
     UserFavouritesModule,
     NotificationModule,

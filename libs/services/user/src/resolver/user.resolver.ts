@@ -59,10 +59,4 @@ export class UserResolver {
     return this.userService.getUserById(user._id);
   }
 
-  @Mutation(() => BasicResponse)
-  deleteAccount(
-    @CurrentUser() user,
-  ) {
-    return this.userService.deleteAccount(user._id, user.loginAs);
-  }
 }
