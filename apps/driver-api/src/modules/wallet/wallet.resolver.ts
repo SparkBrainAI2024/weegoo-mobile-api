@@ -80,6 +80,7 @@ export class WalletResolver {
       amount,
       paymentMethod: PaymentMethodEnum.WALLET,
       paymentMedium,
+      loginAs: user.loginAs,
     });
   }
 
@@ -124,6 +125,7 @@ export class WalletResolver {
       userId: user._id.toString(),
       amount,
       paymentMethod: PaymentMethodEnum.WALLET,
+      loginAs: user.loginAs,
     });
   }
 }

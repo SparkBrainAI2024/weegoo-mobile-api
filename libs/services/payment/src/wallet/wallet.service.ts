@@ -20,12 +20,14 @@ export interface TopupInput {
   amount: number;
   paymentMethod: PaymentMethodEnum;
   paymentMedium: PaymentMediumEnum;
+  loginAs?: string;
 }
 
 export interface WithdrawInput {
   userId: string;
   amount: number;
   paymentMethod: PaymentMethodEnum;
+  loginAs?: string;
 }
 
 @Injectable()
@@ -93,9 +95,10 @@ export class WalletService {
     failureUrl: string;
   }> {
     // Create a PENDING transaction with paymentMedium
+    const isDriver = input.loginAs === 'RIDER';
     const [txn] = await this.transactionRepo.createMany([
       {
-        riderId: input.userId,
+        ...(isDriver ? { driverId: input.userId } : { riderId: input.userId }),
         direction: TransactionDirection.CREDIT,
         type: TransactionType.TOPUP,
         amount: input.amount,
@@ -219,9 +222,10 @@ export class WalletService {
     }
 
     // Create PENDING withdrawal transaction
+    const isDriver = input.loginAs === 'RIDER';
     const [txn] = await this.transactionRepo.createMany([
       {
-        riderId: input.userId,
+        ...(isDriver ? { driverId: input.userId } : { riderId: input.userId }),
         direction: TransactionDirection.DEBIT,
         type: TransactionType.WITHDRAWAL,
         amount: input.amount,
