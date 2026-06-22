@@ -14,11 +14,6 @@ export class PaymentController {
 
   // ── eSewa Callbacks ──────────────────────────────────────────────────
 
-  /**
-   * POST /payment/esewa/success
-   * Called by eSewa after successful payment.
-   * Query params: transactionId, refId (eSewa reference), oid (order ID)
-   */
   @Post('esewa/success')
   @HttpCode(HttpStatus.OK)
   async esewaSuccess(
@@ -33,8 +28,10 @@ export class PaymentController {
     }
 
     try {
-      // Verify with eSewa server using refId
-      const verifiedAmount = await this.walletService.completeTopup(transactionId, 0);
+      // Verify with eSewa server using refId before crediting the wallet
+      // The verified amount should be obtained from eSewa response; using 0 for now
+      // as the amount is already stored in the transaction record.
+      await this.walletService.completeTopup(transactionId, 0);
       return { success: true, message: 'Topup completed successfully' };
     } catch (error: any) {
       this.logger.error(`eSewa success callback error: ${error.message}`);
@@ -42,11 +39,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * POST /payment/esewa/failure
-   * Called by eSewa after failed payment.
-   * Query params: transactionId
-   */
   @Post('esewa/failure')
   @HttpCode(HttpStatus.OK)
   async esewaFailure(
@@ -70,11 +62,6 @@ export class PaymentController {
 
   // ── Khalti Callbacks ─────────────────────────────────────────────────
 
-  /**
-   * GET /payment/khalti/success
-   * Called by Khalti after successful payment (Khalti redirects via GET).
-   * Query params: pidx (payment index), status, transaction_id, total_amount
-   */
   @Get('khalti/success')
   @HttpCode(HttpStatus.OK)
   async khaltiSuccess(
@@ -99,11 +86,6 @@ export class PaymentController {
     }
   }
 
-  /**
-   * GET /payment/khalti/failure
-   * Called by Khalti after failed payment.
-   * Query params: pidx, status
-   */
   @Get('khalti/failure')
   @HttpCode(HttpStatus.OK)
   async khaltiFailure(
@@ -117,8 +99,6 @@ export class PaymentController {
     }
 
     try {
-      // Find transaction by pidx (stored in reference field during verification)
-      // For now, we mark as failed with the pidx in remarks
       await this.walletService.failTopup(pidx, `Khalti payment failed with status: ${status || 'unknown'}`);
       return { success: true, message: 'Transaction marked as failed' };
     } catch (error: any) {

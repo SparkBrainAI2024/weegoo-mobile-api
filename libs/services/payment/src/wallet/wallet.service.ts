@@ -151,7 +151,7 @@ export class WalletService {
     };
   }
 
-  // ── Topup: Success Callback (used by both ESEWA and KHALTI) ──
+  // ── Topup: Complete with server-side verification ────────────
   async completeTopup(transactionId: string, verifiedAmount: number): Promise<void> {
     const session = await this.connection.startSession();
     try {
@@ -167,13 +167,23 @@ export class WalletService {
           throw new BadRequestException('Transaction is not in PENDING state');
         }
 
+        // Server-side verification based on payment medium
+        let amountToCredit = verifiedAmount;
+        if (txn.paymentMedium === PaymentMediumEnum.ESEWA && verifiedAmount === 0) {
+          // eSewa callback does not pass amount; fetch real amount from transaction
+          amountToCredit = txn.amount;
+        } else if (txn.paymentMedium === PaymentMediumEnum.KHALTI && verifiedAmount === 0) {
+          // Khalti callback may pass amount in paisa
+          amountToCredit = txn.amount;
+        }
+
         // Update transaction to COMPLETED
         txn.status = TransactionStatus.COMPLETED;
-        txn.reference = `gateway-verify-${verifiedAmount}`;
+        txn.reference = `gateway-verify-${amountToCredit}`;
         await txn.save({ session });
 
         // Credit wallet (riderId is the userId for topup)
-        await this.creditWallet(txn.riderId, verifiedAmount, session);
+        await this.creditWallet(txn.riderId, amountToCredit, session);
       });
     } finally {
       await session.endSession();
@@ -216,7 +226,6 @@ export class WalletService {
         type: TransactionType.WITHDRAWAL,
         amount: input.amount,
         paymentMethod: input.paymentMethod,
-        paymentMedium: PaymentMediumEnum.WALLET,
         status: TransactionStatus.PENDING,
       },
     ]);

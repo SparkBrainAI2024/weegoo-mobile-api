@@ -90,14 +90,11 @@ export class TransactionService {
 
   async getTransactionHistory(
     userId: string,
-    role: 'rider' | 'driver',
     page: number,
     limit: number,
   ): Promise<{ data: Transaction[]; pagination: IPagination; walletAmount: number }> {
-    const field = role === 'driver' ? 'driverId' : 'riderId';
-    const { data, total } = await this.transactionRepo.findByUserIdPaginated(
+    const { data, total } = await this.transactionRepo.findByUserIdPaginatedV2(
       userId,
-      field,
       page,
       limit,
     );

@@ -6,11 +6,10 @@ import { TransactionModule } from "@libs/services/payment/src/transaction/transa
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { MatchmakingIntegrationService } from "./matchmaking-integration.service";
 import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
-
 import { PassengerRidesResolver } from "./resolver/rides.resolver";
 import { PassengerHomeResolver } from "./resolver/passenger-home.resolver";
-import { TransactionHistoryResolver } from "./resolver/transaction-history.resolver";
 import { PassengerHomeService } from "./passenger-home.service";
+import { UserTransactionResolver } from "@libs/services/payment/src/transaction/resolver/transaction.resolver";
 import { S3Module } from "@libs/s3/s3.module";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSchema, PromoCode, PromoCodeSchema } from "@libs/data-access";
@@ -37,7 +36,7 @@ import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSch
         PassengerRidesResolver,
         PassengerHomeService,
         PassengerHomeResolver,
-        TransactionHistoryResolver,
+        UserTransactionResolver,
     ],
     exports: [RidesService]
 })
