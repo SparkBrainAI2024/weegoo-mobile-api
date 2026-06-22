@@ -2,8 +2,9 @@ import { NotificationType } from "@libs/data-access/enums/notification.enum";
 import { GenderEnum } from "@libs/data-access/enums/user.enum";
 import { RideUserInputSnapshot } from "@libs/data-access/common/ride-user-snapshot";
 import { Field, InputType, Float } from "@nestjs/graphql";
-import { IsEnum, IsOptional, IsString, IsNumber, IsArray, ValidateNested } from "class-validator";
+import { IsEnum, IsOptional, IsString, IsNumber, IsArray, ValidateNested, IsMongoId, IsNotEmpty } from "class-validator";
 import { Type } from "class-transformer";
+import { RideStatus, RideTypes } from "@libs/data-access/enums/rides.enum";
 
 @InputType()
 class NotificationLocationInput {
@@ -43,6 +44,24 @@ export class CreateNotificationInput {
   @IsOptional()
   @IsString()
   ablyChannelId?: string;
+
+
+  @Field(() => String, { nullable: true })
+  @IsMongoId()
+  @IsNotEmpty()
+  rideId?: string;
+
+  @Field(() => RideTypes, { nullable: true })
+  @IsOptional()
+  @IsEnum(RideTypes)
+  rideType?: RideTypes;
+
+
+  @Field(() => RideStatus, { nullable: true })
+  @IsOptional()
+  @IsEnum(RideStatus)
+  rideStatus?: RideStatus;
+
 
   @Field(() => Number, { nullable: true })
   @IsOptional()

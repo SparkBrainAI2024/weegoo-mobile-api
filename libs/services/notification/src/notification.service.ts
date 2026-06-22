@@ -82,6 +82,14 @@ export class NotificationService {
             if (payload.rideId) {
                 firebaseData.rideId = JSON.stringify(payload.rideId);
             }
+
+            if (payload.rideType) {
+                firebaseData.rideType = JSON.stringify(payload.rideType);
+            }
+
+            if (payload.rideStatus) {
+                firebaseData.rideType = JSON.stringify(payload.rideType);
+            }
             if (payload.pickupLocation) {
                 firebaseData.pickupLocation = JSON.stringify(payload.pickupLocation);
             }
@@ -152,6 +160,7 @@ export class NotificationService {
             if (payload.driverSnapshot) {
                 firebaseData.driver = JSON.stringify(payload.driverSnapshot);
             }
+            console.log("payload",payload)
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                 data: firebaseData,
                 token: token.firebaseToken,
