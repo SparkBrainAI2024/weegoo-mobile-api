@@ -1,4 +1,4 @@
-import { Rides, RidesSchema, RidesRepository, User, Vehicle, VehicleSchema, UserSchema, PromoCode, PromoCodeSchema, PromoCodeUsed, PromoCodeUsedSchema, DriverDocument, DriverDocumentSchema, DriverDocumentRepository } from "@libs/data-access";
+import { Rides, RidesSchema, RidesRepository, User, Vehicle, VehicleSchema, UserSchema, PromoCode, PromoCodeSchema, PromoCodeUsed, PromoCodeUsedSchema, DriverDocument, DriverDocumentSchema, DriverDocumentRepository, VehicleRepository } from "@libs/data-access";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 
@@ -16,10 +16,12 @@ import { MongooseModule } from "@nestjs/mongoose";
     providers: [
         RidesRepository,
         DriverDocumentRepository,
+        VehicleRepository,
     ],
     exports: [
         RidesRepository,
         DriverDocumentRepository,
+        VehicleRepository,
         MongooseModule
     ],
 })

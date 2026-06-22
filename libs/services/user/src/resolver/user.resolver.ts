@@ -4,10 +4,10 @@ import {
   ChangeLanguageInput,
   ChangePasswordInput,
   LogOutInput,
- // VerifyEmailInput,
+  VerifyEmailInput,
   UserDetailEntity,
   BasicResponse,
-  //SetPasswordInput,
+  SetPasswordInput,
 } from "@libs/data-access";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
