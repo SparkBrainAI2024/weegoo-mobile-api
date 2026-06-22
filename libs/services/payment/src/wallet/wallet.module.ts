@@ -6,6 +6,9 @@ import { UserPersistenceModule } from '@libs/services/user/user-persistent.modul
 import { EnvService } from '@libs/common/config/env.service';
 import { EsewaModule } from '../esewa/esewa.module';
 import { KhaltiModule } from '../khalti/khalti.module';
+import { NotificationPersistentModule } from '@libs/services/notification/notification-persistent.module';
+import { NotificationService } from '@libs/services/notification/notification.service';
+import { FirebaseMessagingService } from '@libs/services/firebase-messaging/firebase-messaging.service';
 
 @Module({
   imports: [
@@ -14,8 +17,9 @@ import { KhaltiModule } from '../khalti/khalti.module';
     UserPersistenceModule,
     EsewaModule,
     KhaltiModule,
+    NotificationPersistentModule
   ],
-  providers: [WalletService, EnvService],
+  providers: [WalletService, EnvService,NotificationService,FirebaseMessagingService],
   exports: [WalletService],
 })
 export class WalletModule {}

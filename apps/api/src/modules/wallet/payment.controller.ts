@@ -28,13 +28,17 @@ export class PaymentController {
     }
 
     try {
-      // Verify with eSewa server using refId before crediting the wallet
-      // The verified amount should be obtained from eSewa response; using 0 for now
-      // as the amount is already stored in the transaction record.
+      // Verify with eSewa server before crediting the wallet
       await this.walletService.completeTopup(transactionId, 0);
       return { success: true, message: 'Topup completed successfully' };
     } catch (error: any) {
       this.logger.error(`eSewa success callback error: ${error.message}`);
+      // Mark as failed if verification fails
+      try {
+        await this.walletService.failTopup(transactionId, error.message);
+      } catch (failError: any) {
+        this.logger.error(`Failed to mark transaction as failed: ${failError.message}`);
+      }
       return { success: false, message: error.message };
     }
   }
