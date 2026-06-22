@@ -64,6 +64,10 @@ export class Transaction extends BaseEntity {
   @Field(() => String, { nullable: true })
   @Prop({ type: String, default: null })
   remarks?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  transactionUuid?: string;
 }
 
 export type TransactionDocument = HydratedDocument<Transaction>;

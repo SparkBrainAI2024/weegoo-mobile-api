@@ -18,6 +18,8 @@ export enum NotificationType {
     REQUEST_TO_PAY = 'REQUEST_TO_PAY',
     DRIVER_ON_THE_WAY = 'DRIVER_ON_THE_WAY',
     PAYMENT_CONFIRM = 'PAYMENT_CONFIRM',
+    WALLET_TOPUP = 'WALLET_TOPUP',
+    WALLET_TOPUP_FAILED = 'WALLET_TOPUP_FAILED',
 }
 export enum PassengerNotificationType {
      RIDE_ACCEPTED =NotificationType.RIDE_ACCEPTED,

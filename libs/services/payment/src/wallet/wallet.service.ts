@@ -1,9 +1,10 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
 import { WalletRepository } from '@libs/data-access/repositories/wallet.repository';
 import { TransactionRepository } from '@libs/data-access/repositories/transaction.repository';
 import { UserDetailsRepository } from '@libs/data-access/repositories/user-detail.repository';
+import { UserRepository } from '@libs/data-access/repositories/user.repository';
 import {
   TransactionDirection,
   TransactionStatus,
@@ -11,9 +12,10 @@ import {
 } from '@libs/data-access/enums/transaction.enum';
 import { PaymentMethodEnum, PaymentMediumEnum } from '@libs/data-access/enums/payment.enum';
 import { EnvService } from '@libs/common/config/env.service';
-import { Transaction } from '@libs/data-access';
+import { NotificationType, Transaction, User } from '@libs/data-access';
 import { EsewaService } from '../esewa/esewa.service';
 import { KhaltiService } from '../khalti/khalti.service';
+import { NotificationService } from '@libs/services/notification';
 
 export interface TopupInput {
   userId: string;
@@ -39,6 +41,7 @@ export class WalletService {
     private readonly envService: EnvService,
     private readonly esewaService: EsewaService,
     private readonly khaltiService: KhaltiService,
+    private readonly notificationService: NotificationService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -96,6 +99,7 @@ export class WalletService {
   }> {
     // Create a PENDING transaction with paymentMedium
     const isDriver = input.loginAs === 'RIDER';
+    const transactionUuid = `TOPUP-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
     const [txn] = await this.transactionRepo.createMany([
       {
         ...(isDriver ? { driverId: input.userId } : { riderId: input.userId }),
@@ -104,6 +108,7 @@ export class WalletService {
         amount: input.amount,
         paymentMethod: input.paymentMethod,
         paymentMedium: input.paymentMedium,
+        transactionUuid,
         status: TransactionStatus.PENDING,
       },
     ]);
@@ -170,14 +175,25 @@ export class WalletService {
           throw new BadRequestException('Transaction is not in PENDING state');
         }
 
-        // Server-side verification based on payment medium
         let amountToCredit = verifiedAmount;
         if (txn.paymentMedium === PaymentMediumEnum.ESEWA && verifiedAmount === 0) {
-          // eSewa callback does not pass amount; fetch real amount from transaction
           amountToCredit = txn.amount;
         } else if (txn.paymentMedium === PaymentMediumEnum.KHALTI && verifiedAmount === 0) {
-          // Khalti callback may pass amount in paisa
           amountToCredit = txn.amount;
+        }
+
+        // For eSewa, verify with eSewa Status API before crediting wallet
+        if (txn.paymentMedium === PaymentMediumEnum.ESEWA && txn.transactionUuid) {
+          const merchantCode = this.envService.getString('ESEWA_MERCHANT_CODE', 'EPAYTEST');
+          const esewaStatus = await this.esewaService.getTransactionStatus(
+            merchantCode,
+            amountToCredit,
+            txn.transactionUuid,
+          );
+
+          if (esewaStatus !== 'COMPLETE') {
+            throw new BadRequestException(`eSewa status verification failed: ${esewaStatus}`);
+          }
         }
 
         // Update transaction to COMPLETED
@@ -185,8 +201,23 @@ export class WalletService {
         txn.reference = `gateway-verify-${amountToCredit}`;
         await txn.save({ session });
 
-        // Credit wallet (riderId is the userId for topup)
-        await this.creditWallet(txn.riderId, amountToCredit, session);
+        // Credit wallet
+        const userId = txn.riderId || txn.driverId;
+        if (!userId) {
+          throw new BadRequestException('Transaction has no associated user');
+        }
+        await this.creditWallet(userId, amountToCredit, session);
+
+        // Send success FCM notification
+        await this.notificationService.createNotification(
+          {
+            title: 'Wallet Top-up Successful',
+            description: `NPR ${amountToCredit} has been added to your wallet.`,
+            notificationType:NotificationType.PAYMENT_RECEIPT as any,
+            rideId: undefined,
+          },
+          { _id: new Types.ObjectId(userId), loginAs: txn.riderId ? 'USER' : 'RIDER' } as any,
+        );
       });
     } finally {
       await session.endSession();
@@ -207,6 +238,19 @@ export class WalletService {
     txn.status = TransactionStatus.FAILED;
     txn.remarks = remarks || 'Payment failed';
     await txn.save();
+
+    const userId = txn.riderId || txn.driverId;
+    if (userId) {
+      await this.notificationService.createNotification(
+        {
+          title: 'Wallet Top-up Failed',
+          description: `Your NPR ${txn.amount} top-up could not be completed. ${remarks || ''}`,
+          notificationType:NotificationType.PAYMENT_FAILURE,
+          rideId: undefined,
+        },
+        { _id: new Types.ObjectId(userId), loginAs: txn.riderId ? 'USER' : 'RIDER' } as any,
+      );
+    }
   }
 
   // ── Withdraw: Initiate ───────────────────────────────────────

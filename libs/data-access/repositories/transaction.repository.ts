@@ -12,6 +12,7 @@ export interface CreateTransactionDto {
   driverId?: string;
   riderId?: string;
   adminId?: string;
+  transactionUuid?: string;
   direction: TransactionDirection;
   type: TransactionType;
   amount: number;

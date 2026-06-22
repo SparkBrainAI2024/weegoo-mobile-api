@@ -23,6 +23,10 @@ export interface EsewaVerificationResponse {
   }[];
 }
 
+export interface EsewaStatusResponse {
+  status: string;
+}
+
 @Injectable()
 export class EsewaService {
   constructor(private readonly envService: EnvService) {}
@@ -166,6 +170,42 @@ export class EsewaService {
   private generateHmacSha256(message: string, secretKey: string): string {
     const crypto = require('crypto');
     return crypto.createHmac('sha256', secretKey).update(message).digest('hex');
+  }
+
+  /**
+   * Get transaction status from eSewa Status API (for topup verification)
+   * Reference: https://developer.esewa.com.np/#status
+   */
+  async getTransactionStatus(
+    productCode: string,
+    totalAmount: number,
+    transactionUuid: string,
+  ): Promise<'COMPLETE' | 'PENDING' | 'CANCELED' | 'NOT_FOUND' | 'AMBIGUOUS'> {
+    const isProduction = this.envService.isProduction();
+    const baseUrl = isProduction ? 'https://esewa.com.np' : 'https://uat.esewa.com.np';
+
+    const url = `${baseUrl}/api/epay/transaction/status?product_code=${encodeURIComponent(productCode)}&total_amount=${encodeURIComponent(totalAmount)}&transaction_uuid=${encodeURIComponent(transactionUuid)}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      const data = await response.json();
+
+      if (data && typeof data.status === 'string') {
+        const status = data.status.toUpperCase();
+        if (['COMPLETE', 'PENDING', 'CANCELED', 'NOT_FOUND', 'AMBIGUOUS'].includes(status)) {
+          return status as 'COMPLETE' | 'PENDING' | 'CANCELED' | 'NOT_FOUND' | 'AMBIGUOUS';
+        }
+      }
+      return 'NOT_FOUND';
+    } catch (error) {
+      console.error('eSewa status API error:', error);
+      return 'NOT_FOUND';
+    }
   }
 
   /**
