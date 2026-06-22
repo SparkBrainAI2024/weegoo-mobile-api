@@ -1,6 +1,7 @@
 import { PaymentMethodEnum, Transaction } from '@libs/data-access';
 import { TransactionDirection, TransactionStatus, TransactionType } from '@libs/data-access/enums/transaction.enum';
 import { TransactionRepository } from '@libs/data-access/repositories/transaction.repository';
+import { WalletService } from '../wallet/wallet.service';
 import { IPagination } from '@libs/data-access/interfaces/pagination.interface';
 import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
@@ -24,16 +25,14 @@ export interface RideConfirmedInput {
 export class TransactionService {
   constructor(
     private readonly transactionRepo: TransactionRepository,
-    //TODO private readonly walletRepo: WalletRepository,
+    private readonly walletService: WalletService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
-  // called on trip confirmed — inserts 3 rows atomically
+  // called on trip confirmed — inserts 3 rows and moves wallet balances if WALLET payment
   async createRideTransactions(input: RideConfirmedInput): Promise<void> {
     const {
       tripId, 
-      //TODO riderWalletId, driverWalletId, adminWalletId,
-      
       riderId, driverId, adminId,
       totalFare, commission, paymentMethod,
     } = input;
@@ -51,7 +50,7 @@ export class TransactionService {
             type: TransactionType.RIDE_PAYMENT,
             amount: totalFare,
             paymentMethod,
-            status: TransactionStatus.PENDING
+            status: TransactionStatus.COMPLETED
             
           },
           {
@@ -60,7 +59,7 @@ export class TransactionService {
             type: TransactionType.RIDE_PAYMENT,
             amount: driverCredit,
             paymentMethod,
-            status: TransactionStatus.PENDING
+            status: TransactionStatus.COMPLETED
           },
           {
             tripId, driverId, adminId,
@@ -73,12 +72,16 @@ export class TransactionService {
         ], session);
 
         // only move actual balances for wallet payment
-        // cash → rows recorded for audit, balances untouched
-        // TODO: if (paymentMethod === PaymentMethod.WALLET) {
-        //   await this.walletRepo.decrementBalance(riderWalletId, totalAmount, session);
-        //   await this.walletRepo.incrementBalance(driverWalletId, driverCredit, session);
-        //   await this.walletRepo.incrementBalance(adminWalletId, commission, session);
-        // }
+        if (paymentMethod === PaymentMethodEnum.WALLET) {
+          await this.walletService.processRideWalletPayment({
+            riderId,
+            driverId,
+            adminId,
+            totalFare,
+            commission,
+            tripId,
+          });
+        }
       });
     } finally {
       await session.endSession();
@@ -90,13 +93,16 @@ export class TransactionService {
     role: 'rider' | 'driver',
     page: number,
     limit: number,
-  ): Promise<{ data: Transaction[]; pagination: IPagination }> {
-   // const field = role === 'driver' ? 'driverId' : 'riderId';
-    const { data, total } = await this.transactionRepo.findByUserIdPaginatedV2(
+  ): Promise<{ data: Transaction[]; pagination: IPagination; walletAmount: number }> {
+    const field = role === 'driver' ? 'driverId' : 'riderId';
+    const { data, total } = await this.transactionRepo.findByUserIdPaginated(
       userId,
+      field,
       page,
       limit,
     );
+
+    const walletAmount = await this.walletService.getBalance(userId);
 
     const totalPages = Math.ceil(total / limit);
     const hasNextPage = page < totalPages - 1;
@@ -113,6 +119,7 @@ export class TransactionService {
         nextPage: hasNextPage ? page + 1 : undefined,
         previousPage: hasPreviousPage ? page - 1 : undefined,
       },
+      walletAmount,
     };
   }
 

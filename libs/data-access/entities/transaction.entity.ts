@@ -58,6 +58,14 @@ export class Transaction extends BaseEntity {
     default: TransactionStatus.COMPLETED,
   })
   status: TransactionStatus;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  reference?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  remarks?: string;
 }
 
 export type TransactionDocument = HydratedDocument<Transaction>;

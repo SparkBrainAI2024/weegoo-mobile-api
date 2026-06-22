@@ -21,6 +21,7 @@ export * from './entities/notification.entity';
 export * from './entities/promo-code-used.entity'
 export * from './entities/promo-code.entity';
 export * from './entities/transaction.entity';
+export * from './entities/wallet.entity';
 export * from './entities/issue.entity';
 export * from './entities/user-daily-online-status.entity';
 export * from './entities/rating.entity';
@@ -34,6 +35,7 @@ export * from './repositories/rides.repository';
 export * from './repositories/vehicle.repository';
 export * from './repositories/driver-document.repository';
 export * from './repositories/transaction.repository';
+export * from './repositories/wallet.repository';
 export * from './repositories/favourites.repository';
 export * from './repositories/notification.repository';
 export * from './repositories/user-daily-online-status.repository';

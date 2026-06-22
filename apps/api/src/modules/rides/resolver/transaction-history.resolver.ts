@@ -36,6 +36,7 @@ export class TransactionHistoryResolver {
     return {
       data: result.data,
       pagination: result.pagination as Pagination,
+      walletAmount: result.walletAmount,
     };
   }
 }
