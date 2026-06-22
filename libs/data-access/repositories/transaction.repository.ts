@@ -4,6 +4,7 @@ import { Model, ClientSession, Types } from 'mongoose';
 import { Transaction, TransactionDocument } from '../entities/transaction.entity';
 import { TransactionDirection, TransactionStatus, TransactionType } from '../enums/transaction.enum';
 import { PaymentMethodEnum } from '../enums/payment.enum';
+import { toMongoId } from '@libs/common';
 
 export interface CreateTransactionDto {
   // TODOwalletId: string;
@@ -24,7 +25,7 @@ export class TransactionRepository {
   constructor(
     @InjectModel(Transaction.name)
     private readonly model: Model<TransactionDocument>,
-  ) {}
+  ) { }
 
   async createMany(
     transactions: CreateTransactionDto[],
@@ -49,6 +50,37 @@ export class TransactionRepository {
 
   async findByRiderId(riderId: string): Promise<Transaction[]> {
     return this.model.find({ riderId }).sort({ createdAt: -1 });
+  }
+
+  async findByUserIdPaginated(
+    userId: string,
+    field: 'driverId' | 'riderId',
+    page: number,
+    limit: number,
+  ): Promise<{ data: Transaction[]; total: number }> {
+    const filter = { [field]: userId, deleted: { $ne: true } };
+    const total = await this.model.countDocuments(filter);
+    const data = await this.model
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(page * limit)
+      .limit(limit);
+    return { data, total };
+  }
+
+  async findByUserIdPaginatedV2(
+    userId: string,
+    page: number,
+    limit: number,
+  ): Promise<{ data: Transaction[]; total: number }> {
+    const filter = { $or: [{ 'riderId': toMongoId(userId) }, { 'driverId': toMongoId(userId) }], transationStatus: { $eq: TransactionStatus.COMPLETED } };
+    const total = await this.model.countDocuments(filter);
+    const data = await this.model
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .skip(page * limit)
+      .limit(limit);
+    return { data, total };
   }
 
   async findByWalletId(
@@ -79,50 +111,50 @@ export class TransactionRepository {
   }
 
   // driver earnings aggregated by day for chart
-async      earningsByDayForDriver                                                                                                    (
-  driverId: string,
-  from?: Date,
-  to?: Date,
-): Promise<{ date: string; netEarning: number }[]> {
-  const startDate = from || new Date();
-  startDate.setHours(0, 0, 0, 0);
+  async earningsByDayForDriver(
+    driverId: string,
+    from?: Date,
+    to?: Date,
+  ): Promise<{ date: string; netEarning: number }[]> {
+    const startDate = from || new Date();
+    startDate.setHours(0, 0, 0, 0);
 
-  const endDate = to || new Date();
-  endDate.setHours(23, 59, 59, 999);
+    const endDate = to || new Date();
+    endDate.setHours(23, 59, 59, 999);
 
-  const response = await  this.model.aggregate([
-    {
-      $match: {
-        driverId: new Types.ObjectId(driverId),
-        direction: TransactionDirection.CREDIT,
-        type: TransactionType.RIDE_PAYMENT,
-        createdAt: {
-          $gte: startDate,
-          $lte: endDate,
-        },
-      },
-    },
-    {
-      $group: {
-        _id: {
-          $dateToString: {
-            format: "%Y-%m-%d",
-            date: "$createdAt",
-            timezone: "Asia/Kathmandu"
+    const response = await this.model.aggregate([
+      {
+        $match: {
+          driverId: new Types.ObjectId(driverId),
+          direction: TransactionDirection.CREDIT,
+          type: TransactionType.RIDE_PAYMENT,
+          createdAt: {
+            $gte: startDate,
+            $lte: endDate,
           },
         },
-        netEarning: { $sum: "$amount" },
       },
-    },
-    { $sort: { _id: 1 } },
-    {
-      $project: {
-        _id: 0,
-        date: "$_id",
-        netEarning: 1,
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: "Asia/Kathmandu"
+            },
+          },
+          netEarning: { $sum: "$amount" },
+        },
       },
-    },
-  ]);
-  return response;
-}
+      { $sort: { _id: 1 } },
+      {
+        $project: {
+          _id: 0,
+          date: "$_id",
+          netEarning: 1,
+        },
+      },
+    ]);
+    return response;
+  }
 }

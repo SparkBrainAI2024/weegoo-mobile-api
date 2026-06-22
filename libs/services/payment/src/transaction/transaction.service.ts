@@ -1,6 +1,7 @@
-import { PaymentMethodEnum } from '@libs/data-access';
+import { PaymentMethodEnum, Transaction } from '@libs/data-access';
 import { TransactionDirection, TransactionStatus, TransactionType } from '@libs/data-access/enums/transaction.enum';
 import { TransactionRepository } from '@libs/data-access/repositories/transaction.repository';
+import { IPagination } from '@libs/data-access/interfaces/pagination.interface';
 import { Injectable } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
@@ -84,7 +85,38 @@ export class TransactionService {
     }
   }
 
-    async getDriversEarningByDate(driverId: string) {
+  async getTransactionHistory(
+    userId: string,
+    role: 'rider' | 'driver',
+    page: number,
+    limit: number,
+  ): Promise<{ data: Transaction[]; pagination: IPagination }> {
+   // const field = role === 'driver' ? 'driverId' : 'riderId';
+    const { data, total } = await this.transactionRepo.findByUserIdPaginatedV2(
+      userId,
+      page,
+      limit,
+    );
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages - 1;
+    const hasPreviousPage = page > 0;
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasNextPage,
+        hasPreviousPage,
+        nextPage: hasNextPage ? page + 1 : undefined,
+        previousPage: hasPreviousPage ? page - 1 : undefined,
+      },
+    };
+  }
+
+  async getDriversEarningByDate(driverId: string) {
     const result = await this.transactionRepo.earningsByDayForDriver(driverId);
 
     return (

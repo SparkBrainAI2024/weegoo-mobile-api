@@ -9,6 +9,7 @@ import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
 
 import { PassengerRidesResolver } from "./resolver/rides.resolver";
 import { PassengerHomeResolver } from "./resolver/passenger-home.resolver";
+import { TransactionHistoryResolver } from "./resolver/transaction-history.resolver";
 import { PassengerHomeService } from "./passenger-home.service";
 import { S3Module } from "@libs/s3/s3.module";
 import { MongooseModule } from "@nestjs/mongoose";
@@ -36,6 +37,7 @@ import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSch
         PassengerRidesResolver,
         PassengerHomeService,
         PassengerHomeResolver,
+        TransactionHistoryResolver,
     ],
     exports: [RidesService]
 })
