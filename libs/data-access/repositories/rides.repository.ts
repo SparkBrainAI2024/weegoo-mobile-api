@@ -411,6 +411,40 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return this.findOne(filter, populate, projection);
   }
 
+  async findActiveRidesByDriverId(driverId: string): Promise<RidesDocument[]> {
+    return this._model.find({
+      driverId: new Types.ObjectId(driverId),
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      deleted: false,
+    });
+  }
+
+  async findUpcomingRidesByDriverId(driverId: string): Promise<RidesDocument[]> {
+    return this._model.find({
+      driverId: new Types.ObjectId(driverId),
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
+      bookingTime: { $gt: new Date() },
+      deleted: false,
+    });
+  }
+
+  async findActiveRidesByPassengerId(passengerId: string): Promise<RidesDocument[]> {
+    return this._model.find({
+      passengerId: new Types.ObjectId(passengerId),
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      deleted: false,
+    });
+  }
+
+  async findUpcomingRidesByPassengerId(passengerId: string): Promise<RidesDocument[]> {
+    return this._model.find({
+      passengerId: new Types.ObjectId(passengerId),
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
+      bookingTime: { $gt: new Date() },
+      deleted: false,
+    });
+  }
+
   /**
    * Encodes a cursor from a data object for pagination.
    */

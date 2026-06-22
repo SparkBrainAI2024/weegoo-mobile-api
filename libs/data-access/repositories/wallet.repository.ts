@@ -84,4 +84,12 @@ export class WalletRepository {
     const id = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
     return this.model.findOne({ userId: id });
   }
+
+  /**
+   * Delete wallet by userId.
+   */
+  async deleteByUserId(userId: string, session?: any): Promise<any> {
+    const id = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
+    return this.model.deleteOne({ userId: id, ...(session ? { session } : {}) });
+  }
 }

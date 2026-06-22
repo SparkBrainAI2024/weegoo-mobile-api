@@ -4,10 +4,10 @@ import {
   ChangeLanguageInput,
   ChangePasswordInput,
   LogOutInput,
- // VerifyEmailInput,
+  VerifyEmailInput,
   UserDetailEntity,
   BasicResponse,
-  //SetPasswordInput,
+  SetPasswordInput,
 } from "@libs/data-access";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
@@ -59,4 +59,10 @@ export class UserResolver {
     return this.userService.getUserById(user._id);
   }
 
+  @Mutation(() => BasicResponse)
+  deleteAccount(
+    @CurrentUser() user,
+  ) {
+    return this.userService.deleteAccount(user._id, user.loginAs);
+  }
 }
