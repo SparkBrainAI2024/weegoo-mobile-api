@@ -1,27 +1,34 @@
 // promo-code.service.ts
 // ─────────────────────────────────────────────────────────────
-import { ErrorException, toMongoId } from '@libs/common';
-import { BaseModel, CreatePromoCodeInput, IPaginatedResult, Occasion, OccasionDocument, PaginationInput, PaginationInputOnly, PromoCodeDocument, PromoCodeStatusEnum } from '@libs/data-access';
-import { PromoCodeFindAllInput } from '@libs/data-access/dtos/input/promocode-filter.input';
-import { UpdatePromoCodeInput } from '@libs/data-access/dtos/input/update-promo-code.input';
-import { PromoCodeRepository } from '@libs/data-access/repositories/promo-code.repository';
-import { PROMO_CODE } from '@libs/localization/en/promocode.messages';
+import { ErrorException, toMongoId } from "@libs/common";
 import {
-  Injectable,
-  Logger,
-  HttpStatus,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { FilterQuery, Types } from 'mongoose';
-
-
+  BaseModel,
+  CreatePromoCodeInput,
+  IPaginatedResult,
+  Occasion,
+  OccasionDocument,
+  PaginationInput,
+  PaginationInputOnly,
+  PromoCodeDocument,
+  PromoCodeStatusEnum,
+} from "@libs/data-access";
+import { PromoCodeFindAllInput } from "@libs/data-access/dtos/input/promocode-filter.input";
+import { UpdatePromoCodeInput } from "@libs/data-access/dtos/input/update-promo-code.input";
+import { PromoCodeRepository } from "@libs/data-access/repositories/promo-code.repository";
+import { PROMO_CODE } from "@libs/localization/en/promocode.messages";
+import { Injectable, Logger, HttpStatus } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { FilterQuery, Types } from "mongoose";
 
 @Injectable()
 export class PromoCodeService {
   private readonly logger = new Logger(PromoCodeService.name);
-    
-  constructor(private readonly promoCodeRepository: PromoCodeRepository,  @InjectModel(Occasion.name)
-      private readonly ocassionModel: BaseModel<OccasionDocument>) {}
+
+  constructor(
+    private readonly promoCodeRepository: PromoCodeRepository,
+    @InjectModel(Occasion.name)
+    private readonly ocassionModel: BaseModel<OccasionDocument>,
+  ) {}
 
   // ── HELPERS ─────────────────────────────────────────────────
 
@@ -29,18 +36,21 @@ export class PromoCodeService {
     try {
       const promoCode = await this.promoCodeRepository.findById(
         new Types.ObjectId(id),
-        { path: 'occasion' },
+        { path: "occasion" },
       );
       if (!promoCode) {
-        ErrorException(null, 'PROMO_CODE.NOT_FOUND', HttpStatus.NOT_FOUND);
+        ErrorException(null, "PROMO_CODE.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
       return promoCode;
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.NOT_FOUND', HttpStatus.NOT_FOUND);
+      ErrorException(e, "PROMO_CODE.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
   }
 
-  private async assertNameUnique(name: string, excludeId?: string): Promise<void> {
+  private async assertNameUnique(
+    name: string,
+    excludeId?: string,
+  ): Promise<void> {
     try {
       const filter: any = {
         name: name.toUpperCase(),
@@ -51,10 +61,14 @@ export class PromoCodeService {
       }
       const existing = await this.promoCodeRepository.findOne(filter);
       if (existing) {
-        ErrorException(null, 'PROMO_CODE.NAME_ALREADY_EXISTS', HttpStatus.CONFLICT);
+        ErrorException(
+          null,
+          "ADMIN_USER.ADMIN_NOT_FOUND",
+          HttpStatus.NOT_FOUND,
+        );
       }
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.NAME_ALREADY_EXISTS', HttpStatus.CONFLICT);
+      ErrorException(e, "PROMO_CODE.NAME_ALREADY_EXISTS", HttpStatus.CONFLICT);
     }
   }
 
@@ -71,19 +85,19 @@ export class PromoCodeService {
             ? new Types.ObjectId(input.occasionId)
             : undefined,
         },
-        { path: 'occasion' },
+        { path: "occasion" },
       );
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.CREATE', HttpStatus.INTERNAL_SERVER_ERROR);
+      ErrorException(e, "PROMO_CODE.CREATE", HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   // ── READ ONE ────────────────────────────────────────────────
   async findById(id: string): Promise<PromoCodeDocument> {
     try {
-      return this.promoCodeRepository.findById(toMongoId(id), 'occasion');
+      return this.promoCodeRepository.findById(toMongoId(id), "occasion");
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.NOT_FOUND', HttpStatus.NOT_FOUND);
+      ErrorException(e, "PROMO_CODE.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
   }
 
@@ -107,30 +121,45 @@ export class PromoCodeService {
 
       return this.promoCodeRepository.paginate(
         paginationOnly as PromoCodeFindAllInput,
-        { path: 'occasion' },
+        { path: "occasion" },
         filter,
       );
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.FIND_ALL', HttpStatus.INTERNAL_SERVER_ERROR);
+      ErrorException(
+        e,
+        "PROMO_CODE.FIND_ALL",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
-  async findAllOcassions(input:PaginationInputOnly){
+  async findAllOcassions(input: PaginationInputOnly) {
     return this.ocassionModel.find();
   }
 
   // ── UPDATE ──────────────────────────────────────────────────
-  async update(id: string, input: UpdatePromoCodeInput): Promise<PromoCodeDocument> {
+  async update(
+    id: string,
+    input: UpdatePromoCodeInput,
+  ): Promise<PromoCodeDocument> {
     try {
       const promoCode = await this.findOrThrow(id);
 
       switch (promoCode.status) {
         case PromoCodeStatusEnum.EXPIRED:
-          ErrorException(null, 'PROMO_CODE.EXPIRED_NO_EDIT', HttpStatus.BAD_REQUEST);
+          ErrorException(
+            null,
+            "PROMO_CODE.EXPIRED_NO_EDIT",
+            HttpStatus.BAD_REQUEST,
+          );
           break;
 
         case PromoCodeStatusEnum.INACTIVE:
-          ErrorException(null, 'PROMO_CODE.INACTIVE_NO_EDIT', HttpStatus.BAD_REQUEST);
+          ErrorException(
+            null,
+            "PROMO_CODE.INACTIVE_NO_EDIT",
+            HttpStatus.BAD_REQUEST,
+          );
           break;
 
         case PromoCodeStatusEnum.ACTIVE: {
@@ -140,7 +169,11 @@ export class PromoCodeService {
           );
 
           if (nonTimeFields.length > 0) {
-            ErrorException(null, 'PROMO_CODE.ACTIVE_LIMITED_EDIT', HttpStatus.BAD_REQUEST);
+            ErrorException(
+              null,
+              "PROMO_CODE.ACTIVE_LIMITED_EDIT",
+              HttpStatus.BAD_REQUEST,
+            );
           }
 
           const timeUpdate: any = {};
@@ -148,13 +181,17 @@ export class PromoCodeService {
           if (expiryDateTime) timeUpdate.expiryDateTime = expiryDateTime;
 
           if (Object.keys(timeUpdate).length === 0) {
-            ErrorException(null, 'PROMO_CODE.NO_VALID_FIELDS', HttpStatus.BAD_REQUEST);
+            ErrorException(
+              null,
+              "PROMO_CODE.NO_VALID_FIELDS",
+              HttpStatus.BAD_REQUEST,
+            );
           }
 
           return this.promoCodeRepository.updateById(
             new Types.ObjectId(id),
             { $set: timeUpdate },
-            { path: 'occasion' },
+            { path: "occasion" },
           );
         }
 
@@ -175,12 +212,12 @@ export class PromoCodeService {
           return this.promoCodeRepository.updateById(
             new Types.ObjectId(id),
             { $set: updatePayload },
-            { path: 'occasion' },
+            { path: "occasion" },
           );
         }
       }
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.UPDATE', HttpStatus.INTERNAL_SERVER_ERROR);
+      ErrorException(e, "PROMO_CODE.UPDATE", HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
@@ -189,15 +226,19 @@ export class PromoCodeService {
     try {
       const promoCode = await this.findOrThrow(id);
       if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
-        ErrorException(null, 'PROMO_CODE.ACTIVATE_ONLY_DRAFT', HttpStatus.BAD_REQUEST);
+        ErrorException(
+          null,
+          "PROMO_CODE.ACTIVATE_ONLY_DRAFT",
+          HttpStatus.BAD_REQUEST,
+        );
       }
       return this.promoCodeRepository.updateById(
         new Types.ObjectId(id),
         { $set: { status: PromoCodeStatusEnum.ACTIVE } },
-        { path: 'occasion' },
+        { path: "occasion" },
       );
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.ACTIVATE', HttpStatus.BAD_REQUEST);
+      ErrorException(e, "PROMO_CODE.ACTIVATE", HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -205,15 +246,19 @@ export class PromoCodeService {
     try {
       const promoCode = await this.findOrThrow(id);
       if (promoCode.status !== PromoCodeStatusEnum.ACTIVE) {
-        ErrorException(null, 'PROMO_CODE.DEACTIVATE_ONLY_ACTIVE', HttpStatus.BAD_REQUEST);
+        ErrorException(
+          null,
+          "PROMO_CODE.DEACTIVATE_ONLY_ACTIVE",
+          HttpStatus.BAD_REQUEST,
+        );
       }
       return this.promoCodeRepository.updateById(
         new Types.ObjectId(id),
         { $set: { status: PromoCodeStatusEnum.INACTIVE } },
-        { path: 'occasion' },
+        { path: "occasion" },
       );
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.DEACTIVATE', HttpStatus.BAD_REQUEST);
+      ErrorException(e, "PROMO_CODE.DEACTIVATE", HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -228,21 +273,28 @@ export class PromoCodeService {
         { $set: { status: PromoCodeStatusEnum.EXPIRED } },
       );
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.EXPIRE_CRON', HttpStatus.INTERNAL_SERVER_ERROR);
+      ErrorException(
+        e,
+        "PROMO_CODE.EXPIRE_CRON",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
-   async remove(id: string): Promise<boolean> {
+  async remove(id: string): Promise<boolean> {
     try {
       const promoCode = await this.findOrThrow(id);
       if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
-        ErrorException(null, 'PROMO_CODE.DELETE_ONLY_DRAFT', HttpStatus.BAD_REQUEST)
+        ErrorException(
+          null,
+          "PROMO_CODE.DELETE_ONLY_DRAFT",
+          HttpStatus.BAD_REQUEST,
+        );
       }
       await this.promoCodeRepository.softDeleteById(new Types.ObjectId(id));
       return true;
     } catch (e) {
-      ErrorException(e, 'PROMO_CODE.DELETE', HttpStatus.BAD_REQUEST);
+      ErrorException(e, "PROMO_CODE.DELETE", HttpStatus.BAD_REQUEST);
     }
   }
-
 }
