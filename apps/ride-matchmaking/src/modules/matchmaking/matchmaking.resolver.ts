@@ -52,6 +52,25 @@ export class MatchmakingResolver {
       })),
       message: result.message,
       ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
+      acceptedDetails: result.acceptedDetails ? {
+        rideId: result.acceptedDetails.rideId,
+        rideUUId: result.acceptedDetails.rideUUId,
+        driverId: result.acceptedDetails.driver.driverId,
+        driverName: result.acceptedDetails.driver.fullName,
+        driverImage: result.acceptedDetails.driver.profileImage || null,
+        phone: result.acceptedDetails.driver.phone,
+        rating: result.acceptedDetails.driver.rating,
+        vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
+        vehicleType: result.acceptedDetails.vehicle.vehicleType,
+        color: result.acceptedDetails.vehicle.color,
+        numberPlate: result.acceptedDetails.vehicle.numberPlate,
+        pickupLocation: { address: result.acceptedDetails.pickupLocation.address, coordinates: result.acceptedDetails.pickupLocation.coordinates, city: result.acceptedDetails.pickupLocation.city },
+        dropoffLocation: result.acceptedDetails.dropoffLocation ? { address: result.acceptedDetails.dropoffLocation.address, coordinates: result.acceptedDetails.dropoffLocation.coordinates, city: result.acceptedDetails.dropoffLocation.city } : undefined,
+        estimatedFare: result.acceptedDetails.estimatedFare,
+        estimatedTimeInMinutes: result.acceptedDetails.estimatedTimeInMinutes,
+        distanceInKm: result.acceptedDetails.distanceInKm,
+        acceptedAt: result.acceptedDetails.acceptedAt,
+      } : undefined,
     };
   }
 
@@ -79,6 +98,25 @@ export class MatchmakingResolver {
       })),
       message: result.message,
       ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
+      acceptedDetails: result.acceptedDetails ? {
+        rideId: result.acceptedDetails.rideId,
+        rideUUId: result.acceptedDetails.rideUUId,
+        driverId: result.acceptedDetails.driver.driverId,
+        driverName: result.acceptedDetails.driver.fullName,
+        driverImage: result.acceptedDetails.driver.profileImage || null,
+        phone: result.acceptedDetails.driver.phone,
+        rating: result.acceptedDetails.driver.rating,
+        vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
+        vehicleType: result.acceptedDetails.vehicle.vehicleType,
+        color: result.acceptedDetails.vehicle.color,
+        numberPlate: result.acceptedDetails.vehicle.numberPlate,
+        pickupLocation: { address: result.acceptedDetails.pickupLocation.address, coordinates: result.acceptedDetails.pickupLocation.coordinates, city: result.acceptedDetails.pickupLocation.city },
+        dropoffLocation: result.acceptedDetails.dropoffLocation ? { address: result.acceptedDetails.dropoffLocation.address, coordinates: result.acceptedDetails.dropoffLocation.coordinates, city: result.acceptedDetails.dropoffLocation.city } : undefined,
+        estimatedFare: result.acceptedDetails.estimatedFare,
+        estimatedTimeInMinutes: result.acceptedDetails.estimatedTimeInMinutes,
+        distanceInKm: result.acceptedDetails.distanceInKm,
+        acceptedAt: result.acceptedDetails.acceptedAt,
+      } : undefined,
     };
   }
 

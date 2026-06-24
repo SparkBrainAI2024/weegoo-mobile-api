@@ -91,6 +91,9 @@ export class MatchResultGraphQL {
 
   @Field(() => String, { nullable: true })
   ablyChannelId?: string;
+
+  @Field(() => DriverAcceptedDetailsGraphQL, { nullable: true })
+  acceptedDetails?: DriverAcceptedDetailsGraphQL;
 }
 
 @ObjectType()
@@ -130,6 +133,9 @@ export class ScheduledMatchResultGraphQL {
 
   @Field(() => String, { nullable: true })
   ablyChannelId?: string;
+
+  @Field(() => DriverAcceptedDetailsGraphQL, { nullable: true })
+  acceptedDetails?: DriverAcceptedDetailsGraphQL;
 }
 
 @ObjectType()
@@ -153,6 +159,9 @@ export class DriverAcceptedDetailsGraphQL {
   rating?: number;
 
   @Field(() => String, { nullable: true })
+  phone?: string;
+
+  @Field(() => String, { nullable: true })
   vehicleType?: string;
 
   @Field(() => String, { nullable: true })
@@ -173,8 +182,17 @@ export class DriverAcceptedDetailsGraphQL {
   @Field(() => Float, { nullable: true })
   distanceInKm?: number;
 
+  @Field(() => PickupLocationGraphQL, { nullable: true })
+  pickupLocation?: PickupLocationGraphQL;
+
+  @Field(() => DropoffLocationGraphQL, { nullable: true })
+  dropoffLocation?: DropoffLocationGraphQL;
+
   @Field(() => String, { nullable: true })
   ablyChannelId?: string;
+
+  @Field(() => String, { nullable: true })
+  acceptedAt?: string;
 }
 
 @ObjectType()
@@ -208,6 +226,30 @@ export class LocationUpdateResultGraphQL {
 
   @Field(() => String)
   updatedAt: string;
+}
+
+@ObjectType()
+export class PickupLocationGraphQL {
+  @Field(() => String)
+  address: string;
+
+  @Field(() => [Float])
+  coordinates: number[];
+
+  @Field(() => String, { nullable: true })
+  city?: string;
+}
+
+@ObjectType()
+export class DropoffLocationGraphQL {
+  @Field(() => String)
+  address: string;
+
+  @Field(() => [Float])
+  coordinates: number[];
+
+  @Field(() => String, { nullable: true })
+  city?: string;
 }
 
 @ObjectType()
