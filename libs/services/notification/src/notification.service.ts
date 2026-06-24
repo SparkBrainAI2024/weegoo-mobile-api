@@ -177,10 +177,8 @@ export class NotificationService {
                 android: {
                     priority: 'high',
                     notification: {
-
                         priority: 'high',
                         sound: 'default',
-                        ...firebaseData
                     },
                 },
 
