@@ -22,6 +22,12 @@ type GeoLocation {
   coordinates: [Float!]!
 }
 
+type SavedLocation {
+  address: String
+  latitude: Float
+  longitude: Float
+}
+
 type UserProfileImageEntity {
   s3Key: String!
   status: ImageStatus!
@@ -99,7 +105,7 @@ enum PaymentMethodEnum {
   """Payment method is cash"""
   CASH
 
-  """Payment method is wallet"""
+  """Payment via internal wallet"""
   WALLET
 }
 
@@ -117,6 +123,7 @@ type Vehicle {
   deleted: Boolean
   driverId: String!
   vehicleType: VehicleType!
+  name: String!
   vehicleModel: String!
   year: Int!
   color: String!
@@ -291,6 +298,9 @@ enum NotificationType {
   REQUEST_TO_PAY
   DRIVER_ON_THE_WAY
   PAYMENT_CONFIRM
+  WALLET_TOPUP
+  WALLET_TOPUP_FAILED
+  PROMOCODE_PROMOTION
 }
 
 type Occasion {
@@ -345,6 +355,70 @@ enum PromoCodeStatusEnum {
   EXPIRED
 }
 
+type Transaction {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  tripId: String
+  driverId: String
+  riderId: String
+  direction: TransactionDirection!
+  type: TransactionType!
+  amount: Float!
+  paymentMethod: PaymentMethodEnum
+  paymentMedium: PaymentMediumEnum
+  status: TransactionStatus!
+  reference: String
+  remarks: String
+  transactionUuid: String
+}
+
+"""Direction of the wallet transaction"""
+enum TransactionDirection {
+  """Amount is deducted from wallet"""
+  DEBIT
+
+  """Amount is added to wallet"""
+  CREDIT
+}
+
+"""Type of wallet transaction"""
+enum TransactionType {
+  """Payment made for a ride"""
+  RIDE_PAYMENT
+
+  """Wallet balance top-up"""
+  TOPUP
+
+  """Withdrawal from wallet"""
+  WITHDRAWAL
+
+  """Commission transaction"""
+  COMMISSION
+}
+
+"""Payment medium/gateway used for the transaction"""
+enum PaymentMediumEnum {
+  """Payment processed through eSewa gateway"""
+  ESEWA
+
+  """Payment processed through Khalti gateway"""
+  KHALTI
+}
+
+"""Status of the wallet transaction"""
+enum TransactionStatus {
+  PENDING
+
+  """Transaction completed successfully"""
+  COMPLETED
+
+  """Transaction failed"""
+  FAILED
+}
+
 type IssueCategoryEmbed {
   parentCategory: IssueParentCategory!
   subCategoryId: ID
@@ -395,6 +469,19 @@ enum IssueStatus {
   OPEN
   IN_REVIEW
   RESOLVED
+}
+
+type Rating {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  rating: Float!
+  ratedBy: String!
+  ratedTo: String!
+  rideId: String!
+  ratingRemarks: String
 }
 
 type BasicResponse {
@@ -460,6 +547,61 @@ type MatchAttemptInfo {
   driverAccepted: Boolean!
   acceptedDriverId: String
   timeoutExpired: Boolean!
+  status: String
+}
+
+type PickupDropoffLocationInfo {
+  address: String
+  coordinates: [Float!]
+  city: String
+}
+
+type MatchedDriverInfo {
+  driverId: String!
+  fullName: String
+  phone: String
+  profileImage: String
+  rating: Float
+}
+
+type MatchedVehicleInfo {
+  vehicleId: String
+  vehicleModel: String
+  vehicleType: String
+  color: String
+  numberPlate: String
+  year: Float
+}
+
+type MatchedPassengerInfo {
+  passengerId: String
+  fullName: String
+  phone: String
+  profileImage: String
+  gender: String
+}
+
+type AcceptedDetailsResponse {
+  rideId: String!
+  rideUUId: String!
+  driver: MatchedDriverInfo
+  vehicle: MatchedVehicleInfo
+  passenger: MatchedPassengerInfo
+  pickupLocation: PickupDropoffLocationInfo
+  dropoffLocation: PickupDropoffLocationInfo
+  estimatedFare: Float
+  estimatedTimeInMinutes: Float
+  distanceInKm: Float
+  acceptedAt: String
+  ablyChannelId: String
+  driverLocationChannel: String
+}
+
+type EstimatedFareBreakdownResponse {
+  pickupCost: Float
+  distanceCost: Float
+  durationCost: Float
+  total: Float
 }
 
 type FareBreakdownGraphQL {
@@ -484,6 +626,39 @@ type MatchAttemptResultGraphQL {
   acceptedDriverId: String
   timeoutExpired: Boolean!
   status: String!
+}
+
+type PickupLocationGraphQL {
+  address: String!
+  coordinates: [Float!]!
+  city: String
+}
+
+type DropoffLocationGraphQL {
+  address: String!
+  coordinates: [Float!]!
+  city: String
+}
+
+type DriverAcceptedDetailsGraphQL {
+  rideId: String!
+  rideUUId: String!
+  driverId: String!
+  driverName: String
+  driverImage: String
+  rating: Float
+  phone: String
+  vehicleType: String
+  vehicleModel: String
+  color: String
+  numberPlate: String
+  estimatedFare: Float
+  estimatedTimeInMinutes: Float
+  distanceInKm: Float
+  pickupLocation: PickupLocationGraphQL
+  dropoffLocation: DropoffLocationGraphQL
+  ablyChannelId: String
+  acceptedAt: String
 }
 
 type RideWithoutRelations {
@@ -545,6 +720,80 @@ type DashboardStats {
   totalTrips: Int
   rating: Float
   onlineHoursToday: String
+}
+
+type PassengerLocationResponse {
+  address: String
+  latitude: Float
+  longitude: Float
+}
+
+type PassengerPromoCodeResponse {
+  name: String!
+  amount: Float!
+  expiryTime: DateTime!
+  offerAvailableTime: DateTime!
+  promocodeType: String!
+  discountPercentage: Float
+}
+
+type BasicVehicleEstimateResponse {
+  vehicleType: String!
+  estimatedFare: Float!
+  comfortType: String!
+  hasAC: Boolean
+}
+
+type RideGroup {
+  title: String!
+  rides: [Rides!]!
+}
+
+type LocationInfo {
+  address: String
+  coordinates: [Float!]
+  city: String
+}
+
+type DriverInfo {
+  driverId: String!
+  fullName: String
+  phone: String
+  profileImage: String
+  rating: Float
+}
+
+type PassengerInfo {
+  passengerId: String!
+  fullName: String
+  phone: String
+  profileImage: String
+  gender: String
+}
+
+type VehicleInfo {
+  vehicleId: String
+  vehicleModel: String
+  vehicleType: String
+  color: String
+  numberPlate: String
+  year: Float
+}
+
+type DriverRideDetails {
+  rideId: String!
+  rideUUId: String!
+  rideType: String
+  rideStatus: String
+  pickupLocation: LocationInfo
+  dropoffLocation: LocationInfo
+  distanceInKm: Float
+  estimatedFare: Float
+  estimatedTimeInMinutes: Float
+  driver: DriverInfo
+  passenger: PassengerInfo
+  vehicle: VehicleInfo
+  acceptedAt: String
 }
 
 type AdminUserResponse {

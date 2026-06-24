@@ -12,6 +12,9 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FilterQuery, Types } from 'mongoose';
+import { NotificationService } from '@libs/services/notification';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 
 
 
@@ -19,7 +22,11 @@ import { FilterQuery, Types } from 'mongoose';
 export class PromoCodeService {
   private readonly logger = new Logger(PromoCodeService.name);
 
-  constructor(private readonly promoCodeRepository: PromoCodeRepository) {}
+  constructor(
+    private readonly promoCodeRepository: PromoCodeRepository,
+    private readonly notificationService: NotificationService,
+    @InjectConnection() private readonly connection: Connection,
+  ) {}
 
   // ── HELPERS ─────────────────────────────────────────────────
 
@@ -60,7 +67,7 @@ export class PromoCodeService {
   async create(input: CreatePromoCodeInput): Promise<PromoCodeDocument> {
     try {
       await this.assertNameUnique(input.name);
-      return this.promoCodeRepository.create(
+      const created = await this.promoCodeRepository.create(
         {
           ...input,
           name: input.name.toUpperCase(),
@@ -71,6 +78,31 @@ export class PromoCodeService {
         },
         { path: 'occasion' },
       );
+
+      // Broadcast promo code notification to all users (fire-and-forget)
+      const userModel = this.connection.model('User');
+      const users = await userModel.find({ loginAs: 'USER', suspended: false, verified: true }).select('_id').lean();
+      const userIds = users.map((u: any) => u._id.toString());
+
+      this.notificationService.broadcastPromoCodeToRiders(
+        userIds,
+        {
+          title: `New Promo: ${created.name}`,
+          description: `Promo code ${created.name} is now available! Enjoy the discount!`,
+          promoCodeId: created._id.toString(),
+          discountType: created.discountType,
+          percentageAmount: created.percentageAmount,
+          flatAmount: created.flatAmount,
+          minimumFare: created.minimumFare,
+          startDateTime: created.startDateTime,
+          expiryDateTime: created.expiryDateTime,
+          offerAvailableTime: created.startDateTime,
+          appliedTo: created.appliedTo,
+          promoCode: created.name,
+        },
+      );
+
+      return created;
     } catch (e) {
       ErrorException(e, 'PROMO_CODE.CREATE', HttpStatus.INTERNAL_SERVER_ERROR);
     }
