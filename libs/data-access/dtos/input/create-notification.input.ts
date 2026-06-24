@@ -175,4 +175,8 @@ export class CreateNotificationInput {
   @ValidateNested()
   @Type(() => RideUserInputSnapshot)
   driverSnapshot?: RideUserInputSnapshot;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  noOfPassengers?: number;
 }

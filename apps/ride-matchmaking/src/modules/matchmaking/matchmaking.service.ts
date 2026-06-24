@@ -110,7 +110,6 @@ export class MatchmakingService {
     const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
     const passengerName = passengerUser?.fullName || passengerDetails?.fullName || 'Passenger';
     const passengerPhone = passengerUser?.phone || '';
-    const passengerGender = passengerDetails?.gender;
     const passengerProfileImages = passengerDetails?.profileImages?.map(img => getActiveProfileImageUrl([img], (key) => this.s3.getPublicUrl(key))).filter(Boolean) || [];
     const passengerSnapshot = {
       fullName: passengerName,
@@ -127,6 +126,11 @@ export class MatchmakingService {
     const respondedDriverIds: Set<string> = new Set();
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
+      const currentRide = await this.ridesModel.findById(ride._id).exec();
+      if (!currentRide || currentRide.rideStatus !== RideStatus.PENDING) {
+        this.logger.log(`[SCHEDULED] Ride ${ride.rideUUId} no longer PENDING (status: ${currentRide?.rideStatus}). Stopping matchmaking.`);
+        break;
+      }
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = MATCHMAKING_CONFIG.SCHEDULED_ATTEMPT_WAIT_SECONDS;
       this.logger.log(`[SCHEDULED] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km radius`);
@@ -261,6 +265,11 @@ export class MatchmakingService {
     const respondedDriverIds: Set<string> = new Set();
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
+      const currentRide = await this.ridesModel.findById(ride._id).exec();
+      if (!currentRide || currentRide.rideStatus !== RideStatus.PENDING) {
+        this.logger.log(`[INSTANT] Ride ${ride.rideUUId} no longer PENDING (status: ${currentRide?.rideStatus}). Stopping matchmaking.`);
+        break;
+      }
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
@@ -303,6 +312,7 @@ export class MatchmakingService {
               distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
               passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
               passengerSnapshot,
+              noOfPassengers: ride.noOfPassengers
             };
             await this.notificationService.createNotification(notificationInput, driverUser);
           }
@@ -316,6 +326,7 @@ export class MatchmakingService {
           driverImage: driver.profileImage || null, rating: driver.rating,
           driverId: driver.driverId, driverName: driver.fullName,
           passengerSnapshot,
+          noOfPassengers: ride.noOfPassengers
         });
         } catch (err) {
           this.logger.warn(`Failed to send ride request notification to driver ${driver.driverId}: ${err}`);
@@ -340,7 +351,6 @@ export class MatchmakingService {
         await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
         await this.rideChannelService.publishRideTaken(ride.rideUUId, rideId);
       }
-
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
     }
 

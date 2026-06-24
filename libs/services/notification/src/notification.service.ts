@@ -80,15 +80,17 @@ export class NotificationService {
             // Include all ride-related fields (nullable) in the Firebase payload
             const payload = notificationPayload as any;
             if (payload.rideId) {
-                firebaseData.rideId = JSON.stringify(payload.rideId);
+                firebaseData.rideId = payload.rideId;
             }
-
+            if (payload.noOfPassengers) {
+                firebaseData.noOfPassengers = String(payload.noOfPassengers);
+            }
             if (payload.rideType) {
-                firebaseData.rideType = JSON.stringify(payload.rideType);
+                firebaseData.rideType = payload.rideType;
             }
 
             if (payload.rideStatus) {
-                firebaseData.rideType = JSON.stringify(payload.rideType);
+                firebaseData.rideStatus = payload.rideStatus;
             }
             if (payload.pickupLocation) {
                 firebaseData.pickupLocation = JSON.stringify(payload.pickupLocation);
@@ -160,14 +162,39 @@ export class NotificationService {
             if (payload.driverSnapshot) {
                 firebaseData.driver = JSON.stringify(payload.driverSnapshot);
             }
-            console.log("payload",payload)
+            console.log("payload", payload)
+
             await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
-                data: firebaseData,
                 token: token.firebaseToken,
+
                 notification: {
                     title: notification.title,
                     body: notification.description,
-                }
+                },
+
+                data: firebaseData,
+
+                android: {
+                    priority: 'high',
+                    notification: {
+
+                        priority: 'high',
+                        sound: 'default',
+                        ...firebaseData
+                    },
+                },
+
+                apns: {
+                    headers: {
+                        'apns-priority': '10',
+                    },
+                    payload: {
+                        aps: {
+                            sound: 'default',
+                            badge: 1,
+                        },
+                    },
+                },
             });
         }
         console.log("firebase token", token?.firebaseToken)
