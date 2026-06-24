@@ -9,12 +9,14 @@ import { roles } from '@libs/data-access/enums/user.enum'
 import { CurrentLang, CurrentUser } from '@libs/common';
 import { AuthGuard } from '@libs/guards';
 import { CreateIssueResponse } from '@libs/data-access/dtos/response/issue.response';
+import { CreateComplaintInput, CreateComplaintResponse } from '@libs/data-access';
 import { IssueCategory } from '@libs/data-access/entities/issue-category.entity';
 
 @Resolver(() => Issue)
 export class UsersIssueResolver {
   constructor(private readonly issueService: IssueService) { }
 
+  @UseGuards(AuthGuard)
   @UseGuards(AuthGuard)
   @Mutation(() => CreateIssueResponse)
   async createIssue(
@@ -33,6 +35,25 @@ export class UsersIssueResolver {
       input,
       lang
 
+    );
+  }
+
+  @UseGuards(AuthGuard)
+  @Mutation(() => CreateComplaintResponse)
+  async createComplaint(
+    @CurrentUser() user: User,
+    @CurrentLang() lang,
+    @Args('input') input: CreateComplaintInput,
+  ): Promise<CreateComplaintResponse> {
+
+    const reportedByType =
+      user.roles.includes(roles.RIDER) ? ReportedByType.DRIVER : ReportedByType.PASSENGER;
+
+    return this.issueService.createComplaint(
+      user._id.toString(),
+      reportedByType,
+      input,
+      lang
     );
   }
   @Mutation(() => String)

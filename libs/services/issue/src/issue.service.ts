@@ -7,7 +7,7 @@ import {
 import { IssueRepository, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
 import { Issue } from '@libs/data-access/entities/issue.entity';
 import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
-import { CreateIssueResponse, IssueCategoryInput, RidesRepository, CreateIssueInput } from '@libs/data-access';
+import { CreateIssueResponse, CreateComplaintInput, CreateComplaintResponse, IssueCategoryInput, RidesRepository, CreateIssueInput } from '@libs/data-access';
 import { Types } from 'mongoose';
 import { Message } from '@libs/localization';
 import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-category.embedded';
@@ -130,11 +130,52 @@ async seedIssueCategorys(): Promise<string> {
   return 'Issue categories seeded successfully';
 }
 
-async getCategoriesByParent(
-  parentCategory: IssueParentCategory,
-  categoryAccessedByRole: CategoryAccessedByRole,
-): Promise<IssueCategory[]> {
-  return this.issueRepo.findByParentCategory(parentCategory, categoryAccessedByRole);
-}
+  async getCategoriesByParent(
+    parentCategory: IssueParentCategory,
+    categoryAccessedByRole: CategoryAccessedByRole,
+  ): Promise<IssueCategory[]> {
+    return this.issueRepo.findByParentCategory(parentCategory, categoryAccessedByRole);
+  }
+
+  async createComplaint(
+    userId: string,
+    reportedByType: ReportedByType,
+    input: CreateComplaintInput,
+    lang: string,
+  ): Promise<CreateComplaintResponse> {
+    const { category, complaintContent } = input;
+
+    if (!complaintContent || complaintContent.trim().length < 10) {
+      throw new BadRequestException('Complaint content must be at least 10 characters.');
+    }
+
+    let categoryEmbed: IssueCategoryEmbed | null = null;
+    if (category) {
+      const group = category.subCategoryId
+        ? await this.issueRepo.findIssueCategoryById(category.subCategoryId)
+        : null;
+
+      categoryEmbed = {
+        parentCategory: category.parentCategory,
+        subCategoryId: group?._id?.toString() ?? null,
+        subCategoryLabel: group?.label ?? null,
+      };
+    }
+
+    const complaint = await this.issueRepo.create({
+      title: undefined,
+      reportedBy: userId,
+      reportedByType,
+      category: categoryEmbed as any,
+      issueContent: complaintContent.trim(),
+      rideId: undefined,
+    });
+
+    return {
+      message: Message(lang, 'ISSUE.CREATED'),
+      success: true,
+      complaint,
+    };
+  }
 
 }

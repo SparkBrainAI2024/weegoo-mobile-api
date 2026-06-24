@@ -108,6 +108,7 @@ export * from './dtos/input/get-all-rides.input';
 export * from './dtos/input/transaction-pagination.input';
 export * from './dtos/input/complete-ride.input';
 export * from './dtos/input/create-rating.input';
+export * from './dtos/input/create-complaint.input';
 
 
 // dtos - response
@@ -137,6 +138,7 @@ export * from './dtos/response/rides-list-with-cursor-pagination.response';
 export * from './dtos/response/driver-ride-response.dto';
 export * from './dtos/response/transaction-list-with-pagination.response';
 export * from './dtos/response/delete-account-warnings.response';
+export * from './dtos/response/create-complaint.response';
 
 //interfaces
 export * from './interfaces/location.interface'
