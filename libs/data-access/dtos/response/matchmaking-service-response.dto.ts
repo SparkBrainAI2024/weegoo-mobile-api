@@ -51,7 +51,88 @@ export class MatchAttemptResultGraphQL {
   timeoutExpired: boolean;
 
   @Field(() => String)
-  status: string; // 'no_drivers_found' | 'waiting_for_response' | 'accepted' | 'timeout'
+  status: string;
+}
+
+@ObjectType()
+export class PickupLocationGraphQL {
+  @Field(() => String)
+  address: string;
+
+  @Field(() => [Float])
+  coordinates: number[];
+
+  @Field(() => String, { nullable: true })
+  city?: string;
+}
+
+@ObjectType()
+export class DropoffLocationGraphQL {
+  @Field(() => String)
+  address: string;
+
+  @Field(() => [Float])
+  coordinates: number[];
+
+  @Field(() => String, { nullable: true })
+  city?: string;
+}
+
+@ObjectType()
+export class DriverAcceptedDetailsGraphQL {
+  @Field(() => String)
+  rideId: string;
+
+  @Field(() => String)
+  rideUUId: string;
+
+  @Field(() => String)
+  driverId: string;
+
+  @Field(() => String, { nullable: true })
+  driverName?: string;
+
+  @Field(() => String, { nullable: true })
+  driverImage?: string;
+
+  @Field(() => Float, { nullable: true })
+  rating?: number;
+
+  @Field(() => String, { nullable: true })
+  phone?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleType?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleModel?: string;
+
+  @Field(() => String, { nullable: true })
+  color?: string;
+
+  @Field(() => String, { nullable: true })
+  numberPlate?: string;
+
+  @Field(() => Float, { nullable: true })
+  estimatedFare?: number;
+
+  @Field(() => Float, { nullable: true })
+  estimatedTimeInMinutes?: number;
+
+  @Field(() => Float, { nullable: true })
+  distanceInKm?: number;
+
+  @Field(() => PickupLocationGraphQL, { nullable: true })
+  pickupLocation?: PickupLocationGraphQL;
+
+  @Field(() => DropoffLocationGraphQL, { nullable: true })
+  dropoffLocation?: DropoffLocationGraphQL;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
+
+  @Field(() => String, { nullable: true })
+  acceptedAt?: string;
 }
 
 @ObjectType()
@@ -139,63 +220,6 @@ export class ScheduledMatchResultGraphQL {
 }
 
 @ObjectType()
-export class DriverAcceptedDetailsGraphQL {
-  @Field(() => String)
-  rideId: string;
-
-  @Field(() => String)
-  rideUUId: string;
-
-  @Field(() => String)
-  driverId: string;
-
-  @Field(() => String, { nullable: true })
-  driverName?: string;
-
-  @Field(() => String, { nullable: true })
-  driverImage?: string;
-
-  @Field(() => Float, { nullable: true })
-  rating?: number;
-
-  @Field(() => String, { nullable: true })
-  phone?: string;
-
-  @Field(() => String, { nullable: true })
-  vehicleType?: string;
-
-  @Field(() => String, { nullable: true })
-  vehicleModel?: string;
-
-  @Field(() => String, { nullable: true })
-  color?: string;
-
-  @Field(() => String, { nullable: true })
-  numberPlate?: string;
-
-  @Field(() => Float, { nullable: true })
-  estimatedFare?: number;
-
-  @Field(() => Float, { nullable: true })
-  estimatedTimeInMinutes?: number;
-
-  @Field(() => Float, { nullable: true })
-  distanceInKm?: number;
-
-  @Field(() => PickupLocationGraphQL, { nullable: true })
-  pickupLocation?: PickupLocationGraphQL;
-
-  @Field(() => DropoffLocationGraphQL, { nullable: true })
-  dropoffLocation?: DropoffLocationGraphQL;
-
-  @Field(() => String, { nullable: true })
-  ablyChannelId?: string;
-
-  @Field(() => String, { nullable: true })
-  acceptedAt?: string;
-}
-
-@ObjectType()
 export class DriverResponseResultGraphQL {
   @Field(() => Boolean)
   success: boolean;
@@ -226,30 +250,6 @@ export class LocationUpdateResultGraphQL {
 
   @Field(() => String)
   updatedAt: string;
-}
-
-@ObjectType()
-export class PickupLocationGraphQL {
-  @Field(() => String)
-  address: string;
-
-  @Field(() => [Float])
-  coordinates: number[];
-
-  @Field(() => String, { nullable: true })
-  city?: string;
-}
-
-@ObjectType()
-export class DropoffLocationGraphQL {
-  @Field(() => String)
-  address: string;
-
-  @Field(() => [Float])
-  coordinates: number[];
-
-  @Field(() => String, { nullable: true })
-  city?: string;
 }
 
 @ObjectType()
