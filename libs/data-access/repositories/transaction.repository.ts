@@ -75,7 +75,7 @@ export class TransactionRepository {
     page: number,
     limit: number,
   ): Promise<{ data: Transaction[]; total: number }> {
-    const filter = { $or: [{ 'riderId': toMongoId(userId) }, { 'driverId': toMongoId(userId) }], transationStatus: { $eq: TransactionStatus.COMPLETED } };
+    const filter = { $or: [{ 'riderId': toMongoId(userId) }, { 'driverId': toMongoId(userId) }], status: { $eq: TransactionStatus.COMPLETED } };
     const total = await this.model.countDocuments(filter);
     const data = await this.model
       .find(filter)

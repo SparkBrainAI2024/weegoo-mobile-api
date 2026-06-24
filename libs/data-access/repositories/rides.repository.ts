@@ -196,7 +196,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
 
     const getMonthYearLabel = (date: Date): string => {
-      return date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      return date.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'Asia/Kathmandu' });
     };
 
     // Sort mappedDocs by status priority first, then by sortField descending
@@ -210,10 +210,10 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       return bVal - aVal;
     });
 
-    // Group by month+year
+    // Group by month+year using the sort field (bookingTime or createdAt) in Asia/Kathmandu timezone
     const groupMap = new Map<string, any[]>();
     for (const ride of sortedDocs) {
-      const date = new Date(ride.createdAt);
+      const date = new Date(ride[sortField]);
       const label = getMonthYearLabel(date);
       if (!groupMap.has(label)) groupMap.set(label, []);
       groupMap.get(label)!.push(ride);
