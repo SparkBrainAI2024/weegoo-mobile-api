@@ -1,4 +1,3 @@
-import { User } from '@libs/data-access/entities/user.entity';
 import { CursorPaginationInput } from '@libs/data-access/base/base.input';
 // Use direct relative imports for notification-related types
 import { Notification } from '@libs/data-access/entities/notification.entity';
@@ -13,7 +12,9 @@ import { groupItemsByDate } from '@libs/common/utils/group-by-date.utils';
 import { ErrorException } from '@libs/common/exceptions';
 import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
 import { toMongoId } from '@libs/common';
-import { TokenGrantType } from '@libs/data-access';
+import { NotificationType, roles, TokenGrantType } from '@libs/data-access';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 
 @Injectable()
 export class NotificationService {
@@ -22,7 +23,8 @@ export class NotificationService {
         private readonly notificationRepository: NotificationRepository,
         private readonly firebaseMessagingService: FirebaseMessagingService,
         @Inject(forwardRef(() => UserTokenMetaRepository))
-        private readonly userTokenRepository: UserTokenMetaRepository
+        private readonly userTokenRepository: UserTokenMetaRepository,
+        @InjectConnection() private readonly connection: Connection,
     ) { }
 
     /**
@@ -32,7 +34,7 @@ export class NotificationService {
       * @returns A paginated list of the user's favourite rides
      */
     async findNotificationWithListingAndGrouping(
-        user: User,
+        user: { _id: Types.ObjectId },
         options: CursorPaginationInput,
     ) {
         const filter = {
@@ -56,7 +58,7 @@ export class NotificationService {
      * @param favouriteData - Partial data for creating a favourite entry
      * @returns The created FavouritesDocument
      */
-    async createNotification(notificationPayload: CreateNotificationInput, user: User): Promise<Notification> {
+    async createNotification(notificationPayload: CreateNotificationInput, user: { loginAs: string; _id: Types.ObjectId }): Promise<Notification> {
         const roles = user.loginAs;
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
@@ -234,6 +236,97 @@ export class NotificationService {
         return this.notificationRepository.countUnreadAndUnopenedNotifications(
             userId
         );
+    }
+
+    /**
+     * Broadcast a promo/offer notification to a list of riders.
+     * Creates in-app notifications and sends Firebase push notifications.
+     * Designed for background/fire-and-forget broadcast pattern.
+     */
+    async broadcastPromoCodeToRiders(
+        userIds: string[],
+        promoPayload: {
+            title: string;
+            description: string;
+            promoCodeId: string;
+            discountType: string;
+            percentageAmount?: number;
+            flatAmount?: number;
+            minimumFare?: number;
+            startDateTime: Date;
+            expiryDateTime: Date;
+            offerAvailableTime: Date;
+            appliedTo: string;
+            promoCode: string;
+        },
+    ): Promise<{ success: boolean; notifiedCount: number }> {
+        const notifiedCount = userIds.length;
+        // For large recipient lists, fire-and-forget pattern: don't await all individually
+        for (const userId of userIds) {
+            const createPromise = (async () => {
+                const notificationPayload = {
+                    title: promoPayload.title,
+                    description: promoPayload.description,
+                    notificationType: NotificationType.PROMOCODE_PROMOTION as any,
+                    userId,
+                    roles: roles.USER,
+                    promoCodeId: promoPayload.promoCodeId,
+                    discountType: promoPayload.discountType,
+                    percentageAmount: promoPayload.percentageAmount,
+                    flatAmount: promoPayload.flatAmount,
+                    minimumFare: promoPayload.minimumFare,
+                    startDateTime: promoPayload.startDateTime,
+                    expiryDateTime: promoPayload.expiryDateTime,
+                    offerAvailableTime: promoPayload.offerAvailableTime,
+                    appliedTo: promoPayload.appliedTo,
+                    promocode: promoPayload.promoCode,
+                };
+
+                try {
+                    const notification = await this.createNotification(
+                        notificationPayload as any,
+                        { loginAs: roles.USER, _id: new Types.ObjectId(userId) } as any,
+                    );
+
+                    const token = await this.userTokenRepository.findOne(
+                        { userId: new Types.ObjectId(userId), grant: TokenGrantType.REFRESH_TOKEN },
+                        null,
+                        null,
+                        { sort: { createdAt: -1 } },
+                    );
+
+                    if (token?.firebaseToken) {
+                        await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
+                            token: token.firebaseToken,
+                            notification: {
+                                title: promoPayload.title,
+                                body: promoPayload.description,
+                            },
+                            data: {
+                                notificationId: notification._id.toString(),
+                                notificationType: 'PROMO_CODE',
+                                promoCode: promoPayload.promoCode,
+                                discountType: promoPayload.discountType,
+                                flatAmount: String(promoPayload.flatAmount || 0),
+                                percentageAmount: String(promoPayload.percentageAmount || 0),
+                                expiryDateTime: promoPayload.expiryDateTime.toISOString(),
+                            },
+                            android: { priority: 'high', notification: { priority: 'high', sound: 'default' } },
+                            apns: { headers: { 'apns-priority': '10' }, payload: { aps: { sound: 'default', badge: 1 } } },
+                        });
+                    }
+                } catch (err) {
+                    console.error(`Failed to notify user ${userId}:`, err);
+                }
+            })();
+
+            // Fire-and-forget: allow broadcast to run in background
+            createPromise.catch((err) =>
+                console.error(`Unhandled broadcast error for user ${userId}:`, err),
+            );
+        }
+
+        return { success: true, notifiedCount };
     }
 
 }
