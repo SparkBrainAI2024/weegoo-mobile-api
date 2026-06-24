@@ -95,7 +95,6 @@ export class MatchmakingIntegrationService {
           `,
           variables: { input: { rideId: ride._id.toString() } },
         },
-        { timeout: 120000 },
       );
 
       const result = response.data?.data?.matchDrivers;
