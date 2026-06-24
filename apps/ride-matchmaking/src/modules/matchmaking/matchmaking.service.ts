@@ -56,6 +56,7 @@ export class MatchmakingService {
     if (ride.rideStatus !== RideStatus.PENDING) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: `Ride is not in PENDING status. Current: ${ride.rideStatus}` };
     if (ride.rideType !== RideTypes.INSTANT) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: 'Use matchScheduledDrivers for SCHEDULED rides.' };
     const result = await this.executeExpandingRingMatch(ride);
+    this.logger.log(`result`,JSON.stringify(result));
     return { ...result, ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details` };
   }
 
@@ -346,6 +347,8 @@ export class MatchmakingService {
         const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
         await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
         await this.rideChannelService.publishRideTaken(ride.rideUUId, rideId);
+        this.logger.log(`returning the response to the actual api`);
+     
         return {
           matched: true,
           rideId,
@@ -362,13 +365,13 @@ export class MatchmakingService {
       }
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
     }
-
+     this.logger.log(`Trying it again`);
     if (!matched) {
       const failMessage = 'No available drivers found within 10 km radius. Please try scheduling your ride.';
       await this.rideChannelService.publishMatchFailed(ride.rideUUId, rideId, failMessage, 'schedule');
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: failMessage };
     }
-
+     
     return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage, rating: acceptedRating, estimatedFare, attempts, message: 'Driver matched successfully' };
   }
 
