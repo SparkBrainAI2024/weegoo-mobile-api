@@ -50,6 +50,19 @@ export interface MatchResult {
   attempts: MatchAttemptResult[];
   message: string;
   ablyChannelId?: string;
+  acceptedDetails?: {
+    rideId: string;
+    rideUUId: string;
+    driver: { driverId: string; fullName: string; phone: string; profileImage?: string; rating: number };
+    vehicle: { vehicleId: string; vehicleModel: string; vehicleType: string; color: string; numberPlate: string; year?: number };
+    passenger: { passengerId: string; fullName: string; phone: string; profileImage?: string };
+    pickupLocation: { address: string; coordinates: number[]; city?: string };
+    dropoffLocation?: { address: string; coordinates: number[]; city?: string };
+    estimatedFare: number;
+    estimatedTimeInMinutes: number;
+    distanceInKm: number;
+    acceptedAt?: string;
+  };
 }
 
 export interface ScheduledFareBreakdown {

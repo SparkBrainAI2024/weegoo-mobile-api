@@ -36,7 +36,7 @@ export class MatchmakingResolver {
   async matchDrivers(@Args('input') input: MatchDriversInput): Promise<MatchResultGraphQL> {
     this.logger.log(`GraphQL: INSTANT matchmaking triggered for ride: ${input.rideId}`);
     const result = await this.matchmakingService.matchDrivers({ rideId: input.rideId });
-
+    this.logger.log(`result new ${JSON.stringify(result)}`)
     return {
       matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
       driverId: result.driverId, driverName: result.driverName,
