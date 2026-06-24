@@ -90,6 +90,28 @@ export class MatchmakingIntegrationService {
                 rating
                 attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
                 message
+                acceptedDetails {
+                  rideId
+                  rideUUId
+                  driverId
+                  driverName
+                  phone
+                  profileImage
+                  rating
+                  vehicleId
+                  vehicleModel
+                  vehicleType
+                  color
+                  numberPlate
+                  year
+                  passengerId
+                  pickupLocation { address coordinates city }
+                  dropoffLocation { address coordinates city }
+                  estimatedFare
+                  estimatedTimeInMinutes
+                  distanceInKm
+                  acceptedAt
+                }
               }
             }
           `,
@@ -160,6 +182,28 @@ export class MatchmakingIntegrationService {
                 driverName
                 attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
                 message
+                acceptedDetails {
+                  rideId
+                  rideUUId
+                  driverId
+                  driverName
+                  phone
+                  profileImage
+                  rating
+                  vehicleId
+                  vehicleModel
+                  vehicleType
+                  color
+                  numberPlate
+                  year
+                  passengerId
+                  pickupLocation { address coordinates city }
+                  dropoffLocation { address coordinates city }
+                  estimatedFare
+                  estimatedTimeInMinutes
+                  distanceInKm
+                  acceptedAt
+                }
               }
             }
           `,
@@ -264,6 +308,28 @@ export class MatchmakingIntegrationService {
                 driverName
                 attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
                 message
+                acceptedDetails {
+                  rideId
+                  rideUUId
+                  driverId
+                  driverName
+                  phone
+                  profileImage
+                  rating
+                  vehicleId
+                  vehicleModel
+                  vehicleType
+                  color
+                  numberPlate
+                  year
+                  passengerId
+                  pickupLocation { address coordinates city }
+                  dropoffLocation { address coordinates city }
+                  estimatedFare
+                  estimatedTimeInMinutes
+                  distanceInKm
+                  acceptedAt
+                }
               }
             }
           `,
