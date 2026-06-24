@@ -28,11 +28,34 @@ export class MatchmakingIntegrationService {
     dropoffLocation: RideLocationInput,
     vehicleType: string,
   ): Promise<TriggerMatchmakingResult> {
-    // Step 1: Find a vehicle matching the requested type and the user's vehicles
+    // Step 1: Check if passenger already has an active (CONFIRMED/ONGOING/PICKUP) instant ride
+    const activeRide = await this.ridesModel.findOne({
+      passengerId: new Types.ObjectId(userId),
+      rideType: RideTypes.INSTANT,
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      deleted: false,
+    }).exec();
+
+    if (activeRide) {
+      this.logger.warn(`Passenger ${userId} already has an active ride ${activeRide.rideUUId}. Rejecting new instant ride request.`);
+      return {
+        success: false,
+        matched: true,
+        rideId: activeRide._id.toString(),
+        rideUUId: activeRide.rideUUId,
+        message: `Please complete your current ride before requesting a new ride.`,
+        driverId: activeRide.driverId?.toString() || undefined,
+        driverName: undefined,
+        rideType: RideTypes.INSTANT,
+        rideStatus: activeRide.rideStatus,
+      } as any;
+    }
+
+    // Step 2: Find a vehicle matching the requested type and the user's vehicles
     // (in production, this would be selected from available fleet; for now find any)
     const vehicle = await this.vehicleModel.findOne({ vehicleType: vehicleType as any, deleted: false }).exec();
 
-    // Step 2: Create the ride in PENDING status
+    // Step 3: Create the ride in PENDING status
     const rideData: Partial<RidesDocument> = {
       rideType: RideTypes.INSTANT,
       bookingTime: new Date(),
@@ -78,39 +101,40 @@ export class MatchmakingIntegrationService {
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
         {
-          query: `
+              query: `
             mutation MatchDrivers($input: MatchDriversInput!) {
               matchDrivers(input: $input) {
                 matched
                 rideId
                 rideUUId
+                passengerId
                 driverId
                 driverName
                 driverImage
                 rating
-                attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
+                estimatedFare { pickupCost distanceCost durationCost total }
+                attempts { attemptNumber radiusKm waitTimeSeconds driversFound driversRequested driverAccepted acceptedDriverId timeoutExpired status }
                 message
+                ablyChannelId
                 acceptedDetails {
                   rideId
                   rideUUId
                   driverId
                   driverName
-                  phone
-                  profileImage
+                  driverImage
                   rating
-                  vehicleId
-                  vehicleModel
+                  phone
                   vehicleType
+                  vehicleModel
                   color
                   numberPlate
-                  year
-                  passengerId
                   pickupLocation { address coordinates city }
                   dropoffLocation { address coordinates city }
                   estimatedFare
                   estimatedTimeInMinutes
                   distanceInKm
                   acceptedAt
+                  ablyChannelId
                 }
               }
             }
@@ -121,32 +145,91 @@ export class MatchmakingIntegrationService {
 
       const result = response.data?.data?.matchDrivers;
 
+      // Re-fetch the ride to get updated fields (e.g., fare, distance, time) persisted by matchmaking service
+      const updatedRide = await this.ridesModel.findById(ride._id).exec();
+
+      // Build enriched response with ride data
+      // Normalize attempts to ensure non-nullable fields like waitTimeSeconds have fallback values
+      const normalizedAttempts = (result?.attempts || []).map((a: any) => ({
+        attemptNumber: a.attemptNumber ?? 0,
+        radiusKm: a.radiusKm ?? 0,
+        waitTimeSeconds: a.waitTimeSeconds ?? 20,
+        driversFound: a.driversFound ?? 0,
+        driversRequested: a.driversRequested ?? 0,
+        driverAccepted: a.driverAccepted ?? false,
+        acceptedDriverId: a.acceptedDriverId,
+        timeoutExpired: a.timeoutExpired ?? false,
+        status: a.status ?? 'unknown',
+      }));
+
+      const baseResponse = {
+        success: result?.matched ? true : false,
+        matched: result?.matched || false,
+        rideId: result?.rideId || ride._id.toString(),
+        rideUUId: result?.rideUUId || ride.rideUUId || '',
+        message: result?.message || 'No driver found',
+        driverId: result?.driverId || undefined,
+        driverName: result?.driverName || undefined,
+        driverImage: result?.driverImage || undefined,
+        rating: result?.rating || undefined,
+        rideType: RideTypes.INSTANT,
+        rideStatus: result?.matched ? RideStatus.CONFIRMED : RideStatus.PENDING,
+        attempts: normalizedAttempts,
+        ablyChannelId: (updatedRide as any)?.ablyChannelId || ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+        driverLocationChannel: `WG-DRIVER-${result?.driverId || ''}-driver-location`,
+        pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
+        dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined,
+        estimatedFare: result?.estimatedFare ? { pickupCost: result.estimatedFare.pickupCost, distanceCost: result.estimatedFare.distanceCost, durationCost: result.estimatedFare.durationCost, total: result.estimatedFare.total } : undefined,
+        estimatedFareTotal: result?.estimatedFare?.total || undefined,
+        estimatedTimeInMinutes: (updatedRide as any)?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || undefined,
+        distanceInKm: (updatedRide as any)?.distanceInKm || ride.distanceInKm || undefined,
+        noOfPassengers: ride.noOfPassengers || 1,
+      } as any;
+
       if (result?.matched) {
         this.logger.log(`Matchmaking succeeded for ride ${ride.rideUUId}: driver ${result.driverId}`);
+        const acceptedDetails = result.acceptedDetails ? {
+          rideId: result.acceptedDetails.rideId,
+          rideUUId: result.acceptedDetails.rideUUId,
+          driver: {
+            driverId: result.acceptedDetails.driverId || '',
+            fullName: result.acceptedDetails.driverName || '',
+            phone: result.acceptedDetails.phone || '',
+            profileImage: result.acceptedDetails.driverImage || null,
+            rating: result.acceptedDetails.rating || 0,
+          },
+          vehicle: {
+            vehicleId: result.acceptedDetails.vehicleId || '',
+            vehicleModel: result.acceptedDetails.vehicleModel || '',
+            vehicleType: result.acceptedDetails.vehicleType || '',
+            color: result.acceptedDetails.color || '',
+            numberPlate: result.acceptedDetails.numberPlate || '',
+          },
+          pickupLocation: result.acceptedDetails.pickupLocation,
+          dropoffLocation: result.acceptedDetails.dropoffLocation,
+          estimatedFare: result.acceptedDetails.estimatedFare,
+          estimatedTimeInMinutes: result.acceptedDetails.estimatedTimeInMinutes,
+          distanceInKm: result.acceptedDetails.distanceInKm,
+          acceptedAt: result.acceptedDetails.acceptedAt,
+          ablyChannelId: baseResponse.ablyChannelId,
+          driverLocationChannel: baseResponse.driverLocationChannel,
+        } : undefined;
+
         return {
-          success: true,
-          matched: true,
-          rideId: ride._id.toString(),
-          rideUUId: ride.rideUUId,
-          message: `Driver ${result.driverName || result.driverId} matched`,
-          driverId: result.driverId,
-          driverName: result.driverName,
-          attempts: result.attempts,
-          acceptedDetails: result.acceptedDetails,
+          ...baseResponse,
+          acceptedDetails,
         };
       }
-
       // Step 4a: Matchmaking did not find a driver — delete the ride
       this.logger.warn(`Matchmaking failed for ride ${ride.rideUUId}. Deleting ride.`);
       await this.ridesModel.findByIdAndDelete(ride._id).exec();
       return {
-        success: false,
-        matched: false,
+        ...baseResponse,
         rideId: '',
         rideUUId: '',
-        message: result?.message || 'No driver found',
       };
     } catch (error: any) {
+      console.log("error",error)
       // Step 4b: Matchmaking service call failed — delete the ride
       this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}. Deleting ride.`);
       await this.ridesModel.findByIdAndDelete(ride._id).exec();
@@ -172,7 +255,7 @@ export class MatchmakingIntegrationService {
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
         {
-          query: `
+              query: `
             mutation MatchScheduledDrivers($input: MatchScheduledDriversInput!) {
               matchScheduledDrivers(input: $input) {
                 matched
@@ -180,7 +263,7 @@ export class MatchmakingIntegrationService {
                 rideUUId
                 driverId
                 driverName
-                attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
+                attempts { attemptNumber radiusKm waitTimeSeconds driversFound driversRequested driverAccepted acceptedDriverId timeoutExpired status }
                 message
                 acceptedDetails {
                   rideId
@@ -213,22 +296,43 @@ export class MatchmakingIntegrationService {
       );
 
       const result = response.data?.data?.matchScheduledDrivers;
+
+      // Normalize attempts for scheduled ride response
+      const scheduledNormalizedAttempts = (result?.attempts || []).map((a: any) => ({
+        attemptNumber: a.attemptNumber ?? 0,
+        radiusKm: a.radiusKm ?? 0,
+        waitTimeSeconds: a.waitTimeSeconds ?? 120,
+        driversFound: a.driversFound ?? 0,
+        driversRequested: a.driversRequested ?? 0,
+        driverAccepted: a.driverAccepted ?? false,
+        acceptedDriverId: a.acceptedDriverId,
+        timeoutExpired: a.timeoutExpired ?? false,
+        status: a.status ?? 'unknown',
+      }));
+
+      // Build enriched response with ride data for scheduled
+      const baseScheduledResponse = {
+        success: result?.matched ? true : false,
+        matched: result?.matched || false,
+        rideId: result?.rideId || rideId,
+        rideUUId: result?.rideUUId || '',
+        message: result?.message || 'No driver found',
+        driverId: result?.driverId || undefined,
+        driverName: result?.driverName || undefined,
+        attempts: scheduledNormalizedAttempts,
+        ablyChannelId: `WG-RIDE-${result?.rideUUId || ''}-ride-details`,
+        driverLocationChannel: `WG-DRIVER-${result?.driverId || ''}-driver-location`,
+      } as any;
+
       if (result?.matched) {
         this.logger.log(`Scheduled matchmaking succeeded for ride ${rideId}: driver ${result.driverId}`);
         return {
-          success: true,
-          matched: true,
-          rideId,
-          rideUUId: result.rideUUId,
-          message: `Driver ${result.driverName || result.driverId} matched for scheduled ride`,
-          driverId: result.driverId,
-          driverName: result.driverName,
-          attempts: result.attempts,
+          ...baseScheduledResponse,
           acceptedDetails: result.acceptedDetails,
         };
       }
 
-      return { success: false, matched: false, rideId, rideUUId: result?.rideUUId || '', message: result?.message || 'No driver found' };
+      return { ...baseScheduledResponse };
     } catch (error: any) {
       this.logger.error(`Scheduled matchmaking request failed: ${error?.message || error}`);
       return { success: false, matched: false, rideId, rideUUId: '', message: 'Matchmaking service unavailable' };
@@ -298,7 +402,7 @@ export class MatchmakingIntegrationService {
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
         {
-          query: `
+              query: `
             mutation MatchScheduledDrivers($input: MatchScheduledDriversInput!) {
               matchScheduledDrivers(input: $input) {
                 matched
@@ -306,7 +410,7 @@ export class MatchmakingIntegrationService {
                 rideUUId
                 driverId
                 driverName
-                attempts { attemptNumber radiusKm driversFound driversRequested driverAccepted timeoutExpired }
+                attempts { attemptNumber radiusKm waitTimeSeconds driversFound driversRequested driverAccepted acceptedDriverId timeoutExpired status }
                 message
                 acceptedDetails {
                   rideId
@@ -340,6 +444,19 @@ export class MatchmakingIntegrationService {
 
       const result = response.data?.data?.matchScheduledDrivers;
 
+      // Normalize attempts for the scheduled ride response
+      const scheduledNormalizedAttempts = (result?.attempts || []).map((a: any) => ({
+        attemptNumber: a.attemptNumber ?? 0,
+        radiusKm: a.radiusKm ?? 0,
+        waitTimeSeconds: a.waitTimeSeconds ?? 120,
+        driversFound: a.driversFound ?? 0,
+        driversRequested: a.driversRequested ?? 0,
+        driverAccepted: a.driverAccepted ?? false,
+        acceptedDriverId: a.acceptedDriverId,
+        timeoutExpired: a.timeoutExpired ?? false,
+        status: a.status ?? 'unknown',
+      }));
+
       if (result?.matched) {
         this.logger.log(`Scheduled matchmaking succeeded for ride ${ride.rideUUId}: driver ${result.driverId}`);
         return {
@@ -350,7 +467,7 @@ export class MatchmakingIntegrationService {
           message: `Driver ${result.driverName || result.driverId} matched for scheduled ride`,
           driverId: result.driverId,
           driverName: result.driverName,
-          attempts: result.attempts,
+          attempts: scheduledNormalizedAttempts,
           acceptedDetails: result.acceptedDetails,
         };
       }
@@ -385,7 +502,7 @@ export class MatchmakingIntegrationService {
     const matchmakingUrl = this.getMatchmakingUrl();
     try {
       const response = await axios.post(
-        `${matchmakingUrl}/graphql`,
+        `${matchmakingUrl}`,
         {
           query: `
             mutation UpdatePassengerLocation($input: UpdatePassengerLocationInput!) {

@@ -150,6 +150,16 @@ export class MatchmakingService {
       const batchSize = Math.min(MATCHMAKING_CONFIG.REQUEST_BATCH_SIZE, scoredDrivers.length);
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
+      // IMPORTANT: Set up Ably subscription BEFORE sending ride requests to eliminate
+      // the race condition where a driver responds before the listener is ready.
+      const driverIds = requestBatch.map((d) => d.driverId);
+      const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(
+        ride.rideUUId,
+        driverIds,
+        waitTimeSeconds * 1000,
+      );
+
+      // Now send ride requests to all drivers in the batch
       for (const driver of requestBatch) {
         // Skip notification and Ably publish if driver has already responded
         if (respondedDriverIds.has(driver.driverId)) {
@@ -193,7 +203,9 @@ export class MatchmakingService {
         }
       }
 
-      const driverResponse = await this.waitForDriverResponse(rideId, requestBatch.map((d) => d.driverId), waitTimeSeconds * 1000);
+      // Now await the response (subscription was set up before sending requests)
+      const driverResponse = await driverResponsePromise;
+      unsubscribe();
 
       // Add ALL drivers from this attempt to the responded set to prevent re-contacting them
       requestBatch.forEach((d) => respondedDriverIds.add(d.driverId));
@@ -268,7 +280,13 @@ export class MatchmakingService {
     const respondedDriverIds: Set<string> = new Set();
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
+      // Re-check ride status each attempt — if already accepted by another
+      // driver via handleDriverResponse, stop immediately to avoid race condition.
       const currentRide = await this.ridesModel.findById(ride._id).exec();
+      if (!currentRide || currentRide.rideStatus !== RideStatus.PENDING) {
+        this.logger.log(`[INSTANT] Ride ${ride.rideUUId} no longer PENDING (status: ${currentRide?.rideStatus}). Stopping matchmaking.`);
+        break;
+      }
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
@@ -285,6 +303,16 @@ export class MatchmakingService {
       const batchSize = Math.min(MATCHMAKING_CONFIG.REQUEST_BATCH_SIZE, scoredDrivers.length);
       const requestBatch = scoredDrivers.slice(0, batchSize);
 
+      // IMPORTANT: Set up Ably subscription BEFORE sending ride requests to eliminate
+      // the race condition where a driver responds before the listener is ready.
+      const driverIds = requestBatch.map((d) => d.driverId);
+      const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(
+        ride.rideUUId,
+        driverIds,
+        waitTimeSeconds * 1000,
+      );
+
+      // Now send ride requests to all drivers in the batch
       for (const driver of requestBatch) {
         // Skip notification and Ably publish if driver has already responded
         if (respondedDriverIds.has(driver.driverId)) {
@@ -332,7 +360,9 @@ export class MatchmakingService {
         }
       }
 
-      const driverResponse = await this.waitForDriverResponse(rideId, requestBatch.map((d) => d.driverId), waitTimeSeconds * 1000);
+      // Now await the response (subscription was set up before sending requests)
+      const driverResponse = await driverResponsePromise;
+      unsubscribe();
 
       // Add ALL drivers from this attempt to the responded set to prevent re-contacting them in later attempts
       requestBatch.forEach((d) => respondedDriverIds.add(d.driverId));
@@ -510,46 +540,87 @@ export class MatchmakingService {
   //  Driver response handling
   // ════════════════════════════════════════════════════════════════
 
-  private async waitForDriverResponse(rideUUID: string, driverIds: string[], timeoutMs: number): Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }> {
-    return new Promise((resolve) => {
-      const rejectedDriverIds: string[] = [];
-      let resolved = false;
+  /**
+   * Set up the Ably subscription for driver responses BEFORE sending ride requests.
+   * This eliminates the race condition where a driver responds before the listener is ready.
+   * Returns { promise, unsubscribe } so the caller can subscribe first, then send requests,
+   * then await the promise for the result.
+   */
+  private subscribedListeners = new Map<string, (message: any) => void>();
 
-      const timeout = setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          this.logger.log(`Driver response timeout for ride ${rideUUID} after ${timeoutMs}ms. Rejected: ${rejectedDriverIds.join(', ')}`);
-          resolve({ accepted: false, rejectedDriverIds });
-        }
-      }, timeoutMs);
+  private subscribeForDriverResponse(
+    rideUUID: string,
+    driverIds: string[],
+    timeoutMs: number,
+  ): {
+    promise: Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>;
+    unsubscribe: () => void;
+  } {
+    const rejectedDriverIds: string[] = [];
+    let resolved = false;
+    let resolvePromise: (value: { accepted: boolean; driverId?: string; rejectedDriverIds: string[] }) => void;
 
-      const channelName = `WG-RIDE-${rideUUID}-ride-details`;
-      const unsubscribe = this.ablyService.subscribe(
-        channelName, 'ride-detail',
-        (message) => {
-          const response = message.data as { eventType?: string; driverId: string; action: 'accept' | 'reject' };
-          if (response.eventType === 'driver-response') {
-            if (response.action === 'accept' && driverIds.includes(response.driverId) && !resolved) {
-              resolved = true;
-              clearTimeout(timeout);
-              unsubscribe();
-              resolve({ accepted: true, driverId: response.driverId, rejectedDriverIds });
-            } else if (response.action === 'reject' && driverIds.includes(response.driverId) && !rejectedDriverIds.includes(response.driverId)) {
-              rejectedDriverIds.push(response.driverId);
-              this.logger.log(`Driver ${response.driverId} rejected ride ${rideUUID}. Total rejected so far: ${rejectedDriverIds.length}/${driverIds.length}`);
-              // If all drivers have rejected, resolve early
-              if (rejectedDriverIds.length >= driverIds.length && !resolved) {
-                resolved = true;
-                clearTimeout(timeout);
-                unsubscribe();
-                this.logger.log(`All ${driverIds.length} drivers rejected ride ${rideUUID}`);
-                resolve({ accepted: false, rejectedDriverIds });
-              }
-            }
-          }
-        },
-      );
+    const promise = new Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>((resolve) => {
+      resolvePromise = resolve;
     });
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        this.logger.log(`Driver response timeout for ride ${rideUUID} after ${timeoutMs}ms. Rejected: ${rejectedDriverIds.join(', ')}`);
+        resolvePromise({ accepted: false, rejectedDriverIds });
+      }
+    }, timeoutMs);
+
+    const channelName = `WG-RIDE-${rideUUID}-ride-details`;
+    const listenerKey = `${rideUUID}-${Date.now()}`;
+
+    const handler = (message: any) => {
+      const response = message.data as { eventType?: string; driverId: string; action: 'accept' | 'reject' };
+      if (response.eventType === 'driver-response') {
+        if (response.action === 'accept' && driverIds.includes(response.driverId) && !resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          this.ablyService.unsubscribe(channelName, 'ride-detail', handler);
+          this.subscribedListeners.delete(listenerKey);
+          resolvePromise({ accepted: true, driverId: response.driverId, rejectedDriverIds });
+        } else if (response.action === 'reject' && driverIds.includes(response.driverId) && !rejectedDriverIds.includes(response.driverId)) {
+          rejectedDriverIds.push(response.driverId);
+          this.logger.log(`Driver ${response.driverId} rejected ride ${rideUUID}. Total rejected so far: ${rejectedDriverIds.length}/${driverIds.length}`);
+          // If all drivers have rejected, resolve early
+          if (rejectedDriverIds.length >= driverIds.length && !resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            this.ablyService.unsubscribe(channelName, 'ride-detail', handler);
+            this.subscribedListeners.delete(listenerKey);
+            this.logger.log(`All ${driverIds.length} drivers rejected ride ${rideUUID}`);
+            resolvePromise({ accepted: false, rejectedDriverIds });
+          }
+        }
+      }
+    };
+
+    this.subscribedListeners.set(listenerKey, handler);
+    this.ablyService.subscribe(
+      channelName, 'ride-detail',
+      handler,
+    );
+
+    const unsubscribe = () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+      }
+      this.ablyService.unsubscribe(channelName, 'ride-detail', handler);
+      this.subscribedListeners.delete(listenerKey);
+    };
+
+    return { promise, unsubscribe };
+  }
+
+  private async waitForDriverResponse(rideUUID: string, driverIds: string[], timeoutMs: number): Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }> {
+    const { promise } = this.subscribeForDriverResponse(rideUUID, driverIds, timeoutMs);
+    return promise;
   }
 
   async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
@@ -561,7 +632,83 @@ export class MatchmakingService {
       const driverName = driverUser?.fullName ?? null;
       const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId), deleted: false }).exec();
       if (action === 'accept') {
-        const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.PENDING }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED } }, { new: true }).exec();
+        // Calculate route distance and driver distance to pickup for persisting in ride schema
+        const pickupCoords = ride.pickupLocation?.coordinates;
+        const dropoffCoords = ride.dropoffLocation?.coordinates;
+        const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
+        let routeDistanceKm = ride.distanceInKm || 0;
+        let routeDurationMinutes = ride.estimatedTimeInMinutes || 0;
+        let driverToPickupDistanceKm = 0;
+        let driverToPickupDurationMinutes = 0;
+
+        // Calculate route distance from pickup to dropoff
+        if (pickupCoords?.[1] && dropoffCoords?.[1]) {
+          try {
+            const vType = (vehicle?.vehicleType as string)?.toLowerCase() || 'car';
+            const route = await this.distanceCalculator.calculateDistance(
+              pickupCoords[1], pickupCoords[0],
+              dropoffCoords[1], dropoffCoords[0],
+              vType,
+            );
+            routeDistanceKm = route.distanceKm;
+            routeDurationMinutes = route.durationMinutes;
+          } catch { }
+        }
+
+        // Calculate driver's current distance to pickup
+        if (driverDetails?.geoLocation?.coordinates && pickupCoords?.[1]) {
+          try {
+            const vType = (vehicle?.vehicleType as string)?.toLowerCase() || 'car';
+            const driverLng = driverDetails.geoLocation.coordinates[0];
+            const driverLat = driverDetails.geoLocation.coordinates[1];
+            const dist = await this.distanceCalculator.calculateDriverDistance(
+              pickupCoords[1], pickupCoords[0],
+              driverLat, driverLng,
+              vType,
+            );
+            driverToPickupDistanceKm = Math.round(dist.distanceKm * 100) / 100;
+            driverToPickupDurationMinutes = Math.ceil(dist.durationMinutes);
+          } catch { }
+        }
+
+        let totalFare: number | undefined;
+        if (ride.rideType === RideTypes.INSTANT) {
+          const fare = await this.getEstimatedFare(ride._id.toString(), vehicle?.vehicleType);
+          totalFare = fare?.total;
+        } else {
+          const fare = await this.getScheduledEstimatedFare(ride._id.toString());
+          totalFare = fare?.total;
+        }
+
+        const distanceFare = routeDistanceKm * 20;
+        const baseFare = 50;
+        const totalAmount = baseFare + distanceFare;
+
+        const updatedRide = await this.ridesModel.findOneAndUpdate(
+          { _id: ride._id, rideStatus: RideStatus.PENDING },
+          {
+            $set: {
+              driverId: new Types.ObjectId(driverId),
+              rideStatus: RideStatus.CONFIRMED,
+              distanceInKm: routeDistanceKm,
+              estimatedTimeInMinutes: routeDurationMinutes,
+              estimatedFare: totalFare || ride.estimatedFare || 0,
+              distanceToReachPassenger: driverToPickupDistanceKm,
+              estimatedTimeToReachPassenger: driverToPickupDurationMinutes,
+              timeToReachPassengerInMinutes: driverToPickupDurationMinutes,
+              fare: {
+                baseAmount: baseFare,
+                trafficCongestionAmount: 0,
+                distanceAmount: Math.round(distanceFare * 100) / 100,
+                totalAmount: Math.round(totalAmount * 100) / 100,
+                noOfPassengers: ride.noOfPassengers || 1,
+                discountAmount: 0,
+                promoCodeId: null,
+              },
+            }
+          },
+          { new: true },
+        ).exec();
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
         let acceptDetails: any;
         if (ride.rideType === RideTypes.SCHEDULED) {
