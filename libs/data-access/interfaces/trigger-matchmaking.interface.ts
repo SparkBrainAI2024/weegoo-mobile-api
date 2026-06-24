@@ -7,4 +7,5 @@ export interface TriggerMatchmakingResult {
   driverId?: string;
   driverName?: string;
   attempts?: any[];
+  acceptedDetails?: any;
 }

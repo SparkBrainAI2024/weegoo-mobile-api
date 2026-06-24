@@ -110,6 +110,7 @@ export class MatchmakingIntegrationService {
           driverId: result.driverId,
           driverName: result.driverName,
           attempts: result.attempts,
+          acceptedDetails: result.acceptedDetails,
         };
       }
 
@@ -169,10 +170,17 @@ export class MatchmakingIntegrationService {
 
       const result = response.data?.data?.matchScheduledDrivers;
       if (result?.matched) {
+        this.logger.log(`Scheduled matchmaking succeeded for ride ${rideId}: driver ${result.driverId}`);
         return {
-          success: true, matched: true, rideId, rideUUId: result.rideUUId,
+          success: true,
+          matched: true,
+          rideId,
+          rideUUId: result.rideUUId,
           message: `Driver ${result.driverName || result.driverId} matched for scheduled ride`,
-          driverId: result.driverId, driverName: result.driverName, attempts: result.attempts,
+          driverId: result.driverId,
+          driverName: result.driverName,
+          attempts: result.attempts,
+          acceptedDetails: result.acceptedDetails,
         };
       }
 
@@ -277,6 +285,7 @@ export class MatchmakingIntegrationService {
           driverId: result.driverId,
           driverName: result.driverName,
           attempts: result.attempts,
+          acceptedDetails: result.acceptedDetails,
         };
       }
 
