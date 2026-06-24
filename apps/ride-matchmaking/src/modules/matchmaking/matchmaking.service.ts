@@ -344,13 +344,13 @@ export class MatchmakingService {
           acceptedDriverName = acceptedDriver?.fullName || 'Driver';
           acceptedDriverImage = acceptedDriver?.profileImage;
           acceptedRating = acceptedDriver?.rating;
-          await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
 
+          // Ride status, event publishing, and notifications already handled by 
+          // handleDriverResponse() via the driverRespondToRide mutation.
+          // Just build accept details and return immediately — no duplicate side effects.
+          this.logger.log(`Driver ${acceptedDriverId} accepted ride ${ride.rideUUId} via handleDriverResponse — returning result to matchmaking integration`);
           const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
-          await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
-          await this.rideChannelService.publishRideTaken(ride.rideUUId, rideId);
-          this.logger.log(`returning the response to the actual api`);
-       
+
           return {
             matched: true,
             rideId,

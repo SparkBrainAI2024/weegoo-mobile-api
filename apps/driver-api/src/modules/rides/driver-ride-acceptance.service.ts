@@ -130,8 +130,8 @@ export class DriverRideAcceptanceService {
       const result = response.data?.data?.driverRespondToRide;
       if (result?.success) {
         this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
-        // Build and return full ride details
-        await this.ridesRepository.updateById(toMongoId(rideId),{rideStatus: RideStatus.CONFIRMED})
+        // Ride status already updated by matchmaking service's handleDriverResponse()
+        // Just build and return full ride details
         const acceptDetails = await this.buildAcceptDetails(ride, driverId);
         return { success: true, message: result.message, data: acceptDetails };
       } else {
