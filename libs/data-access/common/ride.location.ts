@@ -6,29 +6,29 @@ import { ProvinceEnum } from "../enums/user.enum";
 
 @ObjectType()
 export class RideLocation extends GeoLocation {
-    @Field()
-    @Prop({ type: String, required: true })
-    @ApiProperty()
-    address: string;
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String, required: false })
+    @ApiProperty({ required: false })
+    address?: string;
 
-    @Field(() => String)
-    @Prop({ type: String, required: true })
-    @ApiProperty()
-    city: string;
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String, required: false })
+    @ApiProperty({ required: false })
+    city?: string;
 
-    @Field(() => ProvinceEnum)
-    @Prop({ type: ProvinceEnum, required: true })
-    @ApiProperty()
-    province: ProvinceEnum;
+    @Field(() => ProvinceEnum, { nullable: true })
+    @Prop({ type: ProvinceEnum, required: false })
+    @ApiProperty({ required: false })
+    province?: ProvinceEnum;
 
-    @Field(() => String)
-    @Prop({ type: String, required: true })
-    @ApiProperty()
-    district: string;
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String, required: false })
+    @ApiProperty({ required: false })
+    district?: string;
 
-    @Field(() => String)
-    @Prop({ type: String, required: true })
-    @ApiProperty()
-    fullAddress: string;
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String, required: false })
+    @ApiProperty({ required: false })
+    fullAddress?: string;
 
 }
