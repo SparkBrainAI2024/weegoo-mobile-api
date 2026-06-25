@@ -3,13 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Schema as MongooseSchema } from "mongoose";
 import { TransactionDirection, TransactionStatus, TransactionType } from "../enums/transaction.enum";
-import { PaymentMethodEnum } from "../enums/payment.enum";
-
-
-
-
-
-
+import { PaymentMethodEnum, PaymentMediumEnum } from "../enums/payment.enum";
 
 
 
@@ -50,6 +44,10 @@ export class Transaction extends BaseEntity {
   @Prop({ type: String, enum: PaymentMethodEnum, default: null })
   paymentMethod?: PaymentMethodEnum;
 
+  @Field(() => PaymentMediumEnum, { nullable: true })
+  @Prop({ type: String, enum: PaymentMediumEnum, default: null })
+  paymentMedium?: PaymentMediumEnum;
+
   @Field(() => TransactionStatus)
   @Prop({
     required: true,
@@ -58,6 +56,18 @@ export class Transaction extends BaseEntity {
     default: TransactionStatus.COMPLETED,
   })
   status: TransactionStatus;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  reference?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  remarks?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
+  transactionUuid?: string;
 }
 
 export type TransactionDocument = HydratedDocument<Transaction>;

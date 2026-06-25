@@ -21,6 +21,7 @@ export * from './entities/notification.entity';
 export * from './entities/promo-code-used.entity'
 export * from './entities/promo-code.entity';
 export * from './entities/transaction.entity';
+export * from './entities/wallet.entity';
 export * from './entities/issue.entity';
 export * from './entities/user-daily-online-status.entity';
 export * from './entities/rating.entity';
@@ -34,6 +35,7 @@ export * from './repositories/rides.repository';
 export * from './repositories/vehicle.repository';
 export * from './repositories/driver-document.repository';
 export * from './repositories/transaction.repository';
+export * from './repositories/wallet.repository';
 export * from './repositories/favourites.repository';
 export * from './repositories/notification.repository';
 export * from './repositories/user-daily-online-status.repository';
@@ -103,8 +105,10 @@ export * from './dtos/input/update-ride.input';
 export * from './dtos/input/cancel-ride.input';
 export * from './dtos/input/create-promo-code.input';
 export * from './dtos/input/get-all-rides.input';
+export * from './dtos/input/transaction-pagination.input';
 export * from './dtos/input/complete-ride.input';
 export * from './dtos/input/create-rating.input';
+export * from './dtos/input/create-complaint.input';
 
 
 // dtos - response
@@ -132,6 +136,9 @@ export * from './dtos/response/rating-list-with-pagination.response';
 export * from './dtos/response/ride-group.response';
 export * from './dtos/response/rides-list-with-cursor-pagination.response';
 export * from './dtos/response/driver-ride-response.dto';
+export * from './dtos/response/transaction-list-with-pagination.response';
+export * from './dtos/response/delete-account-warnings.response';
+export * from './dtos/response/create-complaint.response';
 
 //interfaces
 export * from './interfaces/location.interface'

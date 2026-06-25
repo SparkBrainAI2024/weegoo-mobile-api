@@ -94,6 +94,25 @@ export class AblyService implements OnModuleInit {
   }
 
   /**
+   * Unsubscribe a specific handler from a channel/event.
+   * Unlike the generic unsubscribe returned by subscribe(), this targets
+   * only the specific handler so other listeners on the same channel/event are unaffected.
+   * @param channelName - The name of the channel
+   * @param eventName - The event name to unsubscribe from
+   * @param handler - The specific handler callback to remove
+   */
+  unsubscribe(
+    channelName: string,
+    eventName: string,
+    handler: (message: Ably.Message) => void,
+  ): void {
+    if (!this.realtime) return;
+    const channel = this.realtime.channels.get(channelName);
+    channel.unsubscribe(eventName, handler);
+    this.logger.debug(`Unsubscribed handler from event '${eventName}' on channel '${channelName}'`);
+  }
+
+  /**
    * Get a channel instance for advanced operations (history, presence, etc.)
    * @param channelName - The name of the channel
    */

@@ -1,4 +1,3 @@
-import { RidePersistentModule, RidesService, RidesResolver } from "@libs/services/rides";
 import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
@@ -10,17 +9,21 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { Occasion, OccasionSchema } from "@libs/data-access";
 
 @Module({
-    imports: [
-       PromoCodePersistenceModule,
-       UserPersistenceModule,
-       AdminAuthModule, 
-       MongooseModule.forFeature([{name:Occasion.name, schema:OccasionSchema}])
-    ],
-    providers: [
-        PromoCodeService,
-        PromoCodeResolver,
-        EnvService
-    ],
-    exports: [PromoCodeService]
+  imports: [
+    PromoCodePersistenceModule,
+    UserPersistenceModule,
+    AdminAuthModule,
+    MongooseModule.forFeature([
+      { name: Occasion.name, schema: OccasionSchema },
+    ]),
+  ],
+  providers: [
+    PromoCodeService,
+    PromoCodeResolver,
+    NotificationService,
+    FirebaseMessagingService,
+    EnvService,
+  ],
+  exports: [PromoCodeService],
 })
-export class PromoCodeModule { }
+export class PromoCodeModule {}

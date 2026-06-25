@@ -100,9 +100,13 @@ export class DriverRideAcceptanceService {
     }
 
     // Call matchmaking service via GraphQL
-    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
+    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
     this.logger.log(`Calling matchmaking service at ${matchmakingUrl} for ride acceptance`);
     this.logger.debug(`Payload: rideUUID=${ride.rideUUId}, driverId=${driverId}, action=accept ,rideId=${rideId}`);
+    // Pre-fetch driver and vehicle info for building the response
+    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
+    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
     try {
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
@@ -112,6 +116,22 @@ export class DriverRideAcceptanceService {
               driverRespondToRide(input: $input) {
                 success
                 message
+                acceptedDetails {
+                  rideId
+                  rideUUId
+                  driverId
+                  driverName
+                  driverImage
+                  rating
+                  vehicleType
+                  vehicleModel
+                  color
+                  numberPlate
+                  estimatedFare
+                  estimatedTimeInMinutes
+                  distanceInKm
+                  ablyChannelId
+                }
               }
             }
           `,
@@ -124,20 +144,59 @@ export class DriverRideAcceptanceService {
             },
           },
         },
-        { timeout: 10000 },
       );
 
       const result = response.data?.data?.driverRespondToRide;
       if (result?.success) {
         this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
-        // Build and return full ride details
-        const acceptDetails = await this.buildAcceptDetails(ride, driverId);
+        // Use the accepted details from the matchmaking service that includes 
+        // full driver/vehicle/passenger info, estimated fare, rating, etc.
+        const mmDetails = result.acceptedDetails;
+        const acceptDetails: DriverAcceptDetails = {
+          rideId: ride._id.toString(),
+          rideUUId: ride.rideUUId,
+          driver: {
+            driverId: driverId,
+            fullName: mmDetails?.driverName || driverUser?.fullName || 'Driver',
+            phone: driverUser?.phone || '',
+            profileImage: mmDetails?.driverImage || null,
+            rating: mmDetails?.rating || 0,
+          },
+          vehicle: {
+            vehicleId: vehicle?._id?.toString() || '',
+            vehicleModel: mmDetails?.vehicleModel || vehicle?.vehicleModel || '',
+            vehicleType: mmDetails?.vehicleType || vehicle?.vehicleType || '',
+            color: mmDetails?.color || vehicle?.color || '',
+            numberPlate: mmDetails?.numberPlate || vehicle?.numberPlate || '',
+            year: vehicle?.year || 0,
+          },
+          passenger: {
+            passengerId: ride.passengerId.toString(),
+            fullName: passengerUser?.fullName || 'Passenger',
+            phone: passengerUser?.phone || '',
+          },
+          pickupLocation: {
+            address: ride.pickupLocation?.address || '',
+            coordinates: ride.pickupLocation?.coordinates || [0, 0],
+            city: ride.pickupLocation?.city,
+          },
+          dropoffLocation: ride.dropoffLocation ? {
+            address: ride.dropoffLocation.address,
+            coordinates: ride.dropoffLocation.coordinates,
+            city: ride.dropoffLocation.city,
+          } : undefined,
+          estimatedFare: mmDetails?.estimatedFare || ride.estimatedFare || 0,
+          estimatedTimeInMinutes: mmDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || 0,
+          distanceInKm: mmDetails?.distanceInKm || ride.distanceInKm || 0,
+          acceptedAt: new Date().toISOString(),
+        };
         return { success: true, message: result.message, data: acceptDetails };
       } else {
         this.logger.warn(`Matchmaking service returned: ${result?.message}`);
         return { success: false, message: result?.message || 'Failed to accept ride via matchmaking service' };
       }
     } catch (error: any) {
+         this.logger.log(`error ${JSON.stringify(error)}`)
       this.logger.error(`Failed to call matchmaking service for accept: ${error?.message || error}`);
       return { success: false, message: 'Failed to communicate with matchmaking service' };
     }
@@ -156,7 +215,7 @@ export class DriverRideAcceptanceService {
     }
 
     // Call matchmaking service via GraphQL
-    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000');
+    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
     try {
       const response = await axios.post(
         `${matchmakingUrl}/graphql`,
@@ -178,7 +237,6 @@ export class DriverRideAcceptanceService {
             },
           },
         },
-        { timeout: 10000 },
       );
 
       const result = response.data?.data?.driverRespondToRide;
@@ -191,6 +249,7 @@ export class DriverRideAcceptanceService {
         return { success: false, message: result?.message || 'Failed to reject ride via matchmaking service' };
       }
     } catch (error: any) {
+        this.logger.log(`error ${JSON.stringify(error)}`)
       this.logger.error(`Failed to call matchmaking service for reject: ${error?.message || error}`);
       return { success: false, message: 'Failed to communicate with matchmaking service' };
     }

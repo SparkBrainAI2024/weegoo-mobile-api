@@ -1,5 +1,5 @@
 import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes, toMongoId, toMongoObjectId } from "@libs/common";
-import { ChangePasswordInput, DeviceRepository, language, UpdatePhoneInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserVerificationRepository, verificationType, VerifyEmailInput, UserTokenMetaRepository, SetPasswordInput } from "@libs/data-access";
+import { ChangePasswordInput, DeviceRepository, language, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserTokenMetaRepository } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { EnvService } from "@libs/common/config/env.service";
@@ -12,7 +12,6 @@ export class UserService {
     constructor(
         private readonly userRepository: UserRepository,
         private readonly deviceRepository: DeviceRepository,
-        private readonly userVerificationRepository: UserVerificationRepository,
         private readonly userDetailsRepository: UserDetailsRepository,
         private readonly userTokenMetaRepository: UserTokenMetaRepository,
         private readonly envService: EnvService,

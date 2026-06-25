@@ -202,6 +202,7 @@ export class RideChannelService {
       rating?: number;
       phone?: string;
     };
+     noOfPassengers?: number
   }): Promise<void> {
     await this.publishRideEvent(rideUUId, 'driver-ride-request', data);
   }

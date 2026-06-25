@@ -281,6 +281,56 @@ export class EnvService {
   }
 
   // ==========================================
+  // eSewa helper methods
+  // ==========================================
+
+  /**
+   * Get eSewa merchant/service code (SCD). Test: EPAYTEST
+   */
+  getEsewaMerchantCode(): string {
+    return this.getString('ESEWA_MERCHANT_CODE', 'EPAYTEST');
+  }
+
+  /**
+   * Get eSewa secret key for Epay-v2 HMAC verification.
+   */
+  getEsewaSecretKey(): string {
+    return this.getString('ESEWA_SECRET_KEY', '');
+  }
+
+  /**
+   * Get eSewa client ID for OAuth2 flow.
+   */
+  getEsewaClientId(): string {
+    return this.getString('ESEWA_CLIENT_ID', '');
+  }
+
+  /**
+   * Get eSewa client secret for OAuth2 flow.
+   */
+  getEsewaClientSecret(): string {
+    return this.getString('ESEWA_CLIENT_SECRET', '');
+  }
+
+  // ==========================================
+  // Khalti helper methods
+  // ==========================================
+
+  /**
+   * Get Khalti public key for Checkout SDK.
+   */
+  getKhaltiPublicKey(): string {
+    return this.getString('KHALTI_PUBLIC_KEY', 'test_public_key');
+  }
+
+  /**
+   * Get Khalti secret key for verification.
+   */
+  getKhaltiSecretKey(): string {
+    return this.getString('KHALTI_SECRET_KEY', 'test_secret_key');
+  }
+
+  // ==========================================
   // Baato API helper methods
   // ==========================================
 
