@@ -1,6 +1,6 @@
 import {
-  PaginationInput, RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
-  DriverDocumentRepository, DriverOnlineStatus, AppliedToEnum, UserDailyOnlineStatusRepository, GetAllRidesPaginationInput
+  RidesRepository, User, RidesDocument, RideStatus, RideTypes, ProvinceEnum, roles, UserDetailsRepository, DiscountTypeEnum, PromoCodeStatusEnum, PromoCode, PromoCodeDocument,
+  DriverDocumentRepository, DriverOnlineStatus, AppliedToEnum, UserDailyOnlineStatusRepository, GetAllRidesPaginationInput, UserDocument, Vehicle, VehicleDocument
 } from '@libs/data-access';
 
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
@@ -32,6 +32,8 @@ export class RidesService {
     private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
     @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
   ) { }
 
   /**
@@ -111,8 +113,13 @@ export class RidesService {
     }
     const onlineMinutesToday = Math.floor(totalOnlineSeconds / 60);
 
+    // Enrich each ride with driver, passenger, and vehicle info
+    const enrichedRides = await Promise.all(
+      rides.map((ride) => this.enrichRideDetails(ride)),
+    );
+
     return {
-      rides,
+      rides: enrichedRides,
       verification: {
         verificationRequired,
         documentStatuses,
@@ -347,7 +354,7 @@ export class RidesService {
       ride.vehicleId = ride.vehicleId._id.toString();
     }
 
-    const formatSnapshot = async (userRef: any, fallbackName: string) => {
+    const formatSnapshot = async (userRef: any, fallbackName: string, includeLocationChannelId = false) => {
       if (!userRef) return null;
       const isPopulated = typeof userRef === 'object' && userRef._id;
       const userId = isPopulated ? userRef._id.toString() : userRef.toString();
@@ -356,11 +363,11 @@ export class RidesService {
       const details = await this.userDetailsRepository.findOne(
         { userId: toMongoId(userId) },
         null,
-        { fullName: 1, profileImages: 1, rating: 1 },
+        { fullName: 1, profileImages: 1, rating: 1, locationChannelId: 1 },
       );
 
       const combined = { ...baseData, ...details?.toObject() };
-      return {
+      const result: any = {
         fullName: combined.fullName || baseData.fullName || fallbackName,
         profileImage: getActiveProfileImageUrl(combined.profileImages, (key) =>
           this.s3.getPublicUrl(key),
@@ -368,15 +375,25 @@ export class RidesService {
         rating: combined.rating ?? 0,
         phone: combined.phone || baseData.phone || '',
       };
+      if (includeLocationChannelId) {
+        result.locationChannelId = combined.locationChannelId;
+      }
+      return result;
     };
 
     const [driver, passenger] = await Promise.all([
-      formatSnapshot(ride.driverId, 'Driver'),
-      formatSnapshot(ride.passengerId, 'Passenger'),
+      formatSnapshot(ride.driverId, 'Driver', true),
+      formatSnapshot(ride.passengerId, 'Passenger', false),
     ]);
 
     if (ride.passengerId && typeof ride.passengerId === 'object') ride.passengerId = ride.passengerId._id.toString();
     if (ride.driverId && typeof ride.driverId === 'object') ride.driverId = ride.driverId._id.toString();
+
+    // Ensure vehicle info is present
+    if (!ride.vehicle && ride.vehicleId && typeof ride.vehicleId === 'object') {
+      ride.vehicle = ride.vehicleId;
+      ride.vehicleId = ride.vehicleId._id.toString();
+    }
 
     return {
       ...ride,
