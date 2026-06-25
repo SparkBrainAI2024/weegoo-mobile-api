@@ -14,6 +14,10 @@ import {
 } from "@libs/data-access";
 import { PromoCodeFindAllInput } from "@libs/data-access/dtos/input/promocode-filter.input";
 import { UpdatePromoCodeInput } from "@libs/data-access/dtos/input/update-promo-code.input";
+import {
+  PromocodeCreateResponse,
+  PromocodeUpdateResponse,
+} from "@libs/data-access/dtos/response/promocode.response";
 import { PromoCodeRepository } from "@libs/data-access/repositories/promo-code.repository";
 import { PROMO_CODE } from "@libs/localization/en/promocode.messages";
 import { Injectable, Logger, HttpStatus } from "@nestjs/common";
@@ -63,8 +67,8 @@ export class PromoCodeService {
       if (existing) {
         ErrorException(
           null,
-          "ADMIN_USER.ADMIN_NOT_FOUND",
-          HttpStatus.NOT_FOUND,
+          "PROMO_CODE.NAME_ALREADY_EXISTS",
+          HttpStatus.CONFLICT,
         );
       }
     } catch (e) {
@@ -73,10 +77,10 @@ export class PromoCodeService {
   }
 
   // ── CREATE ──────────────────────────────────────────────────
-  async create(input: CreatePromoCodeInput): Promise<PromoCodeDocument> {
+  async create(input: CreatePromoCodeInput): Promise<PromocodeCreateResponse> {
     try {
       await this.assertNameUnique(input.name);
-      return this.promoCodeRepository.create(
+      const createdObj = await this.promoCodeRepository.create(
         {
           ...input,
           name: input.name.toUpperCase(),
@@ -87,6 +91,12 @@ export class PromoCodeService {
         },
         { path: "occasion" },
       );
+
+      return {
+        message: "PROMO_CODE.CREATED_SUCCESSFULLY",
+        success: true,
+        promocode: createdObj,
+      };
     } catch (e) {
       ErrorException(e, "PROMO_CODE.CREATE", HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -141,7 +151,7 @@ export class PromoCodeService {
   async update(
     id: string,
     input: UpdatePromoCodeInput,
-  ): Promise<PromoCodeDocument> {
+  ): Promise<PromocodeUpdateResponse> {
     try {
       const promoCode = await this.findOrThrow(id);
 
@@ -188,11 +198,17 @@ export class PromoCodeService {
             );
           }
 
-          return this.promoCodeRepository.updateById(
+          const updatedObj = await this.promoCodeRepository.updateById(
             new Types.ObjectId(id),
             { $set: timeUpdate },
             { path: "occasion" },
           );
+
+          return {
+            message: "PROMO_CODE.UPDATED_SUCCESSFULLY",
+            success: true,
+            promocode: updatedObj,
+          };
         }
 
         case PromoCodeStatusEnum.DRAFT: {
@@ -209,11 +225,17 @@ export class PromoCodeService {
           };
           delete updatePayload.occasionId;
 
-          return this.promoCodeRepository.updateById(
+          const data = await this.promoCodeRepository.updateById(
             new Types.ObjectId(id),
             { $set: updatePayload },
             { path: "occasion" },
           );
+
+          return {
+            message: "PROMO_CODE.UPDATED_SUCCESSFULLY",
+            success: true,
+            promocode: data,
+          };
         }
       }
     } catch (e) {

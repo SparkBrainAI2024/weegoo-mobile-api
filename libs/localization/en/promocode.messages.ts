@@ -19,4 +19,7 @@ export const PROMO_CODE = {
     `Only ACTIVE promo codes can be deactivated. Current status: ${status}`,
   DELETE_ONLY_DRAFT:
     "Only DRAFT promo codes can be deleted. Use deactivate for ACTIVE codes",
+  UPDATED_SUCCESSFULLY: "Promocode updated successfully",
+
+  CREATED_SUCCESSFULLY: "Promocode created successfully",
 };
