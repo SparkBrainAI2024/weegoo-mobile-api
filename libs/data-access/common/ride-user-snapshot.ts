@@ -1,5 +1,6 @@
 import { Field, InputType, ObjectType } from "@nestjs/graphql";
 import { Prop } from "@nestjs/mongoose";
+import { GeoLocation } from "./geo.location";
 
 @ObjectType()
 export class RideUserSnapshot {
@@ -22,6 +23,10 @@ export class RideUserSnapshot {
     @Field(() => String, { nullable: true })
     @Prop({ type: String })
     locationChannelId?: string;
+
+    @Field(() => GeoLocation, { nullable: true })
+    @Prop({ type: Object, default: {} })
+    geoLocation?: GeoLocation;
 }
 
 @InputType()

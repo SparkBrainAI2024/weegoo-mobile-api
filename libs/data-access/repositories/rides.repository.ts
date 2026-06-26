@@ -307,7 +307,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   async findByIdWithAllDetails(rideId: string): Promise<RidesDocument | null> {
     const filter = {
       _id: rideId,
-      deleted: false,
     };
 
     const populate: Populate = [

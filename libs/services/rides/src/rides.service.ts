@@ -83,7 +83,7 @@ export class RidesService {
     const documentStatuses = requiredTypes.map((type: any) => {
       const doc = docs.find((d) => d.type === type);
       if (!doc) return { type, status: DriverDocumentBundleStatus.NOT_SUBMITTED }; // No document uploaded for this type
-       return {type,status: doc.status}
+      return { type, status: doc.status }
     });
 
     const verificationRequired = documentStatuses.some(d => d.status !== DriverDocumentBundleStatus.APPROVED);
@@ -363,7 +363,7 @@ export class RidesService {
       const details = await this.userDetailsRepository.findOne(
         { userId: toMongoId(userId) },
         null,
-        { fullName: 1, profileImages: 1, rating: 1, locationChannelId: 1 },
+        { fullName: 1, profileImages: 1, rating: 1, locationChannelId: 1, geoLocation: 1 },
       );
 
       const combined = { ...baseData, ...details?.toObject() };
@@ -377,6 +377,7 @@ export class RidesService {
       };
       if (includeLocationChannelId) {
         result.locationChannelId = combined.locationChannelId;
+        result.geoLocation = combined?.geoLocation || null;
       }
       return result;
     };
@@ -468,15 +469,22 @@ export class RidesService {
    * Gets ride details by ID with all populated information (vehicle, driver, passenger).
    * Only the passenger who owns the ride can access it.
    */
-  async getRideById(rideId: string, userId: Types.ObjectId): Promise<any> {
+  async getRideById(rideId: string, user: User): Promise<any> {
     const rideDocument = await this.rideRepository.findByIdWithAllDetails(rideId);
 
     if (!rideDocument) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }
-    // Verify that the user is the passenger of this ride
-    if (rideDocument.passengerId._id.toString() !== userId.toString()) {
-      ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+    if (user.loginAs === roles.USER) {
+      // Verify that the user is the passenger of this ride
+      if (rideDocument.passengerId._id.toString() !== user._id.toString()) {
+        ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
+    }
+    if (user.loginAs === roles.RIDER) {
+      if (rideDocument.driverId._id.toString() !== user._id.toString()) {
+        ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
     }
     return this.enrichRideDetails(rideDocument);
   }
