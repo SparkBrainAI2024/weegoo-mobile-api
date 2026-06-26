@@ -24,10 +24,6 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
     return this.model.findOne({ accessTokenJti });
   }
 
-  async findByUserId(userId: string) {
-    return this.model.find({ userId: toMongoId(userId) });
-  }
-
   async deleteByUserAndDevice(userId: string, deviceId: string) {
     try {
       return await this.model.deleteMany({ userId: toMongoId(userId), deviceId });

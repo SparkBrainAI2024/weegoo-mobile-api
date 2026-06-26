@@ -113,30 +113,11 @@ export class AuthService {
     return null;
   }
 
-  private async clearUserSession(userId: string, deviceId?: string) {
-    if (deviceId) {
-      await this.userTokenMetaRepository.deleteByUserAndDevice(userId, deviceId);
-    }
+  private async clearAllUserSession(userId: string) {
+    await this.userTokenMetaRepository.deleteByUser(userId);
+
   }
 
-  // Helper to check for role conflicts - prevents user from logging in with different roles simultaneously
-  private async checkRoleConflict(userId: Types.ObjectId, requestedRole: string): Promise<void> {
-    // Find all active sessions for this user
-    const activeSessions = await this.userTokenMetaRepository.findByUserId(userId.toString());
-
-    // Check if there's any session with a different role
-    const conflictingSession = activeSessions.find(
-      (session: any) => session.role !== requestedRole && session.accessTokenJti
-    );
-
-    if (conflictingSession) {
-      ErrorException(
-        null,
-        "USER.ROLE_CONFLICT",
-        HttpStatus.UNAUTHORIZED,
-      );
-    }
-  }
 
   // Helper to extract the token expiry timestamp from a JWT
   private getTokenExpiryFromJwt(token: string): number {
@@ -153,7 +134,7 @@ export class AuthService {
     identifier: string,
     roles: string[] = [],
     deviceId: string = null,
-    firebaseToken:string = null
+    firebaseToken: string = null
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessTokenJti = generateMongoDbId();
     const refreshTokenJti = generateMongoDbId();
@@ -523,14 +504,11 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-      // Check for role conflict before allowing login
-      await this.checkRoleConflict(user._id, this.defaultRole);
-
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
       // Clear previous token meta
-      await this.clearUserSession(user._id.toString(), device?.deviceId);
+      await this.clearAllUserSession(user._id.toString());
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -541,7 +519,7 @@ export class AuthService {
         },
       );
 
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId,device?.firebaseToken);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId, device?.firebaseToken);
       await this.registerDeviceIfProvided(user._id, device);
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
@@ -839,14 +817,11 @@ export class AuthService {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
 
-      // Check for role conflict - the role in the token must match current session role
-      await this.checkRoleConflict(user._id, verifiedToken.role || this.defaultRole);
-
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
       // Clear previous token meta
-      await this.clearUserSession(user._id.toString(), verifiedToken.deviceId);
+      await this.clearAllUserSession(user._id.toString());
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -859,7 +834,7 @@ export class AuthService {
 
       // Use email or phone as the identifier for token generation
       const identifier = user.email || user.phone;
-      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId,verifiedToken.firebaseToken);
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId, verifiedToken.firebaseToken);
 
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
       const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
@@ -892,14 +867,11 @@ export class AuthService {
         await this.userTokenMetaRepository.deleteByAccessTokenJti(verificationTokenData.jti);
       }
 
-      // Check for role conflict before allowing login
-      await this.checkRoleConflict(user._id, this.defaultRole);
-
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
       // Clear previous token meta
-      await this.clearUserSession(user._id.toString(), device?.deviceId);
+      await this.clearAllUserSession(user._id.toString());
 
       await this.userRepository.updateOne(
         { _id: user._id },
@@ -1006,9 +978,9 @@ export class AuthService {
       await this.userDetailsRepository.create({
         userId: user._id,
         fullName: socialUser.name || '',
-      profileImages:[{
-        socialPicture: socialUser.picture || '',
-      }]
+        profileImages: [{
+          socialPicture: socialUser.picture || '',
+        }]
       });
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
       return {
@@ -1035,14 +1007,11 @@ export class AuthService {
       }
       const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
 
-      // Check for role conflict before allowing login
-      await this.checkRoleConflict(user._id, this.defaultRole);
-
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
       // Clear previous token meta
-      await this.clearUserSession(user._id.toString(), device?.deviceId);
+      await this.clearAllUserSession(user._id.toString());
 
       await this.userRepository.updateOne(
         { _id: user._id },
