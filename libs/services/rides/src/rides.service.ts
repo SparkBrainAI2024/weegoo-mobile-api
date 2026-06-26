@@ -54,11 +54,14 @@ export class RidesService {
     user: User,
   ): Promise<any> {
     const rides = await this.rideRepository.homeDashboardApi(user);
+    const enrichedRides = await Promise.all(
+      rides.map((ride) => this.enrichRideDetails(ride)),
+    );
 
     // Passengers receive the standard ride list with null stats
     if (user.loginAs !== roles.RIDER) {
       return {
-        rides,
+        rides: enrichedRides,
         verification: null,
         stats: {
           totalEarnings: null,
@@ -114,9 +117,6 @@ export class RidesService {
     const onlineMinutesToday = Math.floor(totalOnlineSeconds / 60);
 
     // Enrich each ride with driver, passenger, and vehicle info
-    const enrichedRides = await Promise.all(
-      rides.map((ride) => this.enrichRideDetails(ride)),
-    );
 
     return {
       rides: enrichedRides,
@@ -471,7 +471,7 @@ export class RidesService {
    */
   async getRideById(rideId: string, user: User): Promise<any> {
     const rideDocument = await this.rideRepository.findByIdWithAllDetails(rideId);
-
+    console.log("rideDocument", rideDocument)
     if (!rideDocument) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }

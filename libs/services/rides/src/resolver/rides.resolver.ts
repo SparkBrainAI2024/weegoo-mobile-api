@@ -70,7 +70,7 @@ export class RidesResolver {
     @CurrentUser() user: User,
     @Args('input') input: GetRideByIdInput,
   ) {
-    return this.ridesService.getRideById(input.rideId, user._id);
+    return this.ridesService.getRideById(input.rideId, user);
   }
 
   @Mutation(() => CancelRideResponse)

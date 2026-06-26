@@ -119,6 +119,25 @@ export class AuthService {
     }
   }
 
+  // Helper to check for role conflicts - prevents user from logging in with different roles simultaneously
+  private async checkRoleConflict(userId: Types.ObjectId, requestedRole: string): Promise<void> {
+    // Find all active sessions for this user
+    const activeSessions = await this.userTokenMetaRepository.findByUserId(userId.toString());
+
+    // Check if there's any session with a different role
+    const conflictingSession = activeSessions.find(
+      (session: any) => session.role !== requestedRole && session.accessTokenJti
+    );
+
+    if (conflictingSession) {
+      ErrorException(
+        null,
+        "USER.ROLE_CONFLICT",
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
   // Helper to extract the token expiry timestamp from a JWT
   private getTokenExpiryFromJwt(token: string): number {
     try {
@@ -305,7 +324,6 @@ export class AuthService {
     }
     return { user, userDetails };
   }
-
 
 
 
@@ -504,6 +522,9 @@ export class AuthService {
       if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
+
+      // Check for role conflict before allowing login
+      await this.checkRoleConflict(user._id, this.defaultRole);
 
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
@@ -818,6 +839,9 @@ export class AuthService {
         ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
       }
 
+      // Check for role conflict - the role in the token must match current session role
+      await this.checkRoleConflict(user._id, verifiedToken.role || this.defaultRole);
+
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
 
@@ -867,6 +891,9 @@ export class AuthService {
         // Delete the stored JTI after successful validation (one-time use)
         await this.userTokenMetaRepository.deleteByAccessTokenJti(verificationTokenData.jti);
       }
+
+      // Check for role conflict before allowing login
+      await this.checkRoleConflict(user._id, this.defaultRole);
 
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
@@ -981,7 +1008,7 @@ export class AuthService {
         fullName: socialUser.name || '',
       profileImages:[{
         socialPicture: socialUser.picture || '',
-      }] 
+      }]
       });
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
       return {
@@ -1007,6 +1034,9 @@ export class AuthService {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
       const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
+
+      // Check for role conflict before allowing login
+      await this.checkRoleConflict(user._id, this.defaultRole);
 
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
