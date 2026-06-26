@@ -5,23 +5,25 @@ import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promoco
 import { PromoCodeResolver } from "@libs/services/promocode/src/promocode.resolver";
 import { PromoCodeService } from "@libs/services/promocode/src/promocode.service";
 import { AdminAuthModule } from "../auth/auth.module";
-import { NotificationPersistentModule, NotificationService } from "@libs/services/notification";
-import { FirebaseMessagingService } from "@libs/services/firebase-messaging";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Occasion, OccasionSchema } from "@libs/data-access";
 
 @Module({
-    imports: [
-       PromoCodePersistenceModule,
-       UserPersistenceModule,
-       AdminAuthModule,
-       NotificationPersistentModule
-    ],
-    providers: [
-        PromoCodeService,
-        PromoCodeResolver,
-        NotificationService,
-        FirebaseMessagingService,
-        EnvService
-    ],
-    exports: [PromoCodeService]
+  imports: [
+    PromoCodePersistenceModule,
+    UserPersistenceModule,
+    AdminAuthModule,
+    MongooseModule.forFeature([
+      { name: Occasion.name, schema: OccasionSchema },
+    ]),
+  ],
+  providers: [
+    PromoCodeService,
+    PromoCodeResolver,
+    NotificationService,
+    FirebaseMessagingService,
+    EnvService,
+  ],
+  exports: [PromoCodeService],
 })
-export class PromoCodeModule { }
+export class PromoCodeModule {}
