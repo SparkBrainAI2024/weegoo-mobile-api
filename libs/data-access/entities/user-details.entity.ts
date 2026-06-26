@@ -90,7 +90,7 @@ export class UserDetails extends BaseEntity {
 
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
-  locationChannelId?: String;
+  locationChannelId?: string;
 
   @Field(() => SavedLocation, { nullable: true })
   @Prop({ required: false, type: Object, default: null })

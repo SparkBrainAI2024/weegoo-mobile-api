@@ -165,39 +165,43 @@ export class NotificationService {
                 firebaseData.driver = JSON.stringify(payload.driverSnapshot);
             }
             console.log("payload", payload)
+            try {
+                await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
+                    token: token.firebaseToken,
 
-            await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
-                token: token.firebaseToken,
-
-                notification: {
-                    title: notification.title,
-                    body: notification.description,
-                },
-
-                data: firebaseData,
-
-                android: {
-                    priority: 'high',
                     notification: {
-                        priority: 'high',
-                        sound: 'default',
+                        title: notification.title,
+                        body: notification.description,
                     },
-                },
 
-                apns: {
-                    headers: {
-                        'apns-priority': '10',
-                    },
-                    payload: {
-                        aps: {
+                    data: firebaseData,
+
+                    android: {
+                        priority: 'high',
+                        notification: {
+                            priority: 'high',
                             sound: 'default',
-                            badge: 1,
                         },
                     },
-                },
-            });
+
+                    apns: {
+                        headers: {
+                            'apns-priority': '10',
+                        },
+                        payload: {
+                            aps: {
+                                sound: 'default',
+                                badge: 1,
+                            },
+                        },
+                    },
+                });
+            } catch (e) {
+                console.log("============NOTIFIICATION ERROR", e)
+            }
         }
-        console.log("firebase token", token?.firebaseToken)
+
+        console.log("========firebase token=====", token?.firebaseToken)
         return notification;
     }
 

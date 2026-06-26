@@ -18,6 +18,10 @@ export class RideUserSnapshot {
     @Field(() => String, { nullable: true })
     @Prop({ type: String })
     phone?: string;
+
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String })
+    locationChannelId?: string;
 }
 
 @InputType()
