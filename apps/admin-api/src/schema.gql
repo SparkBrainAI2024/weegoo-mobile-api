@@ -48,50 +48,34 @@ scalar DateTime
 type RideLocation {
   type: String!
   coordinates: [Float!]!
-  address: String!
-  city: String!
-  province: ProvinceEnum!
-  district: String!
-  fullAddress: String!
+  address: String
+  city: String
+  province: ProvinceEnum
+  district: String
+  fullAddress: String
 }
 
-"""
-The provinces of Nepal
-"""
+"""The provinces of Nepal"""
 enum ProvinceEnum {
-  """
-  Province No. 1 (Koshi)
-  """
+  """Province No. 1 (Koshi)"""
   PROVINCE_1
 
-  """
-  Province No. 2 (Madhesh)
-  """
+  """Province No. 2 (Madhesh)"""
   PROVINCE_2
 
-  """
-  Bagmati Province
-  """
+  """Bagmati Province"""
   BAGMATI
 
-  """
-  Gandaki Province
-  """
+  """Gandaki Province"""
   GANDAKI
 
-  """
-  Lumbini Province
-  """
+  """Lumbini Province"""
   LUMBINI
 
-  """
-  Karnali Province
-  """
+  """Karnali Province"""
   KARNALI
 
-  """
-  Sudurpashchim Province
-  """
+  """Sudurpashchim Province"""
   SUDURPASHCHIM
 }
 
@@ -116,18 +100,12 @@ type PaymentDetails {
   driverCommission: Float!
 }
 
-"""
-Payment method for the ride
-"""
+"""Payment method for the ride"""
 enum PaymentMethodEnum {
-  """
-  Payment method is cash
-  """
+  """Payment method is cash"""
   CASH
 
-  """
-  Payment via internal wallet
-  """
+  """Payment via internal wallet"""
   WALLET
 }
 
@@ -172,14 +150,10 @@ type CancellationDetail {
 Indicates the role that accessed the category, either driver or passenger
 """
 enum CategoryAccessedByRole {
-  """
-  Accessed by a passenger
-  """
+  """Accessed by a passenger"""
   PASSENGER
 
-  """
-  Accessed by a driver
-  """
+  """Accessed by a driver"""
   DRIVER
 }
 
@@ -188,6 +162,7 @@ type RideUserSnapshot {
   profileImage: String
   rating: Float!
   phone: String
+  locationChannelId: String
 }
 
 type Rides {
@@ -224,48 +199,30 @@ type Rides {
   driver: RideUserSnapshot
 }
 
-"""
-Types of rides
-"""
+"""Types of rides"""
 enum RideTypes {
-  """
-  Instant ride
-  """
+  """Instant ride"""
   INSTANT
 
-  """
-  Scheduled ride
-  """
+  """Scheduled ride"""
   SCHEDULED
 }
 
-"""
-Rides status
-"""
+"""Rides status"""
 enum RideStatus {
-  """
-  Ride is confirmed
-  """
+  """Ride is confirmed"""
   CONFIRMED
 
-  """
-  Ride is ongoing
-  """
+  """Ride is ongoing"""
   ONGOING
 
-  """
-  Driver has picked up the rider
-  """
+  """Driver has picked up the rider"""
   PICKUP
 
-  """
-  Ride is completed
-  """
+  """Ride is completed"""
   COMPLETED
 
-  """
-  Ride is cancelled
-  """
+  """Ride is cancelled"""
   CANCELLED
   PENDING
 }
@@ -378,26 +335,20 @@ type PromoCode {
   promoCodeUsedCount: Float!
 }
 
-"""
-Type of discount (percentage or flat amount)
-"""
+"""Type of discount (percentage or flat amount)"""
 enum DiscountTypeEnum {
   PERCENTAGE
   FLAT
 }
 
-"""
-To which ride types the promo code applies
-"""
+"""To which ride types the promo code applies"""
 enum AppliedToEnum {
   ALL_RIDES
   INSTANT
   SCHEDULED
 }
 
-"""
-Status of the promo code
-"""
+"""Status of the promo code"""
 enum PromoCodeStatusEnum {
   DRAFT
   ACTIVE
@@ -425,75 +376,47 @@ type Transaction {
   transactionUuid: String
 }
 
-"""
-Direction of the wallet transaction
-"""
+"""Direction of the wallet transaction"""
 enum TransactionDirection {
-  """
-  Amount is deducted from wallet
-  """
+  """Amount is deducted from wallet"""
   DEBIT
 
-  """
-  Amount is added to wallet
-  """
+  """Amount is added to wallet"""
   CREDIT
 }
 
-"""
-Type of wallet transaction
-"""
+"""Type of wallet transaction"""
 enum TransactionType {
-  """
-  Payment made for a ride
-  """
+  """Payment made for a ride"""
   RIDE_PAYMENT
 
-  """
-  Wallet balance top-up
-  """
+  """Wallet balance top-up"""
   TOPUP
 
-  """
-  Withdrawal from wallet
-  """
+  """Withdrawal from wallet"""
   WITHDRAWAL
 
-  """
-  Commission transaction
-  """
+  """Commission transaction"""
   COMMISSION
 }
 
-"""
-Payment medium/gateway used for the transaction
-"""
+"""Payment medium/gateway used for the transaction"""
 enum PaymentMediumEnum {
-  """
-  Payment processed through eSewa gateway
-  """
+  """Payment processed through eSewa gateway"""
   ESEWA
 
-  """
-  Payment processed through Khalti gateway
-  """
+  """Payment processed through Khalti gateway"""
   KHALTI
 }
 
-"""
-Status of the wallet transaction
-"""
+"""Status of the wallet transaction"""
 enum TransactionStatus {
   PENDING
 
-  """
-  Transaction completed successfully
-  """
+  """Transaction completed successfully"""
   COMPLETED
 
-  """
-  Transaction failed
-  """
+  """Transaction failed"""
   FAILED
 }
 
@@ -503,28 +426,18 @@ type IssueCategoryEmbed {
   subCategoryLabel: String
 }
 
-"""
-Top-level grouping for issue templates
-"""
+"""Top-level grouping for issue templates"""
 enum IssueParentCategory {
-  """
-  Problems that occurred during a ride
-  """
+  """Problems that occurred during a ride"""
   RIDE
 
-  """
-  Issues related to ride cancellations
-  """
+  """Issues related to ride cancellations"""
   CANCEL
 
-  """
-  Complaints about drivers, passengers, or service
-  """
+  """Complaints about drivers, passengers, or service"""
   COMPLAINT
 
-  """
-  Problems with the in-app chat feature
-  """
+  """Problems with the in-app chat feature"""
   CHAT
 }
 
@@ -546,14 +459,10 @@ type Issue {
 The type of the user who reported the issue since driver and passenger are allowed to report issues
 """
 enum ReportedByType {
-  """
-  The user is a passenger
-  """
+  """The user is a passenger"""
   PASSENGER
 
-  """
-  The user is a driver
-  """
+  """The user is a driver"""
   DRIVER
 }
 
@@ -615,18 +524,12 @@ enum GenderEnum {
   UNPUBLISHED
 }
 
-"""
-The preference for booking a ride
-"""
+"""The preference for booking a ride"""
 enum RidePreference {
-  """
-  The ride is scheduled for a later time
-  """
+  """The ride is scheduled for a later time"""
   SCHEDULED
 
-  """
-  The ride is requested for immediate pickup
-  """
+  """The ride is requested for immediate pickup"""
   INSTANT
   BOTH
 }
@@ -930,17 +833,13 @@ type Page {
   updatedAt: DateTime!
 }
 
-"""
-Type of the page
-"""
+"""Type of the page"""
 enum PageType {
   LEGAL
   INFO
 }
 
-"""
-Publication status of the page
-"""
+"""Publication status of the page"""
 enum PageStatus {
   DRAFT
   PUBLISHED
@@ -975,9 +874,7 @@ type Query {
   page(id: ID!): Page!
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
   promoCode(id: ID!): PromoCode!
-  promoCodes(
-    paginationInput: PromoCodeFindAllInput!
-  ): PromocodeListWithPaginationResponse!
+  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
 }
 
@@ -995,18 +892,12 @@ input PromoCodeFindAllInput {
   filter: PromoCodeFilterInput
 }
 
-"""
-Order by direction for pagination
-"""
+"""Order by direction for pagination"""
 enum SortBy {
-  """
-  Ascending order
-  """
+  """Ascending order"""
   asc
 
-  """
-  Descending order
-  """
+  """Descending order"""
   desc
 }
 
@@ -1029,13 +920,8 @@ type Mutation {
   removePage(id: ID!): Boolean!
   createPromoCode(input: CreatePromoCodeInput!): PromocodeCreateResponse!
 
-  """
-  Updates a existing promo code
-  """
-  updatePromoCode(
-    id: ID!
-    input: UpdatePromoCodeInput!
-  ): PromocodeUpdateResponse!
+  """Updates a existing promo code"""
+  updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromocodeUpdateResponse!
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
@@ -1067,22 +953,16 @@ input AdminResetPasswordInput {
 }
 
 input CreatePageInput {
-  """
-  Title of the page; slug is auto-generated from this
-  """
+  """Title of the page; slug is auto-generated from this"""
   title: String!
   type: PageType!
 
-  """
-  HTML or markdown content of the page
-  """
+  """HTML or markdown content of the page"""
   content: String!
 }
 
 input UpdatePageInput {
-  """
-  Title of the page; slug is regenerated if changed
-  """
+  """Title of the page; slug is regenerated if changed"""
   title: String
   type: PageType
   content: String
@@ -1094,50 +974,32 @@ input CreatePromoCodeInput {
   """
   name: String!
 
-  """
-  Whether the discount is a percentage or flat amount
-  """
+  """Whether the discount is a percentage or flat amount"""
   discountType: DiscountTypeEnum!
 
-  """
-  Percentage value (0-100) if discountType is PERCENTAGE
-  """
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
   percentageAmount: Float
 
-  """
-  Fixed currency amount if discountType is FLAT
-  """
+  """Fixed currency amount if discountType is FLAT"""
   flatAmount: Float
 
-  """
-  Cap on the discount amount for percentage-based promos
-  """
+  """Cap on the discount amount for percentage-based promos"""
   maxDiscount: Float
 
-  """
-  Minimum ride fare required to apply this code
-  """
+  """Minimum ride fare required to apply this code"""
   minimumFare: Float
   appliedTo: AppliedToEnum!
 
-  """
-  Maximum number of times this code can be used in total
-  """
+  """Maximum number of times this code can be used in total"""
   totalUsageLimit: Float!
 
-  """
-  Maximum number of times a single user can use this code
-  """
+  """Maximum number of times a single user can use this code"""
   perUserLimit: Float!
 
-  """
-  When the promo code becomes valid
-  """
+  """When the promo code becomes valid"""
   startDateTime: DateTime!
 
-  """
-  When the promo code expires
-  """
+  """When the promo code expires"""
   expiryDateTime: DateTime!
   occasionId: ID!
 }
@@ -1148,50 +1010,32 @@ input UpdatePromoCodeInput {
   """
   name: String
 
-  """
-  Whether the discount is a percentage or flat amount
-  """
+  """Whether the discount is a percentage or flat amount"""
   discountType: DiscountTypeEnum
 
-  """
-  Percentage value (0-100) if discountType is PERCENTAGE
-  """
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
   percentageAmount: Float
 
-  """
-  Fixed currency amount if discountType is FLAT
-  """
+  """Fixed currency amount if discountType is FLAT"""
   flatAmount: Float
 
-  """
-  Cap on the discount amount for percentage-based promos
-  """
+  """Cap on the discount amount for percentage-based promos"""
   maxDiscount: Float
 
-  """
-  Minimum ride fare required to apply this code
-  """
+  """Minimum ride fare required to apply this code"""
   minimumFare: Float
   appliedTo: AppliedToEnum
 
-  """
-  Maximum number of times this code can be used in total
-  """
+  """Maximum number of times this code can be used in total"""
   totalUsageLimit: Float
 
-  """
-  Maximum number of times a single user can use this code
-  """
+  """Maximum number of times a single user can use this code"""
   perUserLimit: Float
 
-  """
-  When the promo code becomes valid
-  """
+  """When the promo code becomes valid"""
   startDateTime: DateTime
 
-  """
-  When the promo code expires
-  """
+  """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
 }
