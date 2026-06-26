@@ -14,38 +14,52 @@ import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 export class AdminPageResolver {
   constructor(private readonly pageService: PageService) {}
 
-  @Query(() => Page, { name: 'page' })
-  async findOne(@Args('id', { type: () => ID }) id: string): Promise<Page> {
+  @Query(() => Page, { name: "page" })
+  async findOne(@Args("id", { type: () => ID }) id: string): Promise<Page> {
     return this.pageService.findById(id);
   }
 
-  @Query(() => PageListWithPaginationResponse, { name: 'pages' })
-  async findAll(@Args('paginationInput') paginationInput: PaginationInputOnly): Promise<PageListWithPaginationResponse> {
+  @Query(() => PageListWithPaginationResponse, { name: "pages" })
+  async findAll(
+    @Args("paginationInput") paginationInput: PaginationInputOnly,
+  ): Promise<PageListWithPaginationResponse> {
     return this.pageService.findAll(paginationInput);
   }
 
+  @Query(() => Page, { name: "pageBySlug" })
+  async findBySlug(@Args("slug") slug: string): Promise<Page> {
+    return this.pageService.findBySlug(slug);
+  }
+
   @Mutation(() => Page)
-  async createPage(@Args('input') input: CreatePageInput): Promise<Page> {
+  async createPage(@Args("input") input: CreatePageInput): Promise<Page> {
     return this.pageService.create(input);
   }
 
   @Mutation(() => Page)
-  async updatePage(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdatePageInput): Promise<Page> {
+  async updatePage(
+    @Args("id", { type: () => ID }) id: string,
+    @Args("input") input: UpdatePageInput,
+  ): Promise<Page> {
     return this.pageService.update(id, input);
   }
 
   @Mutation(() => Page)
-  async publishPage(@Args('id', { type: () => ID }) id: string): Promise<Page> {
+  async publishPage(@Args("id", { type: () => ID }) id: string): Promise<Page> {
     return this.pageService.publish(id);
   }
 
   @Mutation(() => Page)
-  async unpublishPage(@Args('id', { type: () => ID }) id: string): Promise<Page> {
+  async unpublishPage(
+    @Args("id", { type: () => ID }) id: string,
+  ): Promise<Page> {
     return this.pageService.unpublish(id);
   }
 
   @Mutation(() => Boolean)
-  async removePage(@Args('id', { type: () => ID }) id: string): Promise<boolean> {
+  async removePage(
+    @Args("id", { type: () => ID }) id: string,
+  ): Promise<boolean> {
     return this.pageService.remove(id);
   }
 }

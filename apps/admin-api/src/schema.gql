@@ -873,6 +873,7 @@ type Query {
   health: String!
   page(id: ID!): Page!
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
+  pageBySlug(slug: String!): Page!
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
