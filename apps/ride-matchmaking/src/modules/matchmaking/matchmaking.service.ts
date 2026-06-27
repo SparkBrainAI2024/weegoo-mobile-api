@@ -24,7 +24,7 @@ import {
 } from 'libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
-import { MATCHMAKING_CONFIG } from '@libs/common';
+import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 
@@ -250,6 +250,7 @@ export class MatchmakingService {
         acceptedDriverImage = acceptedDriver?.profileImage;
         acceptedRating = acceptedDriver?.rating;
         const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
+        await this.ridesModel.updateOne(toMongoId(rideId),{driverId:acceptedDriverId})
         return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage, rating: acceptedRating, estimatedFare, attempts, message: 'Driver matched successfully', acceptedDetails: acceptDetails };
       }
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
