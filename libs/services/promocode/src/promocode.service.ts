@@ -19,6 +19,7 @@ import {
   PromocodeUpdateResponse,
 } from "@libs/data-access/dtos/response/promocode.response";
 import { PromoCodeRepository } from "@libs/data-access/repositories/promo-code.repository";
+import { Message } from "@libs/localization";
 import { PROMO_CODE } from "@libs/localization/en/promocode.messages";
 import { Injectable, Logger, HttpStatus } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -77,7 +78,10 @@ export class PromoCodeService {
   }
 
   // ── CREATE ──────────────────────────────────────────────────
-  async create(input: CreatePromoCodeInput): Promise<PromocodeCreateResponse> {
+  async create(
+    input: CreatePromoCodeInput,
+    lang: string,
+  ): Promise<PromocodeCreateResponse> {
     try {
       await this.assertNameUnique(input.name);
       const createdObj = await this.promoCodeRepository.create(
@@ -93,7 +97,7 @@ export class PromoCodeService {
       );
 
       return {
-        message: "PROMO_CODE.CREATED_SUCCESSFULLY",
+        message: Message(lang, "PROMO_CODE.CREATED_SUCCESSFULLY"),
         success: true,
         promocode: createdObj,
       };
@@ -151,6 +155,7 @@ export class PromoCodeService {
   async update(
     id: string,
     input: UpdatePromoCodeInput,
+    lang: string,
   ): Promise<PromocodeUpdateResponse> {
     try {
       const promoCode = await this.findOrThrow(id);
@@ -205,7 +210,7 @@ export class PromoCodeService {
           );
 
           return {
-            message: "PROMO_CODE.UPDATED_SUCCESSFULLY",
+            message: Message(lang, "PROMO_CODE.UPDATED_SUCCESSFULLY"),
             success: true,
             promocode: updatedObj,
           };
@@ -232,7 +237,7 @@ export class PromoCodeService {
           );
 
           return {
-            message: "PROMO_CODE.UPDATED_SUCCESSFULLY",
+            message: Message(lang, "PROMO_CODE.UPDATED_SUCCESSFULLY"),
             success: true,
             promocode: data,
           };

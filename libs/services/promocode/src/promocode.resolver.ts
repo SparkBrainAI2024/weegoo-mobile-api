@@ -19,6 +19,7 @@ import {
   PromocodeCreateResponse,
   PromocodeUpdateResponse,
 } from "@libs/data-access/dtos/response/promocode.response";
+import { CurrentLang } from "@libs/common";
 
 @UseGuards(AdminAuthGuard)
 @Resolver(() => PromoCode)
@@ -28,8 +29,9 @@ export class PromoCodeResolver {
   @Mutation(() => PromocodeCreateResponse)
   async createPromoCode(
     @Args("input") input: CreatePromoCodeInput,
+    @CurrentLang() lang: string,
   ): Promise<PromocodeCreateResponse> {
-    return this.promoCodeService.create(input);
+    return this.promoCodeService.create(input, lang);
   }
 
   @Query(() => PromoCode, { name: "promoCode" })
@@ -60,8 +62,9 @@ export class PromoCodeResolver {
   async updatePromoCode(
     @Args("id", { type: () => ID }) id: string,
     @Args("input") input: UpdatePromoCodeInput,
+    @CurrentLang() lang: string,
   ): Promise<PromocodeUpdateResponse> {
-    return this.promoCodeService.update(id, input);
+    return this.promoCodeService.update(id, input, lang);
   }
 
   // Status transitions — explicit mutations, not hidden inside update
