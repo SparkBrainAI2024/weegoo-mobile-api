@@ -32,6 +32,9 @@ import { S3Service } from '@libs/s3';
 export class MatchmakingService {
   private readonly logger = new Logger(MatchmakingService.name);
 
+  /** Track active driver location channel subscriptions: driverId -> unsubscribe function */
+  private readonly driverLocationSubscriptions = new Map<string, () => void>();
+
   constructor(
     @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -521,61 +524,209 @@ export class MatchmakingService {
     }
   }
 
-  async updateDriverLocation(driverId: string, latitude: number, longitude: number): Promise<{ success: boolean; message: string }> {
+  /**
+   * Process driver location updates for all active rides.
+   * Calculates distance to pickup/dropoff, updates ride docs, publishes to ride channel,
+   * and sends proximity notifications through Ably.
+   */
+  private async processDriverLocationForRides(
+    driverId: string,
+    latitude: number,
+    longitude: number,
+    vehicleType: string,
+  ): Promise<void> {
     const driverObjectId = new Types.ObjectId(driverId);
-    const updated = await this.userDetailsModel.findOneAndUpdate({ userId: driverObjectId, deleted: false }, { $set: { geoLocation: { type: 'Point', coordinates: [longitude, latitude] } } }, { new: true }).exec();
-    if (!updated) return { success: false, message: 'Driver details not found' };
-    const vehicle = await this.vehicleModel.findOne({ driverId: driverObjectId, deleted: false }).exec();
-    const activeRides = await this.ridesModel.find({ driverId: driverObjectId, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] }, deleted: false }).exec();
+    const activeRides = await this.ridesModel.find({
+      driverId: driverObjectId,
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      rideType:RideTypes.INSTANT,
+      deleted: false,
+    }).exec();
+
     for (const activeRide of activeRides) {
       const pickupCoords = activeRide.pickupLocation?.coordinates;
+      const dropoffCoords = activeRide.dropoffLocation?.coordinates;
+
       if (pickupCoords && pickupCoords.length >= 2) {
-        const pickupLat = pickupCoords[1]; const pickupLng = pickupCoords[0];
-        let distanceKm = 0; let durationMinutes = 0;
+        const pickupLat = pickupCoords[1];
+        const pickupLng = pickupCoords[0];
+        let distanceKm = 0;
+        let durationMinutes = 0;
+
         try {
-          const route = await this.distanceCalculator.calculateDriverDistance(pickupLat, pickupLng, latitude, longitude, vehicle?.vehicleType.toLowerCase() || 'car');
-          distanceKm = route.distanceKm; durationMinutes = route.durationMinutes;
+          const route = await this.distanceCalculator.calculateDriverDistance(
+            pickupLat, pickupLng, latitude, longitude, vehicleType,
+          );
+          distanceKm = route.distanceKm;
+          durationMinutes = route.durationMinutes;
         } catch {
-          const R = 6371; const dLat = (pickupLat-latitude)*Math.PI/180; const dLng = (pickupLng-longitude)*Math.PI/180;
-          const a = Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(latitude*Math.PI/180)*Math.cos(pickupLat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-          const c = 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); distanceKm = R*c; durationMinutes = Math.ceil(distanceKm*2);
+          const R = 6371;
+          const dLat = (pickupLat - latitude) * Math.PI / 180;
+          const dLng = (pickupLng - longitude) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(latitude * Math.PI / 180) * Math.cos(pickupLat * Math.PI / 180) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          distanceKm = R * c;
+          durationMinutes = Math.ceil(distanceKm * 2);
         }
-        await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { distanceToReachPassenger: Math.round(distanceKm*100)/100, estimatedTimeToReachPassenger: Math.ceil(durationMinutes) } }).exec();
-        await this.rideChannelService.publishDriverLocationUpdate(activeRide.rideUUId, { driverId, latitude, longitude, distanceToReachPassenger: Math.round(distanceKm*100)/100, estimatedTimeToReachPassenger: Math.ceil(durationMinutes), updatedAt: new Date().toISOString() });
+
+        // Update ride document with distance/time to reach passenger
+        await this.ridesModel.findByIdAndUpdate(activeRide._id, {
+          $set: {
+            distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+            estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+          },
+        }).exec();
+
+        // Publish to the ride channel
+        await this.rideChannelService.publishDriverLocationUpdate(activeRide.rideUUId, {
+          driverId,
+          latitude,
+          longitude,
+          distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
+          estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+          updatedAt: new Date().toISOString(),
+        });
+
+        // --- "Driver is arriving" — within 1km of pickup (CONFIRMED rides only) ---
+        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.3 && !activeRide.driverArrivingNotified) {
+          await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
+          const passenger = await this.userModel.findById(activeRide.passengerId).exec();
+          if (passenger) {
+            await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-arriving', {
+              rideId: activeRide._id.toString(),
+              driverId,
+              latitude,
+              longitude,
+              distanceToPickupKm: Math.round(distanceKm * 100) / 100,
+              estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
+              message: `Driver is arriving. ${distanceKm.toFixed(2)} km away.`,
+            });
+            await this.notificationService.createNotification({
+              title: 'Driver is arriving',
+              notificationType: NotificationType.RIDE_START,
+              description: `Your driver is ${distanceKm.toFixed(2)} km away. Estimated arrival in ${Math.ceil(durationMinutes)} minutes.`,
+              ablyChannelId: activeRide.ablyChannelId || `WG-RIDE-${activeRide.rideUUId}-ride-details`,
+              driverName: activeRide.driverId?.toString() || '',
+              pickupLocation: activeRide.pickupLocation,
+              dropoffLocation: activeRide.dropoffLocation,
+              distanceInKm: distanceKm,
+              estimatedTimeInMinutes: Math.ceil(durationMinutes),
+              passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
+            }, passenger);
+          }
+        }
+
+        // --- "Driver has arrived at destination" — within 1km of dropoff (ONGOING/PICKUP) ---
+        if ((activeRide.rideStatus === RideStatus.ONGOING || activeRide.rideStatus === RideStatus.PICKUP) &&
+            dropoffCoords && dropoffCoords.length >= 2) {
+          const dropoffLat = dropoffCoords[1];
+          const dropoffLng = dropoffCoords[0];
+          let dropoffDistanceKm = 0;
+
+          try {
+            const dropoffRoute = await this.distanceCalculator.calculateDriverDistance(
+              dropoffLat, dropoffLng, latitude, longitude, vehicleType,
+            );
+            dropoffDistanceKm = dropoffRoute.distanceKm;
+          } catch {
+            const R = 6371;
+            const dLat = (dropoffLat - latitude) * Math.PI / 180;
+            const dLng = (dropoffLng - longitude) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(latitude * Math.PI / 180) * Math.cos(dropoffLat * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            dropoffDistanceKm = R * c;
+          }
+
+          if (dropoffDistanceKm <= 0.3 && !activeRide.driverArrivedAtDestinationNotified) {
+            await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivedAtDestinationNotified: true } }).exec();
+            const passenger = await this.userModel.findById(activeRide.passengerId).exec();
+            if (passenger) {
+              await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-arrived-destination', {
+                rideId: activeRide._id.toString(),
+                driverId,
+                latitude,
+                longitude,
+                distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
+                message: `Driver has arrived at the destination.`,
+              });
+              await this.notificationService.createNotification({
+                title: 'Driver has arrived at destination',
+                notificationType: NotificationType.RIDE_COMPLETE_NOTIFICATION,
+                description: `Your driver has arrived at the destination. Distance remaining: ${dropoffDistanceKm.toFixed(2)} km.`,
+                ablyChannelId: activeRide.ablyChannelId || `WG-RIDE-${activeRide.rideUUId}-ride-details`,
+                driverName: activeRide.driverId?.toString() || '',
+                pickupLocation: activeRide.pickupLocation,
+                dropoffLocation: activeRide.dropoffLocation,
+                distanceInKm: dropoffDistanceKm,
+                estimatedTimeInMinutes: 0,
+                passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
+              }, passenger);
+            }
+          }
+        }
       }
     }
-    return { success: true, message: 'Location updated successfully' };
   }
 
-  async updatePassengerLocation(passengerId: string, latitude: number, longitude: number): Promise<{ success: boolean; message: string }> {
-    const passengerObjectId = new Types.ObjectId(passengerId);
-    const activeRide = await this.ridesModel.findOne({ passengerId: passengerObjectId, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] }, deleted: false }).exec();
-    if (!activeRide) return { success: false, message: 'No active ride found for this passenger' };
-    const driverId = activeRide.driverId?.toString();
-    let distanceKm = 0; let durationMinutes = 0;
-    const vehicle = await this.vehicleModel.findById(activeRide.vehicleId).exec();
-    if (driverId) {
-      const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId), deleted: false }).exec();
-      if (driverDetails?.geoLocation?.coordinates && driverDetails.geoLocation.coordinates.length >= 2) {
-        const driverLat = driverDetails.geoLocation.coordinates[1]; const driverLng = driverDetails.geoLocation.coordinates[0];
-        try {
-          const route = await this.distanceCalculator.calculateDriverDistance(driverLat, driverLng, latitude, longitude, vehicle?.vehicleType.toLowerCase() || 'car');
-          distanceKm = route.distanceKm; durationMinutes = route.durationMinutes;
-        } catch {
-          const R = 6371; const dLat = (driverLat-latitude)*Math.PI/180; const dLng = (driverLng-longitude)*Math.PI/180;
-          const a = Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(latitude*Math.PI/180)*Math.cos(driverLat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-          const c = 2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)); distanceKm = R*c; durationMinutes = Math.ceil(distanceKm*2);
-        }
-      } else {
-        const pickupCoords = activeRide.pickupLocation?.coordinates;
-        if (pickupCoords && pickupCoords.length >= 2) {
-          try { const route = await this.distanceCalculator.calculateDriverDistance(pickupCoords[1], pickupCoords[0], latitude, longitude, vehicle?.vehicleType.toLowerCase() || 'car'); distanceKm = route.distanceKm; durationMinutes = route.durationMinutes; } catch {}
-        }
-      }
+  /**
+   * Subscribe to a driver's personal location channel for continuous ride matchmaking.
+   * When a driver goes online (location channel is created/activated), this method
+   * listens for location updates and processes them for ride matchmaking.
+   * 
+   * @param driverId - The driver's ID
+   * @returns true if subscription was created, false if already subscribed
+   */
+  async subscribeToDriverLocationChannel(driverId: string): Promise<boolean> {
+    // If already subscribed, unsubscribe first to re-subscribe fresh
+    if (this.driverLocationSubscriptions.has(driverId)) {
+      this.logger.warn(`Driver ${driverId} already subscribed to location channel. Re-subscribing.`);
+      this.unsubscribeFromDriverLocationChannel(driverId);
     }
-    await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { distanceToReachPassenger: Math.round(distanceKm*100)/100, estimatedTimeToReachPassenger: Math.ceil(durationMinutes) } }).exec();
-    await this.rideChannelService.publishPassengerLocationUpdate(activeRide.rideUUId, { passengerId, latitude, longitude, distanceToReachPassenger: Math.round(distanceKm*100)/100, estimatedTimeToReachPassenger: Math.ceil(durationMinutes), updatedAt: new Date().toISOString() });
-    return { success: true, message: 'Location updated successfully' };
+
+    const unsubscribe = this.rideChannelService.subscribeToDriverLocationChannel(
+      driverId,
+      async (data: any) => {
+        const { driverId: dId, latitude, longitude } = data;
+        if (!dId || latitude == null || longitude == null) return;
+
+        // Update geo-location in DB
+        const driverObjectId = new Types.ObjectId(dId);
+        await this.userDetailsModel.findOneAndUpdate(
+          { userId: driverObjectId, deleted: false },
+          { $set: { geoLocation: { type: 'Point', coordinates: [longitude, latitude] } } },
+        ).exec();
+
+        // Process active rides for this location update
+        const vehicle = await this.vehicleModel.findOne({ driverId: driverObjectId, deleted: false }).exec();
+        await this.processDriverLocationForRides(
+          dId,
+          latitude,
+          longitude,
+          vehicle?.vehicleType?.toLowerCase() || 'car',
+        );
+      },
+    );
+
+    this.driverLocationSubscriptions.set(driverId, unsubscribe);
+    this.logger.log(`Subscribed to driver ${driverId} location channel for matchmaking`);
+    return true;
+  }
+
+  /**
+   * Unsubscribe from a driver's personal location channel.
+   * Called when a driver goes offline.
+   */
+  async unsubscribeFromDriverLocationChannel(driverId: string): Promise<void> {
+    const unsubscribe = this.driverLocationSubscriptions.get(driverId);
+    if (unsubscribe) {
+      unsubscribe();
+      this.driverLocationSubscriptions.delete(driverId);
+      this.logger.log(`Unsubscribed from driver ${driverId} location channel`);
+    }
   }
 
   async pickupPassenger(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {

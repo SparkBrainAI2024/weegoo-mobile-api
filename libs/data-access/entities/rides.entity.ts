@@ -112,6 +112,14 @@ export class Rides extends BaseEntity {
   @Prop({ type: Number, required: false, default: 1 })
   noOfPassengers: number;
 
+  @Field(() => Boolean, { nullable: true })
+  @Prop({ type: Boolean, required: false, default: false })
+  driverArrivingNotified?: boolean;
+
+  @Field(() => Boolean, { nullable: true })
+  @Prop({ type: Boolean, required: false, default: false })
+  driverArrivedAtDestinationNotified?: boolean;
+
   @Field(() => String, { nullable: true })
   @Prop({ type: String, required: false })
   ablyChannelId?: string;

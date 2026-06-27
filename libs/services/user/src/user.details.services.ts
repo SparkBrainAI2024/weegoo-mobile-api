@@ -4,6 +4,7 @@ import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import {
   CreateUserDetailsInput,
   DriverOnlineStatus,
+  roles,
   UserDetails,
   UserDetailsRepository,
   UserRepository,
@@ -15,11 +16,14 @@ import {
   UploadPurpose,
 } from "@libs/data-access/enums/upload.enum";
 import { S3Service } from "@libs/s3";
-import { HttpStatus, Injectable } from "@nestjs/common";
+import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { RideChannelService } from "@libs/services/ably";
+import axios from "axios";
 
 @Injectable()
 export class UserDetailsService {
+  private readonly logger = new Logger(UserDetailsService.name);
+
   constructor(
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly userRepository: UserRepository,
@@ -165,12 +169,43 @@ export class UserDetailsService {
     }
   }
 
+  private getMatchmakingUrl(): string {
+    return this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000/graphql');
+  }
+
+  private async notifyMatchmakingSubscription(driverId: string, status: 'subscribe' | 'unsubscribe'): Promise<void> {
+    const matchmakingUrl = this.getMatchmakingUrl();
+    const mutation = status === 'subscribe'
+      ? `mutation Subscribe($driverId: String!) { subscribeToDriverLocationChannel(driverId: $driverId) { success message } }`
+      : `mutation Unsubscribe($driverId: String!) { unsubscribeFromDriverLocationChannel(driverId: $driverId) { success message } }`;
+
+    try {
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        { query: mutation, variables: { driverId } },
+        { timeout: 10000 },
+      );
+      const result = response.data?.data;
+      if (status === 'subscribe') {
+        this.logger.log(`Matchmaking subscription for driver ${driverId}: ${result?.subscribeToDriverLocationChannel?.message || 'OK'}`);
+      } else {
+        this.logger.log(`Matchmaking unsubscription for driver ${driverId}: ${result?.unsubscribeFromDriverLocationChannel?.message || 'OK'}`);
+      }
+    } catch (error: any) {
+      this.logger.warn(`Failed to ${status} matchmaking for driver ${driverId}: ${error?.message || error}`);
+    }
+  }
+
   async setOnlineStatus(
     userId: string,
     driverOnlineStatus: DriverOnlineStatus,
     location: GeoLocationInput,
   ): Promise<UserDetails> {
     const today = new Date().toISOString().split("T")[0]; // 'YYYY-MM-DD'
+
+    // Determine user role to know if they are a driver (RIDER) or passenger (USER)
+    const user = await this.userRepository.findOne({ _id: toMongoId(userId) });
+    const isDriver = user?.loginAs === roles.RIDER;
 
     if (driverOnlineStatus === DriverOnlineStatus.ONLINE) {
       // User is coming online - set lastOnlineAt timestamp
@@ -185,6 +220,11 @@ export class UserDetailsService {
         },
         { upsert: true, new: true },
       );
+
+      // Subscribe to location channel based on user role
+      if (isDriver) {
+        await this.notifyMatchmakingSubscription(userId, 'subscribe');
+      }
     } else if (driverOnlineStatus === DriverOnlineStatus.OFFLINE) {
       // User is going offline - calculate elapsed time since lastOnlineAt and add to totalOnlineSeconds
       const record = await this.userDailyOnlineStatusRepository.findOne({
@@ -206,9 +246,17 @@ export class UserDetailsService {
           );
         }
       }
+
+      // Unsubscribe from location channel based on user role
+      if (isDriver) {
+        await this.notifyMatchmakingSubscription(userId, 'unsubscribe');
+      }
     }
 
-    const locationChannelId = RideChannelService.getDriverLocationChannelName(userId);
+    // Use driver-specific channel for riders, passenger-specific channel for users
+    const locationChannelId = isDriver
+      ? RideChannelService.getDriverLocationChannelName(userId)
+      : RideChannelService.getPassengerLocationChannelName(userId);
 
     return this.userDetailsRepository.setOnlineStatus(
       userId,

@@ -493,41 +493,6 @@ export class MatchmakingIntegrationService {
     }
   }
 
-    /**
-   * Update passenger location via the ride-matchmaking service.
-   * This will publish the location to the passenger location channel and update
-   * distanceToReachPassenger/estimatedTimeToReachPassenger in the ride schema.
-   */
-  async updatePassengerLocation(passengerId: string, latitude: number, longitude: number): Promise<UpdateLocationResult> {
-    const matchmakingUrl = this.getMatchmakingUrl();
-    try {
-      const response = await axios.post(
-        `${matchmakingUrl}`,
-        {
-          query: `
-            mutation UpdatePassengerLocation($input: UpdatePassengerLocationInput!) {
-              updatePassengerLocation(input: $input) {
-                success
-                message
-                latitude
-                longitude
-                updatedAt
-              }
-            }
-          `,
-          variables: { input: { passengerId, latitude, longitude } },
-        },
-        { timeout: 15000 },
-      );
-
-      const result = response.data?.data?.updatePassengerLocation;
-      return result || { success: false, message: 'No response from matchmaking service', latitude, longitude, updatedAt: new Date().toISOString() };
-    } catch (error: any) {
-      this.logger.error(`Failed to update passenger location: ${error?.message || error}`);
-      return { success: false, message: 'Matchmaking service unavailable', latitude, longitude, updatedAt: new Date().toISOString() };
-    }
-  }
-
   /**
    * Get list of vehicle estimates (Car, Motorbike, Scooter) from the matchmaking service.
    */

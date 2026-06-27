@@ -8,14 +8,11 @@ import {
   FareBreakdownGraphQL,
   ScheduledMatchResultGraphQL,
   ScheduledFareBreakdownGraphQL,
-  LocationUpdateResultGraphQL,
   MatchDriversInput,
   MatchScheduledDriversInput,
   DriverResponseInput,
   EstimatedFareInput,
   ScheduledFareInput,
-  UpdateDriverLocationInput,
-  UpdatePassengerLocationInput,
   RideLocationInput,
   RainCondition, 
   HistoricalTraffic,
@@ -164,26 +161,6 @@ export class MatchmakingResolver {
     return response;
   }
 
-  @Mutation(() => LocationUpdateResultGraphQL, {
-    name: 'updateDriverLocation',
-    description: 'Update a driver current geo-location for real-time proximity matching',
-  })
-  async updateDriverLocation(@Args('input') input: UpdateDriverLocationInput): Promise<LocationUpdateResultGraphQL> {
-    this.logger.log(`GraphQL: Updating location for driver ${input.driverId}`);
-    const result = await this.matchmakingService.updateDriverLocation(input.driverId, input.latitude, input.longitude);
-    return { success: result.success, message: result.message, latitude: input.latitude, longitude: input.longitude, updatedAt: new Date().toISOString() };
-  }
-
-  @Mutation(() => LocationUpdateResultGraphQL, {
-    name: 'updatePassengerLocation',
-    description: 'Update a passenger current geo-location for real-time tracking',
-  })
-  async updatePassengerLocation(@Args('input') input: UpdatePassengerLocationInput): Promise<LocationUpdateResultGraphQL> {
-    this.logger.log(`GraphQL: Updating location for passenger ${input.passengerId}`);
-    const result = await this.matchmakingService.updatePassengerLocation(input.passengerId, input.latitude, input.longitude);
-    return { success: result.success, message: result.message, latitude: input.latitude, longitude: input.longitude, updatedAt: new Date().toISOString() };
-  }
-
   @Query(() => FareBreakdownGraphQL, {
     name: 'estimatedFare', nullable: true,
     description: 'Get estimated fare for an INSTANT ride',
@@ -222,6 +199,36 @@ export class MatchmakingResolver {
     this.logger.log(`GraphQL: Driver ${driverId} picked up passenger for ride ${rideId}`);
     const result = await this.matchmakingService.pickupPassenger(rideId, driverId);
     return result;
+  }
+
+  @Mutation(() => BasicResult, {
+    name: 'subscribeToDriverLocationChannel',
+    description: 'Subscribe to a driver personal location channel for continuous ride matchmaking. Call this when driver goes online.',
+  })
+  async subscribeToDriverLocationChannel(@Args('driverId') driverId: string): Promise<BasicResult> {
+    this.logger.log(`GraphQL: Subscribing to driver ${driverId} location channel for matchmaking`);
+    try {
+      await this.matchmakingService.subscribeToDriverLocationChannel(driverId);
+      return { success: true, message: `Subscribed to driver ${driverId} location channel` };
+    } catch (err: any) {
+      this.logger.error(`Failed to subscribe to driver ${driverId} location channel: ${err?.message || err}`);
+      return { success: false, message: `Failed to subscribe: ${err?.message || err}` };
+    }
+  }
+
+  @Mutation(() => BasicResult, {
+    name: 'unsubscribeFromDriverLocationChannel',
+    description: 'Unsubscribe from a driver personal location channel. Call this when driver goes offline.',
+  })
+  async unsubscribeFromDriverLocationChannel(@Args('driverId') driverId: string): Promise<BasicResult> {
+    this.logger.log(`GraphQL: Unsubscribing from driver ${driverId} location channel`);
+    try {
+      await this.matchmakingService.unsubscribeFromDriverLocationChannel(driverId);
+      return { success: true, message: `Unsubscribed from driver ${driverId} location channel` };
+    } catch (err: any) {
+      this.logger.error(`Failed to unsubscribe from driver ${driverId} location channel: ${err?.message || err}`);
+      return { success: false, message: `Failed to unsubscribe: ${err?.message || err}` };
+    }
   }
 
   @Query(() => [VehicleEstimateGraphQL], {
