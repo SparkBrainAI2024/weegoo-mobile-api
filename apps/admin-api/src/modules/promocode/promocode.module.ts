@@ -20,8 +20,8 @@ import { Occasion, OccasionSchema } from "@libs/data-access";
   providers: [
     PromoCodeService,
     PromoCodeResolver,
-    NotificationService,
-    FirebaseMessagingService,
+    // NotificationService,
+    // FirebaseMessagingService,
     EnvService,
   ],
   exports: [PromoCodeService],
