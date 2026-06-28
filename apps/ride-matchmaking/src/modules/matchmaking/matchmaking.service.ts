@@ -708,14 +708,14 @@ export class MatchmakingService {
             },
           }).exec();
 
-          if (dropoffDistanceKm  >0.05)
+          if (dropoffDistanceKm  > 0.05 && !activeRide.driverArrivedAtDestinationNotified)
             await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving-destination', {
               rideId: activeRide._id.toString(),
               driverId,
               latitude,
               longitude,
-              distanceToPickupKm: Math.round(distanceKm * 100) / 100,
-              estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
+              distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
+              dropoffDurationMinutes,
               message: `Driver is ${distanceKm.toFixed(2)} km away.`,
             });
 
