@@ -736,17 +736,17 @@ export class MatchmakingService {
     const unsubscribe = this.rideChannelService.subscribeToDriverLocationChannel(
       driverId,
       async (data: any) => {
-        const { driverId: dId, lat, long } = data;
+        const { driverId: dId, lat, lng } = data;
            this.logger.log(`latiude ${lat}`)
-       this.logger.log(`latiude ${long}`)
+       this.logger.log(`latiude ${lng}`)
           this.logger.log(`driverId ${dId}`)
-        if (!dId || lat == null || long == null) return;
+        if (!dId || lat == null || lng == null) return;
     
         // Update geo-location in DB
         const driverObjectId = new Types.ObjectId(dId);
         await this.userDetailsModel.findOneAndUpdate(
           { userId: driverObjectId, deleted: false },
-          { $set: { geoLocation: { type: 'Point', coordinates: [lat, long] } } },
+          { $set: { geoLocation: { type: 'Point', coordinates: [lat, lng] } } },
         ).exec();
 
         // Process active rides for this location update
@@ -754,7 +754,7 @@ export class MatchmakingService {
         await this.processDriverLocationForRides(
           dId,
           lat,
-          long,
+          lng,
           vehicle?.vehicleType?.toLowerCase() || 'car',
         );
       },
