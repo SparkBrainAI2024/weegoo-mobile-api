@@ -123,14 +123,14 @@ export class RideChannelService {
    * Publish driver location update to the ride channel.
    */
   async publishDriverLocationUpdate(rideUUId: string, data: DriverLocationPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'driver-location-update', data as any);
+    await this.publishRideEvent(rideUUId, 'driver-location', data as any);
   }
 
   /**
    * Publish passenger location update to the ride channel.
    */
   async publishPassengerLocationUpdate(rideUUId: string, data: PassengerLocationPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'passenger-location-update', data as any);
+    await this.publishRideEvent(rideUUId, 'passenger-location', data as any);
   }
 
   /**
