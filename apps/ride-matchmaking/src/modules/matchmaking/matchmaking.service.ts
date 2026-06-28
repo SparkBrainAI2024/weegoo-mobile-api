@@ -744,10 +744,11 @@ export class MatchmakingService {
       driverId,
       async (data: any) => {
         const { driverId: dId, latitude, longitude } = data;
-        if (!dId || latitude == null || longitude == null) return;
-       this.logger.log(`latiude ${latitude}`)
+           this.logger.log(`latiude ${latitude}`)
        this.logger.log(`latiude ${latitude}`)
           this.logger.log(`driverId ${dId}`)
+        if (!dId || latitude == null || longitude == null) return;
+    
         // Update geo-location in DB
         const driverObjectId = new Types.ObjectId(dId);
         await this.userDetailsModel.findOneAndUpdate(

@@ -283,7 +283,7 @@ export class RideChannelService {
     callback: (data: any) => void,
   ): () => void {
     const channel = RideChannelService.getDriverLocationChannelName(driverId);
-    return this.ablyService.subscribe(channel, 'driver-location-update', (message) => {
+    return this.ablyService.subscribe(channel, 'driver-location', (message) => {
       callback(message.data);
     });
   }
@@ -297,7 +297,7 @@ export class RideChannelService {
     callback: (data: any) => void,
   ): () => void {
     const channel = RideChannelService.getPassengerLocationChannelName(passengerId);
-    return this.ablyService.subscribe(channel, 'passenger-location-update', (message) => {
+    return this.ablyService.subscribe(channel, 'passenger-location', (message) => {
       callback(message.data);
     });
   }
