@@ -604,7 +604,7 @@ export class MatchmakingService {
         }).exec();
 
         // Publish to the ride channel
-        if (distanceKm <= 0.3)
+        if (distanceKm  >  0.3)
           await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving', {
             rideId: activeRide._id.toString(),
             driverId,
@@ -644,7 +644,7 @@ export class MatchmakingService {
             }, passenger);
           }
         }
-        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05 && !activeRide.driverArrivingNotified) {
+        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05 ) {
           await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
           const passenger = await this.userModel.findById(activeRide.passengerId).exec();
           if (passenger) {
@@ -708,7 +708,7 @@ export class MatchmakingService {
             },
           }).exec();
 
-          if (dropoffDistanceKm <= 0.05)
+          if (dropoffDistanceKm  >0.05)
             await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving-destination', {
               rideId: activeRide._id.toString(),
               driverId,
