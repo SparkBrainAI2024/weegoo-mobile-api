@@ -252,7 +252,10 @@ export class PromoCodeService {
   async activate(id: string): Promise<PromoCodeDocument> {
     try {
       const promoCode = await this.findOrThrow(id);
-      if (promoCode.status !== PromoCodeStatusEnum.DRAFT) {
+      if (
+        promoCode.status !== PromoCodeStatusEnum.DRAFT &&
+        promoCode.status !== PromoCodeStatusEnum.INACTIVE
+      ) {
         ErrorException(
           null,
           "PROMO_CODE.ACTIVATE_ONLY_DRAFT",
@@ -318,7 +321,7 @@ export class PromoCodeService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      await this.promoCodeRepository.softDeleteById(new Types.ObjectId(id));
+      await this.promoCodeRepository.deleteById(new Types.ObjectId(id));
       return true;
     } catch (e) {
       ErrorException(e, "PROMO_CODE.DELETE", HttpStatus.BAD_REQUEST);
