@@ -37,6 +37,7 @@ export class DynamicPricingService {
       distanceCost: this.round(distanceCost),
       durationCost: this.round(durationCost),
       total: this.round(total),
+      baseFare:this.round(pickupCost)
     };
 
     this.logger.debug(`[INSTANT][${vehicleType}] Fare calculated: ${JSON.stringify(fare)}`);
@@ -65,7 +66,8 @@ export class DynamicPricingService {
     const basePickupCost = SCHEDULED_FARE.BASE_PICKUP_COST[vehicleType] || SCHEDULED_FARE.BASE_PICKUP_COST['CAR'];
     const perKmRate = SCHEDULED_FARE.PER_KM_RATE[vehicleType] || SCHEDULED_FARE.PER_KM_RATE['CAR'];
     const perMinuteRate = SCHEDULED_FARE.PER_MINUTE_RATE[vehicleType] || SCHEDULED_FARE.PER_MINUTE_RATE['CAR'];
-
+     const distanceCost =  distanceKm * perKmRate 
+    const durationCost=durationMinutes * perMinuteRate;
     const baseFare =
       basePickupCost +
       distanceKm * perKmRate +
@@ -79,7 +81,10 @@ export class DynamicPricingService {
     const fare: ScheduledFareBreakdown = {
       baseFare: this.round(baseFare),
       total: this.round(total),
-    };
+      distanceCost: this.round(distanceCost),
+      durationCost: this.round(durationCost),
+      pickupCost: this.round(basePickupCost),
+};
 
     this.logger.debug(`[SCHEDULED][${vehicleType}] Fare calculated: ${JSON.stringify(fare)}`);
     return fare;

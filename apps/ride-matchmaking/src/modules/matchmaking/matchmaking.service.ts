@@ -406,11 +406,13 @@ export class MatchmakingService {
           } catch { }
         }
         let totalFare: number | undefined;
-        if (ride.rideType === RideTypes.INSTANT) { const fare = await this.getEstimatedFare(ride._id.toString(), vehicle?.vehicleType); totalFare = fare?.total; } else { const fare = await this.getScheduledEstimatedFare(ride._id.toString()); totalFare = fare?.total; }
-        const distanceFare = routeDistanceKm * 20;
-        const baseFare = 50;
-        const totalAmount = baseFare + distanceFare;
-        const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.PENDING }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED, distanceInKm: routeDistanceKm, estimatedTimeInMinutes: routeDurationMinutes, estimatedFare: totalFare || ride.estimatedFare || 0, distanceToReachPassenger: driverToPickupDistanceKm, estimatedTimeToReachPassenger: driverToPickupDurationMinutes, timeToReachPassengerInMinutes: driverToPickupDurationMinutes, fare: { baseAmount: baseFare, trafficCongestionAmount: 0, distanceAmount: Math.round(distanceFare * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100, noOfPassengers: ride.noOfPassengers || 1, discountAmount: 0, promoCodeId: null } } }, { new: true }).exec();
+        let fare:FareBreakdown | ScheduledFareBreakdown 
+        if (ride.rideType === RideTypes.INSTANT) {  fare = await this.getEstimatedFare(ride._id.toString(), vehicle?.vehicleType); totalFare = fare?.total; } else {  fare = await this.getScheduledEstimatedFare(ride._id.toString()); totalFare = fare?.total; }
+        const distanceFare = fare.distanceCost;
+        const baseFare = fare.baseFare;
+        const totalAmount = fare.total;
+
+        const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.CONFIRMED,driverId:new Types.ObjectId(driverId) }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED, distanceInKm: routeDistanceKm, estimatedTimeInMinutes: routeDurationMinutes, estimatedFare: totalFare || ride.estimatedFare || 0, distanceToReachPassenger: driverToPickupDistanceKm, estimatedTimeToReachPassenger: driverToPickupDurationMinutes, timeToReachPassengerInMinutes: driverToPickupDurationMinutes, fare: { baseAmount: baseFare, trafficCongestionAmount: 0, distanceAmount: Math.round(distanceFare * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100, noOfPassengers: ride.noOfPassengers || 1, discountAmount: 0, promoCodeId: null } } }, { new: true }).exec();
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
         let acceptDetails: any;
         if (ride.rideType === RideTypes.SCHEDULED) { const fare = await this.getScheduledEstimatedFare(ride._id.toString()); acceptDetails = await this.buildScheduledAcceptDetails(updatedRide, driverId, fare); } else { const fare = await this.getEstimatedFare(ride._id.toString(), vehicle?.vehicleType); acceptDetails = await this.buildAcceptDetails(updatedRide, driverId, fare || { total: 0 } as FareBreakdown); }

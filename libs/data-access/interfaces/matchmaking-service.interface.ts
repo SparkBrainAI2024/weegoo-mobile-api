@@ -23,6 +23,7 @@ export interface FareBreakdown {
   distanceCost: number;
   durationCost: number;
   total: number;
+  baseFare:number;
 }
 
 export interface MatchAttemptResult {
@@ -68,4 +69,7 @@ export interface MatchResult {
 export interface ScheduledFareBreakdown {
   baseFare: number;
   total: number;
+   pickupCost: number;
+  distanceCost: number;
+  durationCost: number;
 }
