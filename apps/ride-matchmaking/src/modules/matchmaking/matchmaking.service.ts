@@ -617,7 +617,7 @@ export class MatchmakingService {
               driverId,
               latitude,
               longitude,
-              message: `Driver is arriving. ${distanceKm.toFixed(2)} km away.`,
+              message: `Driver is ${distanceKm.toFixed(2)} km away.`,
             });
 
         // --- "Driver is arriving" — within 1km of pickup (CONFIRMED rides only) ---
