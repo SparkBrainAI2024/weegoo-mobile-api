@@ -139,6 +139,8 @@ export * from './dtos/response/driver-ride-response.dto';
 export * from './dtos/response/transaction-list-with-pagination.response';
 export * from './dtos/response/delete-account-warnings.response';
 export * from './dtos/response/create-complaint.response';
+export * from './dtos/response/complete-ride-fare-breakdown.dto';
+export * from './dtos/response/complete-ride-result.dto';
 
 //interfaces
 export * from './interfaces/location.interface'

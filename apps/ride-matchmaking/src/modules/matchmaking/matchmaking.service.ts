@@ -27,6 +27,7 @@ import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
+import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 
 @Injectable()
 export class MatchmakingService {
@@ -46,6 +47,7 @@ export class MatchmakingService {
     private readonly pricingService: DynamicPricingService,
     private readonly notificationService: NotificationService,
     private readonly s3: S3Service,
+    private readonly transactionService: TransactionService,
   ) { }
 
   async matchDrivers(params: { rideId: string }): Promise<MatchResult> {
@@ -809,6 +811,88 @@ export class MatchmakingService {
       return { success: false, message: 'Failed to pickup passenger' };
     }
   }
+
+  /**
+   * Complete a ride: validates ride, updates status to COMPLETED,
+   * calculates actual duration and fare breakdown, publishes ride-completed Ably event.
+   */
+  async completeRide(rideId: string): Promise<{
+    success: boolean;
+    message: string;
+    data?: {
+      rideId: string;
+      rideUUId: string;
+      rideStatus: string;
+      totalDurationInMinutes: number;
+      totalDuration: string;
+      fareBreakdown: { baseFare: number; distanceCharge: number; discount: number; totalFare: number; };
+      completedAt: string;
+    };
+  }> {
+    this.logger.log('Driver ${driverId} completing ride ${rideId}');
+    try {
+      const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+      const completedAt = ride.rideCompletedAt;
+      const rideStartedAt = ride.rideStartedAt;
+      let totalDurationMinutes = 0;
+      if (rideStartedAt) {
+        const diffMs = completedAt.getTime() - rideStartedAt.getTime();
+        totalDurationMinutes = Math.ceil(diffMs / 60000);
+      }
+      const distanceInKm = ride.distanceInKm || 0;
+      const distanceCharge = Number(ride.fare?.distanceAmount||0).toFixed(2);
+      const discountAmount = Number(ride.fare?.discountAmount || 0);
+      const baseFare= Number(ride.fare?.baseAmount||0)
+      const totalFare = Number(ride.fare?.totalAmount||0).toFixed(2);
+      const hrs = Math.floor(totalDurationMinutes / 60);
+      const mins = totalDurationMinutes % 60;
+      const durationStr = hrs > 0 ? hrs + 'h ' + mins + 'm' : mins + 'm';
+     await this.rideChannelService.publishRideCompleted(ride.rideUUId, {
+        rideId: ride._id.toString(),
+        rideUUId: ride.rideUUId,
+        rideStatus: RideStatus.COMPLETED,
+        totalDurationInMinutes: totalDurationMinutes,
+        totalDuration: durationStr,
+        fareBreakdown: { baseFare, distanceCharge:Number(distanceCharge), discount: discountAmount, totalFare:Number(totalFare) },
+        completedAt: completedAt.toISOString(),
+      });
+
+      const passenger = await this.userModel.findById(ride.passengerId).exec();
+      if (passenger) {
+        await this.notificationService.createNotification({
+          title: 'Ride completed',
+          notificationType: NotificationType.RIDE_COMPLETE_NOTIFICATION,
+          description: 'Ride completed. Duration: ' + durationStr + '. Fare: Rs.' + totalFare,
+          ablyChannelId: ride.ablyChannelId || 'WG-RIDE-' + ride.rideUUId + '-ride-details',
+          pickupLocation: ride.pickupLocation,
+          dropoffLocation: ride.dropoffLocation,
+          distanceInKm: distanceInKm,
+          estimatedTimeInMinutes: ride.estimatedTimeInMinutes,
+          actualTimeInMinutes:totalDurationMinutes,
+          passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
+        }, passenger);
+      }
+
+      return {
+        success: true,
+        message: 'Ride completed successfully.',
+        data: {
+          rideId: ride._id.toString(),
+          rideUUId: ride.rideUUId,
+          rideStatus: RideStatus.COMPLETED,
+          totalDurationInMinutes: totalDurationMinutes,
+          totalDuration: durationStr,
+          fareBreakdown: { baseFare, distanceCharge:Number(distanceCharge), discount: discountAmount, totalFare:Number(totalFare) },
+          completedAt: completedAt.toISOString(),
+        },
+      };
+    } catch (err: any) {
+      this.logger.error('Failed to complete ride: ' + (err?.message || err));
+      return { success: false, message: 'Failed to complete ride' };
+    }
+  }
+
+
 
   async getVehicleEstimates(params: { pickupLat: number; pickupLng: number; dropoffLat: number; dropoffLng: number; noOfPassengers: number }): Promise<VehicleEstimateGraphQL[]> {
     let vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];

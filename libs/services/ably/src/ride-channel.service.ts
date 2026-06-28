@@ -22,6 +22,7 @@ import { AblyService } from './ably.service';
  * - `ride-status-update`        → Ride status changed
  * - `ride-details`              → Full ride information update
  * - `ride-start`                → Ride started (contains rideStartedAt & remaining time to destination)
+ * - `ride-completed`            → Ride completed (contains actual duration & fare breakdown)
 
  * - `driver-response`           → Driver accept/reject (for internal flow)
  */
@@ -158,6 +159,15 @@ export class RideChannelService {
   }): Promise<void> {
     await this.publishRideEvent(rideUUId, 'ride-start', data as any);
   }
+
+  /**
+   * Publish ride completed event to the unified ride channel.
+   * Contains actual duration and fare breakdown (base fare, distance charge, discount, total fare).
+   */
+  async publishRideCompleted(rideUUId: string, data: RideCompletedPayload): Promise<void> {
+    await this.publishRideEvent(rideUUId, 'ride-completed', data as any);
+  }
+
 
 
 
@@ -474,4 +484,27 @@ export interface DriverAcceptedPayload {
   distanceInKm: number;
   bookingTime?: string;
   acceptedAt: string;
+}
+
+/**
+ * Payload for the ride-completed event.
+ * Contains the actual duration and fare breakdown sent to the passenger upon ride completion.
+ */
+export interface RideCompletedPayload {
+  rideId: string;
+  rideUUId: string;
+  rideStatus: string;
+  /** Actual duration of the ride in minutes (from rideStartedAt to rideCompletedAt) */
+  totalDurationInMinutes: number;
+  /** Human-readable duration string */
+  totalDuration: string;
+  /** Fare breakdown */
+  fareBreakdown: {
+    baseFare: number;
+    distanceCharge: number;
+    discount: number;
+    totalFare: number;
+  };
+  /** The actual completed at timestamp */
+  completedAt: string;
 }

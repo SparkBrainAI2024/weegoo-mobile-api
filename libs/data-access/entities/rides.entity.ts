@@ -132,6 +132,10 @@ export class Rides extends BaseEntity {
   })
   vehicleId: Types.ObjectId;
 
+  @Field(() => Number, { nullable: true })
+  @Prop({ type: Number, required: false, default: 0 })
+  actualCompletedDurationInMinutes?: number;
+
   @Field(() => Vehicle, { nullable: true })
   vehicle?: Vehicle;
 

@@ -8,6 +8,7 @@ import {
   FareBreakdownGraphQL,
   ScheduledMatchResultGraphQL,
   ScheduledFareBreakdownGraphQL,
+  CompleteRideResult,
   MatchDriversInput,
   MatchScheduledDriversInput,
   DriverResponseInput,
@@ -17,6 +18,7 @@ import {
   RainCondition, 
   HistoricalTraffic,
 } from '@libs/data-access';
+import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
 import { BasicResult } from './basic-result.dto';
 
 
@@ -199,6 +201,21 @@ export class MatchmakingResolver {
     this.logger.log(`GraphQL: Driver ${driverId} picked up passenger for ride ${rideId}`);
     const result = await this.matchmakingService.pickupPassenger(rideId, driverId);
     return result;
+  }
+
+
+  @Mutation(() => CompleteRideResult, {
+    name: 'completeRide',
+    description: 'Complete a ride: validates ride, updates status to COMPLETED, calculates actual duration and fare breakdown, publishes ride-completed Ably event',
+  })
+  async completeRide(
+    @Args('rideId') rideId: string,
+  ): Promise<CompleteRideResult> {
+    const result = await this.matchmakingService.completeRide(rideId);
+    if (!result.success || !result.data) {
+      throw new Error(result.message || 'Failed to complete ride');
+    }
+    return result.data;
   }
 
   @Mutation(() => BasicResult, {

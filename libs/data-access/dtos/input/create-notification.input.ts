@@ -91,6 +91,10 @@ export class CreateNotificationInput {
   @IsOptional()
   estimatedTimeInMinutes?: number;
 
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  actualTimeInMinutes?: number;
+
   @Field(() => String, { nullable: true })
   @IsOptional()
   @IsString()

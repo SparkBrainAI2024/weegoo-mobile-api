@@ -14,6 +14,7 @@ import { FirebaseMessagingService } from '@libs/services/firebase-messaging';
 import { EnvService } from '@libs/common/config/env.service';
 import { S3Service } from '@libs/s3';
 import { AblyModule } from '@libs/services/ably';
+import { TransactionModule } from '@libs/services/payment/src/transaction/transaction.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AblyModule } from '@libs/services/ably';
     ]),
     NotificationPersistentModule,
     AblyModule,
+    TransactionModule,
   ],
   providers: [
     MatchmakingResolver,

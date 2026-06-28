@@ -94,6 +94,9 @@ export class NotificationService {
             if (payload.rideStatus) {
                 firebaseData.rideStatus = payload.rideStatus;
             }
+            if (payload.actualTimeInMinutes) {
+                firebaseData.actualTimeInMinutes = payload.actualTimeInMinutes;
+            }
             if (payload.pickupLocation) {
                 firebaseData.pickupLocation = JSON.stringify(payload.pickupLocation);
             }

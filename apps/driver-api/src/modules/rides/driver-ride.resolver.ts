@@ -2,10 +2,12 @@ import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { Logger, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@libs/guards';
 import { CurrentUser, Roles } from '@libs/common';
-import { User, roles, BasicResponse, DriverRideResponse } from '@libs/data-access';
+import { User, roles, BasicResponse, DriverRideResponse, Rides } from '@libs/data-access';
 import { DriverRideAcceptanceService } from './driver-ride-acceptance.service';
 import { RoleGuard } from '@libs/guards/role.guard';
 import { EnvService } from '@libs/common/config/env.service';
+import { CompleteRideResult } from '@libs/data-access';
+import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
 import axios from 'axios';
 
 @Resolver()
@@ -120,6 +122,22 @@ export class DriverRideResolver {
     }
   }
 
+
+  @Roles(roles.RIDER)
+  @Mutation(() => Rides, {
+    name: 'completeRide',
+    description: 'Complete a ride - sets status to COMPLETED, publishes ride-completed Ably event with fare breakdown',
+  })
+  async completeRide(
+    @CurrentUser() user: User,
+    @Args('rideId') rideId: string,
+
+  ): Promise<Rides> {
+    this.logger.log(`GraphQL: Driver ${user._id} completing ride ${rideId}`);
+    return this.driverRideAcceptanceService.completeRide({ rideId }, user._id.toString())
+
+  }
+
   @Roles(roles.RIDER)
   @Mutation(() => DriverRideResponse, {
     name: 'rejectRide',
@@ -131,7 +149,7 @@ export class DriverRideResolver {
   ): Promise<DriverRideResponse> {
     this.logger.log(`GraphQL: Driver ${user._id} rejecting ride ${rideId}`);
     const result = await this.driverRideAcceptanceService.rejectRide(rideId, user._id.toString());
-   return {
+    return {
       success: result.success,
       message: result.message,
       data: result.data ? {
