@@ -57,7 +57,7 @@ export class MatchmakingService {
     if (ride.rideStatus !== RideStatus.PENDING) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: `Ride is not in PENDING status. Current: ${ride.rideStatus}` };
     if (ride.rideType !== RideTypes.INSTANT) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: 'Use matchScheduledDrivers for SCHEDULED rides.' };
     const result = await this.executeExpandingRingMatch(ride);
-    this.logger.log(`result`,JSON.stringify(result));
+    this.logger.log(`result`, JSON.stringify(result));
     return { ...result, ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details` };
   }
 
@@ -373,7 +373,7 @@ export class MatchmakingService {
   }
 
   async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
-     try {
+    try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };
       const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
@@ -415,7 +415,7 @@ export class MatchmakingService {
         const distanceFare = fare?.distanceCost || 0;
         const baseFare = fare?.baseFare || 0;
         const totalAmount = fare?.total || 0;
-      
+
         const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.PENDING }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED, distanceInKm: routeDistanceKm, estimatedTimeInMinutes: routeDurationMinutes, estimatedFare: totalFare || ride.estimatedFare || 0, distanceToReachPassenger: driverToPickupDistanceKm, estimatedTimeToReachPassenger: driverToPickupDurationMinutes, timeToReachPassengerInMinutes: driverToPickupDurationMinutes, fare: { baseAmount: baseFare, trafficCongestionAmount: 0, distanceAmount: Math.round(distanceFare * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100, noOfPassengers: ride.noOfPassengers || 1, discountAmount: 0, promoCodeId: null } } }, { new: true }).exec();
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
         let acceptDetails: any;
@@ -427,7 +427,7 @@ export class MatchmakingService {
         } else {
           acceptDetails = await this.buildAcceptDetails(updatedRide, driverId, rideFare);
         }
-              if (ride.passengerId) {
+        if (ride.passengerId) {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
           if (passengerUser) {
             const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
@@ -446,11 +446,11 @@ export class MatchmakingService {
               driverSnapshot,
             };
             this.notificationService.createNotification(notificationInput, passengerUser);
-            
+
           }
         }
-         await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
-  
+        await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
+
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
       } else if (action === 'reject') {
@@ -463,8 +463,8 @@ export class MatchmakingService {
             this.notificationService.createNotification(notificationInput, passengerUser);
           }
         }
-         await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
-  
+        await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
+
         return { success: true, message: 'Ride rejected' };
       }
     } catch (err) {
@@ -515,7 +515,7 @@ export class MatchmakingService {
       const updatedRide = await this.ridesModel.findByIdAndUpdate(ride._id, { $set: { rideStatus: RideStatus.ONGOING, rideStartedAt: new Date() } }, { new: true }).exec();
       if (!updatedRide) return { success: false, message: 'Failed to update ride status' };
 
-  
+
       // Publish ride-start event with start time and remaining time to destination
       await this.rideChannelService.publishRideStarted(ride.rideUUId, {
         rideId: ride._id.toString(),
@@ -563,7 +563,7 @@ export class MatchmakingService {
     const activeRides = await this.ridesModel.find({
       driverId: driverObjectId,
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
-      rideType:RideTypes.INSTANT,
+      rideType: RideTypes.INSTANT,
       deleted: false,
     }).exec();
 
@@ -604,14 +604,16 @@ export class MatchmakingService {
         }).exec();
 
         // Publish to the ride channel
-      
-          await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-arriving', {
-              rideId: activeRide._id.toString(),
-              driverId,
-              latitude,
-              longitude,
-              message: `Driver is ${distanceKm.toFixed(2)} km away.`,
-            });
+        if (distanceKm <= 0.3)
+          await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving', {
+            rideId: activeRide._id.toString(),
+            driverId,
+            latitude,
+            longitude,
+            distanceToPickupKm: Math.round(distanceKm * 100) / 100,
+            estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
+            message: `Driver is ${distanceKm.toFixed(2)} km away.`,
+          });
 
         // --- "Driver is arriving" — within 1km of pickup (CONFIRMED rides only) ---
         if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.3 && !activeRide.driverArrivingNotified) {
@@ -625,12 +627,41 @@ export class MatchmakingService {
               longitude,
               distanceToPickupKm: Math.round(distanceKm * 100) / 100,
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
-              message: `Driver is arriving. ${distanceKm.toFixed(2)} km away.`,
+              message: `Driver is at the ${distanceKm.toFixed(2)} km away.`,
             });
             await this.notificationService.createNotification({
               title: 'Driver is arriving',
-              notificationType: NotificationType.RIDE_START,
+              rideId: activeRide._id.toString(),
+              notificationType: NotificationType.RIDE_DETAILS,
               description: `Your driver is ${distanceKm.toFixed(2)} km away. Estimated arrival in ${Math.ceil(durationMinutes)} minutes.`,
+              ablyChannelId: activeRide.ablyChannelId || `WG-RIDE-${activeRide.rideUUId}-ride-details`,
+              driverName: activeRide.driverId?.toString() || '',
+              pickupLocation: activeRide.pickupLocation,
+              dropoffLocation: activeRide.dropoffLocation,
+              distanceInKm: distanceKm,
+              estimatedTimeInMinutes: Math.ceil(durationMinutes),
+              passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
+            }, passenger);
+          }
+        }
+        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05 && !activeRide.driverArrivingNotified) {
+          await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
+          const passenger = await this.userModel.findById(activeRide.passengerId).exec();
+          if (passenger) {
+            await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-arrived', {
+              rideId: activeRide._id.toString(),
+              driverId,
+              latitude,
+              longitude,
+              distanceToPickupKm: Math.round(distanceKm * 100) / 100,
+              estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
+              message: `Driver is at the pickup location ${distanceKm.toFixed(2)} km away.`,
+            });
+            await this.notificationService.createNotification({
+              title: 'Driver is at pickup location',
+              notificationType: NotificationType.RIDE_DETAILS,
+              rideId: activeRide._id.toString(),
+              description: `Your driver is at pickup location`,
               ablyChannelId: activeRide.ablyChannelId || `WG-RIDE-${activeRide.rideUUId}-ride-details`,
               driverName: activeRide.driverId?.toString() || '',
               pickupLocation: activeRide.pickupLocation,
@@ -644,7 +675,7 @@ export class MatchmakingService {
 
         // --- "Driver has arrived at destination" — within 1km of dropoff (ONGOING/PICKUP) ---
         if ((activeRide.rideStatus === RideStatus.ONGOING || activeRide.rideStatus === RideStatus.PICKUP) &&
-            dropoffCoords && dropoffCoords.length >= 2) {
+          dropoffCoords && dropoffCoords.length >= 2) {
           const dropoffLat = dropoffCoords[1];
           const dropoffLng = dropoffCoords[0];
           let dropoffDistanceKm = 0;
@@ -677,17 +708,18 @@ export class MatchmakingService {
             },
           }).exec();
 
-          // Publish driver location update with remaining distance/time to destination
-          await this.rideChannelService.publishDriverLocationUpdate(activeRide.rideUUId, {
-            driverId,
-            latitude,
-            longitude,
-            distanceToReachPassenger: Math.round(dropoffDistanceKm * 100) / 100,
-            estimatedTimeToReachPassenger: Math.ceil(dropoffDurationMinutes),
-            updatedAt: new Date().toISOString(),
-          });
+          if (dropoffDistanceKm <= 0.05)
+            await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving-destination', {
+              rideId: activeRide._id.toString(),
+              driverId,
+              latitude,
+              longitude,
+              distanceToPickupKm: Math.round(distanceKm * 100) / 100,
+              estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
+              message: `Driver is ${distanceKm.toFixed(2)} km away.`,
+            });
 
-          if (dropoffDistanceKm <= 0.3 && !activeRide.driverArrivedAtDestinationNotified) {
+          if (dropoffDistanceKm <= 0.05 && !activeRide.driverArrivedAtDestinationNotified) {
             await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivedAtDestinationNotified: true } }).exec();
             const passenger = await this.userModel.findById(activeRide.passengerId).exec();
             if (passenger) {
@@ -697,12 +729,14 @@ export class MatchmakingService {
                 latitude,
                 longitude,
                 distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
+                dropoffDurationMinutes,
                 message: `Driver has arrived at the destination.`,
               });
               await this.notificationService.createNotification({
                 title: 'Driver has arrived at destination',
-                notificationType: NotificationType.RIDE_COMPLETE_NOTIFICATION,
-                description: `Your driver has arrived at the destination. Distance remaining: ${dropoffDistanceKm.toFixed(2)} km.`,
+                rideId: activeRide._id.toString(),
+                notificationType: NotificationType.RIDE_DETAILS,
+                description: `Your driver has arrived at the destination.`,
                 ablyChannelId: activeRide.ablyChannelId || `WG-RIDE-${activeRide.rideUUId}-ride-details`,
                 driverName: activeRide.driverId?.toString() || '',
                 pickupLocation: activeRide.pickupLocation,
@@ -737,11 +771,11 @@ export class MatchmakingService {
       driverId,
       async (data: any) => {
         const { driverId: dId, lat, lng } = data;
-           this.logger.log(`latiude ${lat}`)
-       this.logger.log(`latiude ${lng}`)
-          this.logger.log(`driverId ${dId}`)
+        this.logger.log(`latiude ${lat}`)
+        this.logger.log(`latiude ${lng}`)
+        this.logger.log(`driverId ${dId}`)
         if (!dId || lat == null || lng == null) return;
-    
+
         // Update geo-location in DB
         const driverObjectId = new Types.ObjectId(dId);
         await this.userDetailsModel.findOneAndUpdate(
@@ -858,20 +892,20 @@ export class MatchmakingService {
         totalDurationMinutes = Math.ceil(diffMs / 60000);
       }
       const distanceInKm = ride.distanceInKm || 0;
-      const distanceCharge = Number(ride.fare?.distanceAmount||0).toFixed(2);
+      const distanceCharge = Number(ride.fare?.distanceAmount || 0).toFixed(2);
       const discountAmount = Number(ride.fare?.discountAmount || 0);
-      const baseFare= Number(ride.fare?.baseAmount||0)
-      const totalFare = Number(ride.fare?.totalAmount||0).toFixed(2);
+      const baseFare = Number(ride.fare?.baseAmount || 0)
+      const totalFare = Number(ride.fare?.totalAmount || 0).toFixed(2);
       const hrs = Math.floor(totalDurationMinutes / 60);
       const mins = totalDurationMinutes % 60;
       const durationStr = hrs > 0 ? hrs + 'h ' + mins + 'm' : mins + 'm';
-     await this.rideChannelService.publishRideCompleted(ride.rideUUId, {
+      await this.rideChannelService.publishRideCompleted(ride.rideUUId, {
         rideId: ride._id.toString(),
         rideUUId: ride.rideUUId,
         rideStatus: RideStatus.COMPLETED,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
-        fareBreakdown: { baseFare, distanceCharge:Number(distanceCharge), discount: discountAmount, totalFare:Number(totalFare) },
+        fareBreakdown: { baseFare, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(totalFare) },
         completedAt: completedAt.toISOString(),
       });
 
@@ -886,7 +920,7 @@ export class MatchmakingService {
           dropoffLocation: ride.dropoffLocation,
           distanceInKm: distanceInKm,
           estimatedTimeInMinutes: ride.estimatedTimeInMinutes,
-          actualTimeInMinutes:totalDurationMinutes,
+          actualTimeInMinutes: totalDurationMinutes,
           passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
         }, passenger);
       }
@@ -900,7 +934,7 @@ export class MatchmakingService {
           rideStatus: RideStatus.COMPLETED,
           totalDurationInMinutes: totalDurationMinutes,
           totalDuration: durationStr,
-          fareBreakdown: { baseFare, distanceCharge:Number(distanceCharge), discount: discountAmount, totalFare:Number(totalFare) },
+          fareBreakdown: { baseFare, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(totalFare) },
           completedAt: completedAt.toISOString(),
         },
       };
