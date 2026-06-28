@@ -612,6 +612,13 @@ export class MatchmakingService {
           estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
           updatedAt: new Date().toISOString(),
         });
+          await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-arriving', {
+              rideId: activeRide._id.toString(),
+              driverId,
+              latitude,
+              longitude,
+              message: `Driver is arriving. ${distanceKm.toFixed(2)} km away.`,
+            });
 
         // --- "Driver is arriving" — within 1km of pickup (CONFIRMED rides only) ---
         if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.3 && !activeRide.driverArrivingNotified) {
