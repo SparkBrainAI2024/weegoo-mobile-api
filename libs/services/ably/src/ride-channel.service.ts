@@ -21,6 +21,8 @@ import { AblyService } from './ably.service';
  * - `passenger-location-update` → Passenger's current location
  * - `ride-status-update`        → Ride status changed
  * - `ride-details`              → Full ride information update
+ * - `ride-start`                → Ride started (contains rideStartedAt & remaining time to destination)
+
  * - `driver-response`           → Driver accept/reject (for internal flow)
  */
 @Injectable()
@@ -143,6 +145,21 @@ export class RideChannelService {
   async publishRideStatusUpdate(rideUUId: string, data: RideStatusPayload): Promise<void> {
     await this.publishRideEvent(rideUUId, 'ride-status-update', data as any);
   }
+
+  /**
+   * Publish ride started event to the unified ride channel.
+   * Contains the ride start time and remaining time to destination.
+   */
+  async publishRideStarted(rideUUId: string, data: {
+    rideId: string;
+    rideStartedAt: string;
+    estimatedTimeInMinutes: number;
+    distanceInKm: number;
+  }): Promise<void> {
+    await this.publishRideEvent(rideUUId, 'ride-start', data as any);
+  }
+
+
 
   /**
    * Publish driver accepted event with full driver/vehicle/passenger details.

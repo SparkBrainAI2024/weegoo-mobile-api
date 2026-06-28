@@ -498,15 +498,21 @@ export class MatchmakingService {
       const updatedRide = await this.ridesModel.findByIdAndUpdate(ride._id, { $set: { rideStatus: RideStatus.ONGOING, rideStartedAt: new Date() } }, { new: true }).exec();
       if (!updatedRide) return { success: false, message: 'Failed to update ride status' };
 
-      const fullDetails = await this.buildFullRideDetailsPayload(updatedRide, { rideStatus: RideStatus.ONGOING, rideStartedAt: new Date().toISOString() });
-      await this.rideChannelService.publishRideDetails(ride.rideUUId, fullDetails);
+  
+      // Publish ride-start event with start time and remaining time to destination
+      await this.rideChannelService.publishRideStarted(ride.rideUUId, {
+        rideId: ride._id.toString(),
+        rideStartedAt: new Date().toISOString(),
+        estimatedTimeInMinutes: updatedRide.estimatedTimeInMinutes || 0,
+        distanceInKm: updatedRide.distanceInKm || 0,
+      });
 
       const passenger = await this.userModel.findById(ride.passengerId).exec();
       if (passenger) {
         await this.notificationService.createNotification({
           title: 'Ride has started',
           notificationType: NotificationType.RIDE_START,
-          description: `Your ride has started. Driver is on the way. Remaining distance: ${updatedRide.distanceInKm || 0} km. Estimated time: ${updatedRide.estimatedTimeInMinutes || 0} minutes.`,
+          description: `Your ride has started.Remaining distance: ${updatedRide.distanceInKm || 0} km. Estimated time: ${updatedRide.estimatedTimeInMinutes || 0} minutes.`,
           ablyChannelId: updatedRide.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
           driverName: updatedRide.driverId?.toString() || '',
           pickupLocation: updatedRide.pickupLocation,
@@ -625,12 +631,15 @@ export class MatchmakingService {
           const dropoffLat = dropoffCoords[1];
           const dropoffLng = dropoffCoords[0];
           let dropoffDistanceKm = 0;
+          let dropoffDurationMinutes = 0;
+
 
           try {
             const dropoffRoute = await this.distanceCalculator.calculateDriverDistance(
               dropoffLat, dropoffLng, latitude, longitude, vehicleType,
             );
             dropoffDistanceKm = dropoffRoute.distanceKm;
+            dropoffDurationMinutes = dropoffRoute.durationMinutes;
           } catch {
             const R = 6371;
             const dLat = (dropoffLat - latitude) * Math.PI / 180;
@@ -640,7 +649,26 @@ export class MatchmakingService {
               Math.sin(dLng / 2) * Math.sin(dLng / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             dropoffDistanceKm = R * c;
+            dropoffDurationMinutes = Math.ceil(dropoffDistanceKm * 2);
           }
+
+          // Update ride document with remaining distance/time to destination
+          await this.ridesModel.findByIdAndUpdate(activeRide._id, {
+            $set: {
+              distanceInKm: Math.round(dropoffDistanceKm * 100) / 100,
+              estimatedTimeInMinutes: Math.ceil(dropoffDurationMinutes),
+            },
+          }).exec();
+
+          // Publish driver location update with remaining distance/time to destination
+          await this.rideChannelService.publishDriverLocationUpdate(activeRide.rideUUId, {
+            driverId,
+            latitude,
+            longitude,
+            distanceToReachPassenger: Math.round(dropoffDistanceKm * 100) / 100,
+            estimatedTimeToReachPassenger: Math.ceil(dropoffDurationMinutes),
+            updatedAt: new Date().toISOString(),
+          });
 
           if (dropoffDistanceKm <= 0.3 && !activeRide.driverArrivedAtDestinationNotified) {
             await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivedAtDestinationNotified: true } }).exec();
