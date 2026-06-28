@@ -252,7 +252,6 @@ export class MatchmakingService {
         acceptedDriverImage = acceptedDriver?.profileImage;
         acceptedRating = acceptedDriver?.rating;
         const acceptDetails = await this.buildAcceptDetails(ride, acceptedDriverId, estimatedFare);
-        await this.ridesModel.updateOne(toMongoId(rideId),{driverId:acceptedDriverId})
         return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage, rating: acceptedRating, estimatedFare, attempts, message: 'Driver matched successfully', acceptedDetails: acceptDetails };
       }
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
@@ -374,8 +373,7 @@ export class MatchmakingService {
   }
 
   async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
-    await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
-    try {
+     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };
       const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
@@ -417,8 +415,8 @@ export class MatchmakingService {
         const distanceFare = fare?.distanceCost || 0;
         const baseFare = fare?.baseFare || 0;
         const totalAmount = fare?.total || 0;
-
-        const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.CONFIRMED,driverId:new Types.ObjectId(driverId) }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED, distanceInKm: routeDistanceKm, estimatedTimeInMinutes: routeDurationMinutes, estimatedFare: totalFare || ride.estimatedFare || 0, distanceToReachPassenger: driverToPickupDistanceKm, estimatedTimeToReachPassenger: driverToPickupDurationMinutes, timeToReachPassengerInMinutes: driverToPickupDurationMinutes, fare: { baseAmount: baseFare, trafficCongestionAmount: 0, distanceAmount: Math.round(distanceFare * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100, noOfPassengers: ride.noOfPassengers || 1, discountAmount: 0, promoCodeId: null } } }, { new: true }).exec();
+      
+        const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.ONGOING }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED, distanceInKm: routeDistanceKm, estimatedTimeInMinutes: routeDurationMinutes, estimatedFare: totalFare || ride.estimatedFare || 0, distanceToReachPassenger: driverToPickupDistanceKm, estimatedTimeToReachPassenger: driverToPickupDurationMinutes, timeToReachPassengerInMinutes: driverToPickupDurationMinutes, fare: { baseAmount: baseFare, trafficCongestionAmount: 0, distanceAmount: Math.round(distanceFare * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100, noOfPassengers: ride.noOfPassengers || 1, discountAmount: 0, promoCodeId: null } } }, { new: true }).exec();
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
         let acceptDetails: any;
         const rideFare = fare || (ride.rideType === RideTypes.SCHEDULED
@@ -429,10 +427,7 @@ export class MatchmakingService {
         } else {
           acceptDetails = await this.buildAcceptDetails(updatedRide, driverId, rideFare);
         }
-        await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
-        await this.rideChannelService.publishRideTaken(ride.rideUUId, ride._id.toString());
-        await this.rideChannelService.publishDriverResponseToRideChannel(ride.rideUUId, { rideId: ride._id.toString(), driverId, action: 'accept', driverName, driverImage: acceptDetails?.driver?.profileImage ?? null, rating: acceptDetails?.driver?.rating ?? null, vehicleType: acceptDetails?.vehicle?.vehicleType ?? null, vehicleModel: acceptDetails?.vehicle?.vehicleModel ?? null, color: acceptDetails?.vehicle?.color ?? null, numberPlate: acceptDetails?.vehicle?.numberPlate ?? null, estimatedFare: acceptDetails?.estimatedFare ?? ride.estimatedFare ?? null, estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes ?? ride.estimatedTimeInMinutes ?? null, distanceInKm: ride.distanceInKm ?? null });
-        if (ride.passengerId) {
+              if (ride.passengerId) {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
           if (passengerUser) {
             const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
@@ -451,8 +446,11 @@ export class MatchmakingService {
               driverSnapshot,
             };
             this.notificationService.createNotification(notificationInput, passengerUser);
+            
           }
         }
+         await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
+  
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
       } else if (action === 'reject') {
@@ -465,6 +463,8 @@ export class MatchmakingService {
             this.notificationService.createNotification(notificationInput, passengerUser);
           }
         }
+         await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
+  
         return { success: true, message: 'Ride rejected' };
       }
     } catch (err) {
