@@ -604,14 +604,7 @@ export class MatchmakingService {
         }).exec();
 
         // Publish to the ride channel
-        await this.rideChannelService.publishDriverLocationUpdate(activeRide.rideUUId, {
-          driverId,
-          latitude,
-          longitude,
-          distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
-          estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
-          updatedAt: new Date().toISOString(),
-        });
+      
           await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-arriving', {
               rideId: activeRide._id.toString(),
               driverId,
@@ -743,25 +736,25 @@ export class MatchmakingService {
     const unsubscribe = this.rideChannelService.subscribeToDriverLocationChannel(
       driverId,
       async (data: any) => {
-        const { driverId: dId, latitude, longitude } = data;
-           this.logger.log(`latiude ${latitude}`)
-       this.logger.log(`latiude ${latitude}`)
+        const { driverId: dId, lat, long } = data;
+           this.logger.log(`latiude ${lat}`)
+       this.logger.log(`latiude ${long}`)
           this.logger.log(`driverId ${dId}`)
-        if (!dId || latitude == null || longitude == null) return;
+        if (!dId || lat == null || long == null) return;
     
         // Update geo-location in DB
         const driverObjectId = new Types.ObjectId(dId);
         await this.userDetailsModel.findOneAndUpdate(
           { userId: driverObjectId, deleted: false },
-          { $set: { geoLocation: { type: 'Point', coordinates: [longitude, latitude] } } },
+          { $set: { geoLocation: { type: 'Point', coordinates: [lat, long] } } },
         ).exec();
 
         // Process active rides for this location update
         const vehicle = await this.vehicleModel.findOne({ driverId: driverObjectId, deleted: false }).exec();
         await this.processDriverLocationForRides(
           dId,
-          latitude,
-          longitude,
+          lat,
+          long,
           vehicle?.vehicleType?.toLowerCase() || 'car',
         );
       },
