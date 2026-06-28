@@ -163,6 +163,7 @@ type RideUserSnapshot {
   rating: Float!
   phone: String
   locationChannelId: String
+  geoLocation: GeoLocation
 }
 
 type Rides {
