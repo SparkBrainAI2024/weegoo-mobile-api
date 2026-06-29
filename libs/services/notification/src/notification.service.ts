@@ -63,7 +63,8 @@ export class NotificationService {
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
-        const token = await this.userTokenRepository.findOne({ userId: userId, grant: TokenGrantType.REFRESH_TOKEN }, null, null, { sort: { createdAt: -1 } });
+        const token = await this.userTokenRepository.findOne({ userId: userId, grant: TokenGrantType.REFRESH_TOKEN });
+                console.log("========firebase token=====", token?.firebaseToken)
         if (token?.firebaseToken) {
             const firebaseData: Record<string, string> = {
                 title: notification.title,
