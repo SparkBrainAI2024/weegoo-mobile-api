@@ -10,11 +10,8 @@ import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
-import { RideStatus } from '@libs/data-access/enums/rides.enum';
-import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
-import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
-import { CompleteRideInput, CompleteRideResult, DriverRideResponse, RidesRepository } from '@libs/data-access';
-import { ErrorException, MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
+import { CompleteRideInput, DriverRideResponse, RidesRepository } from '@libs/data-access';
+import { ErrorException, toMongoId } from '@libs/common';
 
 export interface DriverAcceptDetails {
   rideId: string;
@@ -68,7 +65,6 @@ export class DriverRideAcceptanceService {
     private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
     private readonly s3: S3Service,
-    private readonly transactionService: TransactionService,
   ) { }
 
   onModuleInit() {
@@ -319,107 +315,58 @@ export class DriverRideAcceptanceService {
 
     this.logger.log(`Driver ${driverId} attempting to complete ride ${rideId}`);
 
-
-    const ride = await this.ridesRepository.findById(toMongoId(rideId));
-    this.logger.debug(`Ride found: ${ride ? 'Yes' : 'No'}`);
-    const vehicle = await this.vehicleModel.findById(ride?.vehicleId).exec();
-    if (!ride) {
-      throw ErrorException(null, 'RIDES.RIDE_NOT_FOUND', 404)
-    }
-
-    if (ride.driverId?.toString() !== driverId) {
-      throw ErrorException(null, 'RIDES.NOT_ASSOCIATED_WITH_DRIVER', 404)
-    }
-
-    if (ride.rideStatus !== RideStatus.ONGOING) {
-      throw ErrorException(null, 'RIDES.INVALID_STATUS', 400)
-    }
-
-
-    const distanceInKm = ride.distanceInKm || 0;
-    const durationInMinutes = ride.estimatedTimeInMinutes || 0;
-    const rideStartedAt = new Date(ride.rideStartedAt);
-    const rideCompletedAt = new Date(ride.rideCompletedAt);
-
-    const actualCompleteDurationInMinutes =
-      Math.floor((rideCompletedAt.getTime() - rideStartedAt.getTime()) / (1000 * 60));
-
-    // Fare calculation constants
-    const baseFare = MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0;
-    const perKmRate = MATCHMAKING_CONFIG.FARE[vehicle?.vehicleType]?.PER_KM_RATE || 0;
-    const perMinuteRate = MATCHMAKING_CONFIG.FARE[vehicle?.vehicleType]?.PER_MINUTE_RATE || 0;
-
-    const baseFareAmount = Number(baseFare);
-    const distanceFare = Number(distanceInKm) * Number(perKmRate);
-    const durationFare = Number(actualCompleteDurationInMinutes) * Number(perMinuteRate);
-    const totalFare = Number(baseFareAmount) + Number(distanceFare) + Number(durationFare);
-
-    const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
-    const finalAmount = totalFare - discountAmount;
-
-    const commissionRate = Number(ride.paymentDetails?.driverCommission) || 0.2;
-
-    const updatedRide = await this.ridesRepository.updateById(
-      toMongoId(rideId),
-      {
-        $set: {
-          rideStatus: RideStatus.COMPLETED,
-          rideCompletedAt: new Date(),
-          distanceInKm: distanceInKm,
-          estimatedTimeInMinutes: durationInMinutes,
-          actualCompletedDurationInMinutes: actualCompleteDurationInMinutes,
-          estimatedFare: totalFare,
-          fare: {
-            baseAmount: baseFareAmount,
-            distanceAmount: distanceFare,
-            totalAmount: finalAmount,
-            noOfPassengers: ride.noOfPassengers || 1,
-            driverCommission: Number(commissionRate),
-          },
-        },
-      },
-    )
+    // Call matchmaking service which handles all validation, fare calculation,
+    // DB update, and event publishing
     const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
     try {
-      await axios.post(
+      const response = await axios.post(
         `${matchmakingUrl}/graphql`,
         {
           query: `
-                mutation CompleteRide($rideId: String!) {
-                  completeRide(rideId: $rideId) {
+                mutation CompleteRide($rideId: String!, $driverId: String!) {
+                  completeRide(rideId: $rideId, driverId: $driverId) {
                     rideId
                     rideUUId
                     rideStatus
                     totalDurationInMinutes
                     totalDuration
                     completedAt
-                    fareBreakDown{
+                    fareBreakdown{
                     baseFare
-                    discountCharge
+                    distanceCharge
                     discount
                     totalFare
                     }
                   }
                 }
               `,
-          variables: { rideId },
+          variables: { rideId, driverId },
         },
       );
 
-      return updatedRide
-    } catch (err: any) {
-      this.logger.error(`Failed to complete ride  via matchmaking service: ${err?.message || err}`);
-      await this.ridesRepository.updateById(
-        toMongoId(rideId),
-        {
-          $set: {
-            rideStatus: RideStatus.ONGOING,
-          }
-        }
-      )
-      throw ErrorException(null, "Failed to call the matchmaking service", 500)
-    }
+      const result = response.data?.data?.completeRide;
+      if (!result) {
+        const errorMsg = response.data?.errors?.[0]?.message || 'Failed to complete ride via matchmaking service';
+        this.logger.error(`Matchmaking completeRide failed: ${JSON.stringify(response.data?.errors)}`);
+        throw ErrorException(null, errorMsg, 500);
+      }
 
+      // Fetch the updated ride to return
+      const updatedRide = await this.ridesRepository.findById(toMongoId(rideId));
+      if (!updatedRide) {
+        throw ErrorException(null, 'RIDES.RIDE_NOT_FOUND', 404);
+      }
+      return updatedRide;
+    } catch (err: any) {
+      console.log(err)
+      this.logger.error(`Failed to complete ride via matchmaking service: ${err?.message || err}`);
+      // ErrorException is a function that throws HttpException, not a class.
+      // If the error is already an HttpException (from ErrorException), re-throw it.
+      if (err?.response || err?.status) {
+        throw err;
+      }
+      throw ErrorException(null, "Failed to call the matchmaking service", 500);
+    }
   }
 
 }

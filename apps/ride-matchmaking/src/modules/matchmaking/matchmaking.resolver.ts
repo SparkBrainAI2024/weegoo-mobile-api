@@ -210,8 +210,10 @@ export class MatchmakingResolver {
   })
   async completeRide(
     @Args('rideId') rideId: string,
+    @Args('driverId') driverId: string,
   ): Promise<CompleteRideResult> {
-    const result = await this.matchmakingService.completeRide(rideId);
+    console.log("Complete Ride called")
+    const result = await this.matchmakingService.completeRide(rideId, driverId);
     if (!result.success || !result.data) {
       throw new Error(result.message || 'Failed to complete ride');
     }

@@ -867,8 +867,9 @@ export class MatchmakingService {
   /**
    * Complete a ride: validates ride, updates status to COMPLETED,
    * calculates actual duration and fare breakdown, publishes ride-completed Ably event.
+   * All fare calculation and DB update logic is centralized here.
    */
-  async completeRide(rideId: string): Promise<{
+  async completeRide(rideId: string, driverId: string): Promise<{
     success: boolean;
     message: string;
     data?: {
@@ -881,45 +882,98 @@ export class MatchmakingService {
       completedAt: string;
     };
   }> {
-    this.logger.log('Driver ${driverId} completing ride ${rideId}');
+    this.logger.log(`Driver ${driverId} completing ride ${rideId}`);
     try {
       const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
-      const completedAt = ride.rideCompletedAt;
-      const rideStartedAt = ride.rideStartedAt;
-      let totalDurationMinutes = 0;
-      if (rideStartedAt) {
-        const diffMs = completedAt.getTime() - rideStartedAt.getTime();
-        totalDurationMinutes = Math.ceil(diffMs / 60000);
+      if (!ride) {
+        return { success: false, message: 'Ride not found' };
       }
+
+      if (ride.driverId?.toString() !== driverId) {
+        return { success: false, message: 'You are not the assigned driver for this ride' };
+      }
+
+      if (ride.rideStatus !== RideStatus.ONGOING) {
+        return { success: false, message: `Ride must be ONGOING to complete. Current: ${ride.rideStatus}` };
+      }
+
+      const vehicle = await this.vehicleModel.findById(ride.vehicleId).exec();
       const distanceInKm = ride.distanceInKm || 0;
-      const distanceCharge = Number(ride.fare?.distanceAmount || 0).toFixed(2);
-      const discountAmount = Number(ride.fare?.discountAmount || 0);
-      const baseFare = Number(ride.fare?.baseAmount || 0)
-      const totalFare = Number(ride.fare?.totalAmount || 0).toFixed(2);
+      const durationInMinutes = ride.estimatedTimeInMinutes || 0;
+      const rideStartedAt = new Date(ride.rideStartedAt);
+      const rideCompletedAt = new Date();
+
+      const actualCompleteDurationInMinutes =
+        Math.floor((rideCompletedAt.getTime() - rideStartedAt.getTime()) / (1000 * 60));
+
+      // Fare calculation constants
+      const baseFare = MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0;
+      const perKmRate = MATCHMAKING_CONFIG.FARE.PER_KM_RATE[vehicle?.vehicleType] || 0;
+      //const perMinuteRate = MATCHMAKING_CONFIG.FARE.PER_MINUTE_RATE[vehicle?.vehicleType] || 0;
+
+      const baseFareAmount = Number(baseFare);
+      const distanceFare = Number(distanceInKm) * Number(perKmRate);
+      const durationFare = 0
+      const totalFare = Number(baseFareAmount) + Number(distanceFare) + Number(durationFare);
+
+      const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
+      const finalAmount = totalFare - discountAmount;
+
+      const commissionRate = Number(ride.paymentDetails?.driverCommission) || 0.2;
+
+      const updatedRide = await this.ridesModel.findByIdAndUpdate(
+        ride._id,
+        {
+          $set: {
+            rideStatus: RideStatus.COMPLETED,
+            rideCompletedAt: new Date(),
+            distanceInKm: distanceInKm,
+            estimatedTimeInMinutes: durationInMinutes,
+            actualCompletedDurationInMinutes: actualCompleteDurationInMinutes,
+            estimatedFare: totalFare,
+            fare: {
+              baseAmount: baseFareAmount,
+              distanceAmount: distanceFare,
+              totalAmount: finalAmount,
+              noOfPassengers: ride.noOfPassengers || 1,
+              driverCommission: Number(commissionRate),
+            },
+          },
+        },
+        { new: true },
+      ).exec();
+
+      if (!updatedRide) {
+        return { success: false, message: 'Failed to update ride to completed' };
+      }
+
+      const totalDurationMinutes = actualCompleteDurationInMinutes;
+      const distanceCharge = Number(distanceFare).toFixed(2);
       const hrs = Math.floor(totalDurationMinutes / 60);
       const mins = totalDurationMinutes % 60;
       const durationStr = hrs > 0 ? hrs + 'h ' + mins + 'm' : mins + 'm';
-      await this.rideChannelService.publishRideCompleted(ride.rideUUId, {
-        rideId: ride._id.toString(),
-        rideUUId: ride.rideUUId,
+
+      await this.rideChannelService.publishRideCompleted(updatedRide.rideUUId, {
+        rideId: updatedRide._id.toString(),
+        rideUUId: updatedRide.rideUUId,
         rideStatus: RideStatus.COMPLETED,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
-        fareBreakdown: { baseFare, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(totalFare) },
-        completedAt: completedAt.toISOString(),
+        fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(finalAmount) },
+        completedAt: updatedRide.rideCompletedAt.toISOString(),
       });
 
-      const passenger = await this.userModel.findById(ride.passengerId).exec();
+      const passenger = await this.userModel.findById(updatedRide.passengerId).exec();
       if (passenger) {
         await this.notificationService.createNotification({
           title: 'Ride completed',
           notificationType: NotificationType.RIDE_COMPLETE_NOTIFICATION,
-          description: 'Ride completed. Duration: ' + durationStr + '. Fare: Rs.' + totalFare,
-          ablyChannelId: ride.ablyChannelId || 'WG-RIDE-' + ride.rideUUId + '-ride-details',
-          pickupLocation: ride.pickupLocation,
-          dropoffLocation: ride.dropoffLocation,
+          description: 'Ride completed. Duration: ' + durationStr + '. Fare: Rs.' + finalAmount,
+          ablyChannelId: updatedRide.ablyChannelId || 'WG-RIDE-' + updatedRide.rideUUId + '-ride-details',
+          pickupLocation: updatedRide.pickupLocation,
+          dropoffLocation: updatedRide.dropoffLocation,
           distanceInKm: distanceInKm,
-          estimatedTimeInMinutes: ride.estimatedTimeInMinutes,
+          estimatedTimeInMinutes: updatedRide.estimatedTimeInMinutes,
           actualTimeInMinutes: totalDurationMinutes,
           passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
         }, passenger);
@@ -929,13 +983,13 @@ export class MatchmakingService {
         success: true,
         message: 'Ride completed successfully.',
         data: {
-          rideId: ride._id.toString(),
-          rideUUId: ride.rideUUId,
+          rideId: updatedRide._id.toString(),
+          rideUUId: updatedRide.rideUUId,
           rideStatus: RideStatus.COMPLETED,
           totalDurationInMinutes: totalDurationMinutes,
           totalDuration: durationStr,
-          fareBreakdown: { baseFare, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(totalFare) },
-          completedAt: completedAt.toISOString(),
+          fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(finalAmount) },
+          completedAt: updatedRide.rideCompletedAt.toISOString(),
         },
       };
     } catch (err: any) {
