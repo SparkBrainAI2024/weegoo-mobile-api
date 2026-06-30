@@ -453,8 +453,7 @@ export class MatchmakingService {
        this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
       } else if (action ==='reject') {
-        await this.rideChannelService.publishDriverResponseToRideChannel(ride.rideUUId, { rideId: ride._id.toString(), driverId, action: 'reject', driverName, driverImage: null, rating: null, vehicleType: null, vehicleModel: null, color: null, numberPlate: null, estimatedFare: null, estimatedTimeInMinutes: null, distanceInKm: null });
-        if (ride.passengerId) {
+         if (ride.passengerId) {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
           if (passengerUser) {
             const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
