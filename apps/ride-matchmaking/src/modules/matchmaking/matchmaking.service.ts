@@ -28,6 +28,7 @@ import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
+import { DriverActionEnum } from '@libs/data-access/enums/matchmaking.enum';
 
 @Injectable()
 export class MatchmakingService {
@@ -372,14 +373,14 @@ export class MatchmakingService {
     return { promise, unsubscribe };
   }
 
-  async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
+  async handleDriverResponse(rideUUID: string, driverId: string, action: DriverActionEnum): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };
       const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
       const driverName = driverUser?.fullName ?? null;
       const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId), deleted: false }).exec();
-      if (action === 'accept') {
+      if (action ===DriverActionEnum.ACCEPT) {
         const pickupCoords = ride.pickupLocation?.coordinates;
         const dropoffCoords = ride.dropoffLocation?.coordinates;
         const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
@@ -449,11 +450,9 @@ export class MatchmakingService {
 
           }
         }
-        await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
-
-        this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
+       this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
-      } else if (action === 'reject') {
+      } else if (action === DriverActionEnum.REJECT) {
         await this.rideChannelService.publishDriverResponseToRideChannel(ride.rideUUId, { rideId: ride._id.toString(), driverId, action: 'reject', driverName, driverImage: null, rating: null, vehicleType: null, vehicleModel: null, color: null, numberPlate: null, estimatedFare: null, estimatedTimeInMinutes: null, distanceInKm: null });
         if (ride.passengerId) {
           const passengerUser = await this.userModel.findById(ride.passengerId).exec();
@@ -463,8 +462,6 @@ export class MatchmakingService {
             this.notificationService.createNotification(notificationInput, passengerUser);
           }
         }
-        await this.rideChannelService.publishRideEvent(rideUUID, 'driver-response', { driverId, action });
-
         return { success: true, message: 'Ride rejected' };
       }
     } catch (err) {

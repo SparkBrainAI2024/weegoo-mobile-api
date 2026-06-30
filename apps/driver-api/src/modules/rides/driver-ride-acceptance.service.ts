@@ -12,6 +12,7 @@ import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
 import { CompleteRideInput, DriverRideResponse, RidesRepository } from '@libs/data-access';
 import { ErrorException, toMongoId } from '@libs/common';
+import { DriverActionEnum } from '@libs/data-access/enums/matchmaking.enum';
 
 export interface DriverAcceptDetails {
   rideId: string;
@@ -186,6 +187,8 @@ export class DriverRideAcceptanceService {
           distanceInKm: mmDetails?.distanceInKm || ride.distanceInKm || 0,
           acceptedAt: new Date().toISOString(),
         };
+        await this.rideChannelService.publishRideEvent(ride.rideUUId, 'driver-response', { driverId, action: DriverActionEnum.ACCEPT });
+
         return { success: true, message: result.message, data: acceptDetails };
       } else {
         this.logger.warn(`Matchmaking service returned: ${result?.message}`);
@@ -240,6 +243,7 @@ export class DriverRideAcceptanceService {
         this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
         // Build and return full ride details
         const acceptDetails = await this.buildAcceptDetails(ride, driverId);
+        await this.rideChannelService.publishRideEvent(ride.rideUUId, 'driver-response', { driverId, action: DriverActionEnum.ACCEPT });
         return { success: true, message: result.message, data: acceptDetails };
       } else {
         return { success: false, message: result?.message || 'Failed to reject ride via matchmaking service' };
