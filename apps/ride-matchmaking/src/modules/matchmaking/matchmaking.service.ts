@@ -209,18 +209,17 @@ export class MatchmakingService {
       const batchSize = Math.min(MATCHMAKING_CONFIG.REQUEST_BATCH_SIZE, scoredDrivers.length);
       const requestBatch = scoredDrivers.slice(0, batchSize);
       const driverIds = requestBatch.map((d) => d.driverId);
-      const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(ride.rideUUId, driverIds, waitTimeSeconds * 1000);
       for (const driver of requestBatch) {
         if (respondedDriverIds.has(driver.driverId)) continue;
         try {
           const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
           if (driverUser) {
             const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-            this.logger.log(`Sending ride request notification to driver ${driver.driverId}`);
+            this.logger.log(`Sending ride request notification to driver ${driver.driverId} with ${waitTimeSeconds}s to respond`);
             const notificationInput: CreateNotificationInput = {
               title: 'New Ride Request', notificationType: NotificationType.RIDE_REQUEST,
               description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}. Estimated fare: Rs. ${estimatedFare.total}`,
-              ablyChannelId, rideId, rideType: ride.rideType, rideStatus: ride.rideStatus, waitTimeSeconds: DRIVER_RESPONSE_TIMEOUT_SECONDS,
+              ablyChannelId, rideId, rideType: ride.rideType, rideStatus: ride.rideStatus, waitTimeSeconds,
               pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
               dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
               distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
@@ -242,6 +241,9 @@ export class MatchmakingService {
           });
         } catch (err) { this.logger.warn(`Failed to send ride request notification to driver ${driver.driverId}: ${err}`); }
       }
+      // Start the response listener AFTER all notifications have been sent,
+      // giving each driver exactly waitTimeSeconds from the moment they were notified
+      const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(ride.rideUUId, driverIds, waitTimeSeconds * 1000);
       const driverResponse = await driverResponsePromise;
       unsubscribe();
       requestBatch.forEach((d) => respondedDriverIds.add(d.driverId));
