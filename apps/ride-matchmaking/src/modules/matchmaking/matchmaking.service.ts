@@ -24,10 +24,11 @@ import {
 } from 'libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
-import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
+import { MATCHMAKING_CONFIG } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
+
 @Injectable()
 export class MatchmakingService {
   private readonly logger = new Logger(MatchmakingService.name);
@@ -117,22 +118,28 @@ export class MatchmakingService {
       const requestBatch = scoredDrivers.slice(0, batchSize);
       const driverIds = requestBatch.map((d) => d.driverId);
       const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(ride.rideUUId, driverIds, waitTimeSeconds * 1000);
+
+      // Batch-fetch all driver users for this batch in a single query
+      const driverObjectIds = driverIds.map((id) => new Types.ObjectId(id));
+      const driverUsersMap = new Map<string, UserDocument>();
+      const driverUsers = await this.userModel.find({ _id: { $in: driverObjectIds } }).exec();
+      for (const du of driverUsers) {
+        driverUsersMap.set(du._id.toString(), du);
+      }
+
       for (const driver of requestBatch) {
         if (respondedDriverIds.has(driver.driverId)) continue;
-        await this.rideChannelService.publishMatchmakingRideRequest(ride.rideUUId, { rideId, rideType: ride.rideType, bookingTime: ride.bookingTime?.toISOString(), pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city }, dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null, distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes, passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm, expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1, isScheduled: true, driverImage: driver.profileImage || null, rating: driver.rating, driverId: driver.driverId, driverName: driver.fullName, passengerSnapshot });
-        try {
-          const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
-          if (driverUser) {
-            const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-            await this.notificationService.createNotification({
-              title: 'New Scheduled Ride Request', notificationType: NotificationType.RIDE_REQUEST,
-              description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'} for ${ride.bookingTime ? new Date(ride.bookingTime).toLocaleString() : ''}. Estimated fare: Rs. ${scheduledFare.total}`,
-              ablyChannelId, pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
-              dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-              distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes, passengerId: ride.passengerId.toString(), passengerSnapshot,
-            }, driverUser);
-          }
-        } catch (err) { this.logger.warn(`Failed to send scheduled ride request notification to driver ${driver.driverId}: ${err}`); }
+        const driverUser = driverUsersMap.get(driver.driverId);
+        if (driverUser) {
+          const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
+          await this.notificationService.createNotification({
+            title: 'New Scheduled Ride Request', notificationType: NotificationType.RIDE_REQUEST,
+            description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'} for ${ride.bookingTime ? new Date(ride.bookingTime).toLocaleString() : ''}. Estimated fare: Rs. ${scheduledFare.total}`,
+            ablyChannelId, pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
+            dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
+            distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes, passengerId: ride.passengerId.toString(), passengerSnapshot,
+          }, driverUser);
+        }
       }
       const driverResponse = await driverResponsePromise;
       unsubscribe();
@@ -142,14 +149,11 @@ export class MatchmakingService {
         acceptedDriverId = driverResponse.driverId;
         acceptedDriverName = requestBatch.find((d) => d.driverId === driverResponse.driverId)?.fullName || 'Driver';
         await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
-        const acceptDetails = await this.buildScheduledAcceptDetails(ride, acceptedDriverId, scheduledFare);
-        await this.rideChannelService.publishDriverAccepted(ride.rideUUId, acceptDetails);
       }
       attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
     }
     if (!matched) {
       const failMessage = 'No available drivers found within 15 km radius for your scheduled time. Please try a different time.';
-      await this.rideChannelService.publishMatchFailed(ride.rideUUId, rideId, failMessage, 'reschedule');
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare: scheduledFare, attempts, message: failMessage };
     }
     const scheduledAcceptDetails = await this.buildScheduledAcceptDetails(ride, acceptedDriverId!, scheduledFare);
@@ -207,37 +211,33 @@ export class MatchmakingService {
       const batchSize = Math.min(MATCHMAKING_CONFIG.REQUEST_BATCH_SIZE, scoredDrivers.length);
       const requestBatch = scoredDrivers.slice(0, batchSize);
       const driverIds = requestBatch.map((d) => d.driverId);
+
+      // Batch-fetch all driver users for this batch in a single query
+      const driverObjectIds = driverIds.map((id) => new Types.ObjectId(id));
+      const driverUsersMap = new Map<string, UserDocument>();
+      const driverUsers = await this.userModel.find({ _id: { $in: driverObjectIds } }).exec();
+      for (const du of driverUsers) {
+        driverUsersMap.set(du._id.toString(), du);
+      }
+
       for (const driver of requestBatch) {
         if (respondedDriverIds.has(driver.driverId)) continue;
-        try {
-          const driverUser = await this.userModel.findById(new Types.ObjectId(driver.driverId)).exec();
-          if (driverUser) {
-            const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-            this.logger.log(`Sending ride request notification to driver ${driver.driverId} with ${waitTimeSeconds}s to respond`);
-            const notificationInput: CreateNotificationInput = {
-              title: 'New Ride Request', notificationType: NotificationType.RIDE_REQUEST,
-              description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}. Estimated fare: Rs. ${estimatedFare.total}`,
-              ablyChannelId, rideId, rideType: ride.rideType, rideStatus: ride.rideStatus, waitTimeSeconds,
-              pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
-              dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-              distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
-              passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
-              passengerSnapshot, noOfPassengers: ride.noOfPassengers,
-            };
-            await this.notificationService.createNotification(notificationInput, driverUser);
-          }
-          await this.rideChannelService.publishMatchmakingRideRequest(ride.rideUUId, {
-            rideId, rideType: ride.rideType,
+        const driverUser = driverUsersMap.get(driver.driverId);
+        if (driverUser) {
+          const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
+          this.logger.log(`Sending ride request notification to driver ${driver.driverId} with ${waitTimeSeconds}s to respond`);
+          const notificationInput: CreateNotificationInput = {
+            title: 'New Ride Request', notificationType: NotificationType.RIDE_REQUEST,
+            description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}. Estimated fare: Rs. ${estimatedFare.total}`,
+            ablyChannelId, rideId, rideType: ride.rideType, rideStatus: ride.rideStatus, waitTimeSeconds,
             pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
             dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
             distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
             passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
-            expirySeconds: waitTimeSeconds, attemptNumber: attemptIdx + 1,
-            driverImage: driver.profileImage || null, rating: driver.rating,
-            driverId: driver.driverId, driverName: driver.fullName,
             passengerSnapshot, noOfPassengers: ride.noOfPassengers,
-          });
-        } catch (err) { this.logger.warn(`Failed to send ride request notification to driver ${driver.driverId}: ${err}`); }
+          };
+          await this.notificationService.createNotification(notificationInput, driverUser);
+        }
       }
       // Start the response listener AFTER all notifications have been sent,
       // giving each driver exactly waitTimeSeconds from the moment they were notified
@@ -259,7 +259,6 @@ export class MatchmakingService {
     }
     if (!matched) {
       const failMessage = 'No available drivers found within 10 km radius. Please try scheduling your ride.';
-      await this.rideChannelService.publishMatchFailed(ride.rideUUId, rideId, failMessage, 'schedule');
       return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: failMessage };
     }
     return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage, rating: acceptedRating, estimatedFare, attempts, message: 'Driver matched successfully' };
@@ -267,6 +266,39 @@ export class MatchmakingService {
 
   private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, passengerId?: string): Promise<DriverScore[]> {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
+    if (vehicles.length === 0) return [];
+
+    // Batch-fetch all userDetails for the drivers in one query
+    const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds } }).exec();
+    const userDetailsMap = new Map<string, UserDetailsDocument>();
+    for (const ud of userDetailsDocs) {
+      userDetailsMap.set(ud.userId.toString(), ud);
+    }
+
+    // Batch-fetch all active rides for these drivers in one query
+    const activeRideDriverIds = driverIds.filter((did) => {
+      const ud = userDetailsMap.get(did.toString());
+      return ud?.driverOnlineStatus === DriverOnlineStatus.ONLINE;
+    });
+    const activeRides = activeRideDriverIds.length > 0
+      ? await this.ridesModel.find({
+          driverId: { $in: activeRideDriverIds },
+          rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+        }).exec()
+      : [];
+    const activeRideDriverIdSet = new Set(activeRides.map((r) => r.driverId.toString()));
+
+    // Batch-fetch completed trip counts for all drivers in one aggregation
+    const completedCounts = await this.ridesModel.aggregate([
+      { $match: { driverId: { $in: driverIds }, rideStatus: RideStatus.COMPLETED, deleted: false } },
+      { $group: { _id: '$driverId', count: { $sum: 1 } } },
+    ]).exec();
+    const completedCountsMap = new Map<string, number>();
+    for (const c of completedCounts) {
+      completedCountsMap.set(c._id.toString(), c.count);
+    }
+
     const drivers: DriverScore[] = [];
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
@@ -274,10 +306,9 @@ export class MatchmakingService {
       if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
       if (driver.suspended || !driver.verified) continue;
-      const userDetails = await this.userDetailsModel.findOne({ userId: driver._id }).exec();
+      const userDetails = userDetailsMap.get(driver._id.toString());
       if (userDetails?.driverOnlineStatus !== DriverOnlineStatus.ONLINE) continue;
-      const activeRide = await this.ridesModel.findOne({ driverId: driver._id, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] } }).exec();
-      if (activeRide) continue;
+      if (activeRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
       let driverLat: number; let driverLng: number;
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
@@ -287,7 +318,7 @@ export class MatchmakingService {
       }
       const distResult = await this.distanceCalculator.calculateDriverDistance(pickupLat, pickupLng, driverLat, driverLng, vehicleType.toLowerCase());
       if (distResult.distanceKm <= radiusKm) {
-        const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
+        const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
         drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes });
       }
     }
@@ -296,19 +327,51 @@ export class MatchmakingService {
 
   private async findAvailableScheduledDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, bookingTime: Date, passengerId?: string): Promise<DriverScore[]> {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
+    if (vehicles.length === 0) return [];
+
+    // Batch-fetch all userDetails for the drivers in one query
+    const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds }, deleted: false }).exec();
+    const userDetailsMap = new Map<string, UserDetailsDocument>();
+    for (const ud of userDetailsDocs) {
+      userDetailsMap.set(ud.userId.toString(), ud);
+    }
+
+    // Batch-fetch conflicting rides for these drivers in one query
+    const conflictingRides = await this.ridesModel.find({
+      driverId: { $in: driverIds },
+      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] },
+      bookingTime: {
+        $gte: new Date(bookingTime.getTime() - 30 * 60 * 1000),
+        $lte: new Date(bookingTime.getTime() + 30 * 60 * 1000),
+      },
+      deleted: false,
+    }).exec();
+    const conflictingRideDriverIdSet = new Set(conflictingRides.map((r) => r.driverId.toString()));
+
+    // Batch-fetch completed trip counts for all drivers in one aggregation
+    const completedCounts = await this.ridesModel.aggregate([
+      { $match: { driverId: { $in: driverIds }, rideStatus: RideStatus.COMPLETED, deleted: false } },
+      { $group: { _id: '$driverId', count: { $sum: 1 } } },
+    ]).exec();
+    const completedCountsMap = new Map<string, number>();
+    for (const c of completedCounts) {
+      completedCountsMap.set(c._id.toString(), c.count);
+    }
+
     const drivers: DriverScore[] = [];
+    const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
+
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
       if (!driver) continue;
       if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
       if (driver.suspended || !driver.verified) continue;
-      const userDetails = await this.userDetailsModel.findOne({ userId: driver._id, deleted: false }).exec();
+      const userDetails = userDetailsMap.get(driver._id.toString());
       if (!userDetails) continue;
       if (userDetails.ridePreference !== ridePreference.SCHEDULED && userDetails.ridePreference !== ridePreference.BOTH) continue;
-      const conflictingRide = await this.ridesModel.findOne({ driverId: driver._id, rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] }, bookingTime: { $gte: new Date(bookingTime.getTime() - 30 * 60 * 1000), $lte: new Date(bookingTime.getTime() + 30 * 60 * 1000) }, deleted: false }).exec();
-      if (conflictingRide) continue;
-      const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
+      if (conflictingRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
       if (driverRating < minRating) continue;
       let driverLat: number; let driverLng: number;
@@ -319,7 +382,7 @@ export class MatchmakingService {
       }
       const distResult = await this.distanceCalculator.calculateDriverDistance(pickupLat, pickupLng, driverLat, driverLng, vehicleType.toLowerCase());
       if (distResult.distanceKm <= radiusKm) {
-        const completedTripsCount = await this.ridesModel.countDocuments({ driverId: driver._id, rideStatus: RideStatus.COMPLETED, deleted: false }).exec();
+        const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
         drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes });
       }
     }
@@ -377,89 +440,136 @@ export class MatchmakingService {
     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };
-      const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
-      const driverName = driverUser?.fullName ?? null;
-      const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId), deleted: false }).exec();
-      if (action ==='accept') {
+
+      if (action === 'accept') {
+        // Parallelize independent DB queries
+        const [driverUser, vehicle, driverDetails, passengerUser] = await Promise.all([
+          this.userModel.findById(new Types.ObjectId(driverId)).exec(),
+          this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId), deleted: false }).exec(),
+          this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec(),
+          ride.passengerId ? this.userModel.findById(ride.passengerId).exec() : Promise.resolve(null),
+        ]);
+
+        const driverName = driverUser?.fullName ?? null;
         const pickupCoords = ride.pickupLocation?.coordinates;
-        const dropoffCoords = ride.dropoffLocation?.coordinates;
-        const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
-        let routeDistanceKm = ride.distanceInKm || 0;
-        let routeDurationMinutes = ride.estimatedTimeInMinutes || 0;
+        const vType = (vehicle?.vehicleType as string)?.toLowerCase() || 'car';
+
+        // Only calculate driver-to-pickup distance (needed for ETA display)
         let driverToPickupDistanceKm = 0;
         let driverToPickupDurationMinutes = 0;
-        if (pickupCoords?.[1] && dropoffCoords?.[1]) {
-          try {
-            const vType = (vehicle?.vehicleType as string)?.toLowerCase() || 'car';
-            const route = await this.distanceCalculator.calculateDistance(pickupCoords[1], pickupCoords[0], dropoffCoords[1], dropoffCoords[0], vType);
-            routeDistanceKm = route.distanceKm;
-            routeDurationMinutes = route.durationMinutes;
-          } catch { }
-        }
+
         if (driverDetails?.geoLocation?.coordinates && pickupCoords?.[1]) {
           try {
-            const vType = (vehicle?.vehicleType as string)?.toLowerCase() || 'car';
-            const dist = await this.distanceCalculator.calculateDriverDistance(pickupCoords[1], pickupCoords[0], driverDetails.geoLocation.coordinates[1], driverDetails.geoLocation.coordinates[0], vType);
+            const dist = await this.distanceCalculator.calculateDriverDistance(
+              pickupCoords[1], pickupCoords[0],
+              driverDetails.geoLocation.coordinates[1], driverDetails.geoLocation.coordinates[0],
+              vType,
+            );
             driverToPickupDistanceKm = Math.round(dist.distanceKm * 100) / 100;
             driverToPickupDurationMinutes = Math.ceil(dist.durationMinutes);
           } catch { }
         }
+
+        // Calculate fare directly from pricing service using stored ride data
+        const distanceKm = ride.distanceInKm || 0;
+        const durationMinutes = ride.estimatedTimeInMinutes || 0;
         let totalFare: number | undefined;
         let fare: FareBreakdown | ScheduledFareBreakdown | null = null;
+
         if (ride.rideType === RideTypes.INSTANT) {
-          fare = await this.getEstimatedFare(ride._id.toString(), vehicle?.vehicleType);
-          totalFare = fare?.total;
+          fare = this.pricingService.calculateFare({
+            distanceKm,
+            durationMinutes,
+            vehicleType: vehicle?.vehicleType as VehicleType | undefined,
+          });
         } else {
-          fare = await this.getScheduledEstimatedFare(ride._id.toString());
-          totalFare = fare?.total;
+          fare = this.pricingService.calculateScheduledFare({
+            distanceKm,
+            durationMinutes,
+            vehicleType: vType,
+          });
         }
+        totalFare = fare?.total;
+
         const distanceFare = fare?.distanceCost || 0;
         const baseFare = fare?.baseFare || 0;
         const totalAmount = fare?.total || 0;
 
-        const updatedRide = await this.ridesModel.findOneAndUpdate({ _id: ride._id, rideStatus: RideStatus.PENDING }, { $set: { driverId: new Types.ObjectId(driverId), rideStatus: RideStatus.CONFIRMED, distanceInKm: routeDistanceKm, estimatedTimeInMinutes: routeDurationMinutes, estimatedFare: totalFare || ride.estimatedFare || 0, distanceToReachPassenger: driverToPickupDistanceKm, estimatedTimeToReachPassenger: driverToPickupDurationMinutes, timeToReachPassengerInMinutes: driverToPickupDurationMinutes, fare: { baseAmount: baseFare, trafficCongestionAmount: 0, distanceAmount: Math.round(distanceFare * 100) / 100, totalAmount: Math.round(totalAmount * 100) / 100, noOfPassengers: ride.noOfPassengers || 1, discountAmount: 0, promoCodeId: null } } }, { new: true }).exec();
+        const updatedRide = await this.ridesModel.findOneAndUpdate(
+          { _id: ride._id, rideStatus: RideStatus.PENDING },
+          {
+            $set: {
+              driverId: new Types.ObjectId(driverId),
+              rideStatus: RideStatus.CONFIRMED,
+              distanceInKm: distanceKm,
+              estimatedTimeInMinutes: durationMinutes,
+              estimatedFare: totalFare || ride.estimatedFare || 0,
+              distanceToReachPassenger: driverToPickupDistanceKm,
+              estimatedTimeToReachPassenger: driverToPickupDurationMinutes,
+              timeToReachPassengerInMinutes: driverToPickupDurationMinutes,
+              fare: {
+                baseAmount: baseFare,
+                trafficCongestionAmount: 0,
+                distanceAmount: Math.round(distanceFare * 100) / 100,
+                totalAmount: Math.round(totalAmount * 100) / 100,
+                noOfPassengers: ride.noOfPassengers || 1,
+                discountAmount: 0,
+                promoCodeId: null,
+              },
+            },
+          },
+          { new: true },
+        ).exec();
+
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
-        let acceptDetails: any;
+
         const rideFare = fare || (ride.rideType === RideTypes.SCHEDULED
           ? { baseFare: 0, total: 0, pickupCost: 0, distanceCost: 0, durationCost: 0 }
           : { pickupCost: 0, distanceCost: 0, durationCost: 0, total: 0, baseFare: 0 });
-        if (ride.rideType === RideTypes.SCHEDULED) {
-          acceptDetails = await this.buildScheduledAcceptDetails(updatedRide, driverId, rideFare);
-        } else {
-          acceptDetails = await this.buildAcceptDetails(updatedRide, driverId, rideFare);
-        }
-        if (ride.passengerId) {
-          const passengerUser = await this.userModel.findById(ride.passengerId).exec();
-          if (passengerUser) {
-            const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
-            const driverSnapshot = { fullName: acceptDetails?.driver?.fullName || driverName || 'Driver', profileImage: acceptDetails?.driver?.profileImage || null, rating: acceptDetails?.driver?.rating || null, phone: acceptDetails?.driver?.phone || driverUser?.phone || '' };
-            const notificationInput: CreateNotificationInput = {
-              title: 'Ride Accepted', notificationType: NotificationType.RIDE_ACCEPTED,
-              description: 'Your ride request has been accepted by a driver. They are on their way to pick you up!',
-              ablyChannelId, driverName: acceptDetails?.driver?.fullName || driverName || 'Driver',
-              driverPhone: acceptDetails?.driver?.phone || driverUser?.phone || '', driverProfileImage: acceptDetails?.driver?.profileImage || null, driverRating: acceptDetails?.driver?.rating || null,
-              vehicleType: acceptDetails?.vehicle?.vehicleType || vehicle?.vehicleType || null, vehicleModel: acceptDetails?.vehicle?.vehicleModel || vehicle?.vehicleModel || null,
-              vehicleColor: acceptDetails?.vehicle?.color || vehicle?.color || null, vehicleNumberPlate: acceptDetails?.vehicle?.numberPlate || vehicle?.numberPlate || null,
-              pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
-              dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-              distanceInKm: ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
-              estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
-              driverSnapshot,
-            };
-            this.notificationService.createNotification(notificationInput, passengerUser);
 
-          }
+        // Build accept details with already-fetched data, avoiding 5 redundant DB queries
+        const acceptDetails = this.buildAcceptDetailsFromCache(
+          updatedRide, driverId, rideFare,
+          driverUser, driverDetails, vehicle, passengerUser,
+        );
+
+        if (passengerUser) {
+          const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
+          const driverSnapshot = {
+            fullName: acceptDetails?.driver?.fullName || driverName || 'Driver',
+            profileImage: acceptDetails?.driver?.profileImage || null,
+            rating: acceptDetails?.driver?.rating || null,
+            phone: acceptDetails?.driver?.phone || driverUser?.phone || '',
+          };
+          const notificationInput: CreateNotificationInput = {
+            title: 'Ride Accepted', notificationType: NotificationType.RIDE_ACCEPTED,
+            description: 'Your ride request has been accepted by a driver. They are on their way to pick you up!',
+            ablyChannelId, driverName: acceptDetails?.driver?.fullName || driverName || 'Driver',
+            driverPhone: acceptDetails?.driver?.phone || driverUser?.phone || '', driverProfileImage: acceptDetails?.driver?.profileImage || null, driverRating: acceptDetails?.driver?.rating || null,
+            vehicleType: acceptDetails?.vehicle?.vehicleType || vehicle?.vehicleType || null, vehicleModel: acceptDetails?.vehicle?.vehicleModel || vehicle?.vehicleModel || null,
+            vehicleColor: acceptDetails?.vehicle?.color || vehicle?.color || null, vehicleNumberPlate: acceptDetails?.vehicle?.numberPlate || vehicle?.numberPlate || null,
+            pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
+            dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
+            distanceInKm: ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
+            estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
+            driverSnapshot,
+          };
+          await this.notificationService.createNotification(notificationInput, passengerUser);
         }
-       this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
+
+        this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
-      } else if (action ==='reject') {
-         if (ride.passengerId) {
-          const passengerUser = await this.userModel.findById(ride.passengerId).exec();
-          if (passengerUser) {
-            const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
-            const notificationInput: CreateNotificationInput = { title: 'Ride Rejected', notificationType: NotificationType.RIDE_REQUEST, description: 'A driver has declined your ride request. We are looking for other drivers.', ablyChannelId };
-            this.notificationService.createNotification(notificationInput, passengerUser);
-          }
+      } else if (action === 'reject') {
+        if (ride.passengerId) {
+          const notificationInput: CreateNotificationInput = {
+            title: 'Ride Rejected', notificationType: NotificationType.RIDE_REQUEST,
+            description: 'A driver has declined your ride request. We are looking for other drivers.',
+            ablyChannelId: `WG-RIDE-${rideUUID}-ride-details`,
+          };
+          await this.notificationService.createNotification(
+            notificationInput,
+            { _id: new Types.ObjectId(ride.passengerId), loginAs: roles.USER },
+          );
         }
         return { success: true, message: 'Ride rejected' };
       }
@@ -468,6 +578,52 @@ export class MatchmakingService {
       return { success: false, message: 'Failed to process driver response' };
     }
     return { success: false, message: 'Invalid action' };
+  }
+
+  /**
+   * Build accept details using already-fetched DB data to avoid 5 redundant queries.
+   * Used by handleDriverResponse which already has driverUser, driverDetails, vehicle, passengerUser.
+   */
+  private buildAcceptDetailsFromCache(
+    ride: RidesDocument,
+    driverId: string,
+    estimatedFare: FareBreakdown | ScheduledFareBreakdown,
+    driverUser: UserDocument | null,
+    driverDetails: UserDetailsDocument | null,
+    vehicle: VehicleDocument | null,
+    passengerUser: UserDocument | null,
+  ): any {
+    const passengerId = ride.passengerId?.toString();
+    return {
+      rideId: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      driver: {
+        driverId,
+        fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
+        rating: driverDetails?.rating ?? 0,
+      },
+      vehicle: {
+        vehicleId: vehicle?._id?.toString() || '',
+        vehicleModel: vehicle?.vehicleModel || '',
+        vehicleType: vehicle?.vehicleType || '',
+        color: vehicle?.color || '',
+        numberPlate: vehicle?.numberPlate || '',
+        year: vehicle?.year || 0,
+      },
+      passenger: passengerId ? { passengerId, fullName: passengerUser?.fullName || 'Passenger', phone: passengerUser?.phone || '' } : undefined,
+      pickupLocation: {
+        address: ride.pickupLocation?.address || '',
+        coordinates: ride.pickupLocation?.coordinates || [0, 0],
+        city: ride.pickupLocation?.city,
+      },
+      dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined,
+      estimatedFare: estimatedFare?.total || 0,
+      estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+      distanceInKm: ride.distanceInKm || 0,
+      acceptedAt: new Date().toISOString(),
+    };
   }
 
   async getEstimatedFare(rideId: string, vehicleType?: string): Promise<FareBreakdown | null> {
@@ -510,7 +666,6 @@ export class MatchmakingService {
 
       const updatedRide = await this.ridesModel.findByIdAndUpdate(ride._id, { $set: { rideStatus: RideStatus.ONGOING, rideStartedAt: new Date() } }, { new: true }).exec();
       if (!updatedRide) return { success: false, message: 'Failed to update ride status' };
-
 
       // Publish ride-start event with start time and remaining time to destination
       await this.rideChannelService.publishRideStarted(ride.rideUUId, {
@@ -580,6 +735,7 @@ export class MatchmakingService {
           distanceKm = route.distanceKm;
           durationMinutes = route.durationMinutes;
         } catch {
+          // Haversine fallback
           const R = 6371;
           const dLat = (pickupLat - latitude) * Math.PI / 180;
           const dLng = (pickupLng - longitude) * Math.PI / 180;
@@ -677,7 +833,6 @@ export class MatchmakingService {
           let dropoffDistanceKm = 0;
           let dropoffDurationMinutes = 0;
 
-
           try {
             const dropoffRoute = await this.distanceCalculator.calculateDriverDistance(
               dropoffLat, dropoffLng, latitude, longitude, vehicleType,
@@ -685,6 +840,7 @@ export class MatchmakingService {
             dropoffDistanceKm = dropoffRoute.distanceKm;
             dropoffDurationMinutes = dropoffRoute.durationMinutes;
           } catch {
+            // Haversine fallback (same formula repeated - kept for clarity in this hot path)
             const R = 6371;
             const dLat = (dropoffLat - latitude) * Math.PI / 180;
             const dLng = (dropoffLng - longitude) * Math.PI / 180;
@@ -752,12 +908,8 @@ export class MatchmakingService {
    * Subscribe to a driver's personal location channel for continuous ride matchmaking.
    * When a driver goes online (location channel is created/activated), this method
    * listens for location updates and processes them for ride matchmaking.
-   * 
-   * @param driverId - The driver's ID
-   * @returns true if subscription was created, false if already subscribed
    */
   async subscribeToDriverLocationChannel(driverId: string): Promise<boolean> {
-    // If already subscribed, unsubscribe first to re-subscribe fresh
     if (this.driverLocationSubscriptions.has(driverId)) {
       this.logger.warn(`Driver ${driverId} already subscribed to location channel. Re-subscribing.`);
       this.unsubscribeFromDriverLocationChannel(driverId);
@@ -767,13 +919,11 @@ export class MatchmakingService {
       driverId,
       async (data: any) => {
         const { driverId: dId, lat, lng } = data;
-        this.logger.log(`latiude ${lat}`)
-        this.logger.log(`latiude ${lng}`)
-        this.logger.log(`driverId ${dId}`)
         if (!dId || lat == null || lng == null) return;
 
-        // Update geo-location in DB
         const driverObjectId = new Types.ObjectId(dId);
+
+        // Update geo-location in DB
         await this.userDetailsModel.findOneAndUpdate(
           { userId: driverObjectId, deleted: false },
           { $set: { geoLocation: { type: 'Point', coordinates: [lat, lng] } } },
@@ -863,7 +1013,6 @@ export class MatchmakingService {
   /**
    * Complete a ride: validates ride, updates status to COMPLETED,
    * calculates actual duration and fare breakdown, publishes ride-completed Ably event.
-   * All fare calculation and DB update logic is centralized here.
    */
   async completeRide(rideId: string, driverId: string): Promise<{
     success: boolean;
@@ -895,22 +1044,18 @@ export class MatchmakingService {
 
       const vehicle = await this.vehicleModel.findById(ride.vehicleId).exec();
       const distanceInKm = ride.distanceInKm || 0;
-      const durationInMinutes = ride.estimatedTimeInMinutes || 0;
-      const rideStartedAt = new Date(ride.rideStartedAt);
-      const rideCompletedAt = new Date();
+      const rideStartedAt = ride.rideStartedAt?.getTime() || 0;
+      const rideCompletedAt = Date.now();
 
-      const actualCompleteDurationInMinutes =
-        Math.floor((rideCompletedAt.getTime() - rideStartedAt.getTime()) / (1000 * 60));
+      const actualCompleteDurationInMinutes = Math.floor((rideCompletedAt - rideStartedAt) / (1000 * 60));
 
-      // Fare calculation constants
-      const baseFare = MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0;
-      const perKmRate = MATCHMAKING_CONFIG.FARE.PER_KM_RATE[vehicle?.vehicleType] || 0;
-      //const perMinuteRate = MATCHMAKING_CONFIG.FARE.PER_MINUTE_RATE[vehicle?.vehicleType] || 0;
+      // Fare calculation
+      const baseFare = (MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0) as number;
+      const perKmRate = (MATCHMAKING_CONFIG.FARE.PER_KM_RATE[vehicle?.vehicleType] || 0) as number;
 
-      const baseFareAmount = Number(baseFare);
-      const distanceFare = Number(distanceInKm) * Number(perKmRate);
-      const durationFare = 0
-      const totalFare = Number(baseFareAmount) + Number(distanceFare) + Number(durationFare);
+      const baseFareAmount = baseFare;
+      const distanceFare = distanceInKm * perKmRate;
+      const totalFare = baseFareAmount + distanceFare;
 
       const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
       const finalAmount = totalFare - discountAmount;
@@ -923,8 +1068,8 @@ export class MatchmakingService {
           $set: {
             rideStatus: RideStatus.COMPLETED,
             rideCompletedAt: new Date(),
-            distanceInKm: distanceInKm,
-            estimatedTimeInMinutes: durationInMinutes,
+            distanceInKm,
+            estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
             actualCompletedDurationInMinutes: actualCompleteDurationInMinutes,
             estimatedFare: totalFare,
             fare: {
@@ -932,7 +1077,7 @@ export class MatchmakingService {
               distanceAmount: distanceFare,
               totalAmount: finalAmount,
               noOfPassengers: ride.noOfPassengers || 1,
-              driverCommission: Number(commissionRate),
+              driverCommission: commissionRate,
             },
           },
         },
@@ -944,10 +1089,10 @@ export class MatchmakingService {
       }
 
       const totalDurationMinutes = actualCompleteDurationInMinutes;
-      const distanceCharge = Number(distanceFare).toFixed(2);
+      const distanceCharge = distanceFare.toFixed(2);
       const hrs = Math.floor(totalDurationMinutes / 60);
       const mins = totalDurationMinutes % 60;
-      const durationStr = hrs > 0 ? hrs + 'h ' + mins + 'm' : mins + 'm';
+      const durationStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
 
       await this.rideChannelService.publishRideCompleted(updatedRide.rideUUId, {
         rideId: updatedRide._id.toString(),
@@ -955,7 +1100,7 @@ export class MatchmakingService {
         rideStatus: RideStatus.COMPLETED,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
-        fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(finalAmount) },
+        fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: finalAmount },
         completedAt: updatedRide.rideCompletedAt.toISOString(),
       });
 
@@ -964,11 +1109,11 @@ export class MatchmakingService {
         await this.notificationService.createNotification({
           title: 'Ride completed',
           notificationType: NotificationType.RIDE_COMPLETE_NOTIFICATION,
-          description: 'Ride completed. Duration: ' + durationStr + '. Fare: Rs.' + finalAmount,
-          ablyChannelId: updatedRide.ablyChannelId || 'WG-RIDE-' + updatedRide.rideUUId + '-ride-details',
+          description: `Ride completed. Duration: ${durationStr}. Fare: Rs.${finalAmount}`,
+          ablyChannelId: updatedRide.ablyChannelId || `WG-RIDE-${updatedRide.rideUUId}-ride-details`,
           pickupLocation: updatedRide.pickupLocation,
           dropoffLocation: updatedRide.dropoffLocation,
-          distanceInKm: distanceInKm,
+          distanceInKm,
           estimatedTimeInMinutes: updatedRide.estimatedTimeInMinutes,
           actualTimeInMinutes: totalDurationMinutes,
           passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
@@ -984,7 +1129,7 @@ export class MatchmakingService {
           rideStatus: RideStatus.COMPLETED,
           totalDurationInMinutes: totalDurationMinutes,
           totalDuration: durationStr,
-          fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: Number(finalAmount) },
+          fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: finalAmount },
           completedAt: updatedRide.rideCompletedAt.toISOString(),
         },
       };
@@ -993,8 +1138,6 @@ export class MatchmakingService {
       return { success: false, message: 'Failed to complete ride' };
     }
   }
-
-
 
   async getVehicleEstimates(params: { pickupLat: number; pickupLng: number; dropoffLat: number; dropoffLng: number; noOfPassengers: number }): Promise<VehicleEstimateGraphQL[]> {
     let vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
@@ -1008,20 +1151,25 @@ export class MatchmakingService {
     }));
   }
 
+  // Legacy builder methods kept for backward compatibility with matchDrivers/matchScheduledDrivers flows:
   private async buildAcceptDetails(ride: RidesDocument, driverId: string, estimatedFare: FareBreakdown): Promise<any> {
-    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
-    const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
-    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
-    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+    const [driverUser, driverDetails, vehicle, passengerUser] = await Promise.all([
+      this.userModel.findById(new Types.ObjectId(driverId)).exec(),
+      this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec(),
+      this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec(),
+      this.userModel.findById(ride.passengerId).exec(),
+    ]);
     const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
     return { rideId: ride._id.toString(), rideUUId: ride.rideUUId, driver: { driverId, fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver', phone: driverUser?.phone || '', profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), rating: driverDetails?.rating ?? 0 }, vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 }, passenger: { passengerId: ride.passengerId.toString(), fullName: passengerDetails?.fullName || passengerUser?.fullName || 'Passenger', phone: passengerUser?.phone || '', profileImage: getActiveProfileImageUrl(passengerDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), gender: passengerDetails?.gender }, pickupLocation: { address: ride.pickupLocation?.address || '', coordinates: ride.pickupLocation?.coordinates || [0, 0], city: ride.pickupLocation?.city }, dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined, estimatedFare: estimatedFare?.total || 0, estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0, distanceInKm: ride.distanceInKm || 0, acceptedAt: new Date().toISOString() };
   }
 
   private async buildScheduledAcceptDetails(ride: RidesDocument, driverId: string, estimatedFare: ScheduledFareBreakdown): Promise<any> {
-    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
-    const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
-    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
-    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+    const [driverUser, driverDetails, vehicle, passengerUser] = await Promise.all([
+      this.userModel.findById(new Types.ObjectId(driverId)).exec(),
+      this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec(),
+      this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec(),
+      this.userModel.findById(ride.passengerId).exec(),
+    ]);
     const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
     return { rideId: ride._id.toString(), rideUUId: ride.rideUUId, driver: { driverId, fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver', phone: driverUser?.phone || '', profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), rating: driverDetails?.rating ?? 0 }, vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 }, passenger: { passengerId: ride.passengerId.toString(), fullName: passengerDetails?.fullName || passengerUser?.fullName || 'Passenger', phone: passengerUser?.phone || '', profileImage: getActiveProfileImageUrl(passengerDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), gender: passengerDetails?.gender }, pickupLocation: { address: ride.pickupLocation?.address || '', coordinates: ride.pickupLocation?.coordinates || [0, 0], city: ride.pickupLocation?.city }, dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined, estimatedFare: estimatedFare?.total || 0, estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0, distanceInKm: ride.distanceInKm || 0, bookingTime: ride.bookingTime, acceptedAt: new Date().toISOString() };
   }
