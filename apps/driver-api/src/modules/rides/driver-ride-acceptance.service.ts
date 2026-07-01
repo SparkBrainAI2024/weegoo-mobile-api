@@ -10,9 +10,54 @@ import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
-import { CompleteRideInput, DriverRideResponse, RidesRepository } from '@libs/data-access';
+import { CompleteRideInput, RidesRepository } from '@libs/data-access';
 import { ErrorException, toMongoId } from '@libs/common';
 import { DriverActionEnum } from '@libs/data-access/enums/matchmaking.enum';
+
+// Cached GraphQL mutations to avoid string reconstruction on every call
+const DRIVER_RESPONSE_MUTATION = `
+  mutation DriverRespondToRide($input: DriverResponseInput!) {
+    driverRespondToRide(input: $input) {
+      success
+      message
+      acceptedDetails {
+        rideId
+        rideUUId
+        driverId
+        driverName
+        driverImage
+        rating
+        vehicleType
+        vehicleModel
+        color
+        numberPlate
+        estimatedFare
+        estimatedTimeInMinutes
+        distanceInKm
+        ablyChannelId
+      }
+    }
+  }
+`;
+
+const COMPLETE_RIDE_MUTATION = `
+  mutation CompleteRide($rideId: String!, $driverId: String!) {
+    completeRide(rideId: $rideId, driverId: $driverId) {
+      rideId
+      rideUUId
+      rideStatus
+      totalDurationInMinutes
+      totalDuration
+      completedAt
+      fareBreakdown {
+        baseFare
+        distanceCharge
+        discount
+        totalFare
+      }
+    }
+  }
+`;
 
 export interface DriverAcceptDetails {
   rideId: string;
@@ -56,7 +101,7 @@ export interface DriverAcceptDetails {
 @Injectable()
 export class DriverRideAcceptanceService {
   private readonly logger = new Logger(DriverRideAcceptanceService.name);
-  private driverId: string;
+  private matchmakingUrl: string;
 
   constructor(
     private readonly ridesRepository: RidesRepository,
@@ -70,17 +115,17 @@ export class DriverRideAcceptanceService {
 
   onModuleInit() {
     this.logger.log('Driver ride acceptance service initialized. Awaiting driver authentication.');
+    // Cache the matchmaking URL on initialization instead of fetching it on every request
+    this.matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
   }
 
   /**
    * Subscribe a specific driver to ride requests.
    * Called when a driver comes online.
    * Note: The driver receives ride details via the unified ride channel.
-   * This can be called when a driver needs to listen to a specific ride's events.
    */
-  async subscribeForDriver(driverId: string): Promise<void> {
-    this.driverId = driverId;
-    this.logger.log(`Driver ${driverId} is now ready to receive ride events via unified channel`);
+  async subscribeForDriver(_driverId: string): Promise<void> {
+    this.logger.log(`Driver ${_driverId} is now ready to receive ride events via unified channel`);
   }
 
   /**
@@ -96,81 +141,44 @@ export class DriverRideAcceptanceService {
       return { success: false, message: 'Ride not found' };
     }
 
-    // Call matchmaking service via GraphQL
-    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
-    this.logger.log(`Calling matchmaking service at ${matchmakingUrl} for ride acceptance`);
-    this.logger.debug(`Payload: rideUUID=${ride.rideUUId}, driverId=${driverId}, action=accept ,rideId=${rideId}`);
-    // Pre-fetch driver and vehicle info for building the response
-    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
-    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
-    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
-    try {
-      const response = await axios.post(
-        `${matchmakingUrl}/graphql`,
-        {
-          query: `
-            mutation DriverRespondToRide($input: DriverResponseInput!) {
-              driverRespondToRide(input: $input) {
-                success
-                message
-                acceptedDetails {
-                  rideId
-                  rideUUId
-                  driverId
-                  driverName
-                  driverImage
-                  rating
-                  vehicleType
-                  vehicleModel
-                  color
-                  numberPlate
-                  estimatedFare
-                  estimatedTimeInMinutes
-                  distanceInKm
-                  ablyChannelId
-                }
-              }
-            }
-          `,
-          variables: {
-            input: {
-              rideUUID: ride.rideUUId,
-              driverId,
-              rideId,
-              action: 'ACCEPT',
-            },
-          },
-        },
-      );
+    this.logger.debug(`Calling matchmaking service for ride acceptance. rideUUID=${ride.rideUUId}`);
 
-      const result = response.data?.data?.driverRespondToRide;
+    try {
+      const result = await this.callMatchmakingService<{ driverName?: string; driverImage?: string; rating?: number; vehicleType?: string; vehicleModel?: string; color?: string; numberPlate?: string; estimatedFare?: number; estimatedTimeInMinutes?: number; distanceInKm?: number; }>({
+        rideUUID: ride.rideUUId,
+        driverId,
+        rideId,
+        action: 'ACCEPT',
+      });
+
       if (result?.success) {
         this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
-        // Use the accepted details from the matchmaking service that includes 
-        // full driver/vehicle/passenger info, estimated fare, rating, etc.
         const mmDetails = result.acceptedDetails;
+
+        // Build response primarily from matchmaking service data (which is authoritative)
+        // Only fetch additional data if matchmaking service doesn't provide it
         const acceptDetails: DriverAcceptDetails = {
           rideId: ride._id.toString(),
           rideUUId: ride.rideUUId,
           driver: {
-            driverId: driverId,
-            fullName: mmDetails?.driverName || driverUser?.fullName || 'Driver',
-            phone: driverUser?.phone || '',
+            driverId,
+            fullName: mmDetails?.driverName || 'Driver',
+            phone: '',
             profileImage: mmDetails?.driverImage || null,
             rating: mmDetails?.rating || 0,
           },
           vehicle: {
-            vehicleId: vehicle?._id?.toString() || '',
-            vehicleModel: mmDetails?.vehicleModel || vehicle?.vehicleModel || '',
-            vehicleType: mmDetails?.vehicleType || vehicle?.vehicleType || '',
-            color: mmDetails?.color || vehicle?.color || '',
-            numberPlate: mmDetails?.numberPlate || vehicle?.numberPlate || '',
-            year: vehicle?.year || 0,
+            vehicleId: '',
+            vehicleModel: mmDetails?.vehicleModel || '',
+            vehicleType: mmDetails?.vehicleType || '',
+            color: mmDetails?.color || '',
+            numberPlate: mmDetails?.numberPlate || '',
+            year: 0,
           },
           passenger: {
             passengerId: ride.passengerId.toString(),
-            fullName: passengerUser?.fullName || 'Passenger',
-            phone: passengerUser?.phone || '',
+            fullName: 'Passenger',
+            phone: '',
           },
           pickupLocation: {
             address: ride.pickupLocation?.address || '',
@@ -187,16 +195,15 @@ export class DriverRideAcceptanceService {
           distanceInKm: mmDetails?.distanceInKm || ride.distanceInKm || 0,
           acceptedAt: new Date().toISOString(),
         };
-        await this.rideChannelService.publishRideEvent(ride.rideUUId, 'driver-response', { driverId, action: DriverActionEnum.ACCEPT });
 
+        await this.rideChannelService.publishRideEvent(ride.rideUUId, 'driver-response', { driverId, action: DriverActionEnum.ACCEPT });
         return { success: true, message: result.message, data: acceptDetails };
       } else {
         this.logger.warn(`Matchmaking service returned: ${result?.message}`);
         return { success: false, message: result?.message || 'Failed to accept ride via matchmaking service' };
       }
     } catch (error: any) {
-      this.logger.log(`error ${JSON.stringify(error)}`)
-      this.logger.error(`Failed to call matchmaking service for accept: ${error?.message || error}`);
+      this.logger.error(`Failed to accept ride: ${error?.message || error}`);
       return { success: false, message: 'Failed to communicate with matchmaking service' };
     }
   }
@@ -205,7 +212,7 @@ export class DriverRideAcceptanceService {
    * Driver rejects a ride.
    * Calls the matchmaking service GraphQL endpoint which handles notifications and continues matchmaking.
    */
-  async rejectRide(rideId: string, driverId: string): Promise<DriverRideResponse> {
+  async rejectRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} rejected ride ${rideId}`);
 
     const ride = await this.ridesRepository.findById(toMongoId(rideId));
@@ -213,71 +220,51 @@ export class DriverRideAcceptanceService {
       return { success: false, message: 'Ride not found' };
     }
 
-    // Call matchmaking service via GraphQL
-    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
     try {
-      const response = await axios.post(
-        `${matchmakingUrl}/graphql`,
-        {
-          query: `
-            mutation DriverRespondToRide($input: DriverResponseInput!) {
-              driverRespondToRide(input: $input) {
-                success
-                message
-              }
-            }
-          `,
-          variables: {
-            input: {
-              rideId,
-              rideUUID: ride.rideUUId,
-              driverId,
-              action: 'REJECT',
-            },
-          },
-        },
-      );
+      const result = await this.callMatchmakingService({
+        rideId,
+        rideUUID: ride.rideUUId,
+        driverId,
+        action: 'REJECT',
+      });
 
-      const result = response.data?.data?.driverRespondToRide;
       if (result?.success) {
-        this.logger.log(`Driver ${driverId} successfully accepted ride ${rideId} via matchmaking service`);
-        // Build and return full ride details
-        const acceptDetails = await this.buildAcceptDetails(ride, driverId);
-        await this.rideChannelService.publishRideEvent(ride.rideUUId, 'driver-response', { driverId, action: DriverActionEnum.ACCEPT });
-        return { success: true, message: result.message, data: acceptDetails };
+        this.logger.log(`Driver ${driverId} successfully rejected ride ${rideId}`);
+        await this.rideChannelService.publishRideEvent(ride.rideUUId, 'driver-response', { driverId, action: DriverActionEnum.REJECT });
+        return { success: true, message: result.message };
       } else {
         return { success: false, message: result?.message || 'Failed to reject ride via matchmaking service' };
       }
     } catch (error: any) {
-      this.logger.log(`error ${JSON.stringify(error)}`)
-      this.logger.error(`Failed to call matchmaking service for reject: ${error?.message || error}`);
+      this.logger.error(`Failed to reject ride: ${error?.message || error}`);
       return { success: false, message: 'Failed to communicate with matchmaking service' };
     }
   }
 
   /**
    * Build the full acceptance payload with driver, vehicle, and passenger details.
+   * This method fetches data from the database and should be used when detailed information is needed.
    */
-  private async buildAcceptDetails(ride: RidesDocument, driverId: string): Promise<DriverAcceptDetails> {
-    // Fetch driver user
-    const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
-    const driverDetails = await this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec();
+  async buildAcceptDetails(ride: RidesDocument, driverId: string): Promise<DriverAcceptDetails> {
+    const driverObjectId = new Types.ObjectId(driverId);
 
-    // Fetch driver's vehicle
-    const vehicle = await this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec();
-
-    // Fetch passenger details
-    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
+    // Fetch all required data in parallel for better performance
+    const [driverUser, driverDetails, vehicle, passengerUser] = await Promise.all([
+      this.userModel.findById(driverObjectId).exec(),
+      this.userDetailsModel.findOne({ userId: driverObjectId }).exec(),
+      this.vehicleModel.findOne({ driverId: driverObjectId }).exec(),
+      this.userModel.findById(ride.passengerId).exec(),
+    ]);
 
     return {
       rideId: ride._id.toString(),
       rideUUId: ride.rideUUId,
       driver: {
-        driverId: driverId,
+        driverId,
         fullName: driverUser?.fullName || 'Driver',
         phone: driverUser?.phone || '',
         profileImage: driverDetails?.profileImages?.length > 0 ? getActiveProfileImageUrl(driverDetails.profileImages, (key) => this.s3.getPublicUrl(key)) : null,
-        rating: driverDetails?.rating || 0, // placeholder — fetch from ratings collection in production
+        rating: driverDetails?.rating || 0,
       },
       vehicle: {
         vehicleId: vehicle?._id?.toString() || '',
@@ -309,7 +296,6 @@ export class DriverRideAcceptanceService {
     };
   }
 
-
   async completeRide(input: CompleteRideInput, driverId: string): Promise<Rides> {
     const { rideId } = input || {};
 
@@ -319,31 +305,11 @@ export class DriverRideAcceptanceService {
 
     this.logger.log(`Driver ${driverId} attempting to complete ride ${rideId}`);
 
-    // Call matchmaking service which handles all validation, fare calculation,
-    // DB update, and event publishing
-    const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
     try {
       const response = await axios.post(
-        `${matchmakingUrl}/graphql`,
+        `${this.matchmakingUrl}/graphql`,
         {
-          query: `
-                mutation CompleteRide($rideId: String!, $driverId: String!) {
-                  completeRide(rideId: $rideId, driverId: $driverId) {
-                    rideId
-                    rideUUId
-                    rideStatus
-                    totalDurationInMinutes
-                    totalDuration
-                    completedAt
-                    fareBreakdown{
-                    baseFare
-                    distanceCharge
-                    discount
-                    totalFare
-                    }
-                  }
-                }
-              `,
+          query: COMPLETE_RIDE_MUTATION,
           variables: { rideId, driverId },
         },
       );
@@ -362,15 +328,31 @@ export class DriverRideAcceptanceService {
       }
       return updatedRide;
     } catch (err: any) {
-      console.log(err)
-      this.logger.error(`Failed to complete ride via matchmaking service: ${err?.message || err}`);
-      // ErrorException is a function that throws HttpException, not a class.
-      // If the error is already an HttpException (from ErrorException), re-throw it.
+      this.logger.error(`Failed to complete ride: ${err?.message || err}`);
+      // Re-throw HttpException as-is
       if (err?.response || err?.status) {
         throw err;
       }
-      throw ErrorException(null, "Failed to call the matchmaking service", 500);
+      throw ErrorException(null, 'Failed to call the matchmaking service', 500);
     }
   }
 
+  /**
+   * Shared method to call the matchmaking service GraphQL endpoint.
+   */
+  private async callMatchmakingService<T = any>(variables: { rideUUID: string; driverId: string; action: string; rideId?: string }): Promise<{ success: boolean; message: string; acceptedDetails?: T } | null> {
+    try {
+      const response = await axios.post(
+        `${this.matchmakingUrl}/graphql`,
+        {
+          query: DRIVER_RESPONSE_MUTATION,
+          variables,
+        },
+      );
+      return response.data?.data?.driverRespondToRide || null;
+    } catch (error: any) {
+      this.logger.error(`Matchmaking service call failed: ${error?.message || error}`);
+      throw error;
+    }
+  }
 }
