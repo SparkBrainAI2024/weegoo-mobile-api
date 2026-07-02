@@ -1,12 +1,17 @@
 import { Field, InputType } from "@nestjs/graphql";
+import { IsOptional, IsString } from "class-validator";
+import { isNullableType } from "graphql";
 @InputType()
 export class DeviceInput {
-  @Field({ nullable: true })
-  deviceId?: string;
+  @Field()
+  @IsString()
+  deviceId: string;
 
-  @Field({ nullable: true })
+  @Field({ defaultValue:'UNKNOWN',nullable:true })
+  @IsOptional()
   firebaseToken?: string;
 
-  @Field({ nullable: true })
-  deviceType?: string;
+  @Field()
+  @IsString()
+  deviceType: string;
 }
