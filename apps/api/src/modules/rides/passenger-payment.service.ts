@@ -91,7 +91,7 @@ export class PassengerPaymentService {
     }
 
     // Check if already paid
-    if (ride.paymentDetails?.['paid']) {
+    if (ride.paymentDetails) {
       throw new BadRequestException('Ride has already been paid');
     }
 
