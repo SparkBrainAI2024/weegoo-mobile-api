@@ -109,6 +109,7 @@ export * from './dtos/input/transaction-pagination.input';
 export * from './dtos/input/complete-ride.input';
 export * from './dtos/input/create-rating.input';
 export * from './dtos/input/create-complaint.input';
+export * from './dtos/input/passenger-payment.input';
 
 
 // dtos - response
@@ -141,6 +142,7 @@ export * from './dtos/response/delete-account-warnings.response';
 export * from './dtos/response/create-complaint.response';
 export * from './dtos/response/complete-ride-fare-breakdown.dto';
 export * from './dtos/response/complete-ride-result.dto';
+export * from './dtos/response/passenger-payment.response';
 
 //interfaces
 export * from './interfaces/location.interface'
