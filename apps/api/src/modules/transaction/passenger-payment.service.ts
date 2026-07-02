@@ -372,7 +372,7 @@ export class PassengerPaymentService {
                 amount: fareBreakdown.totalFare,
             });
 
-            const driverAmount = fareBreakdown.totalFare - fareBreakdown.discount;
+            const driverAmount = fareBreakdown.totalFare - fareBreakdown.commissionAmount;
             const driverTxn = await this.createTransaction(
                 driverId,
                 TransactionDirection.CREDIT,
@@ -396,7 +396,7 @@ export class PassengerPaymentService {
                 this.adminId,
                 TransactionDirection.CREDIT,
                 TransactionType.COMMISSION,
-                fareBreakdown.discount,
+                fareBreakdown.commissionAmount,
                 paymentMethod,
                 ride._id.toString(),
                 passengerId,
@@ -407,7 +407,7 @@ export class PassengerPaymentService {
                 transactionId: adminTxn._id.toString(),
                 userId: this.adminId,
                 type: 'CREDIT',
-                amount: fareBreakdown.discount,
+                amount: fareBreakdown.commissionAmount,
             });
 
         } else {
