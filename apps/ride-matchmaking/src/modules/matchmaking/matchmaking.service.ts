@@ -301,6 +301,7 @@ export class MatchmakingService {
     const drivers: DriverScore[] = [];
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
+      this.logger.log(`Checking driver ${driver?._id} for availability: loginAs=${driver?.loginAs}, suspended=${driver?.suspended}, verified=${driver?.verified}`);
       if (!driver) continue;
       if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
