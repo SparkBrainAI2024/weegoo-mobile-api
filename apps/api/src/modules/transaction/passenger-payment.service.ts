@@ -20,7 +20,7 @@ import { PaymentMethodEnum, PaymentStatusEnum } from '@libs/data-access/enums/pa
 import { EnvService } from '@libs/common/config/env.service';
 import { PaymentDetails } from '@libs/data-access/common/payment-details';
 import axios from 'axios';
-import { AdminUserDocument } from '@libs/data-access/entities/admin-user.entity';
+import { AdminUser, AdminUserDocument } from '@libs/data-access/entities/admin-user.entity';
 import { ErrorException } from '@libs/common';
 
 export interface PassengerPaymentResult {
@@ -60,10 +60,26 @@ export class PassengerPaymentService {
         private readonly walletService: WalletService,
         private readonly rideChannelService: RideChannelService,
         private readonly envService: EnvService,
-        private readonly adminModel: Model<AdminUserDocument>,
+        @InjectModel(AdminUser.name) private readonly adminModel: Model<AdminUserDocument>,
     ) {
         this.matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
+    }
 
+    private async getSession(useTransactions: boolean): Promise<any> {
+        if (!useTransactions) {
+            return {
+                withTransaction: async (fn: any) => await fn(),
+                endSession: async () => { },
+                inTransaction: false,
+            };
+        }
+        const session = await this.connection.startSession();
+        return session;
+    }
+
+    private isUsingAtlas(): boolean {
+        const mongoUri = process.env.MONGODB_URI || '';
+        return mongoUri.includes('mongodb.net') || mongoUri.includes('.mongodb.net');
     }
 
     /**
@@ -99,7 +115,6 @@ export class PassengerPaymentService {
         if (!ride.driverId) {
             throw new BadRequestException('Ride has no assigned driver');
         }
-        const driverId = ride.driverId.toString();
 
         // Calculate fare breakdown
         const fareBreakdown = await this.calculateFareBreakdown(
@@ -109,192 +124,38 @@ export class PassengerPaymentService {
         );
         const admin = await this.adminModel.findOne().sort({ createdAt: 1 }).exec();
         this.adminId = admin?._id.toString() || '';
-        const session = await this.connection.startSession();
+        const useTransactions = this.isUsingAtlas();
+        const session = useTransactions ? await this.getSession(useTransactions) : null;
         try {
-            await session.withTransaction(async () => {
-                const transactions: {
-                    transactionId: string;
-                    userId: string;
-                    type: string;
-                    amount: number;
-                }[] = [];
-
-                // ── Process based on payment method ──────────────────────
-                if (paymentMethod === PaymentMethodEnum.WALLET) {
-                    // Debit passenger wallet for total fare
-                    await this.walletService.debitWallet(
+            if (useTransactions) {
+                await session.withTransaction(async () => {
+                    await this.processPaymentLogic(
+                        ride,
                         passengerId,
-                        fareBreakdown.totalFare,
-                        session,
-                    );
-
-                    // Create passenger debit transaction
-                    const passengerTxn = await this.createTransaction(
-                        passengerId,
-                        TransactionDirection.DEBIT,
-                        TransactionType.RIDE_PAYMENT,
-                        fareBreakdown.totalFare,
                         paymentMethod,
-                        ride._id.toString(),
-                        driverId,
-                        TransactionStatus.COMPLETED,
+                        fareBreakdown,
                         session,
+                        promoCodeId,
                     );
-                    transactions.push({
-                        transactionId: passengerTxn._id.toString(),
-                        userId: passengerId,
-                        type: 'DEBIT',
-                        amount: fareBreakdown.totalFare,
-                    });
-
-                    // Credit driver (total - commission)
-                    const driverAmount = fareBreakdown.totalFare - fareBreakdown.discount;
-                    await this.walletService.creditWallet(driverId, driverAmount, session);
-
-                    const driverTxn = await this.createTransaction(
-                        driverId,
-                        TransactionDirection.CREDIT,
-                        TransactionType.COMMISSION,
-                        driverAmount,
-                        paymentMethod,
-                        ride._id.toString(),
-                        passengerId,
-                        TransactionStatus.COMPLETED,
-                        session,
-                    );
-                    transactions.push({
-                        transactionId: driverTxn._id.toString(),
-                        userId: driverId,
-                        type: 'CREDIT',
-                        amount: driverAmount,
-                    });
-
-                    // Credit admin (commission = discount)
-
-                    const adminTxn = await this.createTransaction(
-                        this.adminId,
-                        TransactionDirection.CREDIT,
-                        TransactionType.COMMISSION,
-                        fareBreakdown.discount,
-                        paymentMethod,
-                        ride._id.toString(),
-                        passengerId,
-                        TransactionStatus.PENDING,
-                        session,
-                    );
-                    transactions.push({
-                        transactionId: adminTxn._id.toString(),
-                        userId: this.adminId,
-                        type: 'CREDIT',
-                        amount: fareBreakdown.discount,
-                    });
-
-                } else if (paymentMethod === PaymentMethodEnum.CASH) {
-                    // For cash payments, we still create transaction records
-                    // but don't modify wallet balances
-
-                    const passengerTxn = await this.createTransaction(
-                        passengerId,
-                        TransactionDirection.DEBIT,
-                        TransactionType.RIDE_PAYMENT,
-                        fareBreakdown.totalFare,
-                        paymentMethod,
-                        ride._id.toString(),
-                        driverId,
-                        TransactionStatus.COMPLETED,
-                        session,
-                    );
-                    transactions.push({
-                        transactionId: passengerTxn._id.toString(),
-                        userId: passengerId,
-                        type: 'DEBIT',
-                        amount: fareBreakdown.totalFare,
-                    });
-
-                    const driverAmount = fareBreakdown.totalFare - fareBreakdown.discount;
-                    const driverTxn = await this.createTransaction(
-                        driverId,
-                        TransactionDirection.CREDIT,
-                        TransactionType.COMMISSION,
-                        driverAmount,
-                        paymentMethod,
-                        ride._id.toString(),
-                        passengerId,
-                        TransactionStatus.COMPLETED,
-                        session,
-                    );
-                    transactions.push({
-                        transactionId: driverTxn._id.toString(),
-                        userId: driverId,
-                        type: 'CREDIT',
-                        amount: driverAmount,
-                    });
-
-
-                    const adminTxn = await this.createTransaction(
-                        this.adminId,
-                        TransactionDirection.CREDIT,
-                        TransactionType.COMMISSION,
-                        fareBreakdown.discount,
-                        paymentMethod,
-                        ride._id.toString(),
-                        passengerId,
-                        TransactionStatus.PENDING,
-                        session,
-                    );
-                    transactions.push({
-                        transactionId: adminTxn._id.toString(),
-                        userId: this.adminId,
-                        type: 'CREDIT',
-                        amount: fareBreakdown.discount,
-                    });
-
-                } else {
-                    throw new BadRequestException('Unsupported payment method');
-                }
-
-                // ── Update ride with payment details ──────────────────────
-                const paymentDetails: PaymentDetails = {
-                    baseAmount: fareBreakdown.baseFare,
-                    distanceAmount: fareBreakdown.distanceCharge,
-                    totalAmount: fareBreakdown.totalFare,
-                    noOfPassengers: ride.noOfPassengers || 1,
+                });
+            } else {
+                await this.processPaymentLogic(
+                    ride,
+                    passengerId,
                     paymentMethod,
-                    discountAmount: fareBreakdown.discount,
-                    paymentStatus: PaymentStatusEnum.PAID,
-                    promoCodeId: promoCodeId ? new Types.ObjectId(promoCodeId) : null,
-                    driverCommission: 0.2,
-                };
-
-                await this.ridesModel.updateOne(
-                    { _id: ride._id },
-                    {
-                        $set: {
-                            paymentDetails,
-                        },
-                    },
-                    { session },
+                    fareBreakdown,
+                    session,
+                    promoCodeId,
                 );
-
-                // ── Mark promo code as used if applicable ─────────────────
-                if (promoCodeId) {
-                    await this.promoCodeRepository.updateById(
-                        new Types.ObjectId(promoCodeId),
-                        { $inc: { promoCodeUsedCount: 1 } },
-                        undefined,
-                        { session },
-                    );
-                }
-
-                // Store transactions for response
-                (this as any)._transactions = transactions;
-            });
+            }
         } catch (error: any) {
             this.logger.error('Error occurred while processing payment', error);
             throw ErrorException(null, 'Payment processing failed: ' + error.message, 500);
         }
         finally {
-            await session.endSession();
+            if (useTransactions) {
+                await session.endSession();
+            }
         }
 
         // ── Publish payment completed event to Ably ───────────────────
@@ -317,7 +178,7 @@ export class PassengerPaymentService {
             fareBreakdown,
             transactions: (this as any)._transactions || [],
             paid: true,
-        };
+        } as PassengerPaymentResult;
     }
 
     /**
@@ -402,6 +263,195 @@ export class PassengerPaymentService {
     /**
      * Create a transaction record.
      */
+    private async processPaymentLogic(
+        ride: RidesDocument,
+        passengerId: string,
+        paymentMethod: PaymentMethodEnum,
+        fareBreakdown: any,
+        session: any,
+        promoCodeId?: string,
+    ): Promise<void> {
+        const transactions: {
+            transactionId: string;
+            userId: string;
+            type: string;
+            amount: number;
+        }[] = [];
+        console.log('Processing payment logic for ride:', ride._id.toString(), 'Passenger:', passengerId, 'Payment Method:', paymentMethod, 'Fare Breakdown:', fareBreakdown);
+        const driverId = ride.driverId.toString();
+
+        // ── Process based on payment method ──────────────────────
+        if (paymentMethod === PaymentMethodEnum.WALLET) {
+            // Debit passenger wallet for total fare
+            await this.walletService.debitWallet(
+                passengerId,
+                fareBreakdown.totalFare,
+                session,
+            );
+
+            // Create passenger debit transaction
+            const passengerTxn = await this.createTransaction(
+                passengerId,
+                TransactionDirection.DEBIT,
+                TransactionType.RIDE_PAYMENT,
+                fareBreakdown.totalFare,
+                paymentMethod,
+                ride._id.toString(),
+                driverId,
+                TransactionStatus.COMPLETED,
+                session,
+            );
+            transactions.push({
+                transactionId: passengerTxn._id.toString(),
+                userId: passengerId,
+                type: 'DEBIT',
+                amount: fareBreakdown.totalFare,
+            });
+
+            // Credit driver (total - commission)
+            const driverAmount = fareBreakdown.totalFare - fareBreakdown.commissionAmount;
+            await this.walletService.creditWallet(driverId, driverAmount, session);
+
+            const driverTxn = await this.createTransaction(
+                driverId,
+                TransactionDirection.CREDIT,
+                TransactionType.RIDE_PAYMENT,
+                driverAmount,
+                paymentMethod,
+                ride._id.toString(),
+                passengerId,
+                TransactionStatus.COMPLETED,
+                session,
+            );
+            transactions.push({
+                transactionId: driverTxn._id.toString(),
+                userId: driverId,
+                type: 'CREDIT',
+                amount: driverAmount,
+            });
+
+            // Credit admin (commission = discount)
+
+            const adminTxn = await this.createTransaction(
+                this.adminId,
+                TransactionDirection.CREDIT,
+                TransactionType.COMMISSION,
+                fareBreakdown.commissionAmount,
+                paymentMethod,
+                ride._id.toString(),
+                passengerId,
+                TransactionStatus.PENDING,
+                session,
+            );
+            transactions.push({
+                transactionId: adminTxn._id.toString(),
+                userId: this.adminId,
+                type: 'CREDIT',
+                amount: fareBreakdown.commissionAmount,
+            });
+
+        } else if (paymentMethod === PaymentMethodEnum.CASH) {
+            // For cash payments, we still create transaction records
+            // but don't modify wallet balances
+
+            const passengerTxn = await this.createTransaction(
+                passengerId,
+                TransactionDirection.DEBIT,
+                TransactionType.RIDE_PAYMENT,
+                fareBreakdown.totalFare,
+                paymentMethod,
+                ride._id.toString(),
+                driverId,
+                TransactionStatus.COMPLETED,
+                session,
+            );
+            transactions.push({
+                transactionId: passengerTxn._id.toString(),
+                userId: passengerId,
+                type: 'DEBIT',
+                amount: fareBreakdown.totalFare,
+            });
+
+            const driverAmount = fareBreakdown.totalFare - fareBreakdown.discount;
+            const driverTxn = await this.createTransaction(
+                driverId,
+                TransactionDirection.CREDIT,
+                TransactionType.COMMISSION,
+                driverAmount,
+                paymentMethod,
+                ride._id.toString(),
+                passengerId,
+                TransactionStatus.COMPLETED,
+                session,
+            );
+            transactions.push({
+                transactionId: driverTxn._id.toString(),
+                userId: driverId,
+                type: 'CREDIT',
+                amount: driverAmount,
+            });
+
+
+            const adminTxn = await this.createTransaction(
+                this.adminId,
+                TransactionDirection.CREDIT,
+                TransactionType.COMMISSION,
+                fareBreakdown.discount,
+                paymentMethod,
+                ride._id.toString(),
+                passengerId,
+                TransactionStatus.PENDING,
+                session,
+            );
+            transactions.push({
+                transactionId: adminTxn._id.toString(),
+                userId: this.adminId,
+                type: 'CREDIT',
+                amount: fareBreakdown.discount,
+            });
+
+        } else {
+            throw new BadRequestException('Unsupported payment method');
+        }
+
+        // ── Update ride with payment details ──────────────────────
+        const paymentDetails: PaymentDetails = {
+            baseAmount: fareBreakdown.baseFare,
+            distanceAmount: fareBreakdown.distanceCharge,
+            totalAmount: fareBreakdown.totalFare,
+            noOfPassengers: ride.noOfPassengers || 1,
+            paymentMethod,
+            discountAmount: fareBreakdown.discount,
+            paymentStatus: PaymentStatusEnum.PAID,
+            promoCodeId: promoCodeId ? new Types.ObjectId(promoCodeId) : null,
+            driverCommission: 0.2,
+        };
+
+        await this.ridesModel.updateOne(
+            { _id: ride._id },
+            {
+                $set: {
+                    paymentDetails,
+                    isAcknowledgeByDriver: paymentMethod === PaymentMethodEnum.CASH ? false : true,
+                },
+            },
+            { session },
+        );
+
+        // ── Mark promo code as used if applicable ─────────────────
+        if (promoCodeId) {
+            await this.promoCodeRepository.updateById(
+                new Types.ObjectId(promoCodeId),
+                { $inc: { promoCodeUsedCount: 1 } },
+                undefined,
+                { session },
+            );
+        }
+
+        // Store transactions for response
+        (this as any)._transactions = transactions;
+    }
+
     private async createTransaction(
         userId: string,
         direction: TransactionDirection,
@@ -415,18 +465,18 @@ export class PassengerPaymentService {
     ): Promise<TransactionDocument> {
         const transactionUuid = `${type}-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 
-        const isRider = direction === TransactionDirection.DEBIT;
+        const isRider = direction === TransactionDirection.DEBIT && type === TransactionType.RIDE_PAYMENT;
 
         const [transaction] = await this.transactionRepository.createMany(
             [
                 {
-                    ...(isRider ? { riderId: userId } : { driverId: userId }),
+                    ...(isRider ? { riderId: userId } : type === TransactionType.RIDE_PAYMENT ? { driverId: userId } : {}),
                     tripId,
                     direction,
                     type,
                     amount,
                     paymentMethod,
-                    status: TransactionStatus.COMPLETED,
+                    status,
                     transactionUuid,
                     reference: `${type}-${tripId}`,
                 },
