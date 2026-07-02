@@ -1,16 +1,12 @@
-import { Optional } from "@nestjs/common";
 import { Field, InputType } from "@nestjs/graphql";
 @InputType()
 export class DeviceInput {
-  @Field()
-  @Optional()
+  @Field({ nullable: true })
   deviceId?: string;
 
-  @Field()
-  @Optional()
+  @Field({ nullable: true })
   firebaseToken?: string;
 
-  @Field()
-   @Optional()
+  @Field({ nullable: true })
   deviceType?: string;
 }
