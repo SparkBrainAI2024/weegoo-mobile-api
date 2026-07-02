@@ -21,6 +21,7 @@ import { PageModule } from "./modules/page/page.module";
 import { RatingIModule } from "./modules/rating/rating.module";
 import { WalletApiModule } from "./modules/wallet/wallet.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
+import { UploadCenterModule } from "@libs/services/upload-center/src";
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { TransactionModule } from "./modules/transaction/transaction.module";
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('DB_CONNECTION_URL'),
+        uri: configService.get<string>("DB_CONNECTION_URL"),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
@@ -60,8 +61,9 @@ import { TransactionModule } from "./modules/transaction/transaction.module";
     NotificationModule,
     PageModule,
     RatingIModule,
+    UploadCenterModule,
     WalletApiModule,
-    TransactionModule
+    TransactionModule,
   ],
   providers: [HealthResolver],
 })

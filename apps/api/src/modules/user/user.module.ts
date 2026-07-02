@@ -6,16 +6,7 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { S3Module } from "@libs/s3/s3.module";
 
 @Module({
-    imports: [
-        UserPersistenceModule,
-        UserServiceModule,
-        S3Module,
-
-    ],
-    providers: [
-        UserResolver,
-        UserDetailsResolver,
-        EnvService,
-    ]
+  imports: [UserPersistenceModule, UserServiceModule, S3Module],
+  providers: [UserResolver, UserDetailsResolver, EnvService],
 })
-export class UserModule { }
+export class UserModule {}
