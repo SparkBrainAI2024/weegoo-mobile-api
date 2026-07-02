@@ -115,7 +115,9 @@ export class PassengerPaymentService {
         if (!ride.driverId) {
             throw new BadRequestException('Ride has no assigned driver');
         }
-
+        if(ride.isAcknowledgeByDriver ===true){
+            throw new BadRequestException('Driver has already acknowledged the ride');
+        }
         // Calculate fare breakdown
         const fareBreakdown = await this.calculateFareBreakdown(
             ride,

@@ -21,13 +21,13 @@ import {
   HistoricalTraffic,
   ScheduledFareBreakdown,
   VehicleEstimateGraphQL,
-} from 'libs/data-access';
+  PaymentStatusEnum,
+} from '@libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { MATCHMAKING_CONFIG } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
-import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 
 @Injectable()
 export class MatchmakingService {
@@ -1158,6 +1158,88 @@ export class MatchmakingService {
     } catch (err: any) {
       this.logger.error('Failed to complete ride: ' + (err?.message || err));
       return { success: false, message: 'Failed to complete ride' };
+    }
+  }
+
+  async acknowledgeAndFinishRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
+    this.logger.log(`Driver ${driverId} acknowledging and finishing ride ${rideId}`);
+    try {
+      const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+      if (!ride) {
+        return { success: false, message: 'Ride not found' };
+      }
+
+      if (ride.driverId?.toString() !== driverId) {
+        return { success: false, message: 'You are not the assigned driver for this ride' };
+      }
+
+      if (ride.rideStatus !== RideStatus.COMPLETED || ride?.paymentDetails?.paymentStatus !== PaymentStatusEnum.PAID) {
+        return { success: false, message: `Ride must be completed and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}` };
+      }
+      if(ride.isAcknowledgeByDriver) {
+        return { success: false, message: 'Ride has already been acknowledged by driver' };
+      }
+
+      // Fetch driver details from both User and UserDetails for optimized snapshot
+      const [driverUser, driverDetails] = await Promise.all([
+        this.userModel.findById(new Types.ObjectId(driverId)).exec(),
+        this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec(),
+      ]);
+
+      const driverSnapshot = {
+        fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver',
+        phone: driverUser?.phone || '',
+        rating: driverDetails?.rating ?? 0,
+        profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
+      };
+
+      // Update ride with isAcknowledgeByDriver set to true
+      const updatedRide = await this.ridesModel.findByIdAndUpdate(
+        ride._id,
+        {
+          $set: {
+            isAcknowledgeByDriver: true,
+          },
+        },
+        { new: true },
+      ).exec();
+
+      if (!updatedRide) {
+        return { success: false, message: 'Failed to update ride' };
+      }
+
+      // Send notification to passenger with only driverSnapshot
+      const passenger = await this.userModel.findById(updatedRide.passengerId).exec();
+      if (passenger) {
+        await this.notificationService.createNotification({
+          title: 'Payment Confirmed',
+          notificationType: NotificationType.RIDE_COMPLETE_NOTIFICATION,
+          description: `Your ride payment was confirmed successfully by ${driverSnapshot.fullName}`,
+          ablyChannelId: updatedRide.ablyChannelId || `WG-RIDE-${updatedRide.rideUUId}-ride-details`,
+          rideId: updatedRide._id.toString(),
+          driverSnapshot,
+        }, passenger);
+      }
+
+      // Publish to Ably channel with driverSnapshot
+      await this.rideChannelService.publishRideEvent(updatedRide.rideUUId, 'driver-acknowledged', {
+        rideId: updatedRide._id.toString(),
+        rideUUId: updatedRide.rideUUId,
+        driverAcknowledged: true,
+        driverId,
+        driverSnapshot,
+        rideStatus: RideStatus.COMPLETED,
+        completedAt: new Date().toISOString(),
+      });
+
+      // Release the channel
+      this.rideChannelService.releaseRideChannel(updatedRide.rideUUId);
+
+      this.logger.log(`Ride ${rideId} acknowledged and finished by driver ${driverId}`);
+      return { success: true, message: 'Ride acknowledged and finished successfully' };
+    } catch (err: any) {
+      this.logger.error(`Failed to acknowledge and finish ride: ${err?.message || err}`);
+      return { success: false, message: 'Failed to acknowledge and finish ride' };
     }
   }
 
