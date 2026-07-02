@@ -565,6 +565,8 @@ export class MatchmakingService {
             title: 'Ride Rejected', notificationType: NotificationType.RIDE_REQUEST,
             description: 'A driver has declined your ride request. We are looking for other drivers.',
             ablyChannelId: `WG-RIDE-${rideUUID}-ride-details`,
+            rideId: ride._id.toString(),
+            passengerId: ride.passengerId.toString(),
           };
           await this.notificationService.createNotification(
             notificationInput,
