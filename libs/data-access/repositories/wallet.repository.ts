@@ -13,11 +13,11 @@ export class WalletRepository {
   /**
    * Get or create a wallet for a user. Creates one with 0 balance if it doesn't exist.
    */
-  async getOrCreate(userId: string): Promise<WalletDocument> {
+  async getOrCreate(userId: string, initialBalance: number = 0): Promise<WalletDocument> {
     const id = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
     let wallet = await this.model.findOne({ userId: id });
     if (!wallet) {
-      wallet = await this.model.create({ userId: id, balance: 0 });
+      wallet = await this.model.create({ userId: id, balance: initialBalance });
     }
     return wallet;
   }
@@ -37,7 +37,7 @@ export class WalletRepository {
       { new: true, session },
     );
     if (!wallet) {
-      return this.getOrCreate(userId);
+      return this.getOrCreate(userId, amount);
     }
     return wallet;
   }

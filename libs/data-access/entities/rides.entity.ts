@@ -92,6 +92,10 @@ export class Rides extends BaseEntity {
   @Prop({ type: PaymentDetails, required: false })
   paymentDetails?: PaymentDetails;
 
+  @Field(() => Boolean, { nullable: true ,defaultValue:false})
+  @Prop({ type: Boolean, required: false,default:false })
+  isAcknowledgeByDriver?: boolean;
+
   @Field(() => Number, { nullable: true })
   @Prop({ type: Number, required: false, default: 0 })
   timeToReachPassengerInMinutes?: number;

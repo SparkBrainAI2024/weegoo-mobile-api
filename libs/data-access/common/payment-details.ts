@@ -2,7 +2,7 @@ import { Field, ObjectType } from "@nestjs/graphql";
 import { Prop } from "@nestjs/mongoose";
 import { ApiProperty } from "@nestjs/swagger";
 import { Types } from "mongoose";
-import { PaymentMethodEnum } from "../enums/payment.enum";
+import { PaymentMethodEnum, PaymentStatusEnum } from "../enums/payment.enum";
 @ObjectType()
 export class PaymentDetails {
     @Field(() => Number,{defaultValue: 0})
@@ -45,4 +45,14 @@ export class PaymentDetails {
     @Prop({ type: Number, default: 0.2, required: false,nullable:true })
     @ApiProperty({ nullable: false })
     driverCommission: Number;
+
+    @Field(() => PaymentStatusEnum, { nullable: true ,defaultValue:PaymentStatusEnum.PENDING})
+    @Prop({ type: String, enum: PaymentStatusEnum, required: false })
+    @ApiProperty({ nullable: true })
+    paymentStatus?: PaymentStatusEnum;
+
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String, required: false })
+    @ApiProperty({ nullable: true })
+    paymentFailedReason?: string;
 }

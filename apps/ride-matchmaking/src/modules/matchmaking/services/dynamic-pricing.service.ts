@@ -11,7 +11,8 @@ export class DynamicPricingService {
 
   /**
    * Calculate the estimated fare for an INSTANT ride.
-   * total = pickupCost + distanceCost + durationCost
+   * total = baseFare (pickupCost) + distanceCost
+   * Duration cost is excluded; fare is based on pickup-to-dropoff distance only.
    * Uses vehicle-specific rates from MATCHMAKING_CONFIG
    */
   calculateFare(params: {
@@ -25,12 +26,11 @@ export class DynamicPricingService {
     // Get vehicle-specific rates (fallback to CAR if type not found)
     const basePickupCost = FARE.BASE_PICKUP_COST[vehicleType] || FARE.BASE_PICKUP_COST['CAR'];
     const perKmRate = FARE.PER_KM_RATE[vehicleType] || FARE.PER_KM_RATE['CAR'];
-    const perMinuteRate = FARE.PER_MINUTE_RATE[vehicleType] || FARE.PER_MINUTE_RATE['CAR'];
 
     const pickupCost = basePickupCost;
     const distanceCost = distanceKm * perKmRate;
-    const durationCost = durationMinutes * perMinuteRate;
-    const total = pickupCost + distanceCost + durationCost;
+    const durationCost = 0;
+    const total = pickupCost + distanceCost;
 
     const fare: FareBreakdown = {
       pickupCost: this.round(pickupCost),

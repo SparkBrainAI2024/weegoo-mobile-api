@@ -20,6 +20,7 @@ import { NotificationModule } from "./modules/notification/notification.module";
 import { PageModule } from "./modules/page/page.module";
 import { RatingIModule } from "./modules/rating/rating.module";
 import { WalletApiModule } from "./modules/wallet/wallet.module";
+import { TransactionModule } from "./modules/transaction/transaction.module";
 
 @Module({
   imports: [
@@ -59,7 +60,8 @@ import { WalletApiModule } from "./modules/wallet/wallet.module";
     NotificationModule,
     PageModule,
     RatingIModule,
-    WalletApiModule
+    WalletApiModule,
+    TransactionModule
   ],
   providers: [HealthResolver],
 })
