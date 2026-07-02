@@ -246,14 +246,14 @@ export class AuthService {
     return { user, verification };
   }
 
-  private async registerDeviceIfProvided(userId: Types.ObjectId, device: { deviceId: string; firebaseToken: string; deviceType: string }): Promise<void> {
+  private async registerDeviceIfProvided(userId: Types.ObjectId, device: { deviceId?: string; firebaseToken?: string; deviceType?: string }): Promise<void> {
     if (device) {
       const { deviceId, firebaseToken, deviceType } = device;
       await this.deviceRepository.addDevice(
         userId,
-        deviceId,
-        firebaseToken,
-        deviceType,
+        deviceId || 'UNKNOWN',
+       firebaseToken || 'UNKNOWN',
+        deviceType ||'UNKNOWN',
       );
     }
   }
