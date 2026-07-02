@@ -33,3 +33,38 @@ registerEnumType(PaymentMediumEnum, {
         },
     },
 });
+
+export enum PaymentStatusEnum {
+    PAID = 'Paid',
+    PENDING = 'Pending',
+    FAILED = 'Failed'
+}
+
+registerEnumType(PaymentStatusEnum, {
+    name: 'PaymentStatusEnum',
+    description: 'Status of the payment transaction',
+    valuesMap: {
+        PAID: {
+            description: 'Payment has been completed',
+        },
+        PENDING: {
+            description: 'Payment is pending',
+        },
+        FAILED: {
+            description: 'Payment has failed',
+        }
+    },
+});
+
+registerEnumType(PaymentMediumEnum, {
+    name: 'PaymentMediumEnum',
+    description: 'Payment medium/gateway used for the transaction',
+    valuesMap: {
+        ESEWA: {
+            description: 'Payment processed through eSewa gateway',
+        },
+        KHALTI: {
+            description: 'Payment processed through Khalti gateway',
+        },
+    },
+});
