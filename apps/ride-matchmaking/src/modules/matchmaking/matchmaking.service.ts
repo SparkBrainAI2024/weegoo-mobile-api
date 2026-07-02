@@ -183,7 +183,26 @@ export class MatchmakingService {
       } catch { }
     }
     this.logger.log(`Calculated route for ride ${ride.rideUUId}: distance ${routeDistanceKm} km, duration ${routeDurationMinutes} minutes`);
+
     const estimatedFare = this.pricingService.calculateFare({ distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes });
+
+    // Persist the freshly calculated pickup-to-dropoff distance, fare, and fare breakdown to the ride document
+    // so that handleDriverResponse and downstream consumers use the accurate values
+    await this.ridesModel.findByIdAndUpdate(ride._id, {
+      $set: {
+        distanceInKm: Math.round(routeDistanceKm * 100) / 100,
+        estimatedFare: estimatedFare.total,
+        fare: {
+          baseAmount: estimatedFare.baseFare,
+          trafficCongestionAmount: 0,
+          distanceAmount: Math.round(estimatedFare.distanceCost * 100) / 100,
+          totalAmount: Math.round(estimatedFare.total * 100) / 100,
+          noOfPassengers: ride.noOfPassengers || 1,
+          discountAmount: 0,
+          promoCodeId: null,
+        },
+      },
+    }).exec();
     const radii = MATCHMAKING_CONFIG.FALLBACK_RADII_KM;
     const attempts: MatchAttemptResult[] = [];
     let matched = false;
@@ -469,21 +488,22 @@ export class MatchmakingService {
           } catch { }
         }
 
-        // Calculate fare directly from pricing service using stored ride data
-        const distanceKm = ride.distanceInKm || 0;
+        // Calculate fare: includes pickup-to-dropoff distance + driver-to-pickup distance
+        const pickupToDropoffKm = ride.distanceInKm || 0;
+        const totalDistanceKm = pickupToDropoffKm + driverToPickupDistanceKm;
         const durationMinutes = ride.estimatedTimeInMinutes || 0;
         let totalFare: number | undefined;
         let fare: FareBreakdown | ScheduledFareBreakdown | null = null;
 
         if (ride.rideType === RideTypes.INSTANT) {
           fare = this.pricingService.calculateFare({
-            distanceKm,
+            distanceKm: totalDistanceKm,
             durationMinutes,
             vehicleType: vehicle?.vehicleType as VehicleType | undefined,
           });
         } else {
           fare = this.pricingService.calculateScheduledFare({
-            distanceKm,
+            distanceKm: totalDistanceKm,
             durationMinutes,
             vehicleType: vType,
           });
@@ -500,7 +520,7 @@ export class MatchmakingService {
             $set: {
               driverId: new Types.ObjectId(driverId),
               rideStatus: RideStatus.CONFIRMED,
-              distanceInKm: distanceKm,
+              distanceInKm: pickupToDropoffKm,
               estimatedTimeInMinutes: durationMinutes,
               estimatedFare: totalFare || ride.estimatedFare || 0,
               distanceToReachPassenger: driverToPickupDistanceKm,
@@ -1052,12 +1072,12 @@ export class MatchmakingService {
       const baseFare = (MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0) as number;
       const perKmRate = (MATCHMAKING_CONFIG.FARE.PER_KM_RATE[vehicle?.vehicleType] || 0) as number;
 
-      const baseFareAmount = baseFare;
-      const distanceFare = distanceInKm * perKmRate;
-      const totalFare = baseFareAmount + distanceFare;
+      const baseFareAmount = ride.fare?.baseAmount || baseFare;
+      const distanceFare = Number(ride.fare?.distanceAmount || (distanceInKm * perKmRate));
+      const totalFare = ride.fare?.totalAmount || Number(Number(baseFareAmount) + Number(distanceFare));
 
       const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
-      const finalAmount = totalFare - discountAmount;
+      const finalAmount = Number(Number(totalFare) - Number(discountAmount));
 
       const commissionRate = Number(ride.paymentDetails?.driverCommission) || 0.2;
 
@@ -1099,7 +1119,7 @@ export class MatchmakingService {
         rideStatus: RideStatus.COMPLETED,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
-        fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: finalAmount },
+        fareBreakdown: { baseFare:Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
         completedAt: updatedRide.rideCompletedAt.toISOString(),
       });
 
@@ -1128,7 +1148,7 @@ export class MatchmakingService {
           rideStatus: RideStatus.COMPLETED,
           totalDurationInMinutes: totalDurationMinutes,
           totalDuration: durationStr,
-          fareBreakdown: { baseFare: baseFareAmount, distanceCharge: Number(distanceCharge), discount: discountAmount, totalFare: finalAmount },
+          fareBreakdown: { baseFare: Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
           completedAt: updatedRide.rideCompletedAt.toISOString(),
         },
       };
