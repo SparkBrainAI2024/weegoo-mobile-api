@@ -47,7 +47,6 @@ export class MatchmakingService {
     private readonly pricingService: DynamicPricingService,
     private readonly notificationService: NotificationService,
     private readonly s3: S3Service,
-    private readonly transactionService: TransactionService,
   ) { }
 
   async matchDrivers(params: { rideId: string }): Promise<MatchResult> {
@@ -132,7 +131,7 @@ export class MatchmakingService {
         const driverUser = driverUsersMap.get(driver.driverId);
         if (driverUser) {
           const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-          await this.notificationService.createNotification({
+           this.notificationService.createNotification({
             title: 'New Scheduled Ride Request', notificationType: NotificationType.RIDE_REQUEST,
             description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'} for ${ride.bookingTime ? new Date(ride.bookingTime).toLocaleString() : ''}. Estimated fare: Rs. ${scheduledFare.total}`,
             ablyChannelId, pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
@@ -236,7 +235,7 @@ export class MatchmakingService {
             passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
             passengerSnapshot, noOfPassengers: ride.noOfPassengers,
           };
-          await this.notificationService.createNotification(notificationInput, driverUser);
+          this.notificationService.createNotification(notificationInput, driverUser);
         }
       }
       // Start the response listener AFTER all notifications have been sent,
