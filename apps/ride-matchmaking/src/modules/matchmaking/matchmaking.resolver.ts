@@ -221,6 +221,19 @@ export class MatchmakingResolver {
   }
 
   @Mutation(() => BasicResult, {
+    name: 'acknowledgeAndFinishRide',
+    description: 'Acknowledge and finish ride: sets isAcknowledgeByDriver to true, updates status to COMPLETED, sends notification to passenger, publishes to Ably channel and releases it',
+  })
+  async acknowledgeAndFinishRide(
+    @Args('rideId') rideId: string,
+    @Args('driverId') driverId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(`GraphQL: Driver ${driverId} acknowledging and finishing ride ${rideId}`);
+    const result = await this.matchmakingService.acknowledgeAndFinishRide(rideId, driverId);
+    return result;
+  }
+
+  @Mutation(() => BasicResult, {
     name: 'subscribeToDriverLocationChannel',
     description: 'Subscribe to a driver personal location channel for continuous ride matchmaking. Call this when driver goes online.',
   })
