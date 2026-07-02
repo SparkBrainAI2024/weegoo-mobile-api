@@ -346,7 +346,7 @@ export class DriverRideAcceptanceService {
         `${this.matchmakingUrl}/graphql`,
         {
           query: DRIVER_RESPONSE_MUTATION,
-          variables,
+          variables: { input: variables },
         },
       );
       return response.data?.data?.driverRespondToRide || null;
