@@ -120,7 +120,7 @@ export class EnvService {
    * Get database connection URL
    */
   getDbConnectionString(): string {
-    return this.getString('DB_CONNECTION_URL', 'mongodb://localhost:27017/ride_hailing');
+    return this.getString('DB_CONNECTION_URL', 'mongodb://localhost:27017/wegoo_dev');
   }
 
   // ==========================================
