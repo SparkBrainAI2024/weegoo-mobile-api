@@ -143,7 +143,7 @@ export class NotificationService {
                 firebaseData.driverPhone = String(payload.driverPhone);
             }
             if (payload.driverProfileImage) {
-                firebaseData.driverProfileImage = payload.driverProfileImage;
+                firebaseData.driverProfileImage = String(payload.driverProfileImage);
             }
             if (payload.driverRating !== undefined && payload.driverRating !== null) {
                 firebaseData.driverRating = String(payload.driverRating);
