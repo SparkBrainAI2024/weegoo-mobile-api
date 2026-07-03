@@ -288,6 +288,7 @@ export class MatchmakingService {
 
     // Batch-fetch all userDetails for the drivers in one query
     const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    this.logger.log(`Found ${driverIds.length} drivers for vehicle type ${vehicleType} in attempt ${attemptIndex + 1}`);
     const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds } }).exec();
     const userDetailsMap = new Map<string, UserDetailsDocument>();
     for (const ud of userDetailsDocs) {
@@ -299,6 +300,7 @@ export class MatchmakingService {
       const ud = userDetailsMap.get(did.toString());
       return ud?.driverOnlineStatus === DriverOnlineStatus.ONLINE;
     });
+    this.logger.log(`Checking active rides for ${activeRideDriverIds.length} online drivers`);
     const activeRides = activeRideDriverIds.length > 0
       ? await this.ridesModel.find({
           driverId: { $in: activeRideDriverIds },
@@ -350,12 +352,14 @@ export class MatchmakingService {
 
     // Batch-fetch all userDetails for the drivers in one query
     const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    this.logger.log(`Found ${driverIds.length} drivers for vehicle type ${vehicleType} in attempt ${attemptIndex + 1}`);
     const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds }, deleted: false }).exec();
     const userDetailsMap = new Map<string, UserDetailsDocument>();
     for (const ud of userDetailsDocs) {
       userDetailsMap.set(ud.userId.toString(), ud);
     }
 
+    this.logger.log(`Checking conflicting rides for ${driverIds.length} drivers`);
     // Batch-fetch conflicting rides for these drivers in one query
     const conflictingRides = await this.ridesModel.find({
       driverId: { $in: driverIds },
@@ -392,7 +396,7 @@ export class MatchmakingService {
       if (userDetails.ridePreference !== ridePreference.SCHEDULED && userDetails.ridePreference !== ridePreference.BOTH) continue;
       if (conflictingRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
-      if (driverRating < minRating) continue;
+     
       let driverLat: number; let driverLng: number;
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
         driverLng = userDetails.geoLocation.coordinates[0]; driverLat = userDetails.geoLocation.coordinates[1];
@@ -405,6 +409,7 @@ export class MatchmakingService {
         drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes });
       }
     }
+    this.logger.log(`Found ${drivers.length} available scheduled drivers within ${radiusKm} km radius`);
     return drivers;
   }
 
