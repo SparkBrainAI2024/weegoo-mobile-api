@@ -41,4 +41,7 @@ export const RIDES = {
     "यो प्रोमो कोड यो राइड प्रकारको लागि लागू हुँदैन।",
   INVALID_STATUS: "यो अपरेशनको लागि अवैध राइड स्थिति",
   NOT_ASSOCIATED_WITH_DRIVER: "यो राइड तपाईंको मा नभएको छ",
+  FAVOURITE_NOT_FOUND: "फेवरिट राइड फेला परेन",
+  FAVOURITE_ALREADY_EXISTS: "यो राइड पहिले नै तपाईंको फेवरिटमा छ",
+  FAVOURITE_CREATION_FAILED: "राइडलाई फेवरिटमा थप्न असफल। कृपया फेरि प्रयास गर्नुहोस्。",
 };

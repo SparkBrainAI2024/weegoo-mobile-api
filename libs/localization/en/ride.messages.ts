@@ -31,4 +31,7 @@ export const RIDES = {
   RIDE_OVERLAP: "You already have another ride scheduled around this time.",
   PROMO_NOT_APPLICABLE_FOR_STATUS: "Promo codes can only be applied to completed rides.",
   PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE: "This promo code is not applicable for this ride type.",
+  FAVOURITE_NOT_FOUND: "Favourite ride not found",
+  FAVOURITE_ALREADY_EXISTS: "This ride is already in your favourites.",
+  FAVOURITE_CREATION_FAILED: "Failed to add ride to favourites. Please try again.",
 }
