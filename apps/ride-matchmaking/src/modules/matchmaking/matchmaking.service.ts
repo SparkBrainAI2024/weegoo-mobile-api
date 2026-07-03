@@ -442,8 +442,7 @@ export class MatchmakingService {
           rejectedDriverIds.push(response.driverId);
           if (rejectedDriverIds.length >= driverIds.length && !resolved) {
             resolved = true; clearTimeout(timeout);
-            this.ablyService.unsubscribe(channelName, 'ride-detail', handler);
-            this.subscribedListeners.delete(listenerKey);
+      
             resolvePromise({ accepted: false, rejectedDriverIds });
           }
         }
