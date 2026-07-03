@@ -45,10 +45,10 @@ export class FavouritesResolver {
 
     @Roles(roles.USER)
     @Mutation(() => Favourites, { name: 'removeFavouriteById' })
-    async removeFavouriteByRideId(
+    async removeFavouriteById(
         @CurrentUser() user: User,
-        @Args('rideId') rideId: string,
+        @Args('favouriteId') favouriteId: string,
     ) {
-        return this.favouriteService.removeFavouriteByRideId(rideId, user._id.toString());
+        return this.favouriteService.removeFavouriteByRideId(favouriteId, user._id.toString());
     }
 }

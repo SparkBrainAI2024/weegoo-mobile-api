@@ -52,8 +52,8 @@ export class FavouriteService {
         if (!ride) {
             throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
         }
-        if(ride.isFavourite){
-            throw ErrorException(null, "RIDES.RIDE_ALREADY_FAVOURITE", 400);
+        if (ride.isFavourite) {
+            throw ErrorException(null, "RIDES.FAVOURITE_ALREADY_EXISTS", 400);
         }
         if (
             ride.rideStatus !== RideStatus.ONGOING &&
@@ -88,17 +88,20 @@ export class FavouriteService {
         });
     }
     async removeFavouriteByRideId(
-        rideId: string,
+        favouriteId: string,
         passengerId: string,
     ): Promise<FavouritesDocument | null> {
-        const favRide= await this.favouriteRepository.findOne({
-           rideId: toMongoId(rideId),
-           passengerId: toMongoId(passengerId),
-     });
+        const favRide = await this.favouriteRepository.findOne({
+            _id: toMongoId(favouriteId),
+            passengerId: toMongoId(passengerId),
+        });
         if (!favRide) {
-            throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
+            throw ErrorException(null, "RIDES.FAVOURITE_NOT_FOUND", 404);
         }
-        await this.ridesRepository.updateById(favRide.rideId, { isFavourite: false });
+        const ride = await this.ridesRepository.findById(favRide.rideId);
+        if (ride) {
+            await this.ridesRepository.updateById(favRide.rideId, { isFavourite: false });
+        }
         return await this.favouriteRepository.deleteFavourite(favRide._id.toString(), passengerId);
     }
 }

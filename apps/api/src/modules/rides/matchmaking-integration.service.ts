@@ -169,8 +169,7 @@ export class MatchmakingIntegrationService {
     try {
       const data = await this.callMatchmakingGraphql(
         this.MATCH_INSTANT_QUERY,
-        { input: { rideId: ride._id.toString() } },
-      );
+        { input: { rideId: ride._id.toString() } }  );
       const result = data?.matchDrivers;
 
       const baseResponse = {
@@ -230,7 +229,31 @@ export class MatchmakingIntegrationService {
         };
       }
 
-      // Matchmaking failed - delete the ride
+      // Matchmaking did not find a match - verify ride status before deleting
+      this.logger.warn(`Matchmaking returned no match for ride ${ride.rideUUId}. Verifying ride status.`);
+      const rideAfterMatchmaking = await this.ridesModel.findById(ride._id).exec();
+
+      if (rideAfterMatchmaking && rideAfterMatchmaking.rideStatus === RideStatus.CONFIRMED) {
+        // Ride was already confirmed by matchmaking despite response indicating no match
+        this.logger.log(`Ride ${ride.rideUUId} was already confirmed despite matchmaking returning no match. Preserving ride.`);
+        return {
+          success: true,
+          matched: true,
+          rideId: rideAfterMatchmaking._id.toString(),
+          rideUUId: rideAfterMatchmaking.rideUUId || ride.rideUUId,
+          message: 'Driver matched successfully',
+          driverId: rideAfterMatchmaking.driverId?.toString() || undefined,
+          rideType: RideTypes.INSTANT,
+          rideStatus: RideStatus.CONFIRMED,
+          ablyChannelId: rideAfterMatchmaking.ablyChannelId || ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+          driverLocationChannel: `WG-DRIVER-${rideAfterMatchmaking.driverId?.toString() || ''}-driver-location`,
+          pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
+          dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined,
+          noOfPassengers: ride.noOfPassengers || 1,
+        } as any;
+      }
+
+      // Ride is still pending - safe to delete
       this.logger.warn(`Matchmaking failed for ride ${ride.rideUUId}. Deleting ride.`);
       await this.ridesModel.findByIdAndDelete(ride._id).exec();
       return {
@@ -239,6 +262,31 @@ export class MatchmakingIntegrationService {
         rideUUId: '',
       };
     } catch (error: any) {
+      this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}. Verifying ride status.`);
+
+      const rideAfterMatchmaking = await this.ridesModel.findById(ride._id).exec();
+
+      if (rideAfterMatchmaking && rideAfterMatchmaking.rideStatus === RideStatus.CONFIRMED) {
+        // Ride was confirmed by matchmaking despite the request timeout/error
+        this.logger.log(`Ride ${ride.rideUUId} was already confirmed despite matchmaking error. Preserving ride.`);
+        return {
+          success: true,
+          matched: true,
+          rideId: rideAfterMatchmaking._id.toString(),
+          rideUUId: rideAfterMatchmaking.rideUUId || ride.rideUUId,
+          message: 'Driver matched successfully',
+          driverId: rideAfterMatchmaking.driverId?.toString() || undefined,
+          rideType: RideTypes.INSTANT,
+          rideStatus: RideStatus.CONFIRMED,
+          ablyChannelId: rideAfterMatchmaking.ablyChannelId || ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+          driverLocationChannel: `WG-DRIVER-${rideAfterMatchmaking.driverId?.toString() || ''}-driver-location`,
+          pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
+          dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined,
+          noOfPassengers: ride.noOfPassengers || 1,
+        } as any;
+      }
+
+      // Ride is still pending - safe to delete
       this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}. Deleting ride.`);
       await this.ridesModel.findByIdAndDelete(ride._id).exec();
       return {
