@@ -5,9 +5,6 @@ import { GeoLocation } from "../common/geo.location";
 import { SavedLocation } from "../common/saved-location";
 import { GenderEnum, ridePreference, ProvinceEnum, DriverOnlineStatus } from "../enums/user.enum";
 import { BaseEntity } from "../base/base.entity";
-import { Vehicle } from "./vehicle.entity";
-import { VehicleImage } from "./vehicle-image.embedded";
-import { PublicImage } from "../common/public-image.entity";
 import { UserProfileImageEntity } from "../common/user-profile-image";
 
 export type UserDetailsDocument = UserDetails &

@@ -40,8 +40,6 @@ import { EnvService } from "@libs/common/config/env.service";
 import { SocialAuthService } from "@libs/services/social-auth";
 import { toMongoId } from "@libs/common";
 import {
-  getCurrentTimestamp,
-  getRemainingTime,
   getOtpThrottledResponse,
   getOtpSentResponse,
   getUpdatedRoles

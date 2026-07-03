@@ -7,9 +7,8 @@ import { User } from "../entities/user.entity";
 import { GetAllRidesPaginationInput, RideFilterStatus, RideSortBy } from "../dtos/input/get-all-rides.input";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
-import { RideStatus, UpcomingRideStatus } from "../enums/rides.enum";
+import { RideStatus  } from "../enums/rides.enum";
 import { CategoryAccessedByRole } from "../enums/issue.enum";
-
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
@@ -112,7 +111,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           break;
         case RideFilterStatus.ALL:
         default:
-          // No filter by status - return all
+          // Exclude PICKUP and CONFIRMED rides for ALL/default filter
+          filter.rideStatus = { $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED] };
           break;
       }
     }
@@ -246,9 +246,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     } else if (user.loginAs === roles.RIDER) {
       filter.driverId = new Types.ObjectId(user._id);
     }
-    const populateOptions = {
-      path: "vehicleId",
-    };
+    const populateOptions = [
+      { path: "vehicleId" },
+      { path: "driverId", select: '_id phone email' },
+      { path: "passengerId", select: '_id phone email' },
+    ];
     const upcomingResult = await this.model.find({
      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
       ...filter
@@ -259,22 +261,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       ...filter
     }).populate(populateOptions).sort({createdAt: -1}).limit(1)
 
-    const newUpcomingResult = upcomingResult.map((ride: any) => {
-      if(ride.vehicleId && typeof ride.vehicleId === 'object'){
-        ride.vehicle = ride.vehicleId;
-        ride.vehicleId = ride.vehicleId._id.toString();
-      }
-      return ride;
-    })
-    const newOngoingResult = ongoingResult.map((ride: any) => {
-     if(ride.vehicleId && typeof ride.vehicleId === 'object'){
-        ride.vehicle = ride.vehicleId;
-        ride.vehicleId = ride.vehicleId._id.toString();
-     }
-     return ride ;
-    })
-  
-    return [...newOngoingResult,...newUpcomingResult];
+    return [...ongoingResult, ...upcomingResult];
   }
 
   async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
