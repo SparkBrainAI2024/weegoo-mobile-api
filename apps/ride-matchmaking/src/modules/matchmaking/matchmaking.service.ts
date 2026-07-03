@@ -501,7 +501,7 @@ export class MatchmakingService {
 
         // Calculate fare: includes pickup-to-dropoff distance + driver-to-pickup distance
         const pickupToDropoffKm = ride.distanceInKm || 0;
-        const totalDistanceKm = pickupToDropoffKm + driverToPickupDistanceKm;
+        const totalDistanceKm = pickupToDropoffKm 
         const durationMinutes = ride.estimatedTimeInMinutes || 0;
         let totalFare: number | undefined;
         let fare: FareBreakdown | ScheduledFareBreakdown | null = null;
@@ -584,7 +584,7 @@ export class MatchmakingService {
             estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
           };
-          await this.notificationService.createNotification(notificationInput, passengerUser);
+           this.notificationService.createNotification(notificationInput, passengerUser);
         }
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
