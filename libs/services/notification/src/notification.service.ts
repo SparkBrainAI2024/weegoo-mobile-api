@@ -83,20 +83,20 @@ export class NotificationService {
             // Include all ride-related fields (nullable) in the Firebase payload
             const payload = notificationPayload as any;
             if (payload.rideId) {
-                firebaseData.rideId = payload.rideId;
+                firebaseData.rideId = String(payload.rideId);
             }
             if (payload.noOfPassengers) {
                 firebaseData.noOfPassengers = String(payload.noOfPassengers);
             }
             if (payload.rideType) {
-                firebaseData.rideType = payload.rideType;
+                firebaseData.rideType = String(payload.rideType);
             }
 
             if (payload.rideStatus) {
-                firebaseData.rideStatus = payload.rideStatus;
+                firebaseData.rideStatus = String(payload.rideStatus);
             }
             if (payload.actualTimeInMinutes) {
-                firebaseData.actualTimeInMinutes = payload.actualTimeInMinutes;
+                firebaseData.actualTimeInMinutes = String(payload.actualTimeInMinutes);
             }
             if (payload.pickupLocation) {
                 firebaseData.pickupLocation = JSON.stringify(payload.pickupLocation);
@@ -111,7 +111,7 @@ export class NotificationService {
                 firebaseData.estimatedTimeInMinutes = String(payload.estimatedTimeInMinutes);
             }
             if (payload.passengerId) {
-                firebaseData.passengerId = payload.passengerId;
+                firebaseData.passengerId = String(payload.passengerId);
             }
             if (payload.driverScore !== undefined && payload.driverScore !== null) {
                 firebaseData.driverScore = String(payload.driverScore);
@@ -124,23 +124,23 @@ export class NotificationService {
             }
             // Include passenger info fields
             if (payload.passengerName) {
-                firebaseData.passengerName = payload.passengerName;
+                firebaseData.passengerName = String(payload.passengerName);
             }
             if (payload.passengerPhone) {
-                firebaseData.passengerPhone = payload.passengerPhone;
+                firebaseData.passengerPhone = String(payload.passengerPhone);
             }
             if (payload.passengerGender) {
-                firebaseData.passengerGender = payload.passengerGender;
+                firebaseData.passengerGender = String(payload.passengerGender);
             }
             if (payload.passengerProfileImages && Array.isArray(payload.passengerProfileImages) && payload.passengerProfileImages.length > 0) {
                 firebaseData.passengerProfileImages = JSON.stringify(payload.passengerProfileImages);
             }
             // Include driver info fields
             if (payload.driverName) {
-                firebaseData.driverName = payload.driverName;
+                firebaseData.driverName = String(payload.driverName);
             }
             if (payload.driverPhone) {
-                firebaseData.driverPhone = payload.driverPhone;
+                firebaseData.driverPhone = String(payload.driverPhone);
             }
             if (payload.driverProfileImage) {
                 firebaseData.driverProfileImage = payload.driverProfileImage;
@@ -150,16 +150,16 @@ export class NotificationService {
             }
             // Include vehicle info fields
             if (payload.vehicleType) {
-                firebaseData.vehicleType = payload.vehicleType;
+                firebaseData.vehicleType = String(payload.vehicleType);
             }
             if (payload.vehicleModel) {
-                firebaseData.vehicleModel = payload.vehicleModel;
+                firebaseData.vehicleModel = String(payload.vehicleModel);
             }
             if (payload.vehicleColor) {
-                firebaseData.vehicleColor = payload.vehicleColor;
+                firebaseData.vehicleColor = String(payload.vehicleColor);
             }
             if (payload.vehicleNumberPlate) {
-                firebaseData.vehicleNumberPlate = payload.vehicleNumberPlate;
+                firebaseData.vehicleNumberPlate = String(payload.vehicleNumberPlate);
             }
             // Include passenger/driver snapshot fields
             if (payload.passengerSnapshot) {
