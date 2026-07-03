@@ -481,7 +481,7 @@ export class MatchmakingService {
           try {
             const dist = await this.distanceCalculator.calculateDriverDistance(
               pickupCoords[1], pickupCoords[0],
-              driverDetails.geoLocation.coordinates[1], driverDetails.geoLocation.coordinates[0],
+              driverDetails.geoLocation.coordinates[0], driverDetails.geoLocation.coordinates[1],
               vType,
             );
             driverToPickupDistanceKm = Math.round(dist.distanceKm * 100) / 100;
