@@ -449,7 +449,7 @@ export class MatchmakingService {
     };
     this.subscribedListeners.set(listenerKey, handler);
     this.ablyService.subscribe(channelName, 'ride-detail', handler);
-    const unsubscribe = () => { if (!resolved) { resolved = true; clearTimeout(timeout); } this.ablyService.unsubscribe(channelName, 'ride-detail', handler); this.subscribedListeners.delete(listenerKey); };
+    const unsubscribe = () => { if (!resolved) { resolved = true; clearTimeout(timeout); }  };
     return { promise, unsubscribe };
   }
 
