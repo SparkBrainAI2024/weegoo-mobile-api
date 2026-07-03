@@ -448,8 +448,20 @@ export class MatchmakingService {
       }
     };
     this.subscribedListeners.set(listenerKey, handler);
-    this.ablyService.subscribe(channelName, 'ride-detail', handler);
-    const unsubscribe = () => { if (!resolved) { resolved = true; clearTimeout(timeout); }  };
+    this.ablyService.subscribe(channelName, 'ride-details', handler);
+    // IMPORTANT: Only clear the timeout and mark as resolved.
+    // Do NOT unsubscribe from the ride-details channel (`WG-RIDE-${rideUUID}-ride-details`).
+    // The channel must remain active after driver accept/reject so that
+    // both driver and passenger continue receiving ongoing ride updates
+    // (driver location, ride status changes, pickup/dropoff events, etc.).
+    const unsubscribe = () => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+      }
+      // Do NOT call this.ablyService.unsubscribe() here — the ride-details channel
+      // subscription must persist for the entire ride lifecycle.
+    };
     return { promise, unsubscribe };
   }
 
