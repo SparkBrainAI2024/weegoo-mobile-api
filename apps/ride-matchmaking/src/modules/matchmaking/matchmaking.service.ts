@@ -435,14 +435,13 @@ export class MatchmakingService {
       if (response.eventType === 'driver-response') {
         if (response.action === 'accept' && driverIds.includes(response.driverId) && !resolved) {
           resolved = true; clearTimeout(timeout);
-          this.ablyService.unsubscribe(channelName, 'ride-detail', handler);
-          this.subscribedListeners.delete(listenerKey);
+         
           resolvePromise({ accepted: true, driverId: response.driverId, rejectedDriverIds });
         } else if (response.action === 'reject' && driverIds.includes(response.driverId) && !rejectedDriverIds.includes(response.driverId)) {
           rejectedDriverIds.push(response.driverId);
           if (rejectedDriverIds.length >= driverIds.length && !resolved) {
             resolved = true; clearTimeout(timeout);
-      
+           
             resolvePromise({ accepted: false, rejectedDriverIds });
           }
         }
