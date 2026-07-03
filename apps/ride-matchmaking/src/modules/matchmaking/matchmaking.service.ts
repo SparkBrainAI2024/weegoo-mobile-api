@@ -803,7 +803,7 @@ export class MatchmakingService {
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
               message: `Driver is at the ${distanceKm.toFixed(2)} km away.`,
             });
-            await this.notificationService.createNotification({
+             this.notificationService.createNotification({
               title: 'Driver is arriving',
               rideId: activeRide._id.toString(),
               notificationType: NotificationType.RIDE_DETAILS,
@@ -831,7 +831,7 @@ export class MatchmakingService {
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
               message: `Driver is at the pickup location ${distanceKm.toFixed(2)} km away.`,
             });
-            await this.notificationService.createNotification({
+             this.notificationService.createNotification({
               title: 'Driver is at pickup location',
               notificationType: NotificationType.RIDE_DETAILS,
               rideId: activeRide._id.toString(),
@@ -906,7 +906,7 @@ export class MatchmakingService {
                 dropoffDurationMinutes,
                 message: `Driver has arrived at the destination.`,
               });
-              await this.notificationService.createNotification({
+               this.notificationService.createNotification({
                 title: 'Driver has arrived at destination',
                 rideId: activeRide._id.toString(),
                 notificationType: NotificationType.RIDE_DETAILS,
