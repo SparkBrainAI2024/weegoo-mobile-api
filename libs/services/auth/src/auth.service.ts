@@ -405,7 +405,8 @@ export class AuthService {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ verificationCode:", [...new Set([...userExistWithThisPhone?.roles || [], this.defaultRole])], this.defaultRole)
       const user: UserDocument = await this.userRepository.create({
         phone,
-        roles: getUpdatedRoles(userExistWithThisPhone?.roles, this.defaultRole)
+        roles: getUpdatedRoles(userExistWithThisPhone?.roles, this.defaultRole),
+        loginAs: this.defaultRole,
       });
       await this.userDetailsRepository.create({
         userId: user._id,
@@ -970,8 +971,8 @@ export class AuthService {
         verified: false,
         authProvider: AuthProvider.GOOGLE,
         authProviderId: socialUser.providerId,
-        roles: getUpdatedRoles(existingUser?.roles, this.defaultRole)
-
+        roles: getUpdatedRoles(existingUser?.roles, this.defaultRole),
+        loginAs: this.defaultRole,
       });
       await this.userDetailsRepository.create({
         userId: user._id,
