@@ -20,6 +20,14 @@ export class MatchmakingIntegrationService {
 
   // ─── Shared GraphQL Queries ──────────────────────────────────────────────
 
+  private get CANCEL_INSTANT_RIDE_QUERY(): string {
+    return `mutation CancelInstantRide($rideId: String!, $passengerId: String!) {
+      cancelInstantRide(rideId: $rideId, passengerId: $passengerId) {
+        success message
+      }
+    }`;
+  }
+
   private get MATCH_INSTANT_QUERY(): string {
     return `mutation MatchDrivers($input: MatchDriversInput!) {
       matchDrivers(input: $input) {
@@ -169,9 +177,10 @@ export class MatchmakingIntegrationService {
     try {
       const data = await this.callMatchmakingGraphql(
         this.MATCH_INSTANT_QUERY,
-        { input: { rideId: ride._id.toString() } }  );
+        { input: { rideId: ride._id.toString() } });
       const result = data?.matchDrivers;
-
+      const isRidePresent = await this.ridesModel.findById(ride._id).exec();
+      
       const baseResponse = {
         success: !!result?.matched,
         matched: result?.matched || false,
@@ -263,9 +272,12 @@ export class MatchmakingIntegrationService {
       };
     } catch (error: any) {
       this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}. Verifying ride status.`);
-
+       
       const rideAfterMatchmaking = await this.ridesModel.findById(ride._id).exec();
-
+       if (!rideAfterMatchmaking) {
+        this.logger.warn(`Ride ${ride.rideUUId} was deleted after matchmaking response. Returning no match.`);
+        return { success: false, matched: false, rideId: '', rideUUId: '', message: error?.message || 'Ride was cancelled by user' };
+      }
       if (rideAfterMatchmaking && rideAfterMatchmaking.rideStatus === RideStatus.CONFIRMED) {
         // Ride was confirmed by matchmaking despite the request timeout/error
         this.logger.log(`Ride ${ride.rideUUId} was already confirmed despite matchmaking error. Preserving ride.`);
@@ -431,7 +443,35 @@ export class MatchmakingIntegrationService {
     }
   }
 
+  async cancelInstantRide(passengerId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const ride = await this.ridesModel.findOne({
+        passengerId: new Types.ObjectId(passengerId),
+        rideType: RideTypes.INSTANT,
+        rideStatus: { $in: [RideStatus.PENDING, RideStatus.CONFIRMED] }
+      }).exec();
+      this.logger.log(`Cancelling instant ride ${ride._id} for passenger ${passengerId}`);
+
+      const data = await this.callMatchmakingGraphql(
+        this.CANCEL_INSTANT_RIDE_QUERY,
+        { rideId: ride._id.toString(), passengerId }
+      );
+
+      const result = data?.cancelInstantRide;
+      if (!result) {
+        this.logger.error(`Failed to cancel instant ride ${ride._id}: No response from matchmaking service`);
+        return { success: false, message: 'Matchmaking service unavailable' };
+      }
+
+      this.logger.log(`Instant ride ${ride._id} cancelled successfully: ${result.message}`);
+      return { success: result.success, message: result.message };
+    } catch (error: any) {
+      this.logger.error(`Failed to cancel instant ride ${error?.message || error}`);
+      return { success: false, message: 'Failed to cancel ride' };
+    }
+  }
+
   private getMatchmakingUrl(): string {
-    return this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:4000/graphql');
+    return this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
   }
 }

@@ -131,7 +131,7 @@ export class MatchmakingService {
         const driverUser = driverUsersMap.get(driver.driverId);
         if (driverUser) {
           const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-           this.notificationService.createNotification({
+          this.notificationService.createNotification({
             title: 'New Scheduled Ride Request', notificationType: NotificationType.RIDE_REQUEST,
             description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'} for ${ride.bookingTime ? new Date(ride.bookingTime).toLocaleString() : ''}. Estimated fare: Rs. ${scheduledFare.total}`,
             ablyChannelId, pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
@@ -214,8 +214,7 @@ export class MatchmakingService {
     const respondedDriverIds: Set<string> = new Set();
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
-      const currentRide = await this.ridesModel.findById(ride._id).exec();
-      if (!currentRide || currentRide.rideStatus !== RideStatus.PENDING) break;
+
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
@@ -239,6 +238,19 @@ export class MatchmakingService {
       }
 
       for (const driver of requestBatch) {
+        const currentRide = await this.ridesModel.findById(ride._id).exec();
+        // If ride was deleted (by cancelInstantRide) or status changed to CANCELLED, abort matchmaking
+        if (!currentRide) {
+          this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking. Aborting.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        if (currentRide.rideStatus !== RideStatus.PENDING) {
+          if (currentRide.rideStatus === RideStatus.CANCELLED) {
+            this.logger.log(`Ride ${ride.rideUUId} was cancelled by user. Aborting matchmaking.`);
+            return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+          }
+          break;
+        }
         if (respondedDriverIds.has(driver.driverId)) continue;
         const driverUser = driverUsersMap.get(driver.driverId);
         if (driverUser) {
@@ -286,8 +298,12 @@ export class MatchmakingService {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     if (vehicles.length === 0) return [];
 
+    // Filter out vehicles where the populated driverId is null (deleted/invalid user reference)
+    const validVehicles = vehicles.filter((v) => v.driverId && (v.driverId as any as UserDocument)._id);
+    if (validVehicles.length === 0) return [];
+
     // Batch-fetch all userDetails for the drivers in one query
-    const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    const driverIds = validVehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
     this.logger.log(`Found ${driverIds.length} drivers for vehicle type ${vehicleType} in attempt ${attemptIndex + 1}`);
     const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds } }).exec();
     const userDetailsMap = new Map<string, UserDetailsDocument>();
@@ -303,9 +319,9 @@ export class MatchmakingService {
     this.logger.log(`Checking active rides for ${activeRideDriverIds.length} online drivers`);
     const activeRides = activeRideDriverIds.length > 0
       ? await this.ridesModel.find({
-          driverId: { $in: activeRideDriverIds },
-          rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
-        }).exec()
+        driverId: { $in: activeRideDriverIds },
+        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      }).exec()
       : [];
     const activeRideDriverIdSet = new Set(activeRides.map((r) => r.driverId.toString()));
 
@@ -320,10 +336,10 @@ export class MatchmakingService {
     }
 
     const drivers: DriverScore[] = [];
-    for (const v of vehicles) {
+    for (const v of validVehicles) {
       const driver = v.driverId as any as UserDocument;
-      this.logger.log(`Checking driver ${driver?._id} for availability: loginAs=${driver?.loginAs}, suspended=${driver?.suspended}, verified=${driver?.verified}`);
-      if (!driver) continue;
+      if (!driver || !driver._id) continue;
+      this.logger.log(`Checking driver ${driver._id} for availability: loginAs=${driver?.loginAs}, suspended=${driver?.suspended}, verified=${driver?.verified}`);
       if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
       if (driver.suspended || !driver.verified) continue;
@@ -396,7 +412,7 @@ export class MatchmakingService {
       if (userDetails.ridePreference !== ridePreference.SCHEDULED && userDetails.ridePreference !== ridePreference.BOTH) continue;
       if (conflictingRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
-     
+
       let driverLat: number; let driverLng: number;
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
         driverLng = userDetails.geoLocation.coordinates[1]; driverLat = userDetails.geoLocation.coordinates[0];
@@ -430,6 +446,7 @@ export class MatchmakingService {
   private subscribeForDriverResponse(rideUUID: string, driverIds: string[], timeoutMs: number): { promise: Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>; unsubscribe: () => void } {
     const rejectedDriverIds: string[] = [];
     let resolved = false;
+    let cancelled = false;
     let resolvePromise: (value: { accepted: boolean; driverId?: string; rejectedDriverIds: string[] }) => void;
     const promise = new Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>((resolve) => { resolvePromise = resolve; });
     const timeout = setTimeout(() => { if (!resolved) { resolved = true; resolvePromise({ accepted: false, rejectedDriverIds }); } }, timeoutMs);
@@ -437,16 +454,25 @@ export class MatchmakingService {
     const listenerKey = `${rideUUID}-${Date.now()}`;
     const handler = (message: any) => {
       const response = message.data as { eventType?: string; driverId: string; action: 'accept' | 'reject' };
+
+      // If ride-cancelled event is received, immediately resolve to stop matchmaking
+      if (response.eventType === 'ride-cancelled' && !resolved) {
+        cancelled = true;
+        resolved = true; clearTimeout(timeout);
+        resolvePromise({ accepted: false, rejectedDriverIds });
+        return;
+      }
+
       if (response.eventType === 'driver-response') {
         if (response.action === 'accept' && driverIds.includes(response.driverId) && !resolved) {
           resolved = true; clearTimeout(timeout);
-         
+
           resolvePromise({ accepted: true, driverId: response.driverId, rejectedDriverIds });
         } else if (response.action === 'reject' && driverIds.includes(response.driverId) && !rejectedDriverIds.includes(response.driverId)) {
           rejectedDriverIds.push(response.driverId);
           if (rejectedDriverIds.length >= driverIds.length && !resolved) {
             resolved = true; clearTimeout(timeout);
-           
+
             resolvePromise({ accepted: false, rejectedDriverIds });
           }
         }
@@ -470,7 +496,7 @@ export class MatchmakingService {
     return { promise, unsubscribe };
   }
 
-  async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept'|'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
+  async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };
@@ -506,7 +532,7 @@ export class MatchmakingService {
 
         // Calculate fare: includes pickup-to-dropoff distance + driver-to-pickup distance
         const pickupToDropoffKm = ride.distanceInKm || 0;
-        const totalDistanceKm = pickupToDropoffKm 
+        const totalDistanceKm = pickupToDropoffKm
         const durationMinutes = ride.estimatedTimeInMinutes || 0;
         let totalFare: number | undefined;
         let fare: FareBreakdown | ScheduledFareBreakdown | null = null;
@@ -589,7 +615,7 @@ export class MatchmakingService {
             estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
           };
-           this.notificationService.createNotification(notificationInput, passengerUser);
+          this.notificationService.createNotification(notificationInput, passengerUser);
         }
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
@@ -793,7 +819,7 @@ export class MatchmakingService {
         }).exec();
 
         // Publish to the ride channel
-        if (distanceKm  >  0.3)
+        if (distanceKm > 0.3)
           await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving', {
             rideId: activeRide._id.toString(),
             driverId,
@@ -818,7 +844,7 @@ export class MatchmakingService {
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
               message: `Driver is at the ${distanceKm.toFixed(2)} km away.`,
             });
-             this.notificationService.createNotification({
+            this.notificationService.createNotification({
               title: 'Driver is arriving',
               rideId: activeRide._id.toString(),
               notificationType: NotificationType.RIDE_DETAILS,
@@ -833,7 +859,7 @@ export class MatchmakingService {
             }, passenger);
           }
         }
-        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05 ) {
+        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05) {
           await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
           const passenger = await this.userModel.findById(activeRide.passengerId).exec();
           if (passenger) {
@@ -846,7 +872,7 @@ export class MatchmakingService {
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
               message: `Driver is at the pickup location ${distanceKm.toFixed(2)} km away.`,
             });
-             this.notificationService.createNotification({
+            this.notificationService.createNotification({
               title: 'Driver is at pickup location',
               notificationType: NotificationType.RIDE_DETAILS,
               rideId: activeRide._id.toString(),
@@ -897,7 +923,7 @@ export class MatchmakingService {
             },
           }).exec();
 
-          if (dropoffDistanceKm  > 0.05 && !activeRide.driverArrivedAtDestinationNotified)
+          if (dropoffDistanceKm > 0.05 && !activeRide.driverArrivedAtDestinationNotified)
             await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving-destination', {
               rideId: activeRide._id.toString(),
               driverId,
@@ -921,7 +947,7 @@ export class MatchmakingService {
                 dropoffDurationMinutes,
                 message: `Driver has arrived at the destination.`,
               });
-               this.notificationService.createNotification({
+              this.notificationService.createNotification({
                 title: 'Driver has arrived at destination',
                 rideId: activeRide._id.toString(),
                 notificationType: NotificationType.RIDE_DETAILS,
@@ -1137,7 +1163,7 @@ export class MatchmakingService {
         rideStatus: RideStatus.COMPLETED,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
-        fareBreakdown: { baseFare:Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
+        fareBreakdown: { baseFare: Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
         completedAt: updatedRide.rideCompletedAt.toISOString(),
       });
 
@@ -1176,6 +1202,79 @@ export class MatchmakingService {
     }
   }
 
+  async cancelInstantRide(rideId: string, passengerId: string): Promise<{ success: boolean; message: string }> {
+    this.logger.log(`Passenger ${passengerId} cancelling instant ride ${rideId}`);
+    try {
+      const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+      if (!ride) {
+        this.logger.log(`Ride ${rideId} not found during cancellation - it was already deleted/cancelled. Treating as successful cancellation.`);
+        return { success: true, message: 'Ride was cancelled by user' };
+      }
+
+      if (ride.passengerId.toString() !== passengerId) {
+        return { success: false, message: 'You are not the owner of this ride' };
+      }
+
+      if (ride.rideType !== RideTypes.INSTANT) {
+        return { success: false, message: 'Only instant rides can be cancelled via this endpoint' };
+      }
+
+      // Check if ride is in a state that can be cancelled (PENDING or CONFIRMED)
+      if (ride.rideStatus !== RideStatus.PENDING && ride.rideStatus !== RideStatus.CONFIRMED) {
+        return { success: false, message: `Cannot cancel ride in ${ride.rideStatus} status` };
+      }
+
+      const rideUUId = ride.rideUUId;
+      const driverId = ride.driverId?.toString();
+
+      // STEP 1: Set ride status to CANCELLED immediately.
+      // This signals the running executeExpandingRingMatch loop to break out
+      // (the loop checks ride.rideStatus !== RideStatus.PENDING at each attempt).
+      await this.ridesModel.findByIdAndUpdate(ride._id, { $set: { rideStatus: RideStatus.CANCELLED } }).exec();
+
+      // STEP 2: Publish a ride-cancelled event on the Ably channel.
+      // The subscribeForDriverResponse handler will detect this event and
+      // immediately resolve the driver response promise, stopping the matchmaking loop.
+      await this.rideChannelService.publishRideEvent(rideUUId, 'ride-cancelled', {
+        rideId: ride._id.toString(),
+        rideUUId,
+        cancelled: true,
+        cancelledBy: passengerId,
+        cancelledAt: new Date().toISOString(),
+        message: 'Passenger has cancelled the ride',
+      });
+
+      // STEP 3: If driver already accepted (CONFIRMED status), send notification to driver
+      if (driverId && ride.rideStatus === RideStatus.CONFIRMED) {
+        this.logger.log(`Ride ${rideUUId} was accepted by driver ${driverId}. Notifying driver about cancellation.`);
+        const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+        if (driverUser) {
+          await this.notificationService.createNotification({
+            title: 'Ride Cancelled',
+            notificationType: NotificationType.RIDE_DETAILS,
+            description: 'The passenger has cancelled the ride request.',
+            ablyChannelId: ride.ablyChannelId || `WG-RIDE-${rideUUId}-ride-details`,
+            rideId: ride._id.toString(),
+            cancelled: true,
+            passengerId,
+          } as any, driverUser);
+        }
+      }
+
+      // STEP 4: Delete the ride document
+      await this.ridesModel.findByIdAndDelete(ride._id).exec();
+
+      // STEP 5: Release the Ably channel
+      this.rideChannelService.releaseRideChannel(rideUUId);
+
+      this.logger.log(`Ride ${rideUUId} cancelled successfully by passenger ${passengerId}`);
+      return { success: true, message: 'Ride cancelled successfully' };
+    } catch (err: any) {
+      this.logger.error(`Failed to cancel ride: ${err?.message || err}`);
+      return { success: false, message: 'Failed to cancel ride' };
+    }
+  }
+
   async acknowledgeAndFinishRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} acknowledging and finishing ride ${rideId}`);
     try {
@@ -1191,7 +1290,7 @@ export class MatchmakingService {
       if (ride.rideStatus !== RideStatus.COMPLETED || ride?.paymentDetails?.paymentStatus !== PaymentStatusEnum.PAID) {
         return { success: false, message: `Ride must be completed and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}` };
       }
-      if(ride.isAcknowledgeByDriver) {
+      if (ride.isAcknowledgeByDriver) {
         return { success: false, message: 'Ride has already been acknowledged by driver' };
       }
 

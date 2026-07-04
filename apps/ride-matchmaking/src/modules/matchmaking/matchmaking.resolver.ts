@@ -221,6 +221,19 @@ export class MatchmakingResolver {
   }
 
   @Mutation(() => BasicResult, {
+    name: 'cancelInstantRide',
+    description: 'Passenger cancels an instant ride request before pickup. If driver already accepted, notifies driver via Ably with cancelled=true payload and deletes the ride.',
+  })
+  async cancelInstantRide(
+    @Args('rideId') rideId: string,
+    @Args('passengerId') passengerId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(`GraphQL: Passenger ${passengerId} cancelling instant ride ${rideId}`);
+    const result = await this.matchmakingService.cancelInstantRide(rideId, passengerId);
+    return result;
+  }
+
+  @Mutation(() => BasicResult, {
     name: 'acknowledgeAndFinishRide',
     description: 'Acknowledge and finish ride: sets isAcknowledgeByDriver to true, updates status to COMPLETED, sends notification to passenger, publishes to Ably channel and releases it',
   })

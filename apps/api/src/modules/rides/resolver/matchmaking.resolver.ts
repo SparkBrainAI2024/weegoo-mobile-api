@@ -1,11 +1,12 @@
 import { Resolver, Mutation, Args, Query, Int } from '@nestjs/graphql';
-import { Logger, UseGuards, BadRequestException } from '@nestjs/common';
-import { AuthGuard } from '@libs/guards';
+import { Logger, UseGuards, BadRequestException, SetMetadata } from '@nestjs/common';
+import { AuthGuard, RoleGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, User, TriggerMatchmakingResultResponse, VehicleEstimateGraphQL, RideLocationInput } from '@libs/data-access';
+import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, User, TriggerMatchmakingResultResponse, VehicleEstimateGraphQL, RideLocationInput, BasicResponse, roles } from '@libs/data-access';
 import { MatchmakingIntegrationService } from '../matchmaking-integration.service';
 @Resolver()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard,RoleGuard)
+@SetMetadata('roles', [roles.USER])
 export class MatchmakingResolver {
   private readonly logger = new Logger(MatchmakingResolver.name);
 
@@ -59,6 +60,25 @@ export class MatchmakingResolver {
   /**
    * Get list of vehicle estimates (Car, Motorbike, Scooter) for a given route.
    */
+  /**
+   * Cancel an instant ride request before pickup.
+   * If driver already accepted, notifies driver via Ably with cancelled=true payload,
+   * deletes the ride, and stops matchmaking.
+   */
+  @Mutation(() => BasicResponse, {
+    name: 'cancelInstantRide',
+    description: 'Cancel an instant ride request. If driver already accepted, notifies driver with cancelled=true payload and deletes the ride.',
+  })
+  async cancelInstantRide(
+    @CurrentUser() user: User,
+
+  ): Promise<BasicResponse> {
+    this.logger.log(`GraphQL: cancelInstantRide called by user ${user._id}`);
+    return this.matchmakingIntegration.cancelInstantRide(
+    user._id.toString(),
+    );
+  }
+
   @Query(() => [VehicleEstimateGraphQL], {
     name: 'getVehicleEstimates',
     description: 'Calculate estimates for CAR, MOTORBIKE, and SCOOTER between pickup and dropoff',
