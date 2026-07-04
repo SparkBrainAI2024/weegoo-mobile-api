@@ -257,7 +257,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }).populate(populateOptions).limit(3)
 
     const ongoingResult = await this.model.find({
-      rideStatus: { $in: [RideStatus.ONGOING,RideStatus.PICKUP,RideStatus.CONFIRMED] },
+      rideStatus: { $in: [RideStatus.ONGOING,RideStatus.PICKUP] },
       ...filter
     }).populate(populateOptions).sort({createdAt: -1}).limit(1)
 
