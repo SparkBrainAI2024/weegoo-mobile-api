@@ -118,3 +118,5 @@ export const userDetailModel = {
   name: UserDetails.name,
   schema: UserDetailsSchema,
 };
+
+UserDetailsSchema.index({ userId: 1 });

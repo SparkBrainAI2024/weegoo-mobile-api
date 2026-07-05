@@ -1,11 +1,14 @@
 import { toMongoId } from "@libs/common";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import {
+  IPaginatedResult,
   RidesRepository,
   RideStatus,
   Transaction,
   TransactionRepository,
 } from "@libs/data-access";
+import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
+import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
@@ -96,5 +99,33 @@ export class DriverService {
       joinedDate: userDoc.createdAt.toDateString(),
       ...driverEnrichedWithRideDetails,
     };
+  }
+
+  async listDrivers(
+    input: DriverListInput,
+  ): Promise<IPaginatedResult<DriverListItem>> {
+    const { page, limit, search, status } = input;
+
+    const result = await this.userRepository.getDriverList(
+      { page, limit },
+      status,
+      search,
+    );
+
+    const data: DriverListItem[] = result.data.map((row: any) => ({
+      id: row.id?.toString(),
+      fullName: row.fullName || "Driver",
+      phone: row.phone || "",
+      status: row.status,
+      profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
+        this.s3.getPublicUrl(key),
+      ),
+      totalRides: row.totalRides,
+      totalEarnings: row.totalEarnings,
+      rating: row.rating,
+      joinedDate: row.createdAt ? new Date(row.createdAt).toDateString() : null,
+    }));
+
+    return { data, pagination: result.pagination };
   }
 }
