@@ -16,13 +16,28 @@ export class Driver {
   rating: number;
 
   @Field({ nullable: true })
+  email?: string;
+
+  @Field({ nullable: true })
+  address?: string;
+
+  @Field({ nullable: true })
+  suspended?: boolean;
+
+  @Field({ nullable: true })
+  geoLocation?: string;
+
+  @Field({ nullable: true })
   phone?: string;
 
   @Field(() => String, { nullable: true })
   locationChannelId?: string;
 
   @Field(() => String, { nullable: true })
-  geoLocation?: string;
+  dateOfBirth?: string;
+
+  @Field(() => String)
+  joinedDate: String;
 
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];

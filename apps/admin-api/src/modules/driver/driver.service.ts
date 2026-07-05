@@ -1,5 +1,11 @@
 import { toMongoId } from "@libs/common";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
+import {
+  RidesRepository,
+  RideStatus,
+  Transaction,
+  TransactionRepository,
+} from "@libs/data-access";
 import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
@@ -13,8 +19,27 @@ export class DriverService {
     private readonly userRepository: UserRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly driverDocumentRepository: DriverDocumentRepository,
+    private readonly transactionRepository: TransactionRepository, // Replace with actual TransactionRepository type
+    private readonly ridesRepository: RidesRepository, // Replace with actual RidesRepository type
     private readonly s3: S3Service,
   ) {}
+
+  private async enrichDataDriverWithRideDetails(driverId: string) {
+    // Placeholder for enriching driver with ride details
+    //we need to query the rides collection to get the ride details for the driver and return it as part of the driver object
+    const totalRides = this.ridesRepository.count({
+      driverId: toMongoId(driverId),
+      rideStatus: RideStatus.COMPLETED,
+    });
+    const totalEarnings =
+      await this.transactionRepository.totalEarningsByDriverId(driverId);
+    // You can add more ride-related details as needed
+    // Implement logic to fetch and enrich driver with ride-related information if needed
+    return {
+      totalRides,
+      totalEarnings,
+    };
+  }
 
   async getDriverDetails(driverId: string): Promise<Driver> {
     const userDoc = await this.userRepository.findById(toMongoId(driverId));
@@ -37,6 +62,8 @@ export class DriverService {
     const documents =
       await this.driverDocumentRepository.getDriverDocuments(driverId);
 
+    const driverEnrichedWithRideDetails =
+      await this.enrichDataDriverWithRideDetails(driverId);
     return {
       id: driverId,
       fullName: details?.fullName || userDoc.fullName || "Driver",
@@ -45,8 +72,13 @@ export class DriverService {
       ),
       rating: details?.rating ?? 0,
       phone: userDoc.phone || "",
+      dateOfBirth: details?.dateOfBirth?.toISOString() || null,
+      email: userDoc.email || "",
+      suspended: userDoc.suspended || false,
+      address: details?.address || "",
       locationChannelId: details?.locationChannelId ?? null,
       documents: documents ?? [],
+      joinedDate: userDoc.createdAt.toDateString(),
     };
   }
 }

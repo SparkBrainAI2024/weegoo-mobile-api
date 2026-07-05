@@ -270,6 +270,35 @@ enum DocumentFileStatus {
   REUPLOAD_REQUESTED
 }
 
+type DriverDocument {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  type: DriverDocumentType!
+  files: [DocumentFile!]!
+  status: DriverDocumentBundleStatus!
+  reviewedBy: String
+  reviewedAt: DateTime
+  rejectionReason: String
+  submittedAt: DateTime
+}
+
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
+enum DriverDocumentBundleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NOT_SUBMITTED
+}
+
 type Favourites {
   _id: String!
   createdAt: DateTime
@@ -722,19 +751,6 @@ type DocumentStatus {
   status: DriverDocumentBundleStatus!
 }
 
-enum DriverDocumentType {
-  NATIONAL_ID
-  DRIVING_LICENSE
-  BLUEBOOK
-}
-
-enum DriverDocumentBundleStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  NOT_SUBMITTED
-}
-
 type VerificationInfo {
   verificationRequired: Boolean!
   documentStatuses: [DocumentStatus!]!
@@ -914,6 +930,33 @@ type PromocodeCreateResponse {
   promocode: PromoCode!
 }
 
+type Driver {
+  id: String!
+  fullName: String
+  profileImage: String
+  rating: Float!
+  email: String
+  address: String
+  suspended: Boolean
+  geoLocation: String
+  phone: String
+  locationChannelId: String
+  dateOfBirth: String
+  joinedDate: String!
+  documents: [DriverDocument!]
+}
+
+type DriverDocumentConfirmUploadResponse {
+  message: String!
+  success: Boolean!
+  driverDocument: DriverDocument!
+}
+
+type DocumentViewUrlResponse {
+  url: String!
+  expiresInSeconds: Int!
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -922,6 +965,9 @@ type Query {
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
+  getDriver(driverId: String!): Driver!
+  myDriverDocuments: [DriverDocument!]!
+  driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
 }
 
 input PaginationInputOnly {
@@ -971,6 +1017,8 @@ type Mutation {
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
+  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
+  submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
 }
 
 input AdminSignUpInput {
@@ -1090,4 +1138,14 @@ input UpdatePromoCodeInput {
   """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
+}
+
+input UpsertDocumentFileInput {
+  documentType: DriverDocumentType!
+  side: DriverDocumentSide!
+  s3Key: String!
+}
+
+input SubmitDocumentForReviewInput {
+  documentType: DriverDocumentType!
 }
