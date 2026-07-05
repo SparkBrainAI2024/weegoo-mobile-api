@@ -960,6 +960,12 @@ type DocumentViewUrlResponse {
   expiresInSeconds: Int!
 }
 
+type VehicleRegistrationResponse {
+  message: String!
+  success: Boolean!
+  vehicle: Vehicle
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -971,6 +977,7 @@ type Query {
   getDriver(driverId: String!): Driver!
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
+  getVehicle(vehicleId: String!): Vehicle!
 }
 
 input PaginationInputOnly {
@@ -1022,6 +1029,8 @@ type Mutation {
   removePromoCode(id: ID!): Boolean!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
+  registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
+  editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
 }
 
 input AdminSignUpInput {
@@ -1151,4 +1160,57 @@ input UpsertDocumentFileInput {
 
 input SubmitDocumentForReviewInput {
   documentType: DriverDocumentType!
+}
+
+input RegisterVehicleInput {
+  """Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER."""
+  vehicleType: VehicleType!
+
+  """Vehicle model name, for example: Honda City."""
+  vehicleModel: String!
+
+  """Manufacturing year of the vehicle."""
+  year: Int!
+
+  """Official number plate of the vehicle (must be unique)."""
+  numberPlate: String!
+
+  """Vehicle color, for example: White, Red, Black."""
+  color: String!
+
+  """S3 key for the vehicle image."""
+  imageS3Key: String!
+
+  """Vehicle model Type type: EV or PETROL."""
+  vehicleModelType: VechileModelType
+  name: String!
+}
+
+enum VechileModelType {
+  EV
+  PETROL
+}
+
+input EditVehicleInput {
+  """S3 key for the new vehicle image."""
+  imageS3Key: String
+
+  """Vehicle type: CAR, MOTORBIKE, or SCOOTER."""
+  vehicleType: VehicleType
+
+  """Vehicle model name, for example: Honda City."""
+  vehicleModel: String
+
+  """Manufacturing year of the vehicle."""
+  year: Int
+
+  """Number plate (must be unique across other vehicles)."""
+  numberPlate: String
+
+  """Vehicle color, for example: White, Red, Black."""
+  color: String
+
+  """Vehicle model Type type: EV or PETROL."""
+  vehicleModelType: VechileModelType
+  name: String!
 }

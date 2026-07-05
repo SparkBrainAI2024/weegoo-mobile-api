@@ -5,6 +5,7 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { CommonDriverDocumentModule } from "@libs/services/driver-document/driver-document.module";
 import { TransactionPersistenceModule } from "@libs/services/payment/src/transaction/transaction-persistence.module";
 import { RidePersistentModule } from "@libs/services/rides/rides-persistent.module";
+import { CommonVehicleModule } from "@libs/services/vehicle/vehicle.module";
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { RidePersistentModule } from "@libs/services/rides/rides-persistent.modu
     CommonDriverDocumentModule,
     TransactionPersistenceModule,
     RidePersistentModule,
+    CommonVehicleModule,
   ],
   providers: [DriverResolver, DriverService],
   exports: [DriverResolver],

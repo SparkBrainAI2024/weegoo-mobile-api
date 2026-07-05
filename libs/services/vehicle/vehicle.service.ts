@@ -125,18 +125,14 @@ export class VehicleService {
     };
   }
 
-  async getVehiclesByDriver(driverId: string) {
+  async getVehicleByDriver(driverId: string) {
     try {
       const vehicles = await this.vehicleRepository.find({
         driverId: toMongoId(driverId),
       });
       console.log(vehicles, "vehicles");
 
-      return {
-        success: true,
-        message: Message("", "VEHICLE.LIST_FETCHED"),
-        vehicles: vehicles.length > 0 ? vehicles[0] : null,
-      };
+      return vehicles.length > 0 ? vehicles[0] : null;
     } catch (e) {
       ErrorException(
         e,

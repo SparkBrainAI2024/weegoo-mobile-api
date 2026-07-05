@@ -64,6 +64,6 @@ export class DriverVehicleFieldResolver {
 
   @ResolveField(() => Vehicle, { nullable: true })
   async vehicle(@Parent() driver: Driver) {
-    return this.vehicleService.getVehiclesByDriver(driver.id);
+    return this.vehicleService.getVehicleByDriver(driver.id);
   }
 }
