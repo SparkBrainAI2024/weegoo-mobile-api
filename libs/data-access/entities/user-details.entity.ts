@@ -3,12 +3,16 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
 import { SavedLocation } from "../common/saved-location";
-import { GenderEnum, ridePreference, ProvinceEnum, DriverOnlineStatus } from "../enums/user.enum";
+import {
+  GenderEnum,
+  ridePreference,
+  ProvinceEnum,
+  DriverOnlineStatus,
+} from "../enums/user.enum";
 import { BaseEntity } from "../base/base.entity";
 import { UserProfileImageEntity } from "../common/user-profile-image";
 
-export type UserDetailsDocument = UserDetails &
-  HydratedDocument<UserDetails>;
+export type UserDetailsDocument = UserDetails & HydratedDocument<UserDetails>;
 
 @ObjectType()
 @Schema({ timestamps: true })
@@ -27,7 +31,6 @@ export class UserDetails extends BaseEntity {
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
   address?: string;
-
 
   @Field(() => [UserProfileImageEntity])
   @Prop({ type: [UserProfileImageEntity], default: [] })
@@ -84,6 +87,10 @@ export class UserDetails extends BaseEntity {
   @Field({ nullable: true, defaultValue: 0 })
   @Prop({ required: false, type: Number, defaultValue: 0 })
   rating?: number;
+
+  @Field({ nullable: true })
+  @Prop({ required: false, type: String })
+  citizenshipNumber?: string;
 
   @Field({ nullable: true })
   @Prop({ required: false, type: String })
