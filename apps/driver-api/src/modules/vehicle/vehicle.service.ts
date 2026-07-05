@@ -18,14 +18,40 @@ export class VehicleService {
 
   async registerVehicle(driverId: string, input: RegisterVehicleInput, lang: string) {
     try {
-      const existing = await this.vehicleRepository.findByNumberPlate(input.numberPlate);
-      if (existing) {
+      // Check if number plate is already used by another vehicle
+      const existingPlate = await this.vehicleRepository.findByNumberPlate(input.numberPlate);
+      if (existingPlate) {
         ErrorException(null, "VEHICLE.NUMBER_PLATE_ALREADY_EXISTS", HttpStatus.BAD_REQUEST);
       }
+
+      // Check if driver already has a vehicle → update it instead of creating a new one
+      const existingVehicle = await this.vehicleRepository.findOne({
+        driverId: new Types.ObjectId(driverId),
+      });
+      if (existingVehicle) {
+        const images = input.imageS3Key
+          ? existingVehicle.images.map((img) =>
+              img.status === ImageStatus.ACTIVE
+                ? { ...img, status: ImageStatus.INACTIVE }
+                : img
+            ).concat([{ s3Key: input.imageS3Key, status: ImageStatus.ACTIVE, createdAt: new Date() }])
+          : existingVehicle.images;
+
+        const vehicle = await this.vehicleRepository.update(existingVehicle._id, {
+          ...input,
+          images,
+        });
+
+        return {
+          message: Message(lang, "VEHICLE.UPDATED"),
+          success: true,
+          vehicle,
+        };
+      }
+
       const images = input.imageS3Key
       ? [{ s3Key: input.imageS3Key, status: ImageStatus.ACTIVE, createdAt: new Date() }]
       : [];
-
 
       const vehicle = await this.vehicleRepository.create({
         ...input,
