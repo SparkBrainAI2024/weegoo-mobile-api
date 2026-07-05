@@ -46,6 +46,9 @@ export class Driver {
   @Field(() => Number, { nullable: true })
   totalEarnings?: number;
 
+  @Field(() => Number, { nullable: true })
+  amountDueToCompany?: number;
+
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];
 

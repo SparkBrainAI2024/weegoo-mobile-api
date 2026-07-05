@@ -25,7 +25,6 @@ export class DriverService {
   ) {}
 
   private async enrichDataDriverWithRideDetails(driverId: string) {
-    // Placeholder for enriching driver with ride details
     //we need to query the rides collection to get the ride details for the driver and return it as part of the driver object
     const totalRidesPromise = this.ridesRepository.count({
       driverId: toMongoId(driverId),
@@ -75,6 +74,7 @@ export class DriverService {
       profileImage: getActiveProfileImageUrl(details?.profileImages, (key) =>
         this.s3.getPublicUrl(key),
       ),
+      amountDueToCompany: details?.amountDueToCompany ?? 0,
       rating: details?.rating ?? 0,
       phone: userDoc.phone || "",
       dateOfBirth: details?.dateOfBirth?.toISOString() || null,

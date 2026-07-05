@@ -945,6 +945,7 @@ type Driver {
   joinedDate: String!
   totalRides: Float
   totalEarnings: Float
+  amountDueToCompany: Float
   documents: [DriverDocument!]
   vehicle: Vehicle
 }
