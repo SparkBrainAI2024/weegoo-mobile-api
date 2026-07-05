@@ -36,7 +36,42 @@ export class MatchmakingResolver {
   async matchDrivers(@Args('input') input: MatchDriversInput): Promise<MatchResultGraphQL> {
     this.logger.log(`GraphQL: INSTANT matchmaking triggered for ride: ${input.rideId}`);
     const result = await this.matchmakingService.matchDrivers({ rideId: input.rideId });
-    this.logger.log(`result new ${JSON.stringify(result)}`)
+    try {
+    this.logger.log(`result new ${JSON.stringify({
+      matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
+      driverId: result.driverId, driverName: result.driverName,
+      driverImage: result.driverImage || null, rating: result.rating || null,
+      estimatedFare: result.estimatedFare ? {
+        pickupCost: result.estimatedFare.pickupCost, distanceCost: result.estimatedFare.distanceCost,
+        durationCost: result.estimatedFare.durationCost, total: result.estimatedFare.total,
+      } : undefined,
+      attempts: result.attempts.map((a) => ({
+        attemptNumber: a.attemptNumber, radiusKm: a.radiusKm, waitTimeSeconds: a.waitTimeSeconds,
+        driversFound: a.driversFound, driversRequested: a.driversRequested, driverAccepted: a.driverAccepted,
+        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
+      })),
+      message: result.message,
+      ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
+      acceptedDetails: result.acceptedDetails ? {
+        rideId: result.acceptedDetails.rideId,
+        rideUUId: result.acceptedDetails.rideUUId,
+        driverId: result.acceptedDetails.driver.driverId,
+        driverName: result.acceptedDetails.driver.fullName,
+        driverImage: result.acceptedDetails.driver.profileImage || null,
+        phone: result.acceptedDetails.driver.phone,
+        rating: result.acceptedDetails.driver.rating,
+        vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
+        vehicleType: result.acceptedDetails.vehicle.vehicleType,
+        color: result.acceptedDetails.vehicle.color,
+        numberPlate: result.acceptedDetails.vehicle.numberPlate,
+        pickupLocation: { address: result.acceptedDetails.pickupLocation.address, coordinates: result.acceptedDetails.pickupLocation.coordinates, city: result.acceptedDetails.pickupLocation.city },
+        dropoffLocation: result.acceptedDetails.dropoffLocation ? { address: result.acceptedDetails.dropoffLocation.address, coordinates: result.acceptedDetails.dropoffLocation.coordinates, city: result.acceptedDetails.dropoffLocation.city } : undefined,
+        estimatedFare: result.acceptedDetails.estimatedFare,
+        estimatedTimeInMinutes: result.acceptedDetails.estimatedTimeInMinutes,
+        distanceInKm: result.acceptedDetails.distanceInKm,
+        acceptedAt: result.acceptedDetails.acceptedAt,
+      } : undefined,
+    })}`)
     return {
       matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
       driverId: result.driverId, driverName: result.driverName,
@@ -71,7 +106,10 @@ export class MatchmakingResolver {
         distanceInKm: result.acceptedDetails.distanceInKm,
         acceptedAt: result.acceptedDetails.acceptedAt,
       } : undefined,
-    };
+    };}catch (error: any) {
+      this.logger.error(`Error in matchDrivers resolver: ${error.message}`, error.stack);
+      throw new BadRequestException('An error occurred while processing the matchmaking request.');
+    }
   }
 
   @Mutation(() => ScheduledMatchResultGraphQL, {
@@ -218,6 +256,19 @@ export class MatchmakingResolver {
       throw new Error(result.message || 'Failed to complete ride');
     }
     return result.data;
+  }
+
+  @Mutation(() => BasicResult, {
+    name: 'cancelInstantRide',
+    description: 'Passenger cancels an instant ride request before pickup. If driver already accepted, notifies driver via Ably with cancelled=true payload and deletes the ride.',
+  })
+  async cancelInstantRide(
+    @Args('rideId') rideId: string,
+    @Args('passengerId') passengerId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(`GraphQL: Passenger ${passengerId} cancelling instant ride ${rideId}`);
+    const result = await this.matchmakingService.cancelInstantRide(rideId, passengerId);
+    return result;
   }
 
   @Mutation(() => BasicResult, {
