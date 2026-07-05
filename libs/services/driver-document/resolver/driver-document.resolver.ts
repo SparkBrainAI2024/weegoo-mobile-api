@@ -16,16 +16,10 @@ import {
   DriverDocumentType,
 } from "@libs/data-access/enums/driver-document.enum";
 import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
-import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocument } from "@libs/data-access/entities/driver-document.entity";
 import { SubmitDocumentForReviewInput } from "@libs/data-access/dtos/input/submit-for-review.input";
 import { DriverDocumentService } from "../driver-document.service";
-
-@ObjectType()
-class DocumentViewUrlResponse {
-  @Field() url: string;
-  @Field(() => Int) expiresInSeconds: number;
-}
+import { DocumentViewUrlResponse } from "@libs/data-access/dtos/response/driver-document.response";
 
 @Resolver(() => DriverDocument) // fixed: points to the entity, not itself
 @UseGuards(AuthGuard)

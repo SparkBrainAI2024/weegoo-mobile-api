@@ -10,9 +10,19 @@ import {
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { CommonDriverDocumentModule } from "@libs/services/driver-document/driver-document.module";
+import { User, UserSchema } from "@libs/data-access";
+import { UserAuthModule } from "@libs/services/auth/auth.module";
 
 @Module({
-  imports: [CommonDriverDocumentModule],
+  imports: [
+    UserAuthModule,
+    UserPersistenceModule,
+    MongooseModule.forFeature([
+      { name: DriverDocument.name, schema: DriverDocumentSchema },
+      { name: User.name, schema: UserSchema },
+    ]),
+    CommonDriverDocumentModule,
+  ],
   providers: [DriverDocumentResolver, DriverDocumentRepository, EnvService],
   exports: [DriverDocumentRepository],
 })

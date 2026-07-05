@@ -18,14 +18,9 @@ import {
   DriverDocumentType,
 } from "@libs/data-access/enums/driver-document.enum";
 import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
-import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
+import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
-
-@ObjectType()
-class DocumentViewUrlResponse {
-  @Field() url: string;
-  @Field(() => Int) expiresInSeconds: number;
-}
+import { DocumentViewUrlResponse } from "@libs/data-access/dtos/response/driver-document.response";
 
 @Resolver(() => DriverDocument) // fixed: points to the entity, not itself
 @UseGuards(AuthGuard)
@@ -70,14 +65,3 @@ export class DriverDocumentResolver {
     });
   }
 } // <-- class properly closed here now
-
-@Resolver(() => Driver) // <-- added a new resolver for Driver to resolve documents field
-export class DriverDocumentFieldResolver {
-  // <-- renamed, no more duplicate
-  constructor(private readonly driverDocumentService: DriverDocumentService) {}
-
-  @ResolveField(() => [DriverDocument])
-  async documents(@Parent() driver: Driver) {
-    return this.driverDocumentService.getDriverDocuments(driver.id);
-  }
-}

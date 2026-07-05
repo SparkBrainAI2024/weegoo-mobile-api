@@ -15,7 +15,7 @@ import { EditVehicleInput } from "@libs/data-access/dtos/input/update-vehicle.in
 import { VehicleRegistrationResponse } from "@libs/data-access/dtos/response/vehicle-registration.response";
 import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 import { BasicResponse } from "@libs/data-access";
-import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
+import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 
 @Resolver()
 @UseGuards(LangGuard)
@@ -58,12 +58,12 @@ export class VehicleResolver {
   }
 }
 
-@Resolver(() => Driver)
+@Resolver(() => DriverWDocuments)
 export class DriverVehicleFieldResolver {
   constructor(private readonly vehicleService: VehicleService) {}
 
   @ResolveField(() => Vehicle, { nullable: true })
-  async vehicle(@Parent() driver: Driver) {
+  async vehicle(@Parent() driver: DriverWDocuments) {
     return this.vehicleService.getVehicleByDriver(driver.id);
   }
 }

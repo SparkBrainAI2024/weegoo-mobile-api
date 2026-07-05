@@ -930,7 +930,7 @@ type PromocodeCreateResponse {
   promocode: PromoCode!
 }
 
-type Driver {
+type DriverWDocuments {
   id: String!
   fullName: String
   profileImage: String
@@ -960,6 +960,18 @@ type DriverDocumentConfirmUploadResponse {
   driverDocument: DriverDocument!
 }
 
+type DriverDocumentFileResponse {
+  side: DriverDocumentSide!
+  s3Key: String!
+  isActive: Boolean!
+  status: DocumentFileStatus!
+  verifiedBy: String
+  verifiedAt: DateTime
+  createdAt: DateTime!
+  success: Boolean!
+  message: String!
+}
+
 type DocumentViewUrlResponse {
   url: String!
   expiresInSeconds: Int!
@@ -979,7 +991,7 @@ type Query {
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
-  getDriver(driverId: String!): Driver!
+  getDriver(driverId: String!): DriverWDocuments!
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle(vehicleId: String!): Vehicle!

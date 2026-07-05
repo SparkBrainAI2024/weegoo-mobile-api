@@ -6,7 +6,7 @@ import {
   Transaction,
   TransactionRepository,
 } from "@libs/data-access";
-import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
+import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
@@ -55,7 +55,7 @@ export class DriverService {
     };
   }
 
-  async getDriverDetails(driverId: string): Promise<Driver> {
+  async getDriverDetails(driverId: string): Promise<DriverWDocuments> {
     const userDoc = await this.userRepository.findById(toMongoId(driverId));
     if (!userDoc) {
       throw new NotFoundException("Driver not found");

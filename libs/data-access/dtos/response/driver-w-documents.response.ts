@@ -3,7 +3,7 @@ import { DriverDocument } from "@libs/data-access/entities/driver-document.entit
 import { Field, ObjectType } from "@nestjs/graphql";
 
 @ObjectType()
-export class Driver {
+export class DriverWDocuments {
   @Field(() => String)
   id: string;
 
