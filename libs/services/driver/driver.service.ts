@@ -50,6 +50,8 @@ export class DriverService {
       totalEarnings: totalEarnings,
       lastTripAt: driverLastTrip.createdAt?.toISOString() || null,
       lastTripDuration: driverLastTrip.actualCompletedDurationInMinutes || null,
+      lastTripStartTime: driverLastTrip?.rideStartedAt || "",
+      lastTripEndTime: driverLastTrip?.rideCompletedAt || "",
     };
   }
 
