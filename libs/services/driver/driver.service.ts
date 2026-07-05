@@ -34,14 +34,22 @@ export class DriverService {
       this.transactionRepository.totalEarningsByDriverId(driverId);
     // You can add more ride-related details as needed
     // Implement logic to fetch and enrich driver with ride-related information if needed
-    const [totalRides, totalEarnings] = await Promise.all([
+    const driverLastTripPromise = this.ridesRepository.findOne(
+      { driverId: toMongoId(driverId) },
+      null,
+      { sort: { createdAt: -1 } },
+    );
+    const [totalRides, totalEarnings, driverLastTrip] = await Promise.all([
       totalRidesPromise,
       totalEarningsPromise,
+      driverLastTripPromise,
     ]);
 
     return {
       totalRides: totalRides,
       totalEarnings: totalEarnings,
+      lastTripAt: driverLastTrip.createdAt?.toISOString() || null,
+      lastTripDuration: driverLastTrip.actualCompletedDurationInMinutes || null,
     };
   }
 
