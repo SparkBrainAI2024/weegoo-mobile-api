@@ -138,13 +138,14 @@ export class MatchmakingIntegrationService {
     pickupLocation: RideLocationInput,
     dropoffLocation: RideLocationInput,
     vehicleType: string,
+    noOfPassengers: number = 1,
   ): Promise<TriggerMatchmakingResult> {
     const activeRide = await this.ridesModel.findOne({
       passengerId: new Types.ObjectId(userId),
       rideType: RideTypes.INSTANT,
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
       deleted: false,
-    }).exec();
+      }).exec();
 
     if (activeRide) {
       this.logger.warn(`Passenger ${userId} already has an active ride ${activeRide.rideUUId}. Rejecting new instant ride request.`);
@@ -164,7 +165,7 @@ export class MatchmakingIntegrationService {
 
     const rideData = this.buildRideDocument(
       RideTypes.INSTANT, userId, pickupLocation, dropoffLocation,
-      vehicle?._id || new Types.ObjectId(), new Date(), 1,
+      vehicle?._id || new Types.ObjectId(), new Date(), noOfPassengers,
     );
 
     let ride: RidesDocument;

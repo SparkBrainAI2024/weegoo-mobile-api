@@ -32,6 +32,7 @@ export class MatchmakingResolver {
         input.pickupLocation,
         input.dropoffLocation,
         input.vehicleType,
+        input.noOfPassengers || 1,
       );
       this.logger.log(`GraphQL: requestInstantRide response ${user._id}: ${JSON.stringify(response)}`);
       
