@@ -98,6 +98,8 @@ type PaymentDetails {
   discountAmount: Float!
   promoCodeId: String
   driverCommission: Float!
+  paymentStatus: PaymentStatusEnum
+  paymentFailedReason: String
 }
 
 """Payment method for the ride"""
@@ -107,6 +109,18 @@ enum PaymentMethodEnum {
 
   """Payment via internal wallet"""
   WALLET
+}
+
+"""Status of the payment transaction"""
+enum PaymentStatusEnum {
+  """Payment has been completed"""
+  PAID
+
+  """Payment is pending"""
+  PENDING
+
+  """Payment has failed"""
+  FAILED
 }
 
 type VehicleImage {
@@ -188,12 +202,16 @@ type Rides {
   distanceInKm: Float
   fare: Fare
   paymentDetails: PaymentDetails
+  isAcknowledgeByDriver: Boolean
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   distanceToReachPassenger: Float
   estimatedTimeToReachPassenger: Float
   noOfPassengers: Float
+  driverArrivingNotified: Boolean
+  driverArrivedAtDestinationNotified: Boolean
   ablyChannelId: String
+  actualCompletedDurationInMinutes: Float
   vehicle: Vehicle
   cancellationDetail: CancellationDetail
   passenger: RideUserSnapshot
@@ -297,6 +315,7 @@ enum NotificationType {
   RIDE_ACCEPTED
   RIDE_START
   RIDE_END
+  RIDE_DETAILS
   REQUEST_TO_PAY
   DRIVER_ON_THE_WAY
   PAYMENT_CONFIRM
@@ -685,12 +704,16 @@ type RideWithoutRelations {
   distanceInKm: Float
   fare: Fare
   paymentDetails: PaymentDetails
+  isAcknowledgeByDriver: Boolean
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   distanceToReachPassenger: Float
   estimatedTimeToReachPassenger: Float
   noOfPassengers: Float
+  driverArrivingNotified: Boolean
+  driverArrivedAtDestinationNotified: Boolean
   ablyChannelId: String
+  actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
 }
 
@@ -796,6 +819,27 @@ type DriverRideDetails {
   passenger: PassengerInfo
   vehicle: VehicleInfo
   acceptedAt: String
+}
+
+type CompleteRideFareBreakdown {
+  baseFare: Float!
+  distanceCharge: Float!
+  discount: Float!
+  totalFare: Float!
+}
+
+type PaymentFareBreakdown {
+  baseFare: Float!
+  distanceCharge: Float!
+  discount: Float!
+  totalFare: Float!
+}
+
+type PaymentTransactionDetail {
+  transactionId: String!
+  userId: String!
+  type: String!
+  amount: Float!
 }
 
 type AdminUserResponse {
@@ -956,11 +1000,14 @@ input AdminResetPasswordInput {
 
 input CreatePageInput {
   """Title of the page; slug is auto-generated from this"""
-  title: String!
+  title: String
   type: PageType!
 
   """HTML or markdown content of the page"""
   content: String!
+
+  """Optional:status of the page, by default if not sent will be Draft"""
+  status: PageStatus!
 }
 
 input UpdatePageInput {
@@ -968,6 +1015,9 @@ input UpdatePageInput {
   title: String
   type: PageType
   content: String
+
+  """Optional:status of the page, by default if not sent will be Draft"""
+  status: PageStatus
 }
 
 input CreatePromoCodeInput {

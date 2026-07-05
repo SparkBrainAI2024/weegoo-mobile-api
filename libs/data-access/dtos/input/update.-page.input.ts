@@ -1,10 +1,13 @@
-import { Field, InputType } from '@nestjs/graphql';
-import { IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
-import { PageType } from '@libs/data-access/enums/page.enum';
+import { Field, InputType } from "@nestjs/graphql";
+import { IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import { PageStatus, PageType } from "@libs/data-access/enums/page.enum";
 
 @InputType()
 export class UpdatePageInput {
-  @Field({ nullable: true, description: 'Title of the page; slug is regenerated if changed' })
+  @Field({
+    nullable: true,
+    description: "Title of the page; slug is regenerated if changed",
+  })
   @IsOptional()
   @IsString()
   title?: string;
@@ -19,4 +22,13 @@ export class UpdatePageInput {
   @IsString()
   @MinLength(10)
   content?: string;
+
+  @Field({
+    description:
+      "Optional:status of the page, by default if not sent will be Draft",
+    nullable: true,
+  })
+  @IsOptional()
+  @IsEnum(PageStatus)
+  status?: PageStatus;
 }
