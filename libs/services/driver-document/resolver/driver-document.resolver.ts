@@ -10,16 +10,15 @@ import { UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
 import { Field, Int, ObjectType } from "@nestjs/graphql";
-import { DriverDocument } from "../../../../../../libs/data-access/entities/driver-document.entity";
-import { SubmitDocumentForReviewInput } from "../../../../../../libs/data-access/dtos/input/submit-for-review.input";
 import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-document-file.input";
 import {
   DriverDocumentSide,
   DriverDocumentType,
 } from "@libs/data-access/enums/driver-document.enum";
 import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
-import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
-import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
+import { DriverDocument } from "@libs/data-access/entities/driver-document.entity";
+import { SubmitDocumentForReviewInput } from "@libs/data-access/dtos/input/submit-for-review.input";
+import { DriverDocumentService } from "../driver-document.service";
 import { DocumentViewUrlResponse } from "@libs/data-access/dtos/response/driver-document.response";
 
 @Resolver(() => DriverDocument) // fixed: points to the entity, not itself
@@ -64,4 +63,4 @@ export class DriverDocumentResolver {
       side,
     });
   }
-} // <-- class properly closed here now
+}

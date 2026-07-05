@@ -1,12 +1,15 @@
-import { PaymentMethodEnum, Transaction } from '@libs/data-access';
-import { TransactionDirection, TransactionStatus, TransactionType } from '@libs/data-access/enums/transaction.enum';
-import { TransactionRepository } from '@libs/data-access/repositories/transaction.repository';
-import { WalletService } from '../wallet/wallet.service';
-import { IPagination } from '@libs/data-access/interfaces/pagination.interface';
-import { Injectable } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection, Types } from 'mongoose';
-
+import { PaymentMethodEnum, Transaction } from "@libs/data-access";
+import {
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+} from "@libs/data-access/enums/transaction.enum";
+import { TransactionRepository } from "@libs/data-access/repositories/transaction.repository";
+import { WalletService } from "../wallet/wallet.service";
+import { IPagination } from "@libs/data-access/interfaces/pagination.interface";
+import { Injectable } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mongoose";
+import { Connection, Types } from "mongoose";
 
 export interface RideConfirmedInput {
   tripId: string;
@@ -32,9 +35,13 @@ export class TransactionService {
   // called on trip confirmed — inserts 3 rows and moves wallet balances if WALLET payment
   async createRideTransactions(input: RideConfirmedInput): Promise<void> {
     const {
-      tripId, 
-      riderId, driverId, adminId,
-      totalFare, commission, paymentMethod,
+      tripId,
+      riderId,
+      driverId,
+      adminId,
+      totalFare,
+      commission,
+      paymentMethod,
     } = input;
 
     const driverCredit = totalFare - commission;
@@ -43,33 +50,41 @@ export class TransactionService {
     try {
       await session.withTransaction(async () => {
         // insert all 3 rows as completed directly — no pending state
-        await this.transactionRepo.createMany([
-          {
-            tripId, riderId, driverId,
-            direction: TransactionDirection.DEBIT,
-            type: TransactionType.RIDE_PAYMENT,
-            amount: totalFare,
-            paymentMethod,
-            status: TransactionStatus.COMPLETED
-            
-          },
-          {
-            tripId, riderId, driverId,
-            direction: TransactionDirection.CREDIT,
-            type: TransactionType.RIDE_PAYMENT,
-            amount: driverCredit,
-            paymentMethod,
-            status: TransactionStatus.COMPLETED
-          },
-          {
-            tripId, driverId, adminId,
-            direction: TransactionDirection.CREDIT,
-            type: TransactionType.COMMISSION,
-            amount: commission,
-            paymentMethod,
-            status: TransactionStatus.COMPLETED
-          },
-        ], session);
+        await this.transactionRepo.createMany(
+          [
+            {
+              tripId,
+              riderId,
+              driverId,
+              direction: TransactionDirection.DEBIT,
+              type: TransactionType.RIDE_PAYMENT,
+              amount: totalFare,
+              paymentMethod,
+              status: TransactionStatus.COMPLETED,
+            },
+            {
+              tripId,
+              riderId,
+              driverId,
+              direction: TransactionDirection.CREDIT,
+              type: TransactionType.RIDE_PAYMENT,
+              amount: driverCredit,
+              paymentMethod,
+              status: TransactionStatus.COMPLETED,
+            },
+            {
+              tripId,
+              driverId,
+              adminId,
+              direction: TransactionDirection.CREDIT,
+              type: TransactionType.COMMISSION,
+              amount: commission,
+              paymentMethod,
+              status: TransactionStatus.COMPLETED,
+            },
+          ],
+          session,
+        );
 
         // only move actual balances for wallet payment
         if (paymentMethod === PaymentMethodEnum.WALLET) {
@@ -92,7 +107,11 @@ export class TransactionService {
     userId: string,
     page: number,
     limit: number,
-  ): Promise<{ data: Transaction[]; pagination: IPagination; walletAmount: number }> {
+  ): Promise<{
+    data: Transaction[];
+    pagination: IPagination;
+    walletAmount: number;
+  }> {
     const { data, total } = await this.transactionRepo.findByUserIdPaginatedV2(
       userId,
       page,
@@ -125,10 +144,8 @@ export class TransactionService {
 
     return (
       result[0] || {
-      
         netEarning: 0,
       }
     );
   }
-
 }

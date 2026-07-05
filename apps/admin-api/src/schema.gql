@@ -98,6 +98,8 @@ type PaymentDetails {
   discountAmount: Float!
   promoCodeId: String
   driverCommission: Float!
+  paymentStatus: PaymentStatusEnum
+  paymentFailedReason: String
 }
 
 """Payment method for the ride"""
@@ -107,6 +109,18 @@ enum PaymentMethodEnum {
 
   """Payment via internal wallet"""
   WALLET
+}
+
+"""Status of the payment transaction"""
+enum PaymentStatusEnum {
+  """Payment has been completed"""
+  PAID
+
+  """Payment is pending"""
+  PENDING
+
+  """Payment has failed"""
+  FAILED
 }
 
 type VehicleImage {
@@ -188,12 +202,16 @@ type Rides {
   distanceInKm: Float
   fare: Fare
   paymentDetails: PaymentDetails
+  isAcknowledgeByDriver: Boolean
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   distanceToReachPassenger: Float
   estimatedTimeToReachPassenger: Float
   noOfPassengers: Float
+  driverArrivingNotified: Boolean
+  driverArrivedAtDestinationNotified: Boolean
   ablyChannelId: String
+  actualCompletedDurationInMinutes: Float
   vehicle: Vehicle
   cancellationDetail: CancellationDetail
   passenger: RideUserSnapshot
@@ -252,6 +270,35 @@ enum DocumentFileStatus {
   REUPLOAD_REQUESTED
 }
 
+type DriverDocument {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  driverId: String!
+  type: DriverDocumentType!
+  files: [DocumentFile!]!
+  status: DriverDocumentBundleStatus!
+  reviewedBy: String
+  reviewedAt: DateTime
+  rejectionReason: String
+  submittedAt: DateTime
+}
+
+enum DriverDocumentType {
+  NATIONAL_ID
+  DRIVING_LICENSE
+  BLUEBOOK
+}
+
+enum DriverDocumentBundleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NOT_SUBMITTED
+}
+
 type Favourites {
   _id: String!
   createdAt: DateTime
@@ -297,6 +344,7 @@ enum NotificationType {
   RIDE_ACCEPTED
   RIDE_START
   RIDE_END
+  RIDE_DETAILS
   REQUEST_TO_PAY
   DRIVER_ON_THE_WAY
   PAYMENT_CONFIRM
@@ -685,31 +733,22 @@ type RideWithoutRelations {
   distanceInKm: Float
   fare: Fare
   paymentDetails: PaymentDetails
+  isAcknowledgeByDriver: Boolean
   timeToReachPassengerInMinutes: Float
   timeToReachPassenger: DateTime
   distanceToReachPassenger: Float
   estimatedTimeToReachPassenger: Float
   noOfPassengers: Float
+  driverArrivingNotified: Boolean
+  driverArrivedAtDestinationNotified: Boolean
   ablyChannelId: String
+  actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
 }
 
 type DocumentStatus {
   type: DriverDocumentType!
   status: DriverDocumentBundleStatus!
-}
-
-enum DriverDocumentType {
-  NATIONAL_ID
-  DRIVING_LICENSE
-  BLUEBOOK
-}
-
-enum DriverDocumentBundleStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  NOT_SUBMITTED
 }
 
 type VerificationInfo {
@@ -798,6 +837,27 @@ type DriverRideDetails {
   acceptedAt: String
 }
 
+type CompleteRideFareBreakdown {
+  baseFare: Float!
+  distanceCharge: Float!
+  discount: Float!
+  totalFare: Float!
+}
+
+type PaymentFareBreakdown {
+  baseFare: Float!
+  distanceCharge: Float!
+  discount: Float!
+  totalFare: Float!
+}
+
+type PaymentTransactionDetail {
+  transactionId: String!
+  userId: String!
+  type: String!
+  amount: Float!
+}
+
 type AdminUserResponse {
   _id: String!
   fullName: String!
@@ -870,6 +930,59 @@ type PromocodeCreateResponse {
   promocode: PromoCode!
 }
 
+type DriverWDocuments {
+  id: String!
+  fullName: String
+  profileImage: String
+  rating: Float!
+  email: String
+  address: String
+  suspended: Boolean
+  geoLocation: String
+  phone: String
+  locationChannelId: String
+  dateOfBirth: String
+  joinedDate: String!
+  totalRides: Float
+  totalEarnings: Float
+  amountDueToCompany: Float
+  lastTripAt: String
+  lastTripStartTime: String!
+  lastTripEndTime: String!
+  lastTripDuration: Float!
+  documents: [DriverDocument!]
+  vehicle: Vehicle
+}
+
+type DriverDocumentConfirmUploadResponse {
+  message: String!
+  success: Boolean!
+  driverDocument: DriverDocument!
+}
+
+type DriverDocumentFileResponse {
+  side: DriverDocumentSide!
+  s3Key: String!
+  isActive: Boolean!
+  status: DocumentFileStatus!
+  verifiedBy: String
+  verifiedAt: DateTime
+  createdAt: DateTime!
+  success: Boolean!
+  message: String!
+}
+
+type DocumentViewUrlResponse {
+  url: String!
+  expiresInSeconds: Int!
+}
+
+type VehicleRegistrationResponse {
+  message: String!
+  success: Boolean!
+  vehicle: Vehicle
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -878,6 +991,10 @@ type Query {
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
+  getDriver(driverId: String!): DriverWDocuments!
+  myDriverDocuments: [DriverDocument!]!
+  driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
+  getVehicle(vehicleId: String!): Vehicle!
 }
 
 input PaginationInputOnly {
@@ -927,6 +1044,10 @@ type Mutation {
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
+  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
+  submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
+  registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
+  editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
 }
 
 input AdminSignUpInput {
@@ -956,11 +1077,14 @@ input AdminResetPasswordInput {
 
 input CreatePageInput {
   """Title of the page; slug is auto-generated from this"""
-  title: String!
+  title: String
   type: PageType!
 
   """HTML or markdown content of the page"""
   content: String!
+
+  """Optional:status of the page, by default if not sent will be Draft"""
+  status: PageStatus!
 }
 
 input UpdatePageInput {
@@ -968,6 +1092,9 @@ input UpdatePageInput {
   title: String
   type: PageType
   content: String
+
+  """Optional:status of the page, by default if not sent will be Draft"""
+  status: PageStatus
 }
 
 input CreatePromoCodeInput {
@@ -1040,4 +1167,67 @@ input UpdatePromoCodeInput {
   """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
+}
+
+input UpsertDocumentFileInput {
+  documentType: DriverDocumentType!
+  side: DriverDocumentSide!
+  s3Key: String!
+}
+
+input SubmitDocumentForReviewInput {
+  documentType: DriverDocumentType!
+}
+
+input RegisterVehicleInput {
+  """Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER."""
+  vehicleType: VehicleType!
+
+  """Vehicle model name, for example: Honda City."""
+  vehicleModel: String!
+
+  """Manufacturing year of the vehicle."""
+  year: Int!
+
+  """Official number plate of the vehicle (must be unique)."""
+  numberPlate: String!
+
+  """Vehicle color, for example: White, Red, Black."""
+  color: String!
+
+  """S3 key for the vehicle image."""
+  imageS3Key: String!
+
+  """Vehicle model Type type: EV or PETROL."""
+  vehicleModelType: VechileModelType
+  name: String!
+}
+
+enum VechileModelType {
+  EV
+  PETROL
+}
+
+input EditVehicleInput {
+  """S3 key for the new vehicle image."""
+  imageS3Key: String
+
+  """Vehicle type: CAR, MOTORBIKE, or SCOOTER."""
+  vehicleType: VehicleType
+
+  """Vehicle model name, for example: Honda City."""
+  vehicleModel: String
+
+  """Manufacturing year of the vehicle."""
+  year: Int
+
+  """Number plate (must be unique across other vehicles)."""
+  numberPlate: String
+
+  """Vehicle color, for example: White, Red, Black."""
+  color: String
+
+  """Vehicle model Type type: EV or PETROL."""
+  vehicleModelType: VechileModelType
+  name: String!
 }

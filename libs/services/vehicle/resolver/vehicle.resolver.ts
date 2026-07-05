@@ -1,4 +1,11 @@
-import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { AuthGuard, LangGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
@@ -8,8 +15,7 @@ import { EditVehicleInput } from "@libs/data-access/dtos/input/update-vehicle.in
 import { VehicleRegistrationResponse } from "@libs/data-access/dtos/response/vehicle-registration.response";
 import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 import { BasicResponse } from "@libs/data-access";
-
-
+import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 
 @Resolver()
 @UseGuards(LangGuard)
@@ -26,15 +32,15 @@ export class VehicleResolver {
     return this.vehicleService.registerVehicle(user._id, input, lang);
   }
 
-@Mutation(() => VehicleRegistrationResponse)
-async editVehicle(
-  @CurrentUser() user: { _id: string },
-  @CurrentLang() lang: string,
-  @Args("vehicleId") vehicleId: string,      // ← separate 
-  @Args("input") input: EditVehicleInput,
-) {
-  return this.vehicleService.editVehicle(user._id, vehicleId, input, lang);
-}
+  @Mutation(() => VehicleRegistrationResponse)
+  async editVehicle(
+    @CurrentUser() user: { _id: string },
+    @CurrentLang() lang: string,
+    @Args("vehicleId") vehicleId: string, // ← separate
+    @Args("input") input: EditVehicleInput,
+  ) {
+    return this.vehicleService.editVehicle(user._id, vehicleId, input, lang);
+  }
   // @Query(() => GetMyVehiclesResponse)
   // async myVehicles(
   //   @CurrentUser() user: { _id: string },@CurrentLang() lang: string,
@@ -43,11 +49,21 @@ async editVehicle(
   // }
 
   @Query(() => Vehicle)
-async getVehicle(
-  @CurrentLang() lang: string,
-  @CurrentUser() user: { _id: string },
-  @Args("vehicleId") vehicleId: string,
-): Promise<BasicResponse> {
-  return this.vehicleService.getVehicle(vehicleId, user._id, lang);
+  async getVehicle(
+    @CurrentLang() lang: string,
+    @CurrentUser() user: { _id: string },
+    @Args("vehicleId") vehicleId: string,
+  ): Promise<BasicResponse> {
+    return this.vehicleService.getVehicle(vehicleId, user._id, lang);
+  }
 }
+
+@Resolver(() => DriverWDocuments)
+export class DriverVehicleFieldResolver {
+  constructor(private readonly vehicleService: VehicleService) {}
+
+  @ResolveField(() => Vehicle, { nullable: true })
+  async vehicle(@Parent() driver: DriverWDocuments) {
+    return this.vehicleService.getVehicleByDriver(driver.id);
+  }
 }

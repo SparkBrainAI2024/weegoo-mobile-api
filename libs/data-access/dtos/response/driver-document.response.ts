@@ -1,5 +1,8 @@
-import {  DriverDocumentBundleStatus, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
-import { Field, ObjectType } from "@nestjs/graphql";
+import {
+  DriverDocumentBundleStatus,
+  DriverDocumentType,
+} from "@libs/data-access/enums/driver-document.enum";
+import { Field, Int, ObjectType } from "@nestjs/graphql";
 import { DriverDocumentFileResponse } from "./driver-document-file.response";
 
 @ObjectType()
@@ -15,4 +18,11 @@ export class DriverDocumentResponse {
 
   @Field(() => DriverDocumentBundleStatus, { nullable: true })
   status?: DriverDocumentBundleStatus;
+}
+
+@ObjectType()
+export class DocumentViewUrlResponse {
+  @Field() url: string;
+  @Field(() => Int)
+  expiresInSeconds: number;
 }
