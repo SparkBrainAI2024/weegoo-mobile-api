@@ -70,15 +70,17 @@ export class RidesService {
           onlineHoursToday: null,
         },
         onlineStatus: null,
+        vehicleStatus: null,
       };
     }
 
     const userId = toMongoId(user._id.toString());
 
-    // Fetch Driver Data: Details (Rating, Online Status) and Documents
-    const [details, docs] = await Promise.all([
+    // Fetch Driver Data: Details (Rating, Online Status), Documents, and Vehicle
+    const [details, docs, vehicle] = await Promise.all([
       this.userDetailsRepository.findOne({ userId }),
       this.driverDocumentRepository.find({ driverId: userId }),
+      this.vehicleModel.findOne({ driverId: userId }).exec(),
     ]);
 
     // 1. Evaluate Document Upload Status
@@ -118,10 +120,14 @@ export class RidesService {
 
     // Enrich each ride with driver, passenger, and vehicle info
 
+    // Determine vehicle status: if driver has no vehicle, verification is required
+    const hasVehicle = !!vehicle;
+    const finalVerificationRequired = verificationRequired || !hasVehicle;
+
     return {
       rides: enrichedRides,
       verification: {
-        verificationRequired,
+        verificationRequired: finalVerificationRequired,
         documentStatuses,
       },
       stats: {
@@ -131,6 +137,7 @@ export class RidesService {
         onlineHoursToday: (onlineMinutesToday / 60).toFixed(2),
       },
       onlineStatus: details?.driverOnlineStatus || DriverOnlineStatus.OFFLINE,
+      vehicleStatus: hasVehicle,
     };
   }
   /**

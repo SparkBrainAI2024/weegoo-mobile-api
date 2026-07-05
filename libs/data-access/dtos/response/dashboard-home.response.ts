@@ -49,4 +49,7 @@ export class DashboardHomeResponse {
 
   @Field(() => DriverOnlineStatus, { nullable: true })
   onlineStatus?: DriverOnlineStatus;
+
+  @Field(() => Boolean, { nullable: true })
+  vehicleStatus?: boolean;
 }
