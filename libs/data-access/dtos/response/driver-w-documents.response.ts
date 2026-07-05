@@ -1,3 +1,4 @@
+import { Vehicle } from "@libs/data-access";
 import { DriverDocument } from "@libs/data-access/entities/driver-document.entity";
 import { Field, ObjectType } from "@nestjs/graphql";
 
@@ -47,4 +48,7 @@ export class Driver {
 
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];
+
+  @Field(() => Vehicle, { nullable: true })
+  vehicle?: Vehicle;
 }

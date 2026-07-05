@@ -946,6 +946,7 @@ type Driver {
   totalRides: Float
   totalEarnings: Float
   documents: [DriverDocument!]
+  vehicle: Vehicle
 }
 
 type DriverDocumentConfirmUploadResponse {
