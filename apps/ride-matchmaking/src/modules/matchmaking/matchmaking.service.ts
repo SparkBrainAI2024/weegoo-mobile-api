@@ -887,7 +887,7 @@ export class MatchmakingService {
         }).exec();
 
         // Publish to the ride channel
-        if (distanceKm > 0.3)
+        if (distanceKm > 0.3 && activeRide.rideStatus === RideStatus.CONFIRMED) 
           await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving', {
             rideId: activeRide._id.toString(),
             driverId,
