@@ -131,7 +131,7 @@ export class MatchmakingService {
         const driverUser = driverUsersMap.get(driver.driverId);
         if (driverUser) {
           const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-           this.notificationService.createNotification({
+          this.notificationService.createNotification({
             title: 'New Scheduled Ride Request', notificationType: NotificationType.RIDE_REQUEST,
             description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'} for ${ride.bookingTime ? new Date(ride.bookingTime).toLocaleString() : ''}. Estimated fare: Rs. ${scheduledFare.total}`,
             ablyChannelId, pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
@@ -214,8 +214,23 @@ export class MatchmakingService {
     const respondedDriverIds: Set<string> = new Set();
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
-      const currentRide = await this.ridesModel.findById(ride._id).exec();
-      if (!currentRide || currentRide.rideStatus !== RideStatus.PENDING) break;
+
+      // Check ride status at the START of each attempt iteration.
+      // This catches cancellations that happened during the previous attempt's
+      // Ably subscription wait (which can take up to 20s).
+      const attemptStartRide = await this.ridesModel.findById(ride._id).exec();
+      if (!attemptStartRide) {
+        this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking (attempt-start check). Aborting.`);
+        return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+      }
+      if (attemptStartRide.rideStatus !== RideStatus.PENDING) {
+        if (attemptStartRide.rideStatus === RideStatus.CANCELLED) {
+          this.logger.log(`Ride ${ride.rideUUId} was cancelled by user (attempt-start check). Aborting matchmaking.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        break;
+      }
+
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
@@ -239,6 +254,19 @@ export class MatchmakingService {
       }
 
       for (const driver of requestBatch) {
+        const currentRide = await this.ridesModel.findById(ride._id).exec();
+        // If ride was deleted (by cancelInstantRide) or status changed to CANCELLED, abort matchmaking
+        if (!currentRide) {
+          this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking. Aborting.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        if (currentRide.rideStatus !== RideStatus.PENDING) {
+          if (currentRide.rideStatus === RideStatus.CANCELLED) {
+            this.logger.log(`Ride ${ride.rideUUId} was cancelled by user. Aborting matchmaking.`);
+            return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+          }
+          break;
+        }
         if (respondedDriverIds.has(driver.driverId)) continue;
         const driverUser = driverUsersMap.get(driver.driverId);
         if (driverUser) {
@@ -257,11 +285,48 @@ export class MatchmakingService {
           this.notificationService.createNotification(notificationInput, driverUser);
         }
       }
+      // Check ride status BEFORE subscribing to Ably - cancellation may have happened
+      // during the notification-sending phase (between the per-driver DB checks above
+      // and this point). Without this check, if cancelInstantRide ran during the
+      // notification loop, the Ably 'ride-cancelled' event would already be published
+      // and subscribeForDriverResponse would miss it, causing a 20s timeout.
+      const preSubscribeRideCheck = await this.ridesModel.findById(ride._id).exec();
+      if (!preSubscribeRideCheck) {
+        this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking (pre-subscribe check). Aborting.`);
+        return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+      }
+      if (preSubscribeRideCheck.rideStatus !== RideStatus.PENDING) {
+        if (preSubscribeRideCheck.rideStatus === RideStatus.CANCELLED) {
+          this.logger.log(`Ride ${ride.rideUUId} was cancelled by user (pre-subscribe check). Aborting matchmaking.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        break;
+      }
+
       // Start the response listener AFTER all notifications have been sent,
       // giving each driver exactly waitTimeSeconds from the moment they were notified
       const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(ride.rideUUId, driverIds, waitTimeSeconds * 1000);
       const driverResponse = await driverResponsePromise;
       unsubscribe();
+
+      // After the Ably promise resolves (whether by timeout, cancellation, or driver accept),
+      // immediately check if the ride was cancelled during the wait. This handles the case
+      // where the Ably 'ride-cancelled' event may not echo back to the same client connection,
+      // falling through to the timeout path instead of the cancellation handler.
+      const postResponseRide = await this.ridesModel.findById(ride._id).exec();
+      if (!postResponseRide) {
+        this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking (post-response check). Aborting.`);
+        return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+      }
+      if (postResponseRide.rideStatus !== RideStatus.PENDING) {
+        if (postResponseRide.rideStatus === RideStatus.CANCELLED) {
+          this.logger.log(`Ride ${ride.rideUUId} was cancelled by user (post-response check). Aborting matchmaking.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        // If ride is CONFIRMED (accepted by another driver), break out of loop
+        break;
+      }
+
       requestBatch.forEach((d) => respondedDriverIds.add(d.driverId));
       if (driverResponse.accepted) {
         matched = true;
@@ -286,8 +351,12 @@ export class MatchmakingService {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     if (vehicles.length === 0) return [];
 
+    // Filter out vehicles where the populated driverId is null (deleted/invalid user reference)
+    const validVehicles = vehicles.filter((v) => v.driverId && (v.driverId as any as UserDocument)._id);
+    if (validVehicles.length === 0) return [];
+
     // Batch-fetch all userDetails for the drivers in one query
-    const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    const driverIds = validVehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
     this.logger.log(`Found ${driverIds.length} drivers for vehicle type ${vehicleType} in attempt ${attemptIndex + 1}`);
     const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds } }).exec();
     const userDetailsMap = new Map<string, UserDetailsDocument>();
@@ -303,9 +372,9 @@ export class MatchmakingService {
     this.logger.log(`Checking active rides for ${activeRideDriverIds.length} online drivers`);
     const activeRides = activeRideDriverIds.length > 0
       ? await this.ridesModel.find({
-          driverId: { $in: activeRideDriverIds },
-          rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
-        }).exec()
+        driverId: { $in: activeRideDriverIds },
+        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      }).exec()
       : [];
     const activeRideDriverIdSet = new Set(activeRides.map((r) => r.driverId.toString()));
 
@@ -320,10 +389,10 @@ export class MatchmakingService {
     }
 
     const drivers: DriverScore[] = [];
-    for (const v of vehicles) {
+    for (const v of validVehicles) {
       const driver = v.driverId as any as UserDocument;
-      this.logger.log(`Checking driver ${driver?._id} for availability: loginAs=${driver?.loginAs}, suspended=${driver?.suspended}, verified=${driver?.verified}`);
-      if (!driver) continue;
+      if (!driver || !driver._id) continue;
+      this.logger.log(`Checking driver ${driver._id} for availability: loginAs=${driver?.loginAs}, suspended=${driver?.suspended}, verified=${driver?.verified}`);
       if (passengerId && driver._id.toString() === passengerId) continue;
       if (driver.loginAs !== roles.RIDER) continue;
       if (driver.suspended || !driver.verified) continue;
@@ -396,7 +465,7 @@ export class MatchmakingService {
       if (userDetails.ridePreference !== ridePreference.SCHEDULED && userDetails.ridePreference !== ridePreference.BOTH) continue;
       if (conflictingRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
-     
+
       let driverLat: number; let driverLng: number;
       if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
         driverLng = userDetails.geoLocation.coordinates[1]; driverLat = userDetails.geoLocation.coordinates[0];
@@ -427,33 +496,57 @@ export class MatchmakingService {
 
   private subscribedListeners = new Map<string, (message: any) => void>();
 
+  /**
+   * Map of rideUUID -> resolve function for pending subscribeForDriverResponse promises.
+   * When cancelInstantRide is called, it looks up this map and immediately resolves
+   * the waiting promise, bypassing the Ably event which may not echo back to the
+   * publishing client.
+   */
+  private pendingDriverResponseResolvers = new Map<string, (value: { accepted: boolean; driverId?: string; rejectedDriverIds: string[] }) => void>();
+
   private subscribeForDriverResponse(rideUUID: string, driverIds: string[], timeoutMs: number): { promise: Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>; unsubscribe: () => void } {
     const rejectedDriverIds: string[] = [];
     let resolved = false;
+    let cancelled = false;
     let resolvePromise: (value: { accepted: boolean; driverId?: string; rejectedDriverIds: string[] }) => void;
     const promise = new Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>((resolve) => { resolvePromise = resolve; });
-    const timeout = setTimeout(() => { if (!resolved) { resolved = true; resolvePromise({ accepted: false, rejectedDriverIds }); } }, timeoutMs);
+
+    // Register this resolver so cancelInstantRide can force-resolve it immediately
+    this.pendingDriverResponseResolvers.set(rideUUID, resolvePromise);
+
+    const timeout = setTimeout(() => { if (!resolved) { resolved = true; this.pendingDriverResponseResolvers.delete(rideUUID); resolvePromise({ accepted: false, rejectedDriverIds }); } }, timeoutMs);
     const channelName = `WG-RIDE-${rideUUID}-ride-details`;
     const listenerKey = `${rideUUID}-${Date.now()}`;
     const handler = (message: any) => {
       const response = message.data as { eventType?: string; driverId: string; action: 'accept' | 'reject' };
+
+      // If ride-cancelled event is received, immediately resolve to stop matchmaking
+      if (response.eventType === 'ride-cancelled' && !resolved) {
+        cancelled = true;
+        resolved = true; clearTimeout(timeout);
+        this.pendingDriverResponseResolvers.delete(rideUUID);
+        resolvePromise({ accepted: false, rejectedDriverIds });
+      }
+
       if (response.eventType === 'driver-response') {
         if (response.action === 'accept' && driverIds.includes(response.driverId) && !resolved) {
           resolved = true; clearTimeout(timeout);
-         
+          this.pendingDriverResponseResolvers.delete(rideUUID);
+
           resolvePromise({ accepted: true, driverId: response.driverId, rejectedDriverIds });
         } else if (response.action === 'reject' && driverIds.includes(response.driverId) && !rejectedDriverIds.includes(response.driverId)) {
           rejectedDriverIds.push(response.driverId);
           if (rejectedDriverIds.length >= driverIds.length && !resolved) {
             resolved = true; clearTimeout(timeout);
-           
+            this.pendingDriverResponseResolvers.delete(rideUUID);
+
             resolvePromise({ accepted: false, rejectedDriverIds });
           }
         }
       }
     };
     this.subscribedListeners.set(listenerKey, handler);
-    this.ablyService.subscribe(channelName, 'ride-details', handler);
+    this.ablyService.subscribe(channelName, RideChannelService.RIDE_EVENT, handler);
     // IMPORTANT: Only clear the timeout and mark as resolved.
     // Do NOT unsubscribe from the ride-details channel (`WG-RIDE-${rideUUID}-ride-details`).
     // The channel must remain active after driver accept/reject so that
@@ -464,13 +557,14 @@ export class MatchmakingService {
         resolved = true;
         clearTimeout(timeout);
       }
+      this.pendingDriverResponseResolvers.delete(rideUUID);
       // Do NOT call this.ablyService.unsubscribe() here — the ride-details channel
       // subscription must persist for the entire ride lifecycle.
     };
     return { promise, unsubscribe };
   }
 
-  async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept'|'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
+  async handleDriverResponse(rideUUID: string, driverId: string, action: 'accept' | 'reject'): Promise<{ success: boolean; message: string; acceptedDetails?: any }> {
     try {
       const ride = await this.ridesModel.findOne({ rideUUId: rideUUID }).exec();
       if (!ride) return { success: false, message: 'Ride not found' };
@@ -506,7 +600,7 @@ export class MatchmakingService {
 
         // Calculate fare: includes pickup-to-dropoff distance + driver-to-pickup distance
         const pickupToDropoffKm = ride.distanceInKm || 0;
-        const totalDistanceKm = pickupToDropoffKm 
+        const totalDistanceKm = pickupToDropoffKm
         const durationMinutes = ride.estimatedTimeInMinutes || 0;
         let totalFare: number | undefined;
         let fare: FareBreakdown | ScheduledFareBreakdown | null = null;
@@ -589,7 +683,7 @@ export class MatchmakingService {
             estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
           };
-           this.notificationService.createNotification(notificationInput, passengerUser);
+          this.notificationService.createNotification(notificationInput, passengerUser);
         }
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
@@ -793,7 +887,7 @@ export class MatchmakingService {
         }).exec();
 
         // Publish to the ride channel
-        if (distanceKm  >  0.3)
+        if (distanceKm > 0.3)
           await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving', {
             rideId: activeRide._id.toString(),
             driverId,
@@ -818,7 +912,7 @@ export class MatchmakingService {
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
               message: `Driver is at the ${distanceKm.toFixed(2)} km away.`,
             });
-             this.notificationService.createNotification({
+            this.notificationService.createNotification({
               title: 'Driver is arriving',
               rideId: activeRide._id.toString(),
               notificationType: NotificationType.RIDE_DETAILS,
@@ -833,7 +927,7 @@ export class MatchmakingService {
             }, passenger);
           }
         }
-        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05 ) {
+        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05) {
           await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
           const passenger = await this.userModel.findById(activeRide.passengerId).exec();
           if (passenger) {
@@ -846,7 +940,7 @@ export class MatchmakingService {
               estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
               message: `Driver is at the pickup location ${distanceKm.toFixed(2)} km away.`,
             });
-             this.notificationService.createNotification({
+            this.notificationService.createNotification({
               title: 'Driver is at pickup location',
               notificationType: NotificationType.RIDE_DETAILS,
               rideId: activeRide._id.toString(),
@@ -897,7 +991,7 @@ export class MatchmakingService {
             },
           }).exec();
 
-          if (dropoffDistanceKm  > 0.05 && !activeRide.driverArrivedAtDestinationNotified)
+          if (dropoffDistanceKm > 0.05 && !activeRide.driverArrivedAtDestinationNotified)
             await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving-destination', {
               rideId: activeRide._id.toString(),
               driverId,
@@ -921,7 +1015,7 @@ export class MatchmakingService {
                 dropoffDurationMinutes,
                 message: `Driver has arrived at the destination.`,
               });
-               this.notificationService.createNotification({
+              this.notificationService.createNotification({
                 title: 'Driver has arrived at destination',
                 rideId: activeRide._id.toString(),
                 notificationType: NotificationType.RIDE_DETAILS,
@@ -1137,7 +1231,7 @@ export class MatchmakingService {
         rideStatus: RideStatus.COMPLETED,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
-        fareBreakdown: { baseFare:Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
+        fareBreakdown: { baseFare: Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
         completedAt: updatedRide.rideCompletedAt.toISOString(),
       });
 
@@ -1176,6 +1270,96 @@ export class MatchmakingService {
     }
   }
 
+  async cancelInstantRide(rideId: string, passengerId: string): Promise<{ success: boolean; message: string }> {
+    this.logger.log(`Passenger ${passengerId} cancelling instant ride ${rideId}`);
+    try {
+      const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+      if (!ride) {
+        this.logger.log(`Ride ${rideId} not found during cancellation - it was already deleted/cancelled. Treating as successful cancellation.`);
+        return { success: true, message: 'Ride was cancelled by user' };
+      }
+
+      if (ride.passengerId.toString() !== passengerId) {
+        return { success: false, message: 'You are not the owner of this ride' };
+      }
+
+      if (ride.rideType !== RideTypes.INSTANT) {
+        return { success: false, message: 'Only instant rides can be cancelled via this endpoint' };
+      }
+
+      // Check if ride is in a state that can be cancelled (PENDING or CONFIRMED)
+      if (ride.rideStatus !== RideStatus.PENDING && ride.rideStatus !== RideStatus.CONFIRMED) {
+        return { success: false, message: `Cannot cancel ride in ${ride.rideStatus} status` };
+      }
+
+      const rideUUId = ride.rideUUId;
+      const driverId = ride.driverId?.toString();
+
+      // STEP 1: Set ride status to CANCELLED immediately.
+      // This signals the running executeExpandingRingMatch loop to break out
+      // (the loop checks ride.rideStatus !== RideStatus.PENDING at each attempt).
+      await this.ridesModel.findByIdAndUpdate(ride._id, { $set: { rideStatus: RideStatus.CANCELLED } }).exec();
+
+      // STEP 2: Publish a ride-cancelled event on the Ably channel.
+      // The subscribeForDriverResponse handler will detect this event and
+      // immediately resolve the driver response promise, stopping the matchmaking loop.
+      await this.rideChannelService.publishRideEvent(rideUUId, 'ride-cancelled', {
+        rideId: ride._id.toString(),
+        rideUUId,
+        cancelled: true,
+        cancelledBy: passengerId,
+        cancelledAt: new Date().toISOString(),
+        message: 'Passenger has cancelled the ride',
+      });
+
+      // STEP 3: If driver already accepted (CONFIRMED status), send notification to driver
+      if (driverId && ride.rideStatus === RideStatus.CONFIRMED) {
+        this.logger.log(`Ride ${rideUUId} was accepted by driver ${driverId}. Notifying driver about cancellation.`);
+        const driverUser = await this.userModel.findById(new Types.ObjectId(driverId)).exec();
+        if (driverUser) {
+          await this.notificationService.createNotification({
+            title: 'Ride Cancelled',
+            notificationType: NotificationType.RIDE_DETAILS,
+            description: 'The passenger has cancelled the ride request.',
+            ablyChannelId: ride.ablyChannelId || `WG-RIDE-${rideUUId}-ride-details`,
+            rideId: ride._id.toString(),
+            cancelled: true,
+            passengerId,
+          } as any, driverUser);
+        }
+      }
+
+      // STEP 4: Force-resolve any pending subscribeForDriverResponse promise immediately.
+      // This is the most reliable way to stop the matchmaking loop - it bypasses Ably
+      // event echo limitations and directly resolves the waiting promise.
+      const pendingResolver = this.pendingDriverResponseResolvers.get(rideUUId);
+      if (pendingResolver) {
+        this.logger.log(`Force-resolving pending driver response promise for ride ${rideUUId}`);
+        this.pendingDriverResponseResolvers.delete(rideUUId);
+        pendingResolver({ accepted: false, rejectedDriverIds: [] });
+      }
+
+      // STEP 5: Delete the ride document
+      await this.ridesModel.findByIdAndDelete(ride._id).exec();
+
+      // NOTE: We do NOT release the Ably channel here because the running
+      // executeExpandingRingMatch loop may still be subscribed to it via
+      // subscribeForDriverResponse. Releasing the channel (detaching it)
+      // would remove the subscription, causing the waiting promise to miss
+      // the 'ride-cancelled' event and wait for the full timeout (20s).
+      // Instead, the matchmaking loop will detect the CANCELLED status via
+      // the pre-subscribe DB check on the next attempt and return early.
+      // The channel will be cleaned up naturally when the ride document is
+      // gone and no further references exist.
+
+      this.logger.log(`Ride ${rideUUId} cancelled successfully by passenger ${passengerId}`);
+      return { success: true, message: 'Ride cancelled successfully' };
+    } catch (err: any) {
+      this.logger.error(`Failed to cancel ride: ${err?.message || err}`);
+      return { success: false, message: 'Failed to cancel ride' };
+    }
+  }
+
   async acknowledgeAndFinishRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} acknowledging and finishing ride ${rideId}`);
     try {
@@ -1191,7 +1375,7 @@ export class MatchmakingService {
       if (ride.rideStatus !== RideStatus.COMPLETED || ride?.paymentDetails?.paymentStatus !== PaymentStatusEnum.PAID) {
         return { success: false, message: `Ride must be completed and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}` };
       }
-      if(ride.isAcknowledgeByDriver) {
+      if (ride.isAcknowledgeByDriver) {
         return { success: false, message: 'Ride has already been acknowledged by driver' };
       }
 
