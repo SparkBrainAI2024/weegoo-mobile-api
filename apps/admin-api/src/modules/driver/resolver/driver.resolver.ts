@@ -1,7 +1,7 @@
 import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { Args, Query, Resolver } from "@nestjs/graphql";
-import { DriverService } from "../driver.service";
 import { CurrentLang } from "@libs/common/decorators/header.decorators";
+import { DriverService } from "@libs/services/driver/driver.service";
 
 @Resolver(() => Driver)
 export class DriverResolver {
