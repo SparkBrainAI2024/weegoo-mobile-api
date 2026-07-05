@@ -3,6 +3,7 @@ import { AuthProvider, language, roles, UserStatus } from "../enums/user.enum";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument } from "mongoose";
+import { paginateAndSoftDelete } from "../plugins/mongoose.plugin";
 
 @ObjectType()
 @Schema({ timestamps: true })
@@ -11,7 +12,13 @@ export class User extends BaseEntity {
   @Field(() => String)
   fullName: string;
 
-  @Prop({ required: true, type: String, enum: AuthProvider, index: true, default: AuthProvider.PHONE })
+  @Prop({
+    required: true,
+    type: String,
+    enum: AuthProvider,
+    index: true,
+    default: AuthProvider.PHONE,
+  })
   @Field(() => AuthProvider)
   authProvider: AuthProvider;
 
@@ -57,7 +64,6 @@ export class User extends BaseEntity {
     unique: true,
     type: String,
   })
-  
   phone?: string;
   @Field(() => language, { defaultValue: language.EN })
   @Prop({ type: String, enum: language, default: language.EN })
@@ -80,3 +86,4 @@ export const userModel = {
 };
 
 UserSchema.index({ authProvider: 1, deleted: 1, deletedAt: 1 });
+UserSchema.plugin(paginateAndSoftDelete);
