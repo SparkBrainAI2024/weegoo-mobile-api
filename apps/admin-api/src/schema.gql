@@ -946,6 +946,10 @@ type Driver {
   totalRides: Float
   totalEarnings: Float
   amountDueToCompany: Float
+  lastTripAt: String
+  lastTripStartTime: String!
+  lastTripEndTime: String!
+  lastTripDuration: Float!
   documents: [DriverDocument!]
   vehicle: Vehicle
 }

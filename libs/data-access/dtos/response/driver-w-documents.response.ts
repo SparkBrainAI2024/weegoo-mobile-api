@@ -49,6 +49,18 @@ export class Driver {
   @Field(() => Number, { nullable: true })
   amountDueToCompany?: number;
 
+  @Field(() => String, { nullable: true })
+  lastTripAt: string;
+
+  @Field(() => String)
+  lastTripStartTime: string;
+
+  @Field(() => String)
+  lastTripEndTime: string;
+
+  @Field(() => Number)
+  lastTripDuration: number;
+
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];
 
