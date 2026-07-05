@@ -26,12 +26,46 @@ export class MatchmakingResolver {
     @Args('input') input: TriggerInstantMatchmakingInput,
   ): Promise<TriggerMatchmakingResultResponse> {
     this.logger.log(`GraphQL: requestInstantRide called by user ${user._id}`);
-    return this.matchmakingIntegration.triggerInstantMatchmaking(
-      user._id.toString(),
-      input.pickupLocation,
-      input.dropoffLocation,
-      input.vehicleType,
-    );
+    try {
+      const response = await this.matchmakingIntegration.triggerInstantMatchmaking(
+        user._id.toString(),
+        input.pickupLocation,
+        input.dropoffLocation,
+        input.vehicleType,
+      );
+      this.logger.log(`GraphQL: requestInstantRide response ${user._id}: ${JSON.stringify(response)}`);
+      
+      // Reconstruct a clean response object to ensure GraphQL can serialize it properly.
+      // NestJS GraphQL can sometimes fail to serialize plain JS objects even when cast with 'as any',
+      // especially when fields like rideId/rideUUId are non-nullable String.
+      return {
+        success: response.success ?? false,
+        message: response.message ?? '',
+        matched: response.matched ?? false,
+        rideId: response.rideId ?? '',
+        rideUUId: response.rideUUId ?? '',
+        driverId: response.driverId,
+        driverName: response.driverName,
+        driverImage: response.driverImage,
+        rating: response.rating,
+        rideType: response.rideType,
+        rideStatus: response.rideStatus,
+        attempts: response.attempts,
+        estimatedFare: response.estimatedFare,
+        estimatedFareTotal: response.estimatedFareTotal,
+        estimatedTimeInMinutes: response.estimatedTimeInMinutes,
+        distanceInKm: response.distanceInKm,
+        noOfPassengers: response.noOfPassengers,
+        ablyChannelId: response.ablyChannelId,
+        driverLocationChannel: response.driverLocationChannel,
+        pickupLocation: response.pickupLocation,
+        dropoffLocation: response.dropoffLocation,
+        acceptedDetails: response.acceptedDetails,
+      };
+    } catch (error: any) {
+      this.logger.error(`GraphQL: requestInstantRide error for user ${user._id}: ${error?.message || error}`);
+      throw new BadRequestException(error?.message || 'Failed to process ride request');
+    }
   }
 
   /**

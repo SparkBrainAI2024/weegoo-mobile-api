@@ -126,6 +126,8 @@ export class MatchmakingIntegrationService {
       { query, variables },
       { timeout },
     );
+
+  this.logger.log('B. After axios',JSON.stringify(response.data));
     return response.data?.data;
   }
 
@@ -179,8 +181,6 @@ export class MatchmakingIntegrationService {
         this.MATCH_INSTANT_QUERY,
         { input: { rideId: ride._id.toString() } });
       const result = data?.matchDrivers;
-      const isRidePresent = await this.ridesModel.findById(ride._id).exec();
-      
       const baseResponse = {
         success: !!result?.matched,
         matched: result?.matched || false,
@@ -240,8 +240,19 @@ export class MatchmakingIntegrationService {
 
       // Matchmaking did not find a match - verify ride status before deleting
       this.logger.warn(`Matchmaking returned no match for ride ${ride.rideUUId}. Verifying ride status.`);
-      const rideAfterMatchmaking = await this.ridesModel.findById(ride._id).exec();
+      const rideAfterMatchmaking = await this.ridesModel.findById(ride._id);
 
+      if (!rideAfterMatchmaking) {
+        this.logger.warn(`Ride ${ride.rideUUId} was deleted/cancelled during matchmaking (likely by cancelInstantRide). Returning cancelled signal.`);
+        return {
+          ...baseResponse,
+          success: false,
+          matched: false,
+          rideId: '',
+          rideUUId: '',
+          message: 'Ride was cancelled by user',
+        };
+      }
       if (rideAfterMatchmaking && rideAfterMatchmaking.rideStatus === RideStatus.CONFIRMED) {
         // Ride was already confirmed by matchmaking despite response indicating no match
         this.logger.log(`Ride ${ride.rideUUId} was already confirmed despite matchmaking returning no match. Preserving ride.`);
@@ -264,17 +275,17 @@ export class MatchmakingIntegrationService {
 
       // Ride is still pending - safe to delete
       this.logger.warn(`Matchmaking failed for ride ${ride.rideUUId}. Deleting ride.`);
-      await this.ridesModel.findByIdAndDelete(ride._id).exec();
+      await this.ridesModel.findByIdAndDelete(ride._id);
       return {
         ...baseResponse,
         rideId: '',
         rideUUId: '',
       };
     } catch (error: any) {
-      this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}. Verifying ride status.`);
-       
+      this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}${ride._id} post-matchmaking verification: ${error?.message || error}. Verifying ride status.`);
+
       const rideAfterMatchmaking = await this.ridesModel.findById(ride._id).exec();
-       if (!rideAfterMatchmaking) {
+      if (!rideAfterMatchmaking) {
         this.logger.warn(`Ride ${ride.rideUUId} was deleted after matchmaking response. Returning no match.`);
         return { success: false, matched: false, rideId: '', rideUUId: '', message: error?.message || 'Ride was cancelled by user' };
       }
@@ -450,7 +461,13 @@ export class MatchmakingIntegrationService {
         rideType: RideTypes.INSTANT,
         rideStatus: { $in: [RideStatus.PENDING, RideStatus.CONFIRMED] }
       }).exec();
-      this.logger.log(`Cancelling instant ride ${ride._id} for passenger ${passengerId}`);
+
+      if (!ride) {
+        this.logger.warn(`No active instant ride found for passenger ${passengerId} during cancellation - ride may have already been cancelled or deleted.`);
+        return { success: true, message: 'No active ride to cancel' };
+      }
+
+      this.logger.log(`Cancelling instant ride ${ride._id} (${ride.rideUUId}) for passenger ${passengerId}`);
 
       const data = await this.callMatchmakingGraphql(
         this.CANCEL_INSTANT_RIDE_QUERY,

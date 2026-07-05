@@ -215,6 +215,22 @@ export class MatchmakingService {
 
     for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
 
+      // Check ride status at the START of each attempt iteration.
+      // This catches cancellations that happened during the previous attempt's
+      // Ably subscription wait (which can take up to 20s).
+      const attemptStartRide = await this.ridesModel.findById(ride._id).exec();
+      if (!attemptStartRide) {
+        this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking (attempt-start check). Aborting.`);
+        return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+      }
+      if (attemptStartRide.rideStatus !== RideStatus.PENDING) {
+        if (attemptStartRide.rideStatus === RideStatus.CANCELLED) {
+          this.logger.log(`Ride ${ride.rideUUId} was cancelled by user (attempt-start check). Aborting matchmaking.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        break;
+      }
+
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
@@ -269,11 +285,48 @@ export class MatchmakingService {
           this.notificationService.createNotification(notificationInput, driverUser);
         }
       }
+      // Check ride status BEFORE subscribing to Ably - cancellation may have happened
+      // during the notification-sending phase (between the per-driver DB checks above
+      // and this point). Without this check, if cancelInstantRide ran during the
+      // notification loop, the Ably 'ride-cancelled' event would already be published
+      // and subscribeForDriverResponse would miss it, causing a 20s timeout.
+      const preSubscribeRideCheck = await this.ridesModel.findById(ride._id).exec();
+      if (!preSubscribeRideCheck) {
+        this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking (pre-subscribe check). Aborting.`);
+        return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+      }
+      if (preSubscribeRideCheck.rideStatus !== RideStatus.PENDING) {
+        if (preSubscribeRideCheck.rideStatus === RideStatus.CANCELLED) {
+          this.logger.log(`Ride ${ride.rideUUId} was cancelled by user (pre-subscribe check). Aborting matchmaking.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        break;
+      }
+
       // Start the response listener AFTER all notifications have been sent,
       // giving each driver exactly waitTimeSeconds from the moment they were notified
       const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(ride.rideUUId, driverIds, waitTimeSeconds * 1000);
       const driverResponse = await driverResponsePromise;
       unsubscribe();
+
+      // After the Ably promise resolves (whether by timeout, cancellation, or driver accept),
+      // immediately check if the ride was cancelled during the wait. This handles the case
+      // where the Ably 'ride-cancelled' event may not echo back to the same client connection,
+      // falling through to the timeout path instead of the cancellation handler.
+      const postResponseRide = await this.ridesModel.findById(ride._id).exec();
+      if (!postResponseRide) {
+        this.logger.log(`Ride ${ride.rideUUId} was deleted during matchmaking (post-response check). Aborting.`);
+        return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+      }
+      if (postResponseRide.rideStatus !== RideStatus.PENDING) {
+        if (postResponseRide.rideStatus === RideStatus.CANCELLED) {
+          this.logger.log(`Ride ${ride.rideUUId} was cancelled by user (post-response check). Aborting matchmaking.`);
+          return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare, attempts, message: 'Ride was cancelled by the user' };
+        }
+        // If ride is CONFIRMED (accepted by another driver), break out of loop
+        break;
+      }
+
       requestBatch.forEach((d) => respondedDriverIds.add(d.driverId));
       if (driverResponse.accepted) {
         matched = true;
@@ -443,13 +496,25 @@ export class MatchmakingService {
 
   private subscribedListeners = new Map<string, (message: any) => void>();
 
+  /**
+   * Map of rideUUID -> resolve function for pending subscribeForDriverResponse promises.
+   * When cancelInstantRide is called, it looks up this map and immediately resolves
+   * the waiting promise, bypassing the Ably event which may not echo back to the
+   * publishing client.
+   */
+  private pendingDriverResponseResolvers = new Map<string, (value: { accepted: boolean; driverId?: string; rejectedDriverIds: string[] }) => void>();
+
   private subscribeForDriverResponse(rideUUID: string, driverIds: string[], timeoutMs: number): { promise: Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>; unsubscribe: () => void } {
     const rejectedDriverIds: string[] = [];
     let resolved = false;
     let cancelled = false;
     let resolvePromise: (value: { accepted: boolean; driverId?: string; rejectedDriverIds: string[] }) => void;
     const promise = new Promise<{ accepted: boolean; driverId?: string; rejectedDriverIds: string[] }>((resolve) => { resolvePromise = resolve; });
-    const timeout = setTimeout(() => { if (!resolved) { resolved = true; resolvePromise({ accepted: false, rejectedDriverIds }); } }, timeoutMs);
+
+    // Register this resolver so cancelInstantRide can force-resolve it immediately
+    this.pendingDriverResponseResolvers.set(rideUUID, resolvePromise);
+
+    const timeout = setTimeout(() => { if (!resolved) { resolved = true; this.pendingDriverResponseResolvers.delete(rideUUID); resolvePromise({ accepted: false, rejectedDriverIds }); } }, timeoutMs);
     const channelName = `WG-RIDE-${rideUUID}-ride-details`;
     const listenerKey = `${rideUUID}-${Date.now()}`;
     const handler = (message: any) => {
@@ -459,19 +524,21 @@ export class MatchmakingService {
       if (response.eventType === 'ride-cancelled' && !resolved) {
         cancelled = true;
         resolved = true; clearTimeout(timeout);
+        this.pendingDriverResponseResolvers.delete(rideUUID);
         resolvePromise({ accepted: false, rejectedDriverIds });
-        return;
       }
 
       if (response.eventType === 'driver-response') {
         if (response.action === 'accept' && driverIds.includes(response.driverId) && !resolved) {
           resolved = true; clearTimeout(timeout);
+          this.pendingDriverResponseResolvers.delete(rideUUID);
 
           resolvePromise({ accepted: true, driverId: response.driverId, rejectedDriverIds });
         } else if (response.action === 'reject' && driverIds.includes(response.driverId) && !rejectedDriverIds.includes(response.driverId)) {
           rejectedDriverIds.push(response.driverId);
           if (rejectedDriverIds.length >= driverIds.length && !resolved) {
             resolved = true; clearTimeout(timeout);
+            this.pendingDriverResponseResolvers.delete(rideUUID);
 
             resolvePromise({ accepted: false, rejectedDriverIds });
           }
@@ -479,7 +546,7 @@ export class MatchmakingService {
       }
     };
     this.subscribedListeners.set(listenerKey, handler);
-    this.ablyService.subscribe(channelName, 'ride-details', handler);
+    this.ablyService.subscribe(channelName, RideChannelService.RIDE_EVENT, handler);
     // IMPORTANT: Only clear the timeout and mark as resolved.
     // Do NOT unsubscribe from the ride-details channel (`WG-RIDE-${rideUUID}-ride-details`).
     // The channel must remain active after driver accept/reject so that
@@ -490,6 +557,7 @@ export class MatchmakingService {
         resolved = true;
         clearTimeout(timeout);
       }
+      this.pendingDriverResponseResolvers.delete(rideUUID);
       // Do NOT call this.ablyService.unsubscribe() here — the ride-details channel
       // subscription must persist for the entire ride lifecycle.
     };
@@ -1261,11 +1329,28 @@ export class MatchmakingService {
         }
       }
 
-      // STEP 4: Delete the ride document
+      // STEP 4: Force-resolve any pending subscribeForDriverResponse promise immediately.
+      // This is the most reliable way to stop the matchmaking loop - it bypasses Ably
+      // event echo limitations and directly resolves the waiting promise.
+      const pendingResolver = this.pendingDriverResponseResolvers.get(rideUUId);
+      if (pendingResolver) {
+        this.logger.log(`Force-resolving pending driver response promise for ride ${rideUUId}`);
+        this.pendingDriverResponseResolvers.delete(rideUUId);
+        pendingResolver({ accepted: false, rejectedDriverIds: [] });
+      }
+
+      // STEP 5: Delete the ride document
       await this.ridesModel.findByIdAndDelete(ride._id).exec();
 
-      // STEP 5: Release the Ably channel
-      this.rideChannelService.releaseRideChannel(rideUUId);
+      // NOTE: We do NOT release the Ably channel here because the running
+      // executeExpandingRingMatch loop may still be subscribed to it via
+      // subscribeForDriverResponse. Releasing the channel (detaching it)
+      // would remove the subscription, causing the waiting promise to miss
+      // the 'ride-cancelled' event and wait for the full timeout (20s).
+      // Instead, the matchmaking loop will detect the CANCELLED status via
+      // the pre-subscribe DB check on the next attempt and return early.
+      // The channel will be cleaned up naturally when the ride document is
+      // gone and no further references exist.
 
       this.logger.log(`Ride ${rideUUId} cancelled successfully by passenger ${passengerId}`);
       return { success: true, message: 'Ride cancelled successfully' };
