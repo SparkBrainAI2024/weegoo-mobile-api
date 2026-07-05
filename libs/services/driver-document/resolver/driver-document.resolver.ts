@@ -10,8 +10,6 @@ import { UseGuards } from "@nestjs/common";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
 import { Field, Int, ObjectType } from "@nestjs/graphql";
-import { DriverDocument } from "../../../../../../libs/data-access/entities/driver-document.entity";
-import { SubmitDocumentForReviewInput } from "../../../../../../libs/data-access/dtos/input/submit-for-review.input";
 import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-document-file.input";
 import {
   DriverDocumentSide,
@@ -19,7 +17,9 @@ import {
 } from "@libs/data-access/enums/driver-document.enum";
 import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
 import { Driver } from "@libs/data-access/dtos/response/driver-w-documents.response";
-import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
+import { DriverDocument } from "@libs/data-access/entities/driver-document.entity";
+import { SubmitDocumentForReviewInput } from "@libs/data-access/dtos/input/submit-for-review.input";
+import { DriverDocumentService } from "../driver-document.service";
 
 @ObjectType()
 class DocumentViewUrlResponse {
@@ -68,16 +68,5 @@ export class DriverDocumentResolver {
       documentType,
       side,
     });
-  }
-} // <-- class properly closed here now
-
-@Resolver(() => Driver) // <-- added a new resolver for Driver to resolve documents field
-export class DriverDocumentFieldResolver {
-  // <-- renamed, no more duplicate
-  constructor(private readonly driverDocumentService: DriverDocumentService) {}
-
-  @ResolveField(() => [DriverDocument])
-  async documents(@Parent() driver: Driver) {
-    return this.driverDocumentService.getDriverDocuments(driver.id);
   }
 }

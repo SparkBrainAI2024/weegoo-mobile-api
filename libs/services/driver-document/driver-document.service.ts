@@ -1,7 +1,12 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
-import { deactivateSideFiles, ErrorException, findActiveFileBySide, REQUIRED_SIDES } from "@libs/common";
+import {
+  deactivateSideFiles,
+  ErrorException,
+  findActiveFileBySide,
+  REQUIRED_SIDES,
+} from "@libs/common";
 import { S3Service } from "@libs/s3";
 
 import {
@@ -11,24 +16,25 @@ import {
 
 import { DocumentFileStatus } from "@libs/data-access/enums/upload.enum";
 
-
-import { SubmitDocumentForReviewInput } from "../../../../../libs/data-access/dtos/input/submit-for-review.input";
-import { DriverDocumentRepository } from "../../../../../libs/data-access/repositories/driver-document.repository";
 import { UpsertDocumentFileInput } from "@libs/data-access/dtos/input/upsert-document-file.input";
-import { DriverDocumentBundleStatus, DriverDocumentSide, DriverDocumentType } from "@libs/data-access/enums/driver-document.enum";
+import {
+  DriverDocumentBundleStatus,
+  DriverDocumentSide,
+  DriverDocumentType,
+} from "@libs/data-access/enums/driver-document.enum";
 import { Message } from "@libs/localization";
 import { BasicResponse } from "@libs/data-access/dtos/response/basic.response";
 import { log } from "console";
 import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
-
-
+import { SubmitDocumentForReviewInput } from "@libs/data-access/dtos/input/submit-for-review.input";
+import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 
 @Injectable()
 export class DriverDocumentService {
   constructor(
     private readonly repository: DriverDocumentRepository,
     private readonly s3: S3Service,
-  ) { }
+  ) {}
 
   // ─── Upsert document ──────────────────────────────────────────────────────────
   async upsertDocumentFile(
@@ -44,35 +50,33 @@ export class DriverDocumentService {
       );
 
       if (!doc) {
-          const document = await this.repository.save({
-            driverId: new Types.ObjectId(driverId),
-            type: input.documentType,
-            status: DriverDocumentBundleStatus.PENDING,
-            files: [
-              {
-                side: input.side,
-                s3Key: input.s3Key,
-                isActive: true,
-                status: DocumentFileStatus.PENDING,
-                verifiedBy: null,
-                verifiedAt: null,
-                createdAt: new Date(),
-              },
-            ],
-            submittedAt: new Date(),
-            reviewedBy: null,
-            reviewedAt: null,
-            rejectionReason: null,
-          });
+        const document = await this.repository.save({
+          driverId: new Types.ObjectId(driverId),
+          type: input.documentType,
+          status: DriverDocumentBundleStatus.PENDING,
+          files: [
+            {
+              side: input.side,
+              s3Key: input.s3Key,
+              isActive: true,
+              status: DocumentFileStatus.PENDING,
+              verifiedBy: null,
+              verifiedAt: null,
+              createdAt: new Date(),
+            },
+          ],
+          submittedAt: new Date(),
+          reviewedBy: null,
+          reviewedAt: null,
+          rejectionReason: null,
+        });
 
-          return {
-            driverDocument: document,
-            success: true,
-            message: Message(lang, 'DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS'),
-          };
-        }
-
-
+        return {
+          driverDocument: document,
+          success: true,
+          message: Message(lang, "DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS"),
+        };
+      }
 
       // If all sides are approved, the document will have APPROVED status.
       // In that case we should not allow upload of a new file without admin
@@ -114,7 +118,6 @@ export class DriverDocumentService {
         message: Message(lang, "DRIVER_DOCUMENT.FILE_UPLOADED_SUCCESS"),
       };
     } catch (e) {
-
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
@@ -124,21 +127,14 @@ export class DriverDocumentService {
   }
 
   // ─── Submit for review ────────────────────────────────────────────────────────
-  async submitForReview(
-    driverId: string,
-    input: SubmitDocumentForReviewInput,
-  ) {
+  async submitForReview(driverId: string, input: SubmitDocumentForReviewInput) {
     const doc = await this.repository.findByDriverAndType(
       driverId,
       input.documentType,
     );
 
     if (!doc) {
-      ErrorException(
-        null,
-        "DRIVER_DOCUMENT.NOT_FOUND",
-        HttpStatus.NOT_FOUND,
-      );
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
 
     if (doc.status === DriverDocumentBundleStatus.PENDING) {
@@ -159,13 +155,9 @@ export class DriverDocumentService {
 
     const required = REQUIRED_SIDES[input.documentType];
 
-    const activeSides = doc.files
-      .filter((f) => f.isActive)
-      .map((f) => f.side);
+    const activeSides = doc.files.filter((f) => f.isActive).map((f) => f.side);
 
-    const missingSides = required.filter(
-      (s) => !activeSides.includes(s),
-    );
+    const missingSides = required.filter((s) => !activeSides.includes(s));
 
     if (missingSides.length) {
       ErrorException(
@@ -187,15 +179,19 @@ export class DriverDocumentService {
   async getMyDocuments(driverId: string) {
     const myDocs = await this.repository.getDriverDocuments(driverId);
 
-    return myDocs.map(doc => ({
+    return myDocs.map((doc) => ({
       ...doc.toObject(),
-      files: doc.files.filter(f => f.isActive),
+      files: doc.files.filter((f) => f.isActive),
     }));
   }
 
+  async getDriverDocuments(driverId: string) {
+    const myDocs = await this.repository.getDriverDocuments(driverId);
 
-
-
+    return myDocs.map((doc) => ({
+      ...doc.toObject(),
+    }));
+  }
 
   // ─── Driver URL ───────────────────────────────────────────────────────────────
   async getDocumentViewUrl(params: {
@@ -209,16 +205,10 @@ export class DriverDocumentService {
     );
 
     if (!doc) {
-      ErrorException(
-        null,
-        "DRIVER_DOCUMENT.NOT_FOUND",
-        HttpStatus.NOT_FOUND,
-      );
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
 
-    const file = doc.files.find(
-      (f) => f.side === params.side && f.isActive,
-    );
+    const file = doc.files.find((f) => f.side === params.side && f.isActive);
 
     if (!file) {
       ErrorException(
@@ -251,13 +241,8 @@ export class DriverDocumentService {
     );
 
     if (!doc) {
-      ErrorException(
-        null,
-        "DRIVER_DOCUMENT.NOT_FOUND",
-        HttpStatus.NOT_FOUND,
-      );
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
-
 
     const file = findActiveFileBySide(doc, params.side);
 
@@ -281,18 +266,13 @@ export class DriverDocumentService {
   }
 
   // ─── Approve ──────────────────────────────────────────────────────────────────
-  async approveDocument(params: {
-    documentId: string;
-    adminId: string;
-  }) {
-    const doc = await this.repository.findById(new Types.ObjectId(params.documentId));
+  async approveDocument(params: { documentId: string; adminId: string }) {
+    const doc = await this.repository.findById(
+      new Types.ObjectId(params.documentId),
+    );
 
     if (!doc) {
-      ErrorException(
-        null,
-        "DRIVER_DOCUMENT.NOT_FOUND",
-        HttpStatus.NOT_FOUND,
-      );
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
 
     doc.status = DriverDocumentBundleStatus.APPROVED;
@@ -310,14 +290,12 @@ export class DriverDocumentService {
     adminId: string;
     rejectionReason: string;
   }) {
-    const doc = await this.repository.findById(new Types.ObjectId(params.documentId));
+    const doc = await this.repository.findById(
+      new Types.ObjectId(params.documentId),
+    );
 
     if (!doc) {
-      ErrorException(
-        null,
-        "DRIVER_DOCUMENT.NOT_FOUND",
-        HttpStatus.NOT_FOUND,
-      );
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
     }
 
     doc.status = DriverDocumentBundleStatus.REJECTED;
@@ -341,10 +319,7 @@ export class DriverDocumentService {
         try {
           await this.s3.deleteObject(file.s3Key);
         } catch (e) {
-          console.error(
-            `Failed to delete S3 key ${file.s3Key}:`,
-            e,
-          );
+          console.error(`Failed to delete S3 key ${file.s3Key}:`, e);
         }
       }
 
