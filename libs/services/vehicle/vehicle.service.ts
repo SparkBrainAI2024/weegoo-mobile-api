@@ -130,7 +130,6 @@ export class VehicleService {
       const vehicles = await this.vehicleRepository.find({
         driverId: toMongoId(driverId),
       });
-      console.log(vehicles, "vehicles");
 
       return vehicles.length > 0 ? vehicles[0] : null;
     } catch (e) {
