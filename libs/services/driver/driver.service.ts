@@ -128,4 +128,14 @@ export class DriverService {
 
     return { data, pagination: result.pagination };
   }
+
+  async softDeleteDriver(driverId: string): Promise<boolean> {
+    const driver = await this.userRepository.findById(toMongoId(driverId));
+    if (!driver) {
+      throw new NotFoundException("Driver not found");
+    }
+
+    await this.userRepository.softDeleteById(toMongoId(driverId));
+    return true;
+  }
 }
