@@ -9,8 +9,6 @@ import { VehicleRegistrationResponse } from "@libs/data-access/dtos/response/veh
 import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 import { BasicResponse } from "@libs/data-access";
 
-
-
 @Resolver()
 @UseGuards(LangGuard)
 @UseGuards(AuthGuard)
@@ -26,15 +24,15 @@ export class VehicleResolver {
     return this.vehicleService.registerVehicle(user._id, input, lang);
   }
 
-@Mutation(() => VehicleRegistrationResponse)
-async editVehicle(
-  @CurrentUser() user: { _id: string },
-  @CurrentLang() lang: string,
-  @Args("vehicleId") vehicleId: string,      // ← separate 
-  @Args("input") input: EditVehicleInput,
-) {
-  return this.vehicleService.editVehicle(user._id, vehicleId, input, lang);
-}
+  @Mutation(() => VehicleRegistrationResponse)
+  async editVehicle(
+    @CurrentUser() user: { _id: string },
+    @CurrentLang() lang: string,
+    @Args("vehicleId") vehicleId: string, // ← separate
+    @Args("input") input: EditVehicleInput,
+  ) {
+    return this.vehicleService.editVehicle(user._id, vehicleId, input, lang);
+  }
   // @Query(() => GetMyVehiclesResponse)
   // async myVehicles(
   //   @CurrentUser() user: { _id: string },@CurrentLang() lang: string,
@@ -43,11 +41,11 @@ async editVehicle(
   // }
 
   @Query(() => Vehicle)
-async getVehicle(
-  @CurrentLang() lang: string,
-  @CurrentUser() user: { _id: string },
-  @Args("vehicleId") vehicleId: string,
-): Promise<BasicResponse> {
-  return this.vehicleService.getVehicle(vehicleId, user._id, lang);
-}
+  async getVehicle(
+    @CurrentLang() lang: string,
+    @CurrentUser() user: { _id: string },
+    @Args("vehicleId") vehicleId: string,
+  ): Promise<BasicResponse> {
+    return this.vehicleService.getVehicle(vehicleId, user._id, lang);
+  }
 }
