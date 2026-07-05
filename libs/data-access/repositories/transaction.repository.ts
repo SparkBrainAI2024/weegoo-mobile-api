@@ -1,10 +1,17 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, ClientSession, Types } from 'mongoose';
-import { Transaction, TransactionDocument } from '../entities/transaction.entity';
-import { TransactionDirection, TransactionStatus, TransactionType } from '../enums/transaction.enum';
-import { PaymentMethodEnum, PaymentMediumEnum } from '../enums/payment.enum';
-import { toMongoId } from '@libs/common';
+import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, ClientSession, Types } from "mongoose";
+import {
+  Transaction,
+  TransactionDocument,
+} from "../entities/transaction.entity";
+import {
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+} from "../enums/transaction.enum";
+import { PaymentMethodEnum, PaymentMediumEnum } from "../enums/payment.enum";
+import { toMongoId } from "@libs/common";
 
 export interface CreateTransactionDto {
   // TODOwalletId: string;
@@ -27,7 +34,7 @@ export class TransactionRepository {
   constructor(
     @InjectModel(Transaction.name)
     private readonly model: Model<TransactionDocument>,
-  ) { }
+  ) {}
 
   async createMany(
     transactions: CreateTransactionDto[],
@@ -50,13 +57,32 @@ export class TransactionRepository {
     });
   }
 
+  async totalEarningsByDriverId(driverId: string): Promise<number> {
+    const result = await this.model.aggregate([
+      {
+        $match: {
+          driverId: new Types.ObjectId(driverId),
+          direction: TransactionDirection.CREDIT,
+          type: TransactionType.RIDE_PAYMENT,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$amount" },
+        },
+      },
+    ]);
+    return result[0]?.totalEarnings || 0;
+  }
+
   async findByRiderId(riderId: string): Promise<Transaction[]> {
     return this.model.find({ riderId }).sort({ createdAt: -1 });
   }
 
   async findByUserIdPaginated(
     userId: string,
-    field: 'driverId' | 'riderId',
+    field: "driverId" | "riderId",
     page: number,
     limit: number,
   ): Promise<{ data: Transaction[]; total: number }> {
@@ -75,7 +101,10 @@ export class TransactionRepository {
     page: number,
     limit: number,
   ): Promise<{ data: Transaction[]; total: number }> {
-    const filter = { $or: [{ 'riderId': toMongoId(userId) }, { 'driverId': toMongoId(userId) }], status: { $eq: TransactionStatus.COMPLETED } };
+    const filter = {
+      $or: [{ riderId: toMongoId(userId) }, { driverId: toMongoId(userId) }],
+      status: { $eq: TransactionStatus.COMPLETED },
+    };
     const total = await this.model.countDocuments(filter);
     const data = await this.model
       .find(filter)
@@ -85,30 +114,28 @@ export class TransactionRepository {
     return { data, total };
   }
 
-  async findByWalletId(
-    walletId: string,
-    limit = 10,
-  ): Promise<Transaction[]> {
-    return this.model
-      .find({ walletId })
-      .sort({ createdAt: -1 })
-      .limit(limit);
+  async findByWalletId(walletId: string, limit = 10): Promise<Transaction[]> {
+    return this.model.find({ walletId }).sort({ createdAt: -1 }).limit(limit);
   }
 
   // reconciliation — sum credits and debits for a wallet
-  async sumByWalletId(walletId: string): Promise<{ credits: number; debits: number }> {
+  async sumByWalletId(
+    walletId: string,
+  ): Promise<{ credits: number; debits: number }> {
     const result = await this.model.aggregate([
       { $match: { walletId } },
       {
         $group: {
-          _id: '$direction',
-          total: { $sum: '$amount' },
+          _id: "$direction",
+          total: { $sum: "$amount" },
         },
       },
     ]);
 
-    const credits = result.find((r) => r._id === TransactionDirection.CREDIT)?.total ?? 0;
-    const debits = result.find((r) => r._id === TransactionDirection.DEBIT)?.total ?? 0;
+    const credits =
+      result.find((r) => r._id === TransactionDirection.CREDIT)?.total ?? 0;
+    const debits =
+      result.find((r) => r._id === TransactionDirection.DEBIT)?.total ?? 0;
     return { credits, debits };
   }
 
@@ -142,7 +169,7 @@ export class TransactionRepository {
             $dateToString: {
               format: "%Y-%m-%d",
               date: "$createdAt",
-              timezone: "Asia/Kathmandu"
+              timezone: "Asia/Kathmandu",
             },
           },
           netEarning: { $sum: "$amount" },

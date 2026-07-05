@@ -13,6 +13,7 @@ import { UserAuthModule } from "@libs/services/auth/auth.module";
 import { AdminAuthModule } from "./modules/auth/auth.module";
 import { PageModule } from "./modules/page/page.module";
 import { PromoCodeModule } from "./modules/promocode/promocode.module";
+import { DriverModule } from "./modules/driver/driver.module";
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { PromoCodeModule } from "./modules/promocode/promocode.module";
     UserAuthModule,
     PageModule,
     PromoCodeModule,
+    DriverModule,
   ],
   providers: [HealthResolver],
 })

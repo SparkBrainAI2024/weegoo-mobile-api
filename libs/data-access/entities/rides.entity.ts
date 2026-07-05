@@ -92,8 +92,8 @@ export class Rides extends BaseEntity {
   @Prop({ type: PaymentDetails, required: false })
   paymentDetails?: PaymentDetails;
 
-  @Field(() => Boolean, { nullable: true ,defaultValue:false})
-  @Prop({ type: Boolean, required: false,default:false })
+  @Field(() => Boolean, { nullable: true, defaultValue: false })
+  @Prop({ type: Boolean, required: false, default: false })
   isAcknowledgeByDriver?: boolean;
 
   @Field(() => Number, { nullable: true })
@@ -203,3 +203,4 @@ export const ridesModel = {
 };
 
 RidesSchema.index({ deleted: 1, deletedAt: 1 });
+RidesSchema.index({ driverId: 1, createdAt: -1 });

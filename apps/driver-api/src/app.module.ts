@@ -1,34 +1,42 @@
-import { Module } from '@nestjs/common';
-import { GraphQLModule } from '@nestjs/graphql';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { ApolloServerPluginLandingPageLocalDefault, ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
-import { join } from 'path';
-import { envConfiguration, HealthResolver } from '@libs/common';
-import { AblyModule } from '@libs/services/ably';
+import { Module } from "@nestjs/common";
+import { GraphQLModule } from "@nestjs/graphql";
+import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
+import {
+  ApolloServerPluginLandingPageLocalDefault,
+  ApolloServerPluginLandingPageProductionDefault,
+} from "@apollo/server/plugin/landingPage/default";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { MongooseModule } from "@nestjs/mongoose";
+import { join } from "path";
+import { envConfiguration, HealthResolver } from "@libs/common";
+import { AblyModule } from "@libs/services/ably";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UserModule } from "./modules/user/user.module";
-import { VehicleModule } from './modules/vehicle/vehicle.module';
-import { CleanupModule } from './modules/cleanup/cleanup.module';
-import { DriverDocumentModule } from './modules/driver-document/driver-document.module';
-import { UploadCenterModule } from '@libs/services/upload-center/src';
-import { RidesModule } from './modules/rides/rides.module';
-import { IssueModule } from './modules/issue/issue.module';
-import { NotificationModule } from './modules/notification/notification.module';
-import { TransactionModule } from './modules/transaction/transaction.module';
-import { PageModule } from './modules/page/page.module';
-import { RatingIModule } from './modules/rating/rating.module';
-import { WalletApiModule } from './modules/wallet/wallet.module';
-import { ProfileModule } from '@libs/services/profile';
+import { VehicleModule } from "./modules/vehicle/vehicle.module";
+import { CleanupModule } from "./modules/cleanup/cleanup.module";
+import { DriverDocumentModule } from "./modules/driver-document/driver-document.module";
+import { UploadCenterModule } from "@libs/services/upload-center/src";
+import { RidesModule } from "./modules/rides/rides.module";
+import { IssueModule } from "./modules/issue/issue.module";
+import { NotificationModule } from "./modules/notification/notification.module";
+import { TransactionModule } from "./modules/transaction/transaction.module";
+import { PageModule } from "./modules/page/page.module";
+import { RatingIModule } from "./modules/rating/rating.module";
+import { WalletApiModule } from "./modules/wallet/wallet.module";
+import { ProfileModule } from "@libs/services/profile";
+import { DriverModule } from "./modules/driver/driver.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: 'apps/driver-api/.env', load: [envConfiguration] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: "apps/driver-api/.env",
+      load: [envConfiguration],
+    }),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('DB_CONNECTION_URL'),
+        uri: configService.get<string>("DB_CONNECTION_URL"),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
@@ -38,7 +46,7 @@ import { ProfileModule } from '@libs/services/profile';
       introspection: true,
       plugins: [
         // Install a landing page plugin based on NODE_ENV
-        process.env.NODE_ENV === 'production'
+        process.env.NODE_ENV === "production"
           ? ApolloServerPluginLandingPageProductionDefault({
               graphRef: "admin-api@current",
               footer: false,
@@ -60,8 +68,9 @@ import { ProfileModule } from '@libs/services/profile';
     PageModule,
     RatingIModule,
     WalletApiModule,
-    ProfileModule
+    ProfileModule,
+    DriverModule,
   ],
   providers: [HealthResolver],
 })
-export class AppModule { }
+export class AppModule {}

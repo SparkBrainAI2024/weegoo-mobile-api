@@ -1,8 +1,7 @@
+import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
+import { VehicleService } from "@libs/services/vehicle/vehicle.service";
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { DriverDocumentService } from "../driver-document/driver-document.service";
-import { VehicleService } from "../vehicle/vehicle.service";
-
 
 @Injectable()
 export class ImageCleanupService {
