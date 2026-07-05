@@ -6,16 +6,19 @@ import { TransactionPersistenceModule } from "@libs/services/payment/src/transac
 import { RidePersistentModule } from "@libs/services/rides/rides-persistent.module";
 import { CommonVehicleModule } from "@libs/services/vehicle/vehicle.module";
 import { DriverService } from "@libs/services/driver/driver.service";
+import { UserAuthModule } from "@libs/services/auth/auth.module";
+import { EnvService } from "@libs/common/config/env.service";
 
 @Module({
   imports: [
+    UserAuthModule,
     UserPersistenceModule,
     CommonDriverDocumentModule,
     TransactionPersistenceModule,
     RidePersistentModule,
     CommonVehicleModule,
   ],
-  providers: [DriverResolver, DriverService],
+  providers: [DriverResolver, DriverService, EnvService],
   exports: [DriverResolver],
 })
 export class DriverModule {}
