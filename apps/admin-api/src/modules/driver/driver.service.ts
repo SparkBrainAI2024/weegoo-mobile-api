@@ -27,17 +27,21 @@ export class DriverService {
   private async enrichDataDriverWithRideDetails(driverId: string) {
     // Placeholder for enriching driver with ride details
     //we need to query the rides collection to get the ride details for the driver and return it as part of the driver object
-    const totalRides = this.ridesRepository.count({
+    const totalRidesPromise = this.ridesRepository.count({
       driverId: toMongoId(driverId),
       rideStatus: RideStatus.COMPLETED,
     });
-    const totalEarnings =
-      await this.transactionRepository.totalEarningsByDriverId(driverId);
+    const totalEarningsPromise =
+      this.transactionRepository.totalEarningsByDriverId(driverId);
     // You can add more ride-related details as needed
     // Implement logic to fetch and enrich driver with ride-related information if needed
+    const [totalRides, totalEarnings] = await Promise.all([
+      totalRidesPromise,
+      totalEarningsPromise,
+    ]);
     return {
-      totalRides,
-      totalEarnings,
+      totalRides: totalRides,
+      totalEarnings: totalEarnings,
     };
   }
 
@@ -79,6 +83,7 @@ export class DriverService {
       locationChannelId: details?.locationChannelId ?? null,
       documents: documents ?? [],
       joinedDate: userDoc.createdAt.toDateString(),
+      ...driverEnrichedWithRideDetails,
     };
   }
 }

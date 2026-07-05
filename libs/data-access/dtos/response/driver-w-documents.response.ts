@@ -39,6 +39,12 @@ export class Driver {
   @Field(() => String)
   joinedDate: String;
 
+  @Field(() => Number, { nullable: true })
+  totalRides?: number;
+
+  @Field(() => Number, { nullable: true })
+  totalEarnings?: number;
+
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];
 }

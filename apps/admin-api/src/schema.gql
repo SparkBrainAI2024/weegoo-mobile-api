@@ -943,6 +943,8 @@ type Driver {
   locationChannelId: String
   dateOfBirth: String
   joinedDate: String!
+  totalRides: Float
+  totalEarnings: Float
   documents: [DriverDocument!]
 }
 
