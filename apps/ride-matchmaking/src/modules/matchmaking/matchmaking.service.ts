@@ -282,7 +282,12 @@ export class MatchmakingService {
             passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
             passengerSnapshot, noOfPassengers: ride.noOfPassengers,
           };
-          this.notificationService.createNotification(notificationInput, driverUser);
+          try {
+            await this.notificationService.createNotification(notificationInput, driverUser);
+          } catch (err) {
+            this.logger.error(`Failed to send notification to driver ${driver.driverId}: ${err}`);
+            break;
+          }
         }
       }
       // Check ride status BEFORE subscribing to Ably - cancellation may have happened
