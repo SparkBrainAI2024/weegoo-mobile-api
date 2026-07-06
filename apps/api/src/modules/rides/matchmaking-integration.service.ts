@@ -180,7 +180,7 @@ export class MatchmakingIntegrationService {
     try {
       const data = await this.callMatchmakingGraphql(
         this.MATCH_INSTANT_QUERY,
-        { input: { rideId: ride._id.toString() } });
+        { input: { rideId: ride._id.toString() } },600000);
       const result = data?.matchDrivers;
       const baseResponse = {
         success: !!result?.matched,
