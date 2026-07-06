@@ -124,7 +124,7 @@ export class MatchmakingIntegrationService {
     const response = await axios.post(
       `${matchmakingUrl}/graphql`,
       { query, variables },
-      { timeout },
+      timeout?{ timeout: timeout }:{},
     );
 
   this.logger.log('B. After axios',JSON.stringify(response.data));
@@ -138,6 +138,7 @@ export class MatchmakingIntegrationService {
     pickupLocation: RideLocationInput,
     dropoffLocation: RideLocationInput,
     vehicleType: string,
+    noOfPassengers: number = 1,
   ): Promise<TriggerMatchmakingResult> {
     const activeRide = await this.ridesModel.findOne({
       passengerId: new Types.ObjectId(userId),
@@ -164,7 +165,7 @@ export class MatchmakingIntegrationService {
 
     const rideData = this.buildRideDocument(
       RideTypes.INSTANT, userId, pickupLocation, dropoffLocation,
-      vehicle?._id || new Types.ObjectId(), new Date(), 1,
+      vehicle?._id || new Types.ObjectId(), new Date(), noOfPassengers,
     );
 
     let ride: RidesDocument;
