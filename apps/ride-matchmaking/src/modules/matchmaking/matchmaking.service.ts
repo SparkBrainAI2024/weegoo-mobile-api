@@ -695,6 +695,8 @@ export class MatchmakingService {
             distanceInKm: ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
             estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
+            rideId: updatedRide._id.toString(), 
+            passengerId: updatedRide.passengerId?.toString() || null,
           };
           this.notificationService.createNotification(notificationInput, passengerUser);
         }
