@@ -50,6 +50,10 @@ export class User extends BaseEntity {
   @Prop({ default: false })
   suspended: boolean;
 
+  @Field({ nullable: true })
+  @Prop({ default: null })
+  suspendedAt?: Date;
+
   @Field({ defaultValue: false })
   @Prop({ default: false })
   verified: boolean;

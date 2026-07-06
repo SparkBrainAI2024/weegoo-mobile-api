@@ -11,10 +11,16 @@ import { CurrentLang } from "@libs/common/decorators/header.decorators";
 import { DriverService } from "@libs/services/driver/driver.service";
 import { SetMetadata, UseGuards } from "@nestjs/common";
 import { AuthGuard, RoleGuard } from "@libs/guards";
-import { DriverDocument, roles } from "@libs/data-access";
+import { BasicResponse, DriverDocument, roles, User } from "@libs/data-access";
 import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
-import { DriverListResponse } from "@libs/data-access/dtos/response/driver-list.response";
-import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
+import {
+  DriverListResponse,
+  ToggleBlockDriverResponse,
+} from "@libs/data-access/dtos/response/driver-list.response";
+import {
+  DriverListInput,
+  ToggleBlockDriverInput,
+} from "@libs/data-access/dtos/input/driver-list.input";
 import { DeleteDriverInput } from "@libs/data-access/dtos/input/delete-driver.input";
 
 // @UseGuards(AuthGuard, RoleGuard)
@@ -47,7 +53,6 @@ export class DriverResolver {
     const result = await this.driverService.listDrivers(
       input ?? new DriverListInput(),
     );
-    console.log("📤 getDrivers returning:", JSON.stringify(result, null, 2));
     return result;
   }
 
@@ -56,5 +61,20 @@ export class DriverResolver {
     @Args("input") input: DeleteDriverInput,
   ): Promise<boolean> {
     return this.driverService.softDeleteDriver(input.driverId);
+  }
+
+  // drivers.resolver.ts
+  @Mutation(() => ToggleBlockDriverResponse)
+  async toggleBlockDriver(
+    @Args("input") input: ToggleBlockDriverInput,
+  ): Promise<ToggleBlockDriverResponse> {
+    console.log(input, "input");
+
+    const result = await this.driverService.toggleBlock(
+      input.id,
+      input.isBlocked,
+    );
+    console.log(result, "result");
+    return result;
   }
 }

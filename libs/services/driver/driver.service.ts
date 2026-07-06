@@ -1,6 +1,7 @@
 import { toMongoId } from "@libs/common";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import {
+  BasicResponse,
   IPaginatedResult,
   RidesRepository,
   RideStatus,
@@ -8,7 +9,10 @@ import {
   TransactionRepository,
 } from "@libs/data-access";
 import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
-import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
+import {
+  DriverListItem,
+  ToggleBlockDriverResponse,
+} from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
@@ -137,5 +141,29 @@ export class DriverService {
 
     await this.userRepository.softDeleteById(toMongoId(driverId));
     return true;
+  }
+
+  async toggleBlock(
+    driverId: string,
+    isBlocked: boolean,
+  ): Promise<ToggleBlockDriverResponse> {
+    const driver = await this.userRepository.findById(toMongoId(driverId));
+
+    if (!driver) {
+      throw new NotFoundException(`Driver ${driverId} not found`);
+    }
+
+    driver.suspended = isBlocked;
+    driver.suspendedAt = isBlocked ? new Date() : null;
+
+    await driver.save();
+
+    return {
+      success: true,
+      message: isBlocked
+        ? "User blocked successfully"
+        : "User unblocked successfully",
+      suspended: driver.suspended,
+    };
   }
 }

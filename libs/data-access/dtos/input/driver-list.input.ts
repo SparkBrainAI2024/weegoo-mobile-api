@@ -1,5 +1,5 @@
 import { Field, InputType } from "@nestjs/graphql";
-import { IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsMongoId, IsOptional, IsString } from "class-validator";
 import { PaginationInputOnly } from "@libs/data-access/base/base.input";
 
 @InputType()
@@ -13,4 +13,15 @@ export class DriverListInput extends PaginationInputOnly {
   @IsOptional()
   @IsString()
   status?: string; // "ACTIVE" | "PENDING" | "BLOCKED"
+}
+
+@InputType() // ← must be present
+export class ToggleBlockDriverInput {
+  @Field()
+  @IsMongoId()
+  id: string;
+
+  @Field()
+  @IsBoolean()
+  isBlocked: boolean;
 }

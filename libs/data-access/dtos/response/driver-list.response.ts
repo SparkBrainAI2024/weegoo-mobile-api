@@ -2,6 +2,7 @@
 import { Field, Float, Int, ObjectType } from "@nestjs/graphql";
 // driver-list.response.ts
 import { Paginated } from "@libs/data-access/base/base.response";
+import { BasicResponse } from "./basic.response";
 
 @ObjectType()
 export class DriverListItem {
@@ -35,3 +36,9 @@ export class DriverListItem {
 
 @ObjectType()
 export class DriverListResponse extends Paginated(DriverListItem) {}
+
+@ObjectType()
+export class ToggleBlockDriverResponse extends BasicResponse {
+  @Field(() => Boolean, { nullable: true })
+  suspended: boolean;
+}
