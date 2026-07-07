@@ -1143,7 +1143,7 @@ export class MatchmakingService {
         await this.notificationService.createNotification({
           title: 'Driver has arrived',
           notificationType: NotificationType.RIDE_START,
-          description: `Your driver has arrived at pickup location. Remaining distance: ${remainingDistanceKm.toFixed(2)} km. Estimated time: ${updatedRide.estimatedTimeInMinutes || 0} minutes.`,
+          description: `Your driver has arrived at pickup location. Remaining distance: ${remainingDistanceKm.toFixed(2)} km. Estimated time: ${updatedRide.estimatedTimeInMinutes.toFixed(2) || 0} minutes.`,
           ablyChannelId: updatedRide.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
           driverName: updatedRide.driverId?.toString() || '',
           pickupLocation: updatedRide.pickupLocation,
@@ -1471,7 +1471,7 @@ export class MatchmakingService {
       const fare = this.pricingService.calculateFare({ distanceKm: route.distanceKm, durationMinutes: route.durationMinutes, vehicleType: type as VehicleType });
       let comfortType = ''; let hasAC: boolean | undefined = undefined;
       if (type === VehicleType.CAR) { comfortType = 'Comfortable city ride with fast pickup'; hasAC = true; } else if (type === VehicleType.MOTORBIKE) { comfortType = 'Affordable and quick'; hasAC = false; } else if (type === VehicleType.SCOOTER) { comfortType = 'Short and quick ride'; hasAC = false; }
-      return { vehicleType: type as VehicleType, estimatedFare: fare.total, distanceKm: Math.round(route.distanceKm * 100) / 100, estimatedTimeInMinutes: route.durationMinutes, comfortType, hasAC, noOfPassengers: params.noOfPassengers };
+      return { vehicleType: type as VehicleType, estimatedFare: Math.round(fare.total * 100) / 100, distanceKm: Math.round(route.distanceKm * 100) / 100, estimatedTimeInMinutes: Math.round(route.durationMinutes * 100) / 100, comfortType, hasAC, noOfPassengers: params.noOfPassengers };
     }));
   }
 
