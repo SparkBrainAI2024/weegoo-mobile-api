@@ -87,6 +87,24 @@ export class MatchmakingService {
     }
 
     const scheduledFare = this.pricingService.calculateScheduledFare({ distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes, vehicleType: requestedType });
+
+    // Persist the fare to the ride document so handleDriverResponse can use it
+    await this.ridesModel.findByIdAndUpdate(ride._id, {
+      $set: {
+        distanceInKm: Math.round(routeDistanceKm * 100) / 100,
+        estimatedFare: scheduledFare.total,
+        fare: {
+          baseAmount: scheduledFare.baseFare,
+          trafficCongestionAmount: 0,
+          distanceAmount: Math.round(scheduledFare.distanceCost * 100) / 100,
+          totalAmount: Math.round(scheduledFare.total * 100) / 100,
+          noOfPassengers: ride.noOfPassengers || 1,
+          discountAmount: 0,
+          promoCodeId: null,
+        },
+      },
+    }).exec();
+
     const passengerUser = await this.userModel.findById(ride.passengerId).exec();
     const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
     const passengerName = passengerUser?.fullName || passengerDetails?.fullName || 'Passenger';
@@ -611,31 +629,14 @@ export class MatchmakingService {
           } catch { }
         }
 
-        // Calculate fare: includes pickup-to-dropoff distance + driver-to-pickup distance
+        // Use the fare already persisted to the ride document by executeExpandingRingMatch or matchScheduledDrivers
         const pickupToDropoffKm = ride.distanceInKm || 0;
-        const totalDistanceKm = pickupToDropoffKm
-        const durationMinutes = ride.estimatedTimeInMinutes || 0;
-        let totalFare: number | undefined;
-        let fare: FareBreakdown | ScheduledFareBreakdown | null = null;
+        const storedFare = ride.fare;
+        const totalFare = ride.estimatedFare || 0;
 
-        if (ride.rideType === RideTypes.INSTANT) {
-          fare = this.pricingService.calculateFare({
-            distanceKm: totalDistanceKm,
-            durationMinutes,
-            vehicleType: vehicle?.vehicleType as VehicleType | undefined,
-          });
-        } else {
-          fare = this.pricingService.calculateScheduledFare({
-            distanceKm: totalDistanceKm,
-            durationMinutes,
-            vehicleType: vType,
-          });
-        }
-        totalFare = fare?.total;
-
-        const distanceFare = fare?.distanceCost || 0;
-        const baseFare = fare?.baseFare || 0;
-        const totalAmount = fare?.total || 0;
+        const baseFare = storedFare?.baseAmount || 0;
+        const distanceFare = storedFare?.distanceAmount || 0;
+        const totalAmount = storedFare?.totalAmount || 0;
 
         const updatedRide = await this.ridesModel.findOneAndUpdate(
           { _id: ride._id, rideStatus: RideStatus.PENDING },
@@ -644,8 +645,8 @@ export class MatchmakingService {
               driverId: new Types.ObjectId(driverId),
               rideStatus: RideStatus.CONFIRMED,
               distanceInKm: pickupToDropoffKm,
-              estimatedTimeInMinutes: durationMinutes,
-              estimatedFare: totalFare || ride.estimatedFare || 0,
+              estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+              estimatedFare: totalFare,
               distanceToReachPassenger: driverToPickupDistanceKm,
               estimatedTimeToReachPassenger: driverToPickupDurationMinutes,
               timeToReachPassengerInMinutes: driverToPickupDurationMinutes,
@@ -665,9 +666,14 @@ export class MatchmakingService {
 
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
 
-        const rideFare = fare || (ride.rideType === RideTypes.SCHEDULED
-          ? { baseFare: 0, total: 0, pickupCost: 0, distanceCost: 0, durationCost: 0 }
-          : { pickupCost: 0, distanceCost: 0, durationCost: 0, total: 0, baseFare: 0 });
+        // Build a fare object compatible with buildAcceptDetailsFromCache
+        const rideFare: FareBreakdown = {
+          baseFare: baseFare,
+          total: totalAmount,
+          pickupCost: 0,
+          distanceCost: distanceFare,
+          durationCost: 0,
+        };
 
         // Build accept details with already-fetched data, avoiding 5 redundant DB queries
         const acceptDetails = this.buildAcceptDetailsFromCache(
