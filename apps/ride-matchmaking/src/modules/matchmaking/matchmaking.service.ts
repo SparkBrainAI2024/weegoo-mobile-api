@@ -616,12 +616,16 @@ export class MatchmakingService {
         // Only calculate driver-to-pickup distance (needed for ETA display)
         let driverToPickupDistanceKm = 0;
         let driverToPickupDurationMinutes = 0;
+        let driverLat = 0;
+        let driverLng = 0;
 
         if (driverDetails?.geoLocation?.coordinates && pickupCoords?.[1]) {
           try {
+            driverLat = driverDetails.geoLocation.coordinates[0];
+            driverLng = driverDetails.geoLocation.coordinates[1];
             const dist = await this.distanceCalculator.calculateDriverDistance(
               pickupCoords[1], pickupCoords[0],
-              driverDetails.geoLocation.coordinates[0], driverDetails.geoLocation.coordinates[1],
+              driverLat, driverLng,
               vType,
             );
             driverToPickupDistanceKm = Math.round(dist.distanceKm * 100) / 100;
@@ -681,6 +685,13 @@ export class MatchmakingService {
           driverUser, driverDetails, vehicle, passengerUser,
         );
 
+        // If driver is within 300 meters of pickup, publish their location immediately
+        // in the background so the passenger sees the driver's position right away.
+        if (driverToPickupDistanceKm <= 0.3 && driverLat !== 0 && driverLng !== 0) {
+          this.rideChannelService.publishDriverLocationToChannel(driverId, {driverId,latitude: driverLat,longitude: driverLng,updatedAt: new Date().toISOString()})
+            .catch((err) => this.logger.warn(`Background driver location publish failed: ${err}`));
+        }
+
         if (passengerUser) {
           const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
           const driverSnapshot = {
@@ -730,6 +741,32 @@ export class MatchmakingService {
       return { success: false, message: 'Failed to process driver response' };
     }
     return { success: false, message: 'Invalid action' };
+  }
+
+  /**
+   * Publish the driver's current location to the ride channel in the background.
+   * This is called fire-and-forget when a driver accepts a ride and is already
+   * within 300 meters of the pickup location, so the passenger immediately sees
+   * the driver's position on the map.
+   */
+  private async publishDriverLocationUpdate(
+    rideUUId: string,
+    driverId: string,
+    latitude: number,
+    longitude: number,
+    distanceToPickupKm: number,
+    estimatedTimeToPickupMinutes: number,
+  ): Promise<void> {
+    await this.rideChannelService.publishRideEvent(rideUUId, 'driver-moving', {
+      rideId: '',
+      driverId,
+      latitude,
+      longitude,
+      distanceToPickupKm,
+      estimatedTimeToPickupMinutes,
+      message: `Driver is ${distanceToPickupKm.toFixed(2)} km away.`,
+    });
+    this.logger.log(`[BACKGROUND] Published driver location for ride ${rideUUId} (driver ${driverId} is ${distanceToPickupKm} km from pickup)`);
   }
 
   /**
@@ -1019,7 +1056,7 @@ export class MatchmakingService {
               latitude,
               longitude,
               distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
-              dropoffDurationMinutes,
+              dropoffDurationMinutes: Math.ceil(dropoffDurationMinutes),
               message: `Driver is ${distanceKm.toFixed(2)} km away.`,
             });
 
@@ -1033,7 +1070,7 @@ export class MatchmakingService {
                 latitude,
                 longitude,
                 distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
-                dropoffDurationMinutes,
+                dropoffDurationMinutes: Math.ceil(dropoffDurationMinutes),
                 message: `Driver has arrived at the destination.`,
               });
               this.notificationService.createNotification({
@@ -1045,7 +1082,7 @@ export class MatchmakingService {
                 driverName: activeRide.driverId?.toString() || '',
                 pickupLocation: activeRide.pickupLocation,
                 dropoffLocation: activeRide.dropoffLocation,
-                distanceInKm: dropoffDistanceKm,
+                distanceInKm: Math.round(dropoffDistanceKm * 100) / 100,
                 estimatedTimeInMinutes: 0,
                 passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
               }, passenger);

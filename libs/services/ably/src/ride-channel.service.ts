@@ -1,5 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { AblyService } from './ably.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { AblyService } from "./ably.service";
 
 /**
  * Service for managing the unified ride channel.
@@ -31,9 +31,9 @@ export class RideChannelService {
   private readonly logger = new Logger(RideChannelService.name);
 
   /** The single event name used for ALL ride channel publications */
-  static readonly RIDE_EVENT = 'ride-detail';
+  static readonly RIDE_EVENT = "ride-detail";
 
-  constructor(private readonly ablyService: AblyService) {}
+  constructor(private readonly ablyService: AblyService) { }
 
   /**
    * Generate the unified channel name for a ride.
@@ -89,7 +89,7 @@ export class RideChannelService {
     data: {
       rideId: string;
       driverId: string;
-      action: 'accept' | 'reject';
+      action: "accept" | "reject";
       driverName?: string | null;
       driverImage?: string | null;
       rating?: number | null;
@@ -122,77 +122,100 @@ export class RideChannelService {
   /**
    * Publish driver location update to the ride channel.
    */
-  async publishDriverLocationUpdate(rideUUId: string, data: DriverLocationPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'driver-location', data as any);
+  async publishDriverLocationUpdate(
+    rideUUId: string,
+    data: DriverLocationPayload,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "driver-location", data as any);
   }
 
   /**
    * Publish passenger location update to the ride channel.
    */
-  async publishPassengerLocationUpdate(rideUUId: string, data: PassengerLocationPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'passenger-location', data as any);
+  async publishPassengerLocationUpdate(
+    rideUUId: string,
+    data: PassengerLocationPayload,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "passenger-location", data as any);
   }
 
   /**
    * Publish full ride details update to the unified ride channel.
    */
-  async publishRideDetails(rideUUId: string, data: RideDetailsPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'ride-details', data as any);
+  async publishRideDetails(
+    rideUUId: string,
+    data: RideDetailsPayload,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "ride-details", data as any);
   }
 
   /**
    * Publish ride status change.
    */
-  async publishRideStatusUpdate(rideUUId: string, data: RideStatusPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'ride-status-update', data as any);
+  async publishRideStatusUpdate(
+    rideUUId: string,
+    data: RideStatusPayload,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "ride-status-update", data as any);
   }
 
   /**
    * Publish ride started event to the unified ride channel.
    * Contains the ride start time and remaining time to destination.
    */
-  async publishRideStarted(rideUUId: string, data: {
-    rideId: string;
-    rideStartedAt: string;
-    estimatedTimeInMinutes: number;
-    distanceInKm: number;
-  }): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'ride-start', data as any);
+  async publishRideStarted(
+    rideUUId: string,
+    data: {
+      rideId: string;
+      rideStartedAt: string;
+      estimatedTimeInMinutes: number;
+      distanceInKm: number;
+    },
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "ride-start", data as any);
   }
 
   /**
    * Publish ride completed event to the unified ride channel.
    * Contains actual duration and fare breakdown (base fare, distance charge, discount, total fare).
    */
-  async publishRideCompleted(rideUUId: string, data: RideCompletedPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'ride-completed', data as any);
+  async publishRideCompleted(
+    rideUUId: string,
+    data: RideCompletedPayload,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "ride-completed", data as any);
   }
-
-
-
 
   /**
    * Publish driver accepted event with full driver/vehicle/passenger details.
    */
-  async publishDriverAccepted(rideUUId: string, data: DriverAcceptedPayload): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'driver-accepted', data as any);
+  async publishDriverAccepted(
+    rideUUId: string,
+    data: DriverAcceptedPayload,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "driver-accepted", data as any);
   }
 
   /**
    * Publish ride-taken event (ride accepted by another driver).
    */
   async publishRideTaken(rideUUId: string, rideId: string): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'ride-taken', {
+    await this.publishRideEvent(rideUUId, "ride-taken", {
       rideId,
-      message: 'This ride has been accepted by another driver',
+      message: "This ride has been accepted by another driver",
     });
   }
 
   /**
    * Publish match-failed event (no driver found).
    */
-  async publishMatchFailed(rideUUId: string, rideId: string, message: string, suggestedAction?: string): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'match-failed', {
+  async publishMatchFailed(
+    rideUUId: string,
+    rideId: string,
+    message: string,
+    suggestedAction?: string,
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "match-failed", {
       rideId,
       message,
       suggestedAction,
@@ -203,35 +226,38 @@ export class RideChannelService {
    * Publish a matchmaking ride request event to the ride channel.
    * Used during instant/scheduled matchmaking to notify about driver requests.
    */
-  async publishMatchmakingRideRequest(rideUUId: string, data: {
-    rideId: string;
-    rideType?: string;
-    pickupLocation?: any;
-    dropoffLocation?: any;
-    distanceInKm?: number;
-    estimatedFare?: number;
-    estimatedTimeInMinutes?: number;
-    passengerId?: string;
-    driverScore?: number;
-    distanceToPickupKm?: number;
-    expirySeconds?: number;
-    attemptNumber?: number;
-    isScheduled?: boolean;
-    bookingTime?: string;
-    driverImage?: string | null;
-    rating?: number | null;
-    driverId?: string;
-    driverName?: string;
-    /** Passenger snapshot with fullName, profileImage, rating, phone */
-    passengerSnapshot?: {
-      fullName?: string;
-      profileImage?: string;
-      rating?: number;
-      phone?: string;
-    };
-     noOfPassengers?: number
-  }): Promise<void> {
-    await this.publishRideEvent(rideUUId, 'driver-ride-request', data);
+  async publishMatchmakingRideRequest(
+    rideUUId: string,
+    data: {
+      rideId: string;
+      rideType?: string;
+      pickupLocation?: any;
+      dropoffLocation?: any;
+      distanceInKm?: number;
+      estimatedFare?: number;
+      estimatedTimeInMinutes?: number;
+      passengerId?: string;
+      driverScore?: number;
+      distanceToPickupKm?: number;
+      expirySeconds?: number;
+      attemptNumber?: number;
+      isScheduled?: boolean;
+      bookingTime?: string;
+      driverImage?: string | null;
+      rating?: number | null;
+      driverId?: string;
+      driverName?: string;
+      /** Passenger snapshot with fullName, profileImage, rating, phone */
+      passengerSnapshot?: {
+        fullName?: string;
+        profileImage?: string;
+        rating?: number;
+        phone?: string;
+      };
+      noOfPassengers?: number;
+    },
+  ): Promise<void> {
+    await this.publishRideEvent(rideUUId, "driver-ride-request", data);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -243,35 +269,46 @@ export class RideChannelService {
    * Other services (matchmaking, passenger app) can subscribe to this channel
    * to receive real-time driver location updates.
    */
-  async publishDriverLocationToChannel(driverId: string, data: {
-    driverId: string;
-    latitude: number;
-    longitude: number;
-    updatedAt: string;
-  }): Promise<void> {
+  async publishDriverLocationToChannel(
+    driverId: string,
+    data: {
+      driverId: string;
+      latitude: number;
+      longitude: number;
+      updatedAt: string;
+    },
+  ): Promise<void> {
     const channel = RideChannelService.getDriverLocationChannelName(driverId);
-    await this.ablyService.publish(channel, 'driver-location-update', {
-      ...data,
+    await this.ablyService.publish(channel, "driver-location", {
+      dId: driverId,
+      lat: data.latitude,
+      lng: data.longitude,
       timestamp: new Date().toISOString(),
     });
-    this.logger.debug(`Published driver-location-update to channel ${channel}`);
+    this.logger.debug(`Published driver-location to channel ${channel}`);
   }
 
   /**
    * Publish passenger location to the passenger's personal location channel.
    */
-  async publishPassengerLocationToChannel(passengerId: string, data: {
-    passengerId: string;
-    latitude: number;
-    longitude: number;
-    updatedAt: string;
-  }): Promise<void> {
-    const channel = RideChannelService.getPassengerLocationChannelName(passengerId);
-    await this.ablyService.publish(channel, 'passenger-location-update', {
+  async publishPassengerLocationToChannel(
+    passengerId: string,
+    data: {
+      passengerId: string;
+      latitude: number;
+      longitude: number;
+      updatedAt: string;
+    },
+  ): Promise<void> {
+    const channel =
+      RideChannelService.getPassengerLocationChannelName(passengerId);
+    await this.ablyService.publish(channel, "passenger-location-update", {
       ...data,
       timestamp: new Date().toISOString(),
     });
-    this.logger.debug(`Published passenger-location-update to channel ${channel}`);
+    this.logger.debug(
+      `Published passenger-location-update to channel ${channel}`,
+    );
   }
 
   /**
@@ -283,7 +320,7 @@ export class RideChannelService {
     callback: (data: any) => void,
   ): () => void {
     const channel = RideChannelService.getDriverLocationChannelName(driverId);
-    return this.ablyService.subscribe(channel, 'driver-location', (message) => {
+    return this.ablyService.subscribe(channel, "driver-location", (message) => {
       callback(message.data);
     });
   }
@@ -296,10 +333,15 @@ export class RideChannelService {
     passengerId: string,
     callback: (data: any) => void,
   ): () => void {
-    const channel = RideChannelService.getPassengerLocationChannelName(passengerId);
-    return this.ablyService.subscribe(channel, 'passenger-location', (message) => {
-      callback(message.data);
-    });
+    const channel =
+      RideChannelService.getPassengerLocationChannelName(passengerId);
+    return this.ablyService.subscribe(
+      channel,
+      "passenger-location",
+      (message) => {
+        callback(message.data);
+      },
+    );
   }
 
   /**
@@ -325,9 +367,13 @@ export class RideChannelService {
     callback: (eventType: string, data: any) => void,
   ): () => void {
     const channel = RideChannelService.getChannelName(rideUUId);
-    return this.ablyService.subscribe(channel, RideChannelService.RIDE_EVENT, (message) => {
-      callback(message.data.eventType, message.data);
-    });
+    return this.ablyService.subscribe(
+      channel,
+      RideChannelService.RIDE_EVENT,
+      (message) => {
+        callback(message.data.eventType, message.data);
+      },
+    );
   }
 
   /**
