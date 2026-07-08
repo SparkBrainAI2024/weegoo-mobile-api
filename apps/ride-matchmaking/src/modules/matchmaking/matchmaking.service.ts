@@ -91,13 +91,13 @@ export class MatchmakingService {
     // Persist the fare to the ride document so handleDriverResponse can use it
     await this.ridesModel.findByIdAndUpdate(ride._id, {
       $set: {
-        distanceInKm: Math.round(routeDistanceKm * 100) / 100,
+        distanceInKm: Math.round(routeDistanceKm),
         estimatedFare: scheduledFare.total,
         fare: {
           baseAmount: scheduledFare.baseFare,
           trafficCongestionAmount: 0,
-          distanceAmount: Math.round(scheduledFare.distanceCost * 100) / 100,
-          totalAmount: Math.round(scheduledFare.total * 100) / 100,
+          distanceAmount: Math.round(scheduledFare.distanceCost),
+          totalAmount: Math.round(scheduledFare.total),
           noOfPassengers: ride.noOfPassengers || 1,
           discountAmount: 0,
           promoCodeId: null,
@@ -208,13 +208,13 @@ export class MatchmakingService {
     // so that handleDriverResponse and downstream consumers use the accurate values
     await this.ridesModel.findByIdAndUpdate(ride._id, {
       $set: {
-        distanceInKm: Math.round(routeDistanceKm * 100) / 100,
+        distanceInKm: routeDistanceKm,
         estimatedFare: estimatedFare.total,
         fare: {
           baseAmount: estimatedFare.baseFare,
           trafficCongestionAmount: 0,
-          distanceAmount: Math.round(estimatedFare.distanceCost * 100) / 100,
-          totalAmount: Math.round(estimatedFare.total * 100) / 100,
+          distanceAmount: Math.round(estimatedFare.distanceCost),
+          totalAmount: Math.round(estimatedFare.total),
           noOfPassengers: ride.noOfPassengers || 1,
           discountAmount: 0,
           promoCodeId: null,
@@ -628,8 +628,8 @@ export class MatchmakingService {
               driverLat, driverLng,
               vType,
             );
-            driverToPickupDistanceKm = Math.round(dist.distanceKm * 100) / 100;
-            driverToPickupDurationMinutes = Math.ceil(dist.durationMinutes);
+            driverToPickupDistanceKm = Math.round(dist.distanceKm);
+            driverToPickupDurationMinutes = Math.round(dist.durationMinutes);
           } catch { }
         }
 
@@ -657,8 +657,8 @@ export class MatchmakingService {
               fare: {
                 baseAmount: baseFare,
                 trafficCongestionAmount: 0,
-                distanceAmount: Math.round(distanceFare * 100) / 100,
-                totalAmount: Math.round(totalAmount * 100) / 100,
+                distanceAmount: Math.round(distanceFare),
+                totalAmount: Math.round(totalAmount),
                 noOfPassengers: ride.noOfPassengers || 1,
                 discountAmount: 0,
                 promoCodeId: null,
@@ -932,15 +932,15 @@ export class MatchmakingService {
             Math.cos(latitude * Math.PI / 180) * Math.cos(pickupLat * Math.PI / 180) *
             Math.sin(dLng / 2) * Math.sin(dLng / 2);
           const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          distanceKm = R * c;
-          durationMinutes = Math.ceil(distanceKm * 2);
+          distanceKm = Math.round(R * c);
+          durationMinutes = Math.round(distanceKm * 2);
         }
 
         // Update ride document with distance/time to reach passenger
         await this.ridesModel.findByIdAndUpdate(activeRide._id, {
           $set: {
-            distanceToReachPassenger: Math.round(distanceKm * 100) / 100,
-            estimatedTimeToReachPassenger: Math.ceil(durationMinutes),
+            distanceToReachPassenger: distanceKm,
+            estimatedTimeToReachPassenger:durationMinutes,
           },
         }).exec();
 
@@ -951,9 +951,9 @@ export class MatchmakingService {
             driverId,
             latitude,
             longitude,
-            distanceToPickupKm: Math.round(distanceKm * 100) / 100,
-            estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
-            message: `Driver is ${distanceKm.toFixed(2)} km away.`,
+            distanceToPickupKm: distanceKm,
+            estimatedTimeToPickupMinutes: durationMinutes,
+            message: `Driver is ${distanceKm} km away.`,
           });
 
         // --- "Driver is arriving" — within 1km of pickup (CONFIRMED rides only) ---
@@ -966,21 +966,21 @@ export class MatchmakingService {
               driverId,
               latitude,
               longitude,
-              distanceToPickupKm: Math.round(distanceKm * 100) / 100,
-              estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
-              message: `Driver is at the ${distanceKm.toFixed(2)} km away.`,
+              distanceToPickupKm: distanceKm,
+              estimatedTimeToPickupMinutes: durationMinutes,
+              message: `Driver is at the ${distanceKm} km away.`,
             });
             this.notificationService.createNotification({
               title: 'Driver is arriving',
               rideId: activeRide._id.toString(),
               notificationType: NotificationType.RIDE_DETAILS,
-              description: `Your driver is ${distanceKm.toFixed(2)} km away. Estimated arrival in ${Math.ceil(durationMinutes)} minutes.`,
+              description: `Your driver is ${distanceKm} km away. Estimated arrival in ${durationMinutes} minutes.`,
               ablyChannelId: activeRide.ablyChannelId || `WG-RIDE-${activeRide.rideUUId}-ride-details`,
               driverName: activeRide.driverId?.toString() || '',
               pickupLocation: activeRide.pickupLocation,
               dropoffLocation: activeRide.dropoffLocation,
               distanceInKm: distanceKm,
-              estimatedTimeInMinutes: Math.ceil(durationMinutes),
+              estimatedTimeInMinutes: durationMinutes,
               passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
             }, passenger);
           }
@@ -994,9 +994,9 @@ export class MatchmakingService {
               driverId,
               latitude,
               longitude,
-              distanceToPickupKm: Math.round(distanceKm * 100) / 100,
-              estimatedTimeToPickupMinutes: Math.ceil(durationMinutes),
-              message: `Driver is at the pickup location ${distanceKm.toFixed(2)} km away.`,
+              distanceToPickupKm: distanceKm,
+              estimatedTimeToPickupMinutes: durationMinutes,
+              message: `Driver is at the pickup location ${distanceKm} km away.`,
             });
             this.notificationService.createNotification({
               title: 'Driver is at pickup location',
@@ -1008,7 +1008,7 @@ export class MatchmakingService {
               pickupLocation: activeRide.pickupLocation,
               dropoffLocation: activeRide.dropoffLocation,
               distanceInKm: distanceKm,
-              estimatedTimeInMinutes: Math.ceil(durationMinutes),
+              estimatedTimeInMinutes: durationMinutes,
               passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
             }, passenger);
           }
@@ -1037,15 +1037,15 @@ export class MatchmakingService {
               Math.cos(latitude * Math.PI / 180) * Math.cos(dropoffLat * Math.PI / 180) *
               Math.sin(dLng / 2) * Math.sin(dLng / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            dropoffDistanceKm = R * c;
-            dropoffDurationMinutes = Math.ceil(dropoffDistanceKm * 2);
+            dropoffDistanceKm = Math.round(R * c);
+            dropoffDurationMinutes = Math.round(dropoffDistanceKm * 2);
           }
 
           // Update ride document with remaining distance/time to destination
           await this.ridesModel.findByIdAndUpdate(activeRide._id, {
             $set: {
-              distanceInKm: Math.round(dropoffDistanceKm * 100) / 100,
-              estimatedTimeInMinutes: Math.ceil(dropoffDurationMinutes),
+              distanceInKm: dropoffDistanceKm,
+              estimatedTimeInMinutes: dropoffDurationMinutes,
             },
           }).exec();
 
@@ -1055,9 +1055,9 @@ export class MatchmakingService {
               driverId,
               latitude,
               longitude,
-              distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
-              dropoffDurationMinutes: Math.ceil(dropoffDurationMinutes),
-              message: `Driver is ${distanceKm.toFixed(2)} km away.`,
+              distanceToDropoffKm: dropoffDistanceKm,
+              dropoffDurationMinutes: dropoffDurationMinutes,
+              message: `Driver is ${dropoffDistanceKm} km away.`,
             });
 
           if (dropoffDistanceKm <= 0.05 && !activeRide.driverArrivedAtDestinationNotified) {
@@ -1069,8 +1069,8 @@ export class MatchmakingService {
                 driverId,
                 latitude,
                 longitude,
-                distanceToDropoffKm: Math.round(dropoffDistanceKm * 100) / 100,
-                dropoffDurationMinutes: Math.ceil(dropoffDurationMinutes),
+                distanceToDropoffKm: dropoffDistanceKm,
+                dropoffDurationMinutes: dropoffDurationMinutes,
                 message: `Driver has arrived at the destination.`,
               });
               this.notificationService.createNotification({
@@ -1082,7 +1082,7 @@ export class MatchmakingService {
                 driverName: activeRide.driverId?.toString() || '',
                 pickupLocation: activeRide.pickupLocation,
                 dropoffLocation: activeRide.dropoffLocation,
-                distanceInKm: Math.round(dropoffDistanceKm * 100) / 100,
+                distanceInKm: dropoffDistanceKm,
                 estimatedTimeInMinutes: 0,
                 passengerSnapshot: { fullName: passenger.fullName || 'Passenger', phone: passenger.phone || '', profileImage: '', rating: 0 },
               }, passenger);
@@ -1508,7 +1508,7 @@ export class MatchmakingService {
       const fare = this.pricingService.calculateFare({ distanceKm: route.distanceKm, durationMinutes: route.durationMinutes, vehicleType: type as VehicleType });
       let comfortType = ''; let hasAC: boolean | undefined = undefined;
       if (type === VehicleType.CAR) { comfortType = 'Comfortable city ride with fast pickup'; hasAC = true; } else if (type === VehicleType.MOTORBIKE) { comfortType = 'Affordable and quick'; hasAC = false; } else if (type === VehicleType.SCOOTER) { comfortType = 'Short and quick ride'; hasAC = false; }
-      return { vehicleType: type as VehicleType, estimatedFare: Math.round(fare.total * 100) / 100, distanceKm: Math.round(route.distanceKm * 100) / 100, estimatedTimeInMinutes: Math.round(route.durationMinutes * 100) / 100, comfortType, hasAC, noOfPassengers: params.noOfPassengers };
+      return { vehicleType: type as VehicleType, estimatedFare: Math.round(fare.total), distanceKm: route.distanceKm, estimatedTimeInMinutes: route.durationMinutes, comfortType, hasAC, noOfPassengers: params.noOfPassengers };
     }));
   }
 
