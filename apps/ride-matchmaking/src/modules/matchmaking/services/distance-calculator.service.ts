@@ -62,7 +62,7 @@ export class DistanceCalculatorService {
       const route = response.data?.data?.[0];
       if (route) {
         return {
-          distanceKm: Math.round(route.distanceInMeters / 1000),
+          distanceKm: Number((route.distanceInMeters / 1000).toFixed(2)),
           durationMinutes: Number((route.timeInMs / 1000 / 60).toFixed(2)),
           polyline: route.encodedPolyline,
         };
