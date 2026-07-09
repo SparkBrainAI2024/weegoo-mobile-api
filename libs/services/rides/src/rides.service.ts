@@ -16,6 +16,7 @@ import { toMongoId, REQUIRED_SIDES } from '@libs/common';
 import { CreatePromoCodeInput } from '@libs/data-access';
 import { getActiveProfileImageUrl, transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3/s3.service';
+import axios from 'axios';
 
 
 import { InjectModel } from '@nestjs/mongoose';
@@ -462,7 +463,7 @@ export class RidesService {
       ErrorException(null, 'RIDES.CANCEL_PENDING', HttpStatus.BAD_REQUEST);
     }
 
-    return this.rideRepository.cancelRide({
+    const cancelledRide = await this.rideRepository.cancelRide({
       rideId: input.rideId,
       cancelledBy: user._id,
       cancelledByRole: userLoginAs as CategoryAccessedByRole,
@@ -470,6 +471,46 @@ export class RidesService {
       cancelSubCategoryLabel: input.cancelSubCategoryLabel,
       cancelReasonContent: input.cancelReasonContent,
     });
+
+    // Send cancel ride notification to the matchmaking service (Ably + push notification)
+    // This is done asynchronously to not block the cancellation response
+    this.sendCancelRideNotification(input.rideId, user).catch((err: any) => {
+      console.error(`Failed to send cancel ride notification: ${err?.message || err}`);
+    });
+
+    return cancelledRide;
+  }
+
+  /**
+   * Sends a cancel ride notification to the matchmaking service via GraphQL.
+   * Publishes a ride-cancelled event on the Ably channel and sends push notifications
+   * to the other party (passenger or driver).
+   */
+  private async sendCancelRideNotification(rideId: string, user: User): Promise<void> {
+    try {
+      const matchmakingUrl = process.env.RIDE_MATCHMAKING_URL || 'http://localhost:3004';
+      const userRole = user.loginAs === roles.RIDER ? roles.RIDER : roles.USER;
+
+      const query = `mutation CancelRideNotification($rideId: String!, $userId: String!, $roles: String!) {
+        cancelRideNotification(rideId: $rideId, userId: $userId, roles: $roles) {
+          success message
+        }
+      }`;
+
+      await axios.post(
+        `${matchmakingUrl}/graphql`,
+        {
+          query,
+          variables: {
+            rideId,
+            userId: user._id.toString(),
+            roles: userRole,
+          },
+        },
+      );
+    } catch (err: any) {
+      console.error(`Failed to send cancel ride notification to matchmaking service: ${err?.message || err}`);
+    }
   }
 
   /**
@@ -477,8 +518,7 @@ export class RidesService {
    * Only the passenger who owns the ride can access it.
    */
   async getRideById(rideId: string, user: User): Promise<any> {
-    const rideDocument = await this.rideRepository.findByIdWithAllDetails(rideId);
-    console.log("rideDocument", rideDocument)
+    const rideDocument = await this.rideRepository.findByIdWithAllDetails(rideId); 
     if (!rideDocument) {
       ErrorException(null, 'RIDES.RIDE_NOT_FOUND', HttpStatus.NOT_FOUND);
     }

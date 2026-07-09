@@ -25,7 +25,7 @@ import {
 } from '@libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
-import { MATCHMAKING_CONFIG } from '@libs/common';
+import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 
@@ -712,7 +712,7 @@ export class MatchmakingService {
             distanceInKm: ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
             estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
-            rideId: updatedRide._id.toString(), 
+            rideId: updatedRide._id.toString(),
             passengerId: updatedRide.passengerId?.toString() || null,
           };
           this.notificationService.createNotification(notificationInput, passengerUser);
@@ -741,32 +741,6 @@ export class MatchmakingService {
       return { success: false, message: 'Failed to process driver response' };
     }
     return { success: false, message: 'Invalid action' };
-  }
-
-  /**
-   * Publish the driver's current location to the ride channel in the background.
-   * This is called fire-and-forget when a driver accepts a ride and is already
-   * within 300 meters of the pickup location, so the passenger immediately sees
-   * the driver's position on the map.
-   */
-  private async publishDriverLocationUpdate(
-    rideUUId: string,
-    driverId: string,
-    latitude: number,
-    longitude: number,
-    distanceToPickupKm: number,
-    estimatedTimeToPickupMinutes: number,
-  ): Promise<void> {
-    await this.rideChannelService.publishRideEvent(rideUUId, 'driver-moving', {
-      rideId: '',
-      driverId,
-      latitude,
-      longitude,
-      distanceToPickupKm,
-      estimatedTimeToPickupMinutes,
-      message: `Driver is ${distanceToPickupKm.toFixed(2)} km away.`,
-    });
-    this.logger.log(`[BACKGROUND] Published driver location for ride ${rideUUId} (driver ${driverId} is ${distanceToPickupKm} km from pickup)`);
   }
 
   /**
@@ -940,7 +914,7 @@ export class MatchmakingService {
         await this.ridesModel.findByIdAndUpdate(activeRide._id, {
           $set: {
             distanceToReachPassenger: distanceKm,
-            estimatedTimeToReachPassenger:durationMinutes,
+            estimatedTimeToReachPassenger:durationMinutes
           },
         }).exec();
 
@@ -1512,6 +1486,62 @@ export class MatchmakingService {
     }));
   }
 
+  async cancelRideNotification(rideId: string, userId: string, userRole: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const ride = await this.ridesModel.findById(toMongoId(rideId)).exec();
+      if (!ride) {
+        return { success: false, message: 'Ride not found' };
+      }
+
+      const user = await this.userModel.findById(toMongoId(userId)).exec();
+      const userDetails = await this.userDetailsModel.findOne({ userId: toMongoId(userId) }).exec();
+      const userSnapShot = {
+        fullName: userDetails?.fullName || user?.fullName || 'Driver',
+        phone: user?.phone || '',
+        rating: userDetails?.rating ?? 0,
+        profileImage: getActiveProfileImageUrl(userDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
+      }
+      await this.rideChannelService.publishRideEvent(rideId, 'ride-cancelled', {
+        rideId: rideId,
+        rideUUId: ride.rideUUId,
+        cancelled: true,
+        rideStatus: RideStatus.CANCELLED,
+        userId: userId,
+        userSnapshot: userSnapShot,
+        cancelledAt: ride.cancellationDetail?.cancelledAt || new Date().toISOString(),
+        message: `Ride has been cancelled by ${userSnapShot.fullName}`,
+      });
+
+      if (userRole === roles.USER) {
+        const passenger = await this.userModel.findById(ride.passengerId).exec();
+
+        await this.notificationService.createNotification({
+          title: `Ride has been cancelled`,
+          notificationType: NotificationType.RIDE_CANCELLATION,
+          description: `Ride has been cancelled by ${userSnapShot.fullName}`,
+          rideId: rideId,
+          ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+          driverSnapshot: userSnapShot
+        }, passenger);
+      } else {
+        const driver = await this.userModel.findById(ride.passengerId).exec();
+        await this.notificationService.createNotification({
+          title: `Ride has been cancelled`,
+          notificationType: NotificationType.RIDE_CANCELLATION,
+          description: `Ride has been cancelled by ${userSnapShot.fullName}`,
+          rideId: rideId,
+          ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+          passengerSnapshot: userSnapShot,
+        }, driver);
+      }
+      await this
+         return { success: false, message: 'Send notification and ably to ride successfully' };
+    } catch (err: any) {
+      this.logger.error(`Failed to send notification and ably to  ride: ${err?.message || err}`);
+      return { success: false, message: 'Failed to send notification and ably to ride' };
+    }
+
+  }
   // Legacy builder methods kept for backward compatibility with matchDrivers/matchScheduledDrivers flows:
   private async buildAcceptDetails(ride: RidesDocument, driverId: string, estimatedFare: FareBreakdown): Promise<any> {
     const [driverUser, driverDetails, vehicle, passengerUser] = await Promise.all([
