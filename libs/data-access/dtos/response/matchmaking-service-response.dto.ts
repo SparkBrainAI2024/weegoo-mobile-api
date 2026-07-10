@@ -263,7 +263,7 @@ export class VehicleEstimateGraphQL {
   @Field(() => Float)
   distanceKm: number;
 
-  @Field(() => Int)
+  @Field(() => Float)
   estimatedTimeInMinutes: number;
 
   @Field(() => String)

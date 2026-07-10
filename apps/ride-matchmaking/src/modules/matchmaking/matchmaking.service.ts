@@ -1478,11 +1478,16 @@ export class MatchmakingService {
     let vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
     if (params.noOfPassengers > 1) vehicleTypes = [VehicleType.CAR];
     return Promise.all(vehicleTypes.map(async (type) => {
+      try {
       const route = await this.distanceCalculator.calculateDistance(params.pickupLat, params.pickupLng, params.dropoffLat, params.dropoffLng, type.toLowerCase());
       const fare = this.pricingService.calculateFare({ distanceKm: route.distanceKm, durationMinutes: route.durationMinutes, vehicleType: type as VehicleType });
       let comfortType = ''; let hasAC: boolean | undefined = undefined;
       if (type === VehicleType.CAR) { comfortType = 'Comfortable city ride with fast pickup'; hasAC = true; } else if (type === VehicleType.MOTORBIKE) { comfortType = 'Affordable and quick'; hasAC = false; } else if (type === VehicleType.SCOOTER) { comfortType = 'Short and quick ride'; hasAC = false; }
-      return { vehicleType: type as VehicleType, estimatedFare: Math.round(fare.total), distanceKm: route.distanceKm, estimatedTimeInMinutes: route.durationMinutes, comfortType, hasAC, noOfPassengers: params.noOfPassengers };
+      return { vehicleType: type as VehicleType, estimatedFare: Math.round(fare.total), distanceKm: Number(route.distanceKm), estimatedTimeInMinutes: Number(route.durationMinutes), comfortType, hasAC, noOfPassengers: params.noOfPassengers };
+      }catch (err:any) {
+        this.logger.error(`Failed to calculate vehicle estimate for type ${type}: ${err?.message || err}${err.response ? `, response: ${JSON.stringify(err.response)}` : ''}`);
+        return { vehicleType: type as VehicleType, estimatedFare: 0, distanceKm: 0, estimatedTimeInMinutes: 0, comfortType: '', hasAC: undefined, noOfPassengers: params.noOfPassengers };
+      }
     }));
   }
 
