@@ -8,6 +8,7 @@ import { RatingService } from "../rating.service";
 import { CurrentUser } from "@libs/common";
 import { CreateRatingInput } from "@libs/data-access/dtos/input/create-rating.input";
 import { RatingListWithPaginationResponse } from "@libs/data-access/dtos/response/rating-list-with-pagination.response";
+import { RemarkListWithPaginationResponse } from "@libs/data-access/dtos/response/remark-list-with-pagination.response";
 
 @Resolver(() => Rating)
 @UseGuards(AuthGuard)
@@ -22,11 +23,12 @@ export class RatingResolver {
     return this.ratingService.createRating(user, input) as Promise<Rating>;
   }
 
-  @Query(() => RatingListWithPaginationResponse, { name: "listRatings", description: "List all ratings" })
+  @Query(() => RatingListWithPaginationResponse, { name: "listRatings", description: "List ratings created by the current user" })
   async listRatings(
+    @CurrentUser() user: User,
     @Args("input") input: PaginationInput,
   ) {
-    return this.ratingService.listRatings(input);
+    return this.ratingService.listRatings(user, input);
   }
 
   @Query(() => RatingListWithPaginationResponse, { name: "getRatingsForUser", description: "Get ratings for a specific user" })
@@ -35,5 +37,12 @@ export class RatingResolver {
     @Args("input") input: PaginationInput,
   ) {
     return this.ratingService.getRatingsForUser(userId, input);
+  }
+
+  @Query(() => RemarkListWithPaginationResponse, { name: "listRemarks", description: "List all available remarks with pagination" })
+  async listRemarks(
+    @Args("input") input: PaginationInput,
+  ) {
+    return this.ratingService.listRemarks(input);
   }
 }
