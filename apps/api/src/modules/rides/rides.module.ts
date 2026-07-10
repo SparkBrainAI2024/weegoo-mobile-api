@@ -9,10 +9,13 @@ import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
 import { PassengerRidesResolver } from "./resolver/rides.resolver";
 import { PassengerHomeResolver } from "./resolver/passenger-home.resolver";
 import { PassengerHomeService } from "./passenger-home.service";
+import { NearbyDriversService } from "./nearby-drivers.service";
+import { NearbyDriversResolver } from "./resolver/nearby-drivers.resolver";
 import { UserTransactionResolver } from "@libs/services/payment/src/transaction/resolver/transaction.resolver";
 import { S3Module } from "@libs/s3/s3.module";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSchema, PromoCode, PromoCodeSchema } from "@libs/data-access";
+import { UserTokenMeta, UserTokenMetaSchema } from "@libs/data-access/entities/user-token-meta.entity";
 @Module({
     imports: [
         RidePersistentModule,
@@ -25,6 +28,7 @@ import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSch
             { name: Vehicle.name, schema: VehicleSchema },
             { name: UserDetails.name, schema: UserDetailsSchema },
             { name: PromoCode.name, schema: PromoCodeSchema },
+            { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
         ]),
     ],
     providers: [
@@ -36,6 +40,8 @@ import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSch
         PassengerRidesResolver,
         PassengerHomeService,
         PassengerHomeResolver,
+        NearbyDriversService,
+        NearbyDriversResolver,
         UserTransactionResolver,
     ],
     exports: [RidesService]
