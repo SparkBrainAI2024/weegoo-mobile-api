@@ -25,6 +25,7 @@ export * from './entities/wallet.entity';
 export * from './entities/issue.entity';
 export * from './entities/user-daily-online-status.entity';
 export * from './entities/rating.entity';
+export * from './entities/remark.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -40,6 +41,7 @@ export * from './repositories/favourites.repository';
 export * from './repositories/notification.repository';
 export * from './repositories/user-daily-online-status.repository';
 export * from './repositories/rating.repository';
+export * from './repositories/remark.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -134,6 +136,7 @@ export * from './dtos/response/update-ride.response';
 export * from './dtos/response/dashboard-home.response';
 export * from './dtos/response/passenger-home.response';
 export * from './dtos/response/rating-list-with-pagination.response';
+export * from './dtos/response/remark-list-with-pagination.response';
 export * from './dtos/response/ride-group.response';
 export * from './dtos/response/rides-list-with-cursor-pagination.response';
 export * from './dtos/response/driver-ride-response.dto';
