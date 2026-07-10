@@ -114,6 +114,9 @@ export class UserDetails extends BaseEntity {
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
+// Create a 2dsphere index on the geoLocation field for $geoNear queries
+UserDetailsSchema.index({ 'geoLocation': '2dsphere' });
+
 export const userDetailModel = {
   name: UserDetails.name,
   schema: UserDetailsSchema,
