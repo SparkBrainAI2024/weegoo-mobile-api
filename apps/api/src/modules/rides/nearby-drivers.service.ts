@@ -29,13 +29,12 @@ export class NearbyDriversService {
    * Search for nearby available drivers within 1-10 km radius from the given coordinates
    * using MongoDB $geoNear aggregation for efficient spatial queries.
    *
-   * Filters out drivers that:
-   *   - Are not ONLINE (offline status)
-   *   - Have active rides (CONFIRMED, ONGOING, PICKUP)
-   *   - Are not verified or are suspended
-   *   - Have no Firebase token
-   *
-   * Returns: driver name, profile image, location, rating, vehicle info, distance
+ * Filters out drivers that:
+ *   - Are not ONLINE (offline status)
+ *   - Have active rides (CONFIRMED, ONGOING, PICKUP)
+ *   - Are not verified or are suspended
+ *
+ * Returns: driver name, profile image, location, rating, vehicle info, distance
    */
   async getNearbyDrivers(
     passengerId: string,
@@ -53,7 +52,7 @@ export class NearbyDriversService {
         $geoNear: {
           near: {
             type: 'Point',
-            coordinates: [longitude, latitude],
+            coordinates: [latitude, longitude],
           },
           distanceField: 'distanceInMeters',
           maxDistance: radiusKm * 1000, // Convert km to meters
@@ -94,7 +93,7 @@ export class NearbyDriversService {
         },
       },
     ]);
-
+    console.log(`Found ${geoNearResults.length} nearby drivers for passenger ${passengerId} at (${latitude}, ${longitude}) within ${radiusKm} km`);
     if (geoNearResults.length === 0) {
       return { passengerId, latitude, longitude, drivers: [] };
     }
@@ -109,11 +108,14 @@ export class NearbyDriversService {
     const nearbyDriverIds = [...resultsMap.keys()];
     const nearbyObjectIds = nearbyDriverIds.map((id) => new Types.ObjectId(id));
 
-    // Batch-check Firebase tokens and active rides in parallel
+    // Batch-check Firebase tokens and active rides in parallel.
+    // NOTE: A missing/empty Firebase token must NOT exclude a driver from the
+    // nearby list. The token is only needed for sending push notifications, not
+    // for the driver being physically available/online. Excluding on token here
+    // incorrectly drops valid, online, in-radius drivers from the result.
     const [tokenDocs, activeRides] = await Promise.all([
       this.userTokenMetaModel.find({
         userId: { $in: nearbyObjectIds },
-        firebaseToken: { $exists: true, $ne: null },
       }).exec(),
       this.ridesModel.find({
         driverId: { $in: nearbyObjectIds },
@@ -121,12 +123,16 @@ export class NearbyDriversService {
       }).exec(),
     ]);
 
-    const driversWithTokens = new Set(tokenDocs.map((t) => t.userId.toString()));
+    const driverTokens = new Map<string, string | null>();
+    for (const t of tokenDocs) {
+      driverTokens.set(t.userId.toString(), t.firebaseToken ?? null);
+    }
     const driversWithActiveRides = new Set(activeRides.map((r) => r.driverId.toString()));
 
-    // Filter to eligible drivers (has token AND no active ride)
+    // Filter to eligible drivers: online, verified, in-radius, and NOT currently
+    // on an active ride. Presence of a Firebase token is NOT a requirement.
     const eligibleDriverIds = nearbyDriverIds.filter(
-      (did) => driversWithTokens.has(did) && !driversWithActiveRides.has(did),
+      (did) => !driversWithActiveRides.has(did),
     );
 
     if (eligibleDriverIds.length === 0) {
@@ -150,8 +156,8 @@ export class NearbyDriversService {
       const driverCoords = result.geoLocation?.coordinates;
       if (!driverCoords || driverCoords.length < 2) continue;
 
-      const driverLat = driverCoords[1];
-      const driverLng = driverCoords[0];
+      const driverLat = driverCoords[0];
+      const driverLng = driverCoords[1];
       const distanceInKm = result.distanceInMeters / 1000;
       const vehicle = vehicleMap.get(driverId);
 
