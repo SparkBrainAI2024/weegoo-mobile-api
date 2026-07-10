@@ -445,12 +445,11 @@ export class MatchmakingIntegrationService {
           }
         }`,
         { pickup, dropoff, noOfPassengers },
-        15000,
       );
 
       return data?.getVehicleEstimates || [];
     } catch (error: any) {
-      this.logger.error(`Failed to get vehicle estimates: ${error?.message || error}`);
+      this.logger.error(`Failed to get vehicle estimates: ${error?.message || error}${error.response ? `, response: ${JSON.stringify(error.response)}` : ''}`);
       return [];
     }
   }
