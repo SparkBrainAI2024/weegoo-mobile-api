@@ -31,6 +31,13 @@ export class RatingResolver {
     return this.ratingService.listRatings(user, input);
   }
 
+  @Query(() => Rating, { name: "getRatingDetail", description: "Get a single rating by its ID" })
+  async getRatingDetail(
+    @Args("ratingId") ratingId: string,
+  ) {
+    return this.ratingService.getRatingDetail(ratingId);
+  }
+
   @Query(() => RatingListWithPaginationResponse, { name: "getRatingsForUser", description: "Get ratings for a specific user" })
   async getRatingsForUser(
     @Args("userId") userId: string,

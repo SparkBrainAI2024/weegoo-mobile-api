@@ -10,6 +10,8 @@ import { User } from "@libs/data-access/entities/user.entity";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { ErrorException } from "@libs/common/exceptions";
 import { Types } from "mongoose";
+import { RideUserSnapshot } from "@libs/data-access/common/ride-user-snapshot";
+import { UserRepository } from "@libs/data-access/repositories/user.repository";
 
 @Injectable()
 export class RatingService {
@@ -17,12 +19,35 @@ export class RatingService {
     private readonly ratingRepository: RatingRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly remarkRepository: RemarkRepository,
+    private readonly userRepository: UserRepository,
   ) {}
+
+  /**
+   * Builds a RideUserSnapshot from a User document.
+   */
+  private async buildUserSnapshot(userId: Types.ObjectId): Promise<RideUserSnapshot> {
+    const user = await this.userRepository.findById(userId);
+    const userDetails = await this.userDetailsRepository.findOne({ userId });
+
+    const snapshot = new RideUserSnapshot();
+    snapshot.fullName = user?.fullName || "";
+    snapshot.phone = user?.phone || "";
+    snapshot.rating = userDetails?.rating || 0;
+    const activeImage = userDetails?.profileImages?.find(
+      (img) => img.status === "ACTIVE"
+    );
+    snapshot.profileImage = activeImage?.socialPicture || activeImage?.s3Key || undefined;
+    snapshot.locationChannelId = userDetails?.locationChannelId || undefined;
+    snapshot.geoLocation = userDetails?.geoLocation || undefined;
+
+    return snapshot;
+  }
 
   /**
    * Creates a new rating after validation.
    * - Validates rating is between 1 and 5
    * - Checks the user hasn't already rated the same ride
+   * - Builds and stores user snapshots for ratedBy and ratedTo
    * - Updates the ratedTo user's average rating in UserDetails
    */
   async createRating(
@@ -52,6 +77,10 @@ export class RatingService {
       );
     }
 
+    // Build user snapshots
+    const ratedByUserSnapshot = await this.buildUserSnapshot(new Types.ObjectId(user._id));
+    const ratedToUserSnapshot = await this.buildUserSnapshot(new Types.ObjectId(input.ratedTo));
+
     // Create the rating
     const rating = await this.ratingRepository.createRating({
       rating: input.rating,
@@ -62,6 +91,9 @@ export class RatingService {
       remark: input.remarkId
         ? new Types.ObjectId(input.remarkId)
         : undefined,
+      ratedByUser: ratedByUserSnapshot,
+      ratedToUser: ratedToUserSnapshot,
+      remarkByUser: input.remarkByUser,
     } as Partial<RatingDocument>);
 
     // Update the ratedTo user's average rating in UserDetails
@@ -80,6 +112,15 @@ export class RatingService {
     return this.ratingRepository.listRatings(
       paginationInput,
       { ratedBy: new Types.ObjectId(user._id) },
+    );
+  }
+
+  /**
+   * Gets a single rating by its ID.
+   */
+  async getRatingDetail(ratingId: string): Promise<RatingDocument | null> {
+    return this.ratingRepository.getRatingDetail(
+      new Types.ObjectId(ratingId),
     );
   }
 
