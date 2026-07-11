@@ -31,4 +31,12 @@ export class CreateRatingInput {
   @IsOptional()
   @IsMongoId()
   remarkId?: string;
+
+  @Field(() => String, {
+    nullable: true,
+    description: "Optional remark text provided by the user",
+  })
+  @IsOptional()
+  @IsString()
+  remarkByUser?: string;
 }
