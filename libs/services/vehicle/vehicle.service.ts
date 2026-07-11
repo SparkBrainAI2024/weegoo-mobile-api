@@ -182,35 +182,29 @@ export class VehicleService {
       this.logger.error("Failed to delete inactive images", e);
     }
   }
-  async getVehicle(vehicleId: string, driverId: string, lang: string) {
+  async getVehicle( driverId: string, lang: string) {
     try {
       const vehicle = await this.vehicleRepository.findOne({
-        _id: new Types.ObjectId(vehicleId),
         driverId: new Types.ObjectId(driverId),
       });
-      if (!vehicle) {
+       if (!vehicle) {
         ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
       const { images, ...vehicleData } = vehicle.toObject() as any;
 
       if (
-        vehicleData.images &&
-        vehicleData.images.length > 0 &&
-        vehicleData.images.some((img) => img.status === ImageStatus.ACTIVE)
+       images &&
+      images.length > 0 &&
+       images.some((img) => img.status === ImageStatus.ACTIVE)
       ) {
-        const activeImage = vehicleData.images.find(
+        const activeImage =images.find(
           (img) => img.status === ImageStatus.ACTIVE,
         );
-        vehicleData.imageUrl = this.s3.getPublicUrl(activeImage.s3Key);
-        vehicleData.imageS3Key = activeImage.s3Key;
-      }
+        vehicleData.images = [...activeImage ? [{ ...activeImage, s3Key: this.s3.getPublicUrl(activeImage.s3Key) }] : []];
 
-      return {
-        message: Message(lang, "VEHICLE.FETCHED"),
-        success: true,
-        vehicle: vehicleData,
-      };
+      }
+      return vehicleData;
     } catch (e) {
       ErrorException(
         e,
