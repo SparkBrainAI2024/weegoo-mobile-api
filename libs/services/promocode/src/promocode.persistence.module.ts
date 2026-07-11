@@ -11,6 +11,6 @@ import { PromoCodeRepository } from '@libs/data-access/repositories/promo-code.r
     ]),
   ],
   providers: [PromoCodeRepository],
-  exports: [PromoCodeRepository],
+  exports: [PromoCodeRepository, MongooseModule],
 })
 export class PromoCodePersistenceModule {}
