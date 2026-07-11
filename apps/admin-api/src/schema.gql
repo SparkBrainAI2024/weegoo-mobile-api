@@ -960,6 +960,7 @@ type DriverListItem {
   phone: String
   profileImage: String
   status: String!
+  suspended: Boolean
   totalRides: Int!
   totalEarnings: Float!
   rating: Float!
@@ -970,12 +971,6 @@ type DriverListResponse {
   message: String
   data: [DriverListItem!]
   pagination: Pagination!
-}
-
-type ToggleBlockDriverResponse {
-  message: String!
-  success: Boolean!
-  suspended: Boolean
 }
 
 type DriverDocumentConfirmUploadResponse {
@@ -1077,7 +1072,8 @@ type Mutation {
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
   deleteDriver(input: DeleteDriverInput!): Boolean!
-  toggleBlockDriver(input: ToggleBlockDriverInput!): ToggleBlockDriverResponse!
+  blockDriver(id: ID!): DriverListItem!
+  unblockDriver(id: ID!): DriverListItem!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
@@ -1205,11 +1201,6 @@ input UpdatePromoCodeInput {
 
 input DeleteDriverInput {
   driverId: String!
-}
-
-input ToggleBlockDriverInput {
-  id: String!
-  isBlocked: Boolean!
 }
 
 input UpsertDocumentFileInput {

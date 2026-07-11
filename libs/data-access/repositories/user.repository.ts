@@ -44,17 +44,12 @@ export class UserRepository extends BaseRepository<UserDocument> {
     status?: string,
     search?: string,
   ): Promise<IPaginatedResult<any>> {
+    // only structural filters here — fullName doesn't exist on the User
+    // collection itself, it lives on UserDetails, joined below
     const match: Record<string, any> = {
       roles: roles.RIDER,
       deleted: false,
     };
-
-    if (search) {
-      match.$or = [
-        { fullName: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
-      ];
-    }
 
     const basePipeline: PipelineStage[] = [
       { $match: match },
@@ -77,7 +72,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
         },
       },
 
-      // earnings + rating + profile images from UserDetails
+      // earnings + rating + fullName + profile images from UserDetails
       {
         $lookup: {
           from: "userdetails",
@@ -87,6 +82,20 @@ export class UserRepository extends BaseRepository<UserDocument> {
         },
       },
       { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
+
+      // search now runs AFTER the join, so details.fullName actually exists
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { "details.fullName": { $regex: search, $options: "i" } },
+                  { phone: { $regex: search, $options: "i" } },
+                ],
+              },
+            } as PipelineStage,
+          ]
+        : []),
 
       // derived status — adjust if a real status field exists elsewhere
       {
@@ -104,7 +113,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
       {
         $project: {
           id: "$_id",
-          fullName: 1,
+          fullName: "$details.fullName", // was `1` — pulled from wrong collection
           phone: 1,
           status: "$computedStatus",
           profileImages: "$details.profileImages",
@@ -114,6 +123,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
           totalEarnings: { $ifNull: ["$details.totalEarnings", 0] },
           rating: { $ifNull: ["$details.rating", 0] },
           createdAt: 1,
+          suspended: 1,
         },
       },
 

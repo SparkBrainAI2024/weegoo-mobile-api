@@ -121,6 +121,7 @@ export class DriverService {
       profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
         this.s3.getPublicUrl(key),
       ),
+      suspended: row.suspended,
       totalRides: row.totalRides,
       totalEarnings: row.totalEarnings,
       rating: row.rating,
@@ -152,7 +153,7 @@ export class DriverService {
     // atomic update — avoids the read-modify-write TOCTOU gap
     // you've been digging into on Labasam; same concern applies here
     const updated = await this.userRepository.findOneAndUpdate(
-      { id },
+      { _id: toMongoId(id) },
       { suspended },
       { new: true }, // return the doc *after* update, not before
     );

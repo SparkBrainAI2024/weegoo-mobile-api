@@ -107,6 +107,8 @@ export class BaseRepository<T extends Document> {
     projection?: ProjectionType<T> | null,
     options?: QueryOptions<T> | null,
   ): Promise<T | null> {
+    console.log(_id, "here");
+
     options = this.mergePopulateOptions(options, populate);
     return this.model.findById(_id, projection, options);
   }
