@@ -62,8 +62,8 @@ export class DistanceCalculatorService {
       const route = response.data?.data?.[0];
       if (route) {
         return {
-          distanceKm: route.distanceInMeters / 1000,
-          durationMinutes: Math.ceil(route.timeInMs / 1000 / 60),
+          distanceKm: Number((route.distanceInMeters / 1000).toFixed(2)),
+          durationMinutes: Number((route.timeInMs / 1000 / 60).toFixed(2)),
           polyline: route.encodedPolyline,
         };
       }
@@ -117,11 +117,11 @@ export class DistanceCalculatorService {
       Math.sin(dLng / 2) *
       Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distanceKm = R * c;
+    const distanceKm = Math.round(R * c);
 
     // Estimate duration: assume avg 30 km/h in city
     const estimatedSpeedKmph = 30;
-    const durationMinutes = Math.ceil((distanceKm / estimatedSpeedKmph) * 60);
+    const durationMinutes = Math.round((distanceKm / estimatedSpeedKmph) * 60);
 
     return { distanceKm, durationMinutes };
   }

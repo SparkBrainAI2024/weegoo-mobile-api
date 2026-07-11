@@ -1,6 +1,7 @@
 import { Field, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
+import { Remark } from "./remark.entity";
 import { HydratedDocument, Types } from "mongoose";
 
 @ObjectType()
@@ -25,6 +26,13 @@ export class Rating extends BaseEntity {
   @Field(() => String, { nullable: true })
   @Prop({ type: String, required: false })
   ratingRemarks?: string;
+
+  @Field(() => Remark, {
+    nullable: true,
+    description: "Populated remark (with name and id) for this rating",
+  })
+  @Prop({ type: Types.ObjectId, required: false, ref: "Remark", index: true })
+  remark?: Remark | Types.ObjectId;
 }
 
 export type RatingDocument = HydratedDocument<Rating>;

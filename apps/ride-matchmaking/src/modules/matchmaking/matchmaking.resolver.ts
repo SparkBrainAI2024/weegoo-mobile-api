@@ -1,6 +1,6 @@
-import { Resolver, Mutation, Query, Args, Int } from '@nestjs/graphql';
-import { Logger, BadRequestException } from '@nestjs/common';
-import { MatchmakingService } from './matchmaking.service';
+import { Resolver, Mutation, Query, Args, Int } from "@nestjs/graphql";
+import { Logger, BadRequestException } from "@nestjs/common";
+import { MatchmakingService } from "./matchmaking.service";
 import {
   VehicleEstimateGraphQL,
   MatchResultGraphQL,
@@ -15,13 +15,11 @@ import {
   EstimatedFareInput,
   ScheduledFareInput,
   RideLocationInput,
-  RainCondition, 
+  RainCondition,
   HistoricalTraffic,
-} from '@libs/data-access';
-import { PaymentMethodEnum } from '@libs/data-access/enums/payment.enum';
-import { BasicResult } from './basic-result.dto';
+} from "@libs/data-access";
 
-
+import { BasicResult } from "./basic-result.dto";
 
 @Resolver()
 export class MatchmakingResolver {
@@ -30,104 +28,258 @@ export class MatchmakingResolver {
   constructor(private readonly matchmakingService: MatchmakingService) {}
 
   @Mutation(() => MatchResultGraphQL, {
-    name: 'matchDrivers',
-    description: 'Find and notify nearby drivers for an INSTANT ride using expanding-ring algorithm',
+    name: "matchDrivers",
+    description:
+      "Find and notify nearby drivers for an INSTANT ride using expanding-ring algorithm",
   })
-  async matchDrivers(@Args('input') input: MatchDriversInput): Promise<MatchResultGraphQL> {
-    this.logger.log(`GraphQL: INSTANT matchmaking triggered for ride: ${input.rideId}`);
-    const result = await this.matchmakingService.matchDrivers({ rideId: input.rideId });
-    this.logger.log(`result new ${JSON.stringify(result)}`)
-    return {
-      matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
-      driverId: result.driverId, driverName: result.driverName,
-      driverImage: result.driverImage || null, rating: result.rating || null,
-      estimatedFare: result.estimatedFare ? {
-        pickupCost: result.estimatedFare.pickupCost, distanceCost: result.estimatedFare.distanceCost,
-        durationCost: result.estimatedFare.durationCost, total: result.estimatedFare.total,
-      } : undefined,
-      attempts: result.attempts.map((a) => ({
-        attemptNumber: a.attemptNumber, radiusKm: a.radiusKm, waitTimeSeconds: a.waitTimeSeconds,
-        driversFound: a.driversFound, driversRequested: a.driversRequested, driverAccepted: a.driverAccepted,
-        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
-      })),
-      message: result.message,
-      ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
-      acceptedDetails: result.acceptedDetails ? {
-        rideId: result.acceptedDetails.rideId,
-        rideUUId: result.acceptedDetails.rideUUId,
-        driverId: result.acceptedDetails.driver.driverId,
-        driverName: result.acceptedDetails.driver.fullName,
-        driverImage: result.acceptedDetails.driver.profileImage || null,
-        phone: result.acceptedDetails.driver.phone,
-        rating: result.acceptedDetails.driver.rating,
-        vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
-        vehicleType: result.acceptedDetails.vehicle.vehicleType,
-        color: result.acceptedDetails.vehicle.color,
-        numberPlate: result.acceptedDetails.vehicle.numberPlate,
-        pickupLocation: { address: result.acceptedDetails.pickupLocation.address, coordinates: result.acceptedDetails.pickupLocation.coordinates, city: result.acceptedDetails.pickupLocation.city },
-        dropoffLocation: result.acceptedDetails.dropoffLocation ? { address: result.acceptedDetails.dropoffLocation.address, coordinates: result.acceptedDetails.dropoffLocation.coordinates, city: result.acceptedDetails.dropoffLocation.city } : undefined,
-        estimatedFare: result.acceptedDetails.estimatedFare,
-        estimatedTimeInMinutes: result.acceptedDetails.estimatedTimeInMinutes,
-        distanceInKm: result.acceptedDetails.distanceInKm,
-        acceptedAt: result.acceptedDetails.acceptedAt,
-      } : undefined,
-    };
+  async matchDrivers(
+    @Args("input") input: MatchDriversInput,
+  ): Promise<MatchResultGraphQL> {
+    this.logger.log(
+      `GraphQL: INSTANT matchmaking triggered for ride: ${input.rideId}`,
+    );
+    const result = await this.matchmakingService.matchDrivers({
+      rideId: input.rideId,
+    });
+    try {
+      this.logger.log(
+        `result new ${JSON.stringify({
+          matched: result.matched,
+          rideId: result.rideId,
+          rideUUId: result.rideUUId,
+          passengerId: result.passengerId,
+          driverId: result.driverId,
+          driverName: result.driverName,
+          driverImage: result.driverImage || null,
+          rating: result.rating || null,
+          estimatedFare: result.estimatedFare
+            ? {
+                pickupCost: result.estimatedFare.pickupCost,
+                distanceCost: result.estimatedFare.distanceCost,
+                durationCost: result.estimatedFare.durationCost,
+                total: result.estimatedFare.total,
+              }
+            : undefined,
+          attempts: result.attempts.map((a) => ({
+            attemptNumber: a.attemptNumber,
+            radiusKm: a.radiusKm,
+            waitTimeSeconds: a.waitTimeSeconds,
+            driversFound: a.driversFound,
+            driversRequested: a.driversRequested,
+            driverAccepted: a.driverAccepted,
+            acceptedDriverId: a.acceptedDriverId,
+            timeoutExpired: a.timeoutExpired,
+            status: a.status,
+          })),
+          message: result.message,
+          ablyChannelId:
+            result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
+          acceptedDetails: result.acceptedDetails
+            ? {
+                rideId: result.acceptedDetails.rideId,
+                rideUUId: result.acceptedDetails.rideUUId,
+                driverId: result.acceptedDetails.driver.driverId,
+                driverName: result.acceptedDetails.driver.fullName,
+                driverImage: result.acceptedDetails.driver.profileImage || null,
+                phone: result.acceptedDetails.driver.phone,
+                rating: result.acceptedDetails.driver.rating,
+                vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
+                vehicleType: result.acceptedDetails.vehicle.vehicleType,
+                color: result.acceptedDetails.vehicle.color,
+                numberPlate: result.acceptedDetails.vehicle.numberPlate,
+                pickupLocation: {
+                  address: result.acceptedDetails.pickupLocation.address,
+                  coordinates:
+                    result.acceptedDetails.pickupLocation.coordinates,
+                  city: result.acceptedDetails.pickupLocation.city,
+                },
+                dropoffLocation: result.acceptedDetails.dropoffLocation
+                  ? {
+                      address: result.acceptedDetails.dropoffLocation.address,
+                      coordinates:
+                        result.acceptedDetails.dropoffLocation.coordinates,
+                      city: result.acceptedDetails.dropoffLocation.city,
+                    }
+                  : undefined,
+                estimatedFare: result.acceptedDetails.estimatedFare,
+                estimatedTimeInMinutes:
+                  result.acceptedDetails.estimatedTimeInMinutes,
+                distanceInKm: result.acceptedDetails.distanceInKm,
+                acceptedAt: result.acceptedDetails.acceptedAt,
+              }
+            : undefined,
+        })}`,
+      );
+      return {
+        matched: result.matched,
+        rideId: result.rideId,
+        rideUUId: result.rideUUId,
+        passengerId: result.passengerId,
+        driverId: result.driverId,
+        driverName: result.driverName,
+        driverImage: result.driverImage || null,
+        rating: result.rating || null,
+        estimatedFare: result.estimatedFare
+          ? {
+              pickupCost: result.estimatedFare.pickupCost,
+              distanceCost: result.estimatedFare.distanceCost,
+              durationCost: result.estimatedFare.durationCost,
+              total: result.estimatedFare.total,
+            }
+          : undefined,
+        attempts: result.attempts.map((a) => ({
+          attemptNumber: a.attemptNumber,
+          radiusKm: a.radiusKm,
+          waitTimeSeconds: a.waitTimeSeconds,
+          driversFound: a.driversFound,
+          driversRequested: a.driversRequested,
+          driverAccepted: a.driverAccepted,
+          acceptedDriverId: a.acceptedDriverId,
+          timeoutExpired: a.timeoutExpired,
+          status: a.status,
+        })),
+        message: result.message,
+        ablyChannelId:
+          result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
+        acceptedDetails: result.acceptedDetails
+          ? {
+              rideId: result.acceptedDetails.rideId,
+              rideUUId: result.acceptedDetails.rideUUId,
+              driverId: result.acceptedDetails.driver.driverId,
+              driverName: result.acceptedDetails.driver.fullName,
+              driverImage: result.acceptedDetails.driver.profileImage || null,
+              phone: result.acceptedDetails.driver.phone,
+              rating: result.acceptedDetails.driver.rating,
+              vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
+              vehicleType: result.acceptedDetails.vehicle.vehicleType,
+              color: result.acceptedDetails.vehicle.color,
+              numberPlate: result.acceptedDetails.vehicle.numberPlate,
+              pickupLocation: {
+                address: result.acceptedDetails.pickupLocation.address,
+                coordinates: result.acceptedDetails.pickupLocation.coordinates,
+                city: result.acceptedDetails.pickupLocation.city,
+              },
+              dropoffLocation: result.acceptedDetails.dropoffLocation
+                ? {
+                    address: result.acceptedDetails.dropoffLocation.address,
+                    coordinates:
+                      result.acceptedDetails.dropoffLocation.coordinates,
+                    city: result.acceptedDetails.dropoffLocation.city,
+                  }
+                : undefined,
+              estimatedFare: result.acceptedDetails.estimatedFare,
+              estimatedTimeInMinutes:
+                result.acceptedDetails.estimatedTimeInMinutes,
+              distanceInKm: result.acceptedDetails.distanceInKm,
+              acceptedAt: result.acceptedDetails.acceptedAt,
+            }
+          : undefined,
+      };
+    } catch (error: any) {
+      this.logger.error(
+        `Error in matchDrivers resolver: ${error.message}`,
+        error.stack,
+      );
+      throw new BadRequestException(
+        "An error occurred while processing the matchmaking request.",
+      );
+    }
   }
 
   @Mutation(() => ScheduledMatchResultGraphQL, {
-    name: 'matchScheduledDrivers',
-    description: 'Find and notify drivers for a SCHEDULED ride using expanding-ring algorithm (1→3→5→10→15 km)',
+    name: "matchScheduledDrivers",
+    description:
+      "Find and notify drivers for a SCHEDULED ride using expanding-ring algorithm (1→3→5→10→15 km)",
   })
-  async matchScheduledDrivers(@Args('input') input: MatchScheduledDriversInput): Promise<ScheduledMatchResultGraphQL> {
-    this.logger.log(`GraphQL: SCHEDULED matchmaking triggered for ride: ${input.rideId}`);
+  async matchScheduledDrivers(
+    @Args("input") input: MatchScheduledDriversInput,
+  ): Promise<ScheduledMatchResultGraphQL> {
+    this.logger.log(
+      `GraphQL: SCHEDULED matchmaking triggered for ride: ${input.rideId}`,
+    );
     const result = await this.matchmakingService.matchScheduledDrivers({
       rideId: input.rideId,
     });
 
     return {
-      matched: result.matched, rideId: result.rideId, rideUUId: result.rideUUId, passengerId: result.passengerId,
-      driverId: result.driverId, driverName: result.driverName,
-      estimatedFare: result.estimatedFare ? {
-        baseFare: result.estimatedFare.baseFare, 
-        total: result.estimatedFare.total,
-      } : undefined,
+      matched: result.matched,
+      rideId: result.rideId,
+      rideUUId: result.rideUUId,
+      passengerId: result.passengerId,
+      driverId: result.driverId,
+      driverName: result.driverName,
+      estimatedFare: result.estimatedFare
+        ? {
+            baseFare: result.estimatedFare.baseFare,
+            total: result.estimatedFare.total,
+          }
+        : undefined,
       attempts: result.attempts.map((a) => ({
-        attemptNumber: a.attemptNumber, radiusKm: a.radiusKm, waitTimeSeconds: a.waitTimeSeconds,
-        driversFound: a.driversFound, driversRequested: a.driversRequested, driverAccepted: a.driverAccepted,
-        acceptedDriverId: a.acceptedDriverId, timeoutExpired: a.timeoutExpired, status: a.status,
+        attemptNumber: a.attemptNumber,
+        radiusKm: a.radiusKm,
+        waitTimeSeconds: a.waitTimeSeconds,
+        driversFound: a.driversFound,
+        driversRequested: a.driversRequested,
+        driverAccepted: a.driverAccepted,
+        acceptedDriverId: a.acceptedDriverId,
+        timeoutExpired: a.timeoutExpired,
+        status: a.status,
       })),
       message: result.message,
-      ablyChannelId: result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
-      acceptedDetails: result.acceptedDetails ? {
-        rideId: result.acceptedDetails.rideId,
-        rideUUId: result.acceptedDetails.rideUUId,
-        driverId: result.acceptedDetails.driver.driverId,
-        driverName: result.acceptedDetails.driver.fullName,
-        driverImage: result.acceptedDetails.driver.profileImage || null,
-        phone: result.acceptedDetails.driver.phone,
-        rating: result.acceptedDetails.driver.rating,
-        vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
-        vehicleType: result.acceptedDetails.vehicle.vehicleType,
-        color: result.acceptedDetails.vehicle.color,
-        numberPlate: result.acceptedDetails.vehicle.numberPlate,
-        pickupLocation: { address: result.acceptedDetails.pickupLocation.address, coordinates: result.acceptedDetails.pickupLocation.coordinates, city: result.acceptedDetails.pickupLocation.city },
-        dropoffLocation: result.acceptedDetails.dropoffLocation ? { address: result.acceptedDetails.dropoffLocation.address, coordinates: result.acceptedDetails.dropoffLocation.coordinates, city: result.acceptedDetails.dropoffLocation.city } : undefined,
-        estimatedFare: result.acceptedDetails.estimatedFare,
-        estimatedTimeInMinutes: result.acceptedDetails.estimatedTimeInMinutes,
-        distanceInKm: result.acceptedDetails.distanceInKm,
-        acceptedAt: result.acceptedDetails.acceptedAt,
-      } : undefined,
+      ablyChannelId:
+        result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
+      acceptedDetails: result.acceptedDetails
+        ? {
+            rideId: result.acceptedDetails.rideId,
+            rideUUId: result.acceptedDetails.rideUUId,
+            driverId: result.acceptedDetails.driver.driverId,
+            driverName: result.acceptedDetails.driver.fullName,
+            driverImage: result.acceptedDetails.driver.profileImage || null,
+            phone: result.acceptedDetails.driver.phone,
+            rating: result.acceptedDetails.driver.rating,
+            vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
+            vehicleType: result.acceptedDetails.vehicle.vehicleType,
+            color: result.acceptedDetails.vehicle.color,
+            numberPlate: result.acceptedDetails.vehicle.numberPlate,
+            pickupLocation: {
+              address: result.acceptedDetails.pickupLocation.address,
+              coordinates: result.acceptedDetails.pickupLocation.coordinates,
+              city: result.acceptedDetails.pickupLocation.city,
+            },
+            dropoffLocation: result.acceptedDetails.dropoffLocation
+              ? {
+                  address: result.acceptedDetails.dropoffLocation.address,
+                  coordinates:
+                    result.acceptedDetails.dropoffLocation.coordinates,
+                  city: result.acceptedDetails.dropoffLocation.city,
+                }
+              : undefined,
+            estimatedFare: result.acceptedDetails.estimatedFare,
+            estimatedTimeInMinutes:
+              result.acceptedDetails.estimatedTimeInMinutes,
+            distanceInKm: result.acceptedDetails.distanceInKm,
+            acceptedAt: result.acceptedDetails.acceptedAt,
+          }
+        : undefined,
     };
   }
 
   @Mutation(() => DriverResponseResultGraphQL, {
-    name: 'driverRespondToRide',
-    description: 'Handle a driver accepting or rejecting a ride request',
+    name: "driverRespondToRide",
+    description: "Handle a driver accepting or rejecting a ride request",
   })
-  async driverRespondToRide(@Args('input') input: DriverResponseInput): Promise<DriverResponseResultGraphQL> {
-    this.logger.log(`GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideUUID}`);
-    const result = await this.matchmakingService.handleDriverResponse(input.rideUUID, input.driverId, input.action as unknown as 'accept' | 'reject');
-    
+  async driverRespondToRide(
+    @Args("input") input: DriverResponseInput,
+  ): Promise<DriverResponseResultGraphQL> {
+    this.logger.log(
+      `GraphQL: Driver ${input.driverId} responded with '${input.action}' for ride ${input.rideUUID}`,
+    );
+    const result = await this.matchmakingService.handleDriverResponse(
+      input.rideUUID,
+      input.driverId,
+      input.action as unknown as "accept" | "reject",
+    );
+
     const ablyChannelId = `WG-RIDE-${input.rideUUID}-ride-details`;
     const response: DriverResponseResultGraphQL = {
       success: result.success,
@@ -136,7 +288,7 @@ export class MatchmakingResolver {
     };
 
     // If accepted, fetch accept details to return in the response
-    if (result.success && (input.action as unknown as string) === 'accept') {
+    if (result.success && (input.action as unknown as string) === "accept") {
       try {
         const acceptDetails = (result as any).acceptedDetails;
         if (acceptDetails) {
@@ -152,7 +304,8 @@ export class MatchmakingResolver {
             color: acceptDetails.vehicle.color || null,
             numberPlate: acceptDetails.vehicle.numberPlate || null,
             estimatedFare: acceptDetails.estimatedFare || null,
-            estimatedTimeInMinutes: acceptDetails.estimatedTimeInMinutes || null,
+            estimatedTimeInMinutes:
+              acceptDetails.estimatedTimeInMinutes || null,
             distanceInKm: acceptDetails.distanceInKm || null,
             ablyChannelId,
           };
@@ -164,121 +317,226 @@ export class MatchmakingResolver {
   }
 
   @Query(() => FareBreakdownGraphQL, {
-    name: 'estimatedFare', nullable: true,
-    description: 'Get estimated fare for an INSTANT ride',
+    name: "estimatedFare",
+    nullable: true,
+    description: "Get estimated fare for an INSTANT ride",
   })
-  async estimatedFare(@Args('input') input: EstimatedFareInput): Promise<FareBreakdownGraphQL | null> {
+  async estimatedFare(
+    @Args("input") input: EstimatedFareInput,
+  ): Promise<FareBreakdownGraphQL | null> {
     const fare = await this.matchmakingService.getEstimatedFare(input.rideId);
     if (!fare) return null;
-    return { pickupCost: fare.pickupCost, distanceCost: fare.distanceCost, durationCost: fare.durationCost, total: fare.total };
+    return {
+      pickupCost: fare.pickupCost,
+      distanceCost: fare.distanceCost,
+      durationCost: fare.durationCost,
+      total: fare.total,
+    };
   }
 
   @Query(() => ScheduledFareBreakdownGraphQL, {
-    name: 'scheduledEstimatedFare', nullable: true,
-    description: 'Get estimated fare for a SCHEDULED ride with optional rain/historical traffic conditions',
+    name: "scheduledEstimatedFare",
+    nullable: true,
+    description:
+      "Get estimated fare for a SCHEDULED ride with optional rain/historical traffic conditions",
   })
-  async scheduledEstimatedFare(@Args('input') input: ScheduledFareInput): Promise<ScheduledFareBreakdownGraphQL | null> {
-    const fare = await this.matchmakingService.getScheduledEstimatedFare(input.rideId, (input.rain as unknown as RainCondition) || undefined, (input.historicalTraffic as unknown as HistoricalTraffic) || undefined);
+  async scheduledEstimatedFare(
+    @Args("input") input: ScheduledFareInput,
+  ): Promise<ScheduledFareBreakdownGraphQL | null> {
+    const fare = await this.matchmakingService.getScheduledEstimatedFare(
+      input.rideId,
+      (input.rain as unknown as RainCondition) || undefined,
+      (input.historicalTraffic as unknown as HistoricalTraffic) || undefined,
+    );
     if (!fare) return null;
-    return { baseFare: fare.baseFare,  total: fare.total };
+    return { baseFare: fare.baseFare, total: fare.total };
   }
 
   @Mutation(() => BasicResult, {
-    name: 'startRide',
-    description: 'Driver starts ride - sets status to PICKUP, records rideStartedAt, publishes to Ably',
+    name: "startRide",
+    description:
+      "Driver starts ride - sets status to PICKUP, records rideStartedAt, publishes to Ably",
   })
-  async startRide(@Args('rideId') rideId: string, @Args('driverId') driverId: string): Promise<BasicResult> {
+  async startRide(
+    @Args("rideId") rideId: string,
+    @Args("driverId") driverId: string,
+  ): Promise<BasicResult> {
     this.logger.log(`GraphQL: Driver ${driverId} starting ride ${rideId}`);
     const result = await this.matchmakingService.startRide(rideId, driverId);
     return result;
   }
 
   @Mutation(() => BasicResult, {
-    name: 'pickupPassenger',
-    description: 'Driver picked up passenger - sets status to ONGOING, updates destination distance',
+    name: "pickupPassenger",
+    description:
+      "Driver picked up passenger - sets status to ONGOING, updates destination distance",
   })
-  async pickupPassenger(@Args('rideId') rideId: string, @Args('driverId') driverId: string): Promise<BasicResult> {
-    this.logger.log(`GraphQL: Driver ${driverId} picked up passenger for ride ${rideId}`);
-    const result = await this.matchmakingService.pickupPassenger(rideId, driverId);
+  async pickupPassenger(
+    @Args("rideId") rideId: string,
+    @Args("driverId") driverId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(
+      `GraphQL: Driver ${driverId} picked up passenger for ride ${rideId}`,
+    );
+    const result = await this.matchmakingService.pickupPassenger(
+      rideId,
+      driverId,
+    );
     return result;
   }
 
-
   @Mutation(() => CompleteRideResult, {
-    name: 'completeRide',
-    description: 'Complete a ride: validates ride, updates status to COMPLETED, calculates actual duration and fare breakdown, publishes ride-completed Ably event',
+    name: "completeRide",
+    description:
+      "Complete a ride: validates ride, updates status to COMPLETED, calculates actual duration and fare breakdown, publishes ride-completed Ably event",
   })
   async completeRide(
-    @Args('rideId') rideId: string,
-    @Args('driverId') driverId: string,
+    @Args("rideId") rideId: string,
+    @Args("driverId") driverId: string,
   ): Promise<CompleteRideResult> {
-    console.log("Complete Ride called")
+    console.log("Complete Ride called");
     const result = await this.matchmakingService.completeRide(rideId, driverId);
     if (!result.success || !result.data) {
-      throw new Error(result.message || 'Failed to complete ride');
+      throw new Error(result.message || "Failed to complete ride");
     }
     return result.data;
   }
 
   @Mutation(() => BasicResult, {
-    name: 'acknowledgeAndFinishRide',
-    description: 'Acknowledge and finish ride: sets isAcknowledgeByDriver to true, updates status to COMPLETED, sends notification to passenger, publishes to Ably channel and releases it',
+    name: "cancelInstantRide",
+    description:
+      "Passenger cancels an instant ride request before pickup. If driver already accepted, notifies driver via Ably with cancelled=true payload and deletes the ride.",
   })
-  async acknowledgeAndFinishRide(
-    @Args('rideId') rideId: string,
-    @Args('driverId') driverId: string,
+  async cancelInstantRide(
+    @Args("rideId") rideId: string,
+    @Args("passengerId") passengerId: string,
   ): Promise<BasicResult> {
-    this.logger.log(`GraphQL: Driver ${driverId} acknowledging and finishing ride ${rideId}`);
-    const result = await this.matchmakingService.acknowledgeAndFinishRide(rideId, driverId);
+    this.logger.log(
+      `GraphQL: Passenger ${passengerId} cancelling instant ride ${rideId}`,
+    );
+    const result = await this.matchmakingService.cancelInstantRide(
+      rideId,
+      passengerId,
+    );
     return result;
   }
 
   @Mutation(() => BasicResult, {
-    name: 'subscribeToDriverLocationChannel',
-    description: 'Subscribe to a driver personal location channel for continuous ride matchmaking. Call this when driver goes online.',
+    name: "cancelRideNotification",
+    description:
+      "Cancel ride notification: sets isAcknowledgeByDriver to false, updates status to CANCELLED, sends notification to passenger, publishes to Ably channel and releases it",
   })
-  async subscribeToDriverLocationChannel(@Args('driverId') driverId: string): Promise<BasicResult> {
-    this.logger.log(`GraphQL: Subscribing to driver ${driverId} location channel for matchmaking`);
+  async acknowledgeAndFinishRide(
+    @Args("rideId") rideId: string,
+    @Args("driverId") driverId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(
+      `GraphQL: Driver ${driverId} acknowledging and finishing ride ${rideId}`,
+    );
+    const result = await this.matchmakingService.acknowledgeAndFinishRide(
+      rideId,
+      driverId,
+    );
+    return result;
+  }
+
+  @Mutation(() => BasicResult, {
+    name: "cancelRideNotification",
+    description:
+      "Cancel ride notification:  sends notification to passenger, publishes to Ably channel and releases it",
+  })
+  async cancelRideNotification(
+    @Args("rideId") rideId: string,
+    @Args("userId") driverId: string,
+    @Args("roles") userRole: string,
+  ): Promise<BasicResult> {
+    this.logger.log(
+      `GraphQL: Driver ${driverId} cancelling ride notification for ride ${rideId}`,
+    );
+    const result = await this.matchmakingService.cancelRideNotification(
+      rideId,
+      driverId,
+      userRole,
+    );
+    return result;
+  }
+
+  @Mutation(() => BasicResult, {
+    name: "subscribeToDriverLocationChannel",
+    description:
+      "Subscribe to a driver personal location channel for continuous ride matchmaking. Call this when driver goes online.",
+  })
+  async subscribeToDriverLocationChannel(
+    @Args("driverId") driverId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(
+      `GraphQL: Subscribing to driver ${driverId} location channel for matchmaking`,
+    );
     try {
       await this.matchmakingService.subscribeToDriverLocationChannel(driverId);
-      return { success: true, message: `Subscribed to driver ${driverId} location channel` };
+      return {
+        success: true,
+        message: `Subscribed to driver ${driverId} location channel`,
+      };
     } catch (err: any) {
-      this.logger.error(`Failed to subscribe to driver ${driverId} location channel: ${err?.message || err}`);
-      return { success: false, message: `Failed to subscribe: ${err?.message || err}` };
+      this.logger.error(
+        `Failed to subscribe to driver ${driverId} location channel: ${err?.message || err}`,
+      );
+      return {
+        success: false,
+        message: `Failed to subscribe: ${err?.message || err}`,
+      };
     }
   }
 
   @Mutation(() => BasicResult, {
-    name: 'unsubscribeFromDriverLocationChannel',
-    description: 'Unsubscribe from a driver personal location channel. Call this when driver goes offline.',
+    name: "unsubscribeFromDriverLocationChannel",
+    description:
+      "Unsubscribe from a driver personal location channel. Call this when driver goes offline.",
   })
-  async unsubscribeFromDriverLocationChannel(@Args('driverId') driverId: string): Promise<BasicResult> {
-    this.logger.log(`GraphQL: Unsubscribing from driver ${driverId} location channel`);
+  async unsubscribeFromDriverLocationChannel(
+    @Args("driverId") driverId: string,
+  ): Promise<BasicResult> {
+    this.logger.log(
+      `GraphQL: Unsubscribing from driver ${driverId} location channel`,
+    );
     try {
-      await this.matchmakingService.unsubscribeFromDriverLocationChannel(driverId);
-      return { success: true, message: `Unsubscribed from driver ${driverId} location channel` };
+      await this.matchmakingService.unsubscribeFromDriverLocationChannel(
+        driverId,
+      );
+      return {
+        success: true,
+        message: `Unsubscribed from driver ${driverId} location channel`,
+      };
     } catch (err: any) {
-      this.logger.error(`Failed to unsubscribe from driver ${driverId} location channel: ${err?.message || err}`);
-      return { success: false, message: `Failed to unsubscribe: ${err?.message || err}` };
+      this.logger.error(
+        `Failed to unsubscribe from driver ${driverId} location channel: ${err?.message || err}`,
+      );
+      return {
+        success: false,
+        message: `Failed to unsubscribe: ${err?.message || err}`,
+      };
     }
   }
 
   @Query(() => [VehicleEstimateGraphQL], {
-    name: 'getVehicleEstimates',
-    description: 'Get estimates for different vehicle types',
+    name: "getVehicleEstimates",
+    description: "Get estimates for different vehicle types",
   })
   async getVehicleEstimates(
-    @Args('pickupLocation') pickup: RideLocationInput,
-    @Args('dropoffLocation') dropoff: RideLocationInput,
-    @Args('noOfPassengers', { type: () => Int }) noOfPassengers: number,
+    @Args("pickupLocation") pickup: RideLocationInput,
+    @Args("dropoffLocation") dropoff: RideLocationInput,
+    @Args("noOfPassengers", { type: () => Int }) noOfPassengers: number,
   ): Promise<VehicleEstimateGraphQL[]> {
-    this.logger.log(`GraphQL: Getting vehicle estimates for ${noOfPassengers} passengers`);
-    
+    this.logger.log(
+      `GraphQL: Getting vehicle estimates for ${noOfPassengers} passengers`,
+    );
+
     if (noOfPassengers < 1) {
-      throw new BadRequestException('Minimum number of passengers is 1');
+      throw new BadRequestException("Minimum number of passengers is 1");
     }
     if (noOfPassengers > 4) {
-      throw new BadRequestException('Maximum number of passengers is 4');
+      throw new BadRequestException("Maximum number of passengers is 4");
     }
 
     return this.matchmakingService.getVehicleEstimates({

@@ -471,7 +471,14 @@ export class AuthService {
       if (validOtp) {
         return getOtpThrottledResponse(lang, validOtp.createdAt) as any;
       }
-
+      const alreadyUsedPhone = await this.userRepository.findByPhone(phone);
+      if (alreadyUsedPhone && alreadyUsedPhone._id.toString() !== user._id.toString()) {
+        ErrorException(
+          null,
+          "USER.USED_PHONE",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       // Requirement: If not verified and previous code expired, update phone and send new code
       await this.userRepository.updateOne(
         { _id: user._id },

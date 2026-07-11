@@ -98,15 +98,17 @@ export class RidesService {
           onlineHoursToday: null,
         },
         onlineStatus: null,
+        vehicleStatus: null,
       };
     }
 
     const userId = toMongoId(user._id.toString());
 
-    // Fetch Driver Data: Details (Rating, Online Status) and Documents
-    const [details, docs] = await Promise.all([
+    // Fetch Driver Data: Details (Rating, Online Status), Documents, and Vehicle
+    const [details, docs, vehicle] = await Promise.all([
       this.userDetailsRepository.findOne({ userId }),
       this.driverDocumentRepository.find({ driverId: userId }),
+      this.vehicleModel.findOne({ driverId: userId }).exec(),
     ]);
 
     // 1. Evaluate Document Upload Status
@@ -156,10 +158,14 @@ export class RidesService {
 
     // Enrich each ride with driver, passenger, and vehicle info
 
+    // Determine vehicle status: if driver has no vehicle, verification is required
+    const hasVehicle = !!vehicle;
+    const finalVerificationRequired = verificationRequired || !hasVehicle;
+
     return {
       rides: enrichedRides,
       verification: {
-        verificationRequired,
+        verificationRequired: finalVerificationRequired,
         documentStatuses,
       },
       stats: {
@@ -169,6 +175,7 @@ export class RidesService {
         onlineHoursToday: (onlineMinutesToday / 60).toFixed(2),
       },
       onlineStatus: details?.driverOnlineStatus || DriverOnlineStatus.OFFLINE,
+      vehicleStatus: hasVehicle,
     };
   }
   /**
@@ -570,7 +577,7 @@ export class RidesService {
       ErrorException(null, "RIDES.CANCEL_PENDING", HttpStatus.BAD_REQUEST);
     }
 
-    return this.rideRepository.cancelRide({
+    const cancelledRide = await this.rideRepository.cancelRide({
       rideId: input.rideId,
       cancelledBy: user._id,
       cancelledByRole: userLoginAs as CategoryAccessedByRole,
@@ -578,6 +585,51 @@ export class RidesService {
       cancelSubCategoryLabel: input.cancelSubCategoryLabel,
       cancelReasonContent: input.cancelReasonContent,
     });
+
+    // Send cancel ride notification to the matchmaking service (Ably + push notification)
+    // This is done asynchronously to not block the cancellation response
+    this.sendCancelRideNotification(input.rideId, user).catch((err: any) => {
+      console.error(
+        `Failed to send cancel ride notification: ${err?.message || err}`,
+      );
+    });
+
+    return cancelledRide;
+  }
+
+  /**
+   * Sends a cancel ride notification to the matchmaking service via GraphQL.
+   * Publishes a ride-cancelled event on the Ably channel and sends push notifications
+   * to the other party (passenger or driver).
+   */
+  private async sendCancelRideNotification(
+    rideId: string,
+    user: User,
+  ): Promise<void> {
+    try {
+      const matchmakingUrl =
+        process.env.RIDE_MATCHMAKING_URL || "http://localhost:3004";
+      const userRole = user.loginAs === roles.RIDER ? roles.RIDER : roles.USER;
+
+      const query = `mutation CancelRideNotification($rideId: String!, $userId: String!, $roles: String!) {
+        cancelRideNotification(rideId: $rideId, userId: $userId, roles: $roles) {
+          success message
+        }
+      }`;
+
+      await axios.post(`${matchmakingUrl}/graphql`, {
+        query,
+        variables: {
+          rideId,
+          userId: user._id.toString(),
+          roles: userRole,
+        },
+      });
+    } catch (err: any) {
+      console.error(
+        `Failed to send cancel ride notification to matchmaking service: ${err?.message || err}`,
+      );
+    }
   }
 
   /**

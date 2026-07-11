@@ -27,9 +27,7 @@ export class RatingRepository extends BaseRepository<RatingDocument> {
     return this.paginate(
       paginationInput,
       [
-        { path: "ratedBy", select: "fullName phone" },
-        { path: "ratedTo", select: "fullName phone" },
-        { path: "rideId" },
+        { path: "remark" },
       ],
       filter,
     );
@@ -42,9 +40,7 @@ export class RatingRepository extends BaseRepository<RatingDocument> {
     return this.paginate(
       paginationInput,
       [
-        { path: "ratedBy", select: "fullName phone" },
-        { path: "ratedTo", select: "fullName phone" },
-        { path: "rideId" },
+        { path: "remark" },
       ],
       { ratedTo: userId },
     );

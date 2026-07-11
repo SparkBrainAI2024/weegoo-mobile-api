@@ -168,6 +168,9 @@ export class NotificationService {
             if (payload.driverSnapshot) {
                 firebaseData.driver = JSON.stringify(payload.driverSnapshot);
             }
+             if (payload.cancelled) {
+                firebaseData.cancelled =String(payload.cancelled);
+            }
             console.log("payload", payload)
             try {
                 await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {

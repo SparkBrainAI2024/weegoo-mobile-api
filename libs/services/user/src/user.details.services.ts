@@ -34,7 +34,7 @@ export class UserDetailsService {
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
     try {
-      const user = await this.userRepository.findOne({ _id: userId });
+      const user = await this.userRepository.findOne({ _id: toMongoId(userId) });
 
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
@@ -139,12 +139,12 @@ export class UserDetailsService {
   // ✅ Get current user details (self)
   async findOne(userId: string, lang: string) {
     try {
-      const user = await this.userRepository.findOne({ _id: userId });
+      const user = await this.userRepository.findOne({ _id: toMongoId(userId) });
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-      const details = await this.userDetailsRepository.findOne({ userId });
+      const details = await this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
 
       if (!details)
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);

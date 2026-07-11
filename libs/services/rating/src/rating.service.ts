@@ -4,6 +4,7 @@ import {
 } from "@libs/data-access";
 import { Rating, RatingDocument } from "@libs/data-access/entities/rating.entity";
 import { RatingRepository } from "@libs/data-access/repositories/rating.repository";
+import { RemarkRepository } from "@libs/data-access/repositories/remark.repository";
 import { CreateRatingInput } from "@libs/data-access/dtos/input/create-rating.input";
 import { User } from "@libs/data-access/entities/user.entity";
 import { HttpStatus, Injectable } from "@nestjs/common";
@@ -15,6 +16,7 @@ export class RatingService {
   constructor(
     private readonly ratingRepository: RatingRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
+    private readonly remarkRepository: RemarkRepository,
   ) {}
 
   /**
@@ -57,6 +59,9 @@ export class RatingService {
       ratedTo: new Types.ObjectId(input.ratedTo),
       rideId: new Types.ObjectId(input.rideId),
       ratingRemarks: input.ratingRemarks,
+      remark: input.remarkId
+        ? new Types.ObjectId(input.remarkId)
+        : undefined,
     } as Partial<RatingDocument>);
 
     // Update the ratedTo user's average rating in UserDetails
@@ -66,12 +71,16 @@ export class RatingService {
   }
 
   /**
-   * Lists all ratings with pagination and optional filters.
+   * Lists ratings created by the current user with pagination.
    */
   async listRatings(
+    user: User,
     paginationInput: PaginationInput,
   ) {
-    return this.ratingRepository.listRatings(paginationInput);
+    return this.ratingRepository.listRatings(
+      paginationInput,
+      { ratedBy: new Types.ObjectId(user._id) },
+    );
   }
 
   /**
@@ -85,6 +94,13 @@ export class RatingService {
       new Types.ObjectId(userId),
       paginationInput,
     );
+  }
+
+  /**
+   * Lists all available remarks with pagination.
+   */
+  async listRemarks(paginationInput: PaginationInput) {
+    return this.remarkRepository.listRemarks(paginationInput);
   }
 
   /**
