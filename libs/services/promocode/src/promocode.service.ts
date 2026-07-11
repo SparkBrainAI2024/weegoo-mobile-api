@@ -292,6 +292,33 @@ export class PromoCodeService {
     }
   }
 
+  // ── GET ACTIVE PROMO CODES (for USER role) ───────────────────
+  async getActivePromoCodes(
+    paginationInput?: PaginationInput,
+  ): Promise<IPaginatedResult<PromoCodeDocument>> {
+    try {
+      const now = new Date();
+      const filter: FilterQuery<PromoCodeDocument> = {
+        status: PromoCodeStatusEnum.ACTIVE,
+        expiryDateTime: { $gt: now },
+        startDateTime: { $lte: now },
+      };
+
+      const pagination = paginationInput || new PaginationInput();
+      return this.promoCodeRepository.paginate(
+        pagination,
+        { path: "occasion" },
+        filter,
+      );
+    } catch (e) {
+      ErrorException(
+        e,
+        "PROMO_CODE.FIND_ALL",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // ── CRON ─────────────────────────────────────────────────────
   async expireOutdatedPromoCodes(): Promise<void> {
     try {

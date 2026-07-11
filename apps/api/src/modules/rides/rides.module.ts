@@ -8,6 +8,7 @@ import { MatchmakingIntegrationService } from "./matchmaking-integration.service
 import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
 import { PassengerRidesResolver } from "./resolver/rides.resolver";
 import { PassengerHomeResolver } from "./resolver/passenger-home.resolver";
+import { PassengerPromoCodeResolver } from "./resolver/passenger-promocode.resolver";
 import { PassengerHomeService } from "./passenger-home.service";
 import { NearbyDriversService } from "./nearby-drivers.service";
 import { NearbyDriversResolver } from "./resolver/nearby-drivers.resolver";
@@ -16,6 +17,8 @@ import { S3Module } from "@libs/s3/s3.module";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSchema, PromoCode, PromoCodeSchema } from "@libs/data-access";
 import { UserTokenMeta, UserTokenMetaSchema } from "@libs/data-access/entities/user-token-meta.entity";
+import { PromoCodeService } from "@libs/services/promocode/src/promocode.service";
+import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promocode.persistence.module";
 @Module({
     imports: [
         RidePersistentModule,
@@ -23,6 +26,7 @@ import { UserTokenMeta, UserTokenMetaSchema } from "@libs/data-access/entities/u
         TransactionModule,
         IssuePersistenceModule,
         S3Module,
+        PromoCodePersistenceModule,
         MongooseModule.forFeature([
             { name: Rides.name, schema: RidesSchema },
             { name: Vehicle.name, schema: VehicleSchema },
@@ -40,6 +44,8 @@ import { UserTokenMeta, UserTokenMetaSchema } from "@libs/data-access/entities/u
         PassengerRidesResolver,
         PassengerHomeService,
         PassengerHomeResolver,
+        PassengerPromoCodeResolver,
+        PromoCodeService,
         NearbyDriversService,
         NearbyDriversResolver,
         UserTransactionResolver,
