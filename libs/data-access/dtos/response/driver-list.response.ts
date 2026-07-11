@@ -21,6 +21,9 @@ export class DriverListItem {
   @Field(() => String)
   status: string;
 
+  @Field(() => Boolean, { nullable: true })
+  suspended?: boolean;
+
   @Field(() => Int, { defaultValue: 0 })
   totalRides: number;
 
@@ -36,9 +39,3 @@ export class DriverListItem {
 
 @ObjectType()
 export class DriverListResponse extends Paginated(DriverListItem) {}
-
-@ObjectType()
-export class ToggleBlockDriverResponse extends BasicResponse {
-  @Field(() => Boolean, { nullable: true })
-  suspended: boolean;
-}

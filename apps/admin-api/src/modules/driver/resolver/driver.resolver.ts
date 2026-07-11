@@ -1,6 +1,7 @@
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import {
   Args,
+  ID,
   Mutation,
   Parent,
   Query,
@@ -14,8 +15,8 @@ import { AuthGuard, RoleGuard } from "@libs/guards";
 import { BasicResponse, DriverDocument, roles, User } from "@libs/data-access";
 import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
 import {
+  DriverListItem,
   DriverListResponse,
-  ToggleBlockDriverResponse,
 } from "@libs/data-access/dtos/response/driver-list.response";
 import {
   DriverListInput,
@@ -63,18 +64,17 @@ export class DriverResolver {
     return this.driverService.softDeleteDriver(input.driverId);
   }
 
-  // drivers.resolver.ts
-  @Mutation(() => ToggleBlockDriverResponse)
-  async toggleBlockDriver(
-    @Args("input") input: ToggleBlockDriverInput,
-  ): Promise<ToggleBlockDriverResponse> {
-    console.log(input, "input");
+  @Mutation(() => DriverListItem)
+  async blockDriver(
+    @Args("id", { type: () => ID }) id: string,
+  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
+    return this.driverService.setSuspended(id, true);
+  }
 
-    const result = await this.driverService.toggleBlock(
-      input.id,
-      input.isBlocked,
-    );
-    console.log(result, "result");
-    return result;
+  @Mutation(() => DriverListItem)
+  async unblockDriver(
+    @Args("id", { type: () => ID }) id: string,
+  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
+    return this.driverService.setSuspended(id, false);
   }
 }

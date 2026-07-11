@@ -9,10 +9,7 @@ import {
   TransactionRepository,
 } from "@libs/data-access";
 import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
-import {
-  DriverListItem,
-  ToggleBlockDriverResponse,
-} from "@libs/data-access/dtos/response/driver-list.response";
+import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
@@ -143,27 +140,27 @@ export class DriverService {
     return true;
   }
 
-  async toggleBlock(
-    driverId: string,
-    isBlocked: boolean,
-  ): Promise<ToggleBlockDriverResponse> {
-    const driver = await this.userRepository.findById(toMongoId(driverId));
-
+  async setSuspended(
+    id: string,
+    suspended: boolean,
+  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
+    const driver = await this.userRepository.findById(toMongoId(id));
     if (!driver) {
-      throw new NotFoundException(`Driver ${driverId} not found`);
+      throw new NotFoundException(`Driver ${id} not found`);
     }
 
-    driver.suspended = isBlocked;
-    driver.suspendedAt = isBlocked ? new Date() : null;
+    // atomic update — avoids the read-modify-write TOCTOU gap
+    // you've been digging into on Labasam; same concern applies here
+    const updated = await this.userRepository.findOneAndUpdate(
+      { id },
+      { suspended },
+      { new: true }, // return the doc *after* update, not before
+    );
 
-    await driver.save();
+    if (!updated) {
+      throw new NotFoundException(`Driver ${id} not found`);
+    }
 
-    return {
-      success: true,
-      message: isBlocked
-        ? "User blocked successfully"
-        : "User unblocked successfully",
-      suspended: driver.suspended,
-    };
+    return { id: updated._id.toString(), suspended: updated.suspended };
   }
 }
