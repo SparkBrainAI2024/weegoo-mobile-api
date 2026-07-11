@@ -44,7 +44,7 @@ import {
   transformToEntityNameObjectFromId,
 } from "@libs/common/utils/entity.utils";
 import { S3Service } from "@libs/s3/s3.service";
-
+import axios from "axios";
 import { InjectModel } from "@nestjs/mongoose";
 import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
 @Injectable()
