@@ -521,6 +521,17 @@ enum IssueStatus {
   RESOLVED
 }
 
+type Remark {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+
+  """Display name / text of the remark"""
+  name: String!
+}
+
 type Rating {
   _id: String!
   createdAt: DateTime
@@ -528,10 +539,20 @@ type Rating {
   deletedAt: DateTime
   deleted: Boolean
   rating: Float!
-  ratedBy: String!
-  ratedTo: String!
+
+  """Snapshot of the rater user details"""
+  ratedByUser: RideUserSnapshot
+
+  """Snapshot of the rated user details"""
+  ratedToUser: RideUserSnapshot
   rideId: String!
   ratingRemarks: String
+
+  """Populated remark (with name and id) for this rating"""
+  remark: Remark
+
+  """Remark text provided by the user"""
+  remarkByUser: String
 }
 
 type BasicResponse {
