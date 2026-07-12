@@ -38,7 +38,6 @@ import {
 import { PromoCodeService } from "@libs/services/promocode/src/promocode.service";
 import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promocode.persistence.module";
 import { NotificationModule } from "@libs/services/notification";
-import { NotificationModule } from "@libs/services/notification";
 @Module({
   imports: [
     RidePersistentModule,
@@ -48,7 +47,6 @@ import { NotificationModule } from "@libs/services/notification";
     S3Module,
     PromoCodePersistenceModule,
     NotificationModule,
-    WalletModule,
     MongooseModule.forFeature([
       { name: Rides.name, schema: RidesSchema },
       { name: Vehicle.name, schema: VehicleSchema },

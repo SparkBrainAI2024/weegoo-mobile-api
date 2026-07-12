@@ -1,5 +1,4 @@
 import { Field, Float, ObjectType } from "@nestjs/graphql";
-import { Field, Float, ObjectType } from "@nestjs/graphql";
 import { CompleteRideFareBreakdown } from "./complete-ride-fare-breakdown.dto";
 
 @ObjectType()
@@ -15,7 +14,11 @@ export class CompleteRideResult {
 
   @Field(() => Float, { nullable: true })
   totalDurationInMinutes?: number;
+  @Field(() => Float, { nullable: true })
+  totalDurationInMinutes?: number;
 
+  @Field(() => String, { nullable: true })
+  totalDuration?: string;
   @Field(() => String, { nullable: true })
   totalDuration?: string;
 
@@ -24,9 +27,6 @@ export class CompleteRideResult {
 
   @Field(() => String, { nullable: true })
   completedAt?: string;
-
-  @Field(() => String, { nullable: true, description: "Timestamp when the ride was completed (rideCompletedAt)" })
-  rideCompletedAt?: string;
 
   @Field(() => Float, { nullable: true })
   walletAmount?: number;
