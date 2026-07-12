@@ -19,6 +19,7 @@ import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSch
 import { UserTokenMeta, UserTokenMetaSchema } from "@libs/data-access/entities/user-token-meta.entity";
 import { PromoCodeService } from "@libs/services/promocode/src/promocode.service";
 import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promocode.persistence.module";
+import { NotificationModule } from "@libs/services/notification";
 @Module({
     imports: [
         RidePersistentModule,
@@ -27,6 +28,7 @@ import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promoco
         IssuePersistenceModule,
         S3Module,
         PromoCodePersistenceModule,
+        NotificationModule,
         MongooseModule.forFeature([
             { name: Rides.name, schema: RidesSchema },
             { name: Vehicle.name, schema: VehicleSchema },
