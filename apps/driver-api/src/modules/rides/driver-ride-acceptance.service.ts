@@ -61,6 +61,7 @@ const COMPLETE_RIDE_MUTATION = `
         discount
         totalFare
       }
+      walletAmount
     }
   }
 `;

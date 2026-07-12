@@ -15,6 +15,7 @@ import { EnvService } from '@libs/common/config/env.service';
 import { S3Service } from '@libs/s3';
 import { AblyModule } from '@libs/services/ably';
 import { TransactionModule } from '@libs/services/payment/src/transaction/transaction.module';
+import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TransactionModule } from '@libs/services/payment/src/transaction/transa
     NotificationPersistentModule,
     AblyModule,
     TransactionModule,
+    WalletModule,
   ],
   providers: [
     MatchmakingResolver,
