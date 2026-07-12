@@ -193,7 +193,9 @@ export class UserRepository extends BaseRepository<UserDocument> {
           totalTripsAsPassenger: {
             $ifNull: ["$details.totalTripsAsPassenger", 0],
           },
-          totalSpentOnRides: { $ifNull: ["$details.totalSpentOnRides", 0] },
+          totalSpendingOnRides: {
+            $ifNull: ["$details.totalSpendingOnRides", 0],
+          },
           rating: { $ifNull: ["$details.rating", 0] },
           createdAt: 1,
           suspended: 1,
