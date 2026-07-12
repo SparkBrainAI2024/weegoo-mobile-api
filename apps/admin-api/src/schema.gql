@@ -960,7 +960,7 @@ type DriverWDocuments {
   id: String!
   fullName: String
   profileImage: String
-  rating: Float!
+  rating: Float
   email: String
   address: String
   suspended: Boolean
@@ -969,13 +969,13 @@ type DriverWDocuments {
   locationChannelId: String
   dateOfBirth: String
   joinedDate: String!
-  totalRides: Float
+  totalRidesAsDriver: Float
   totalEarnings: Float
   amountDueToCompany: Float
   lastTripAt: String
-  lastTripStartTime: String!
-  lastTripEndTime: String!
-  lastTripDuration: Float!
+  lastTripStartTime: String
+  lastTripEndTime: String
+  lastTripDuration: Float
   documents: [DriverDocument!]
   vehicle: Vehicle
 }

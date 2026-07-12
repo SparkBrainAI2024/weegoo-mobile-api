@@ -29,13 +29,6 @@ export class DriverService {
   ) {}
 
   private async enrichDataDriverWithRideDetails(driverId: string) {
-    //we need to query the rides collection to get the ride details for the driver and return it as part of the driver object
-    const totalRidesPromise = this.ridesRepository.count({
-      driverId: toMongoId(driverId),
-      rideStatus: RideStatus.COMPLETED,
-    });
-    const totalEarningsPromise =
-      this.transactionRepository.totalEarningsByDriverId(driverId);
     // You can add more ride-related details as needed
     // Implement logic to fetch and enrich driver with ride-related information if needed
     const driverLastTripPromise = this.ridesRepository.findOne(
@@ -43,19 +36,15 @@ export class DriverService {
       null,
       { sort: { createdAt: -1 } },
     );
-    const [totalRides, totalEarnings, driverLastTrip] = await Promise.all([
-      totalRidesPromise,
-      totalEarningsPromise,
-      driverLastTripPromise,
-    ]);
+    const [driverLastTrip] = await Promise.all([driverLastTripPromise]);
 
     return {
-      totalRides: totalRides,
-      totalEarnings: totalEarnings,
-      lastTripAt: driverLastTrip.createdAt?.toISOString() || null,
-      lastTripDuration: driverLastTrip.actualCompletedDurationInMinutes || null,
-      lastTripStartTime: driverLastTrip?.rideStartedAt.toDateString() || "",
-      lastTripEndTime: driverLastTrip?.rideCompletedAt.toDateString() || "",
+      lastTripAt: driverLastTrip?.createdAt?.toISOString() ?? null,
+      lastTripDuration:
+        driverLastTrip?.actualCompletedDurationInMinutes ?? null,
+      lastTripStartTime: driverLastTrip?.rideStartedAt?.toDateString() ?? null,
+
+      lastTripEndTime: driverLastTrip?.rideCompletedAt?.toDateString() ?? null,
     };
   }
 
@@ -74,6 +63,8 @@ export class DriverService {
         rating: 1,
         locationChannelId: 1,
         geoLocation: 1,
+        totalRidesAsDriver: 1,
+        totalEarnings: 1,
       },
     );
 
@@ -91,13 +82,15 @@ export class DriverService {
       amountDueToCompany: details?.amountDueToCompany ?? 0,
       rating: details?.rating ?? 0,
       phone: userDoc.phone || "",
-      dateOfBirth: details?.dateOfBirth?.toISOString() || null,
+      dateOfBirth: details?.dateOfBirth?.toDateString() || null,
       email: userDoc.email || "",
       suspended: userDoc.suspended || false,
       address: details?.address || "",
       locationChannelId: details?.locationChannelId ?? null,
       documents: documents ?? [],
-      joinedDate: userDoc.createdAt.toDateString(),
+      joinedDate: userDoc?.createdAt?.toDateString(),
+      totalRidesAsDriver: details?.totalRidesAsDriver ?? 0,
+      totalEarnings: details?.totalEarnings ?? 0,
       ...driverEnrichedWithRideDetails,
     };
   }
@@ -113,20 +106,26 @@ export class DriverService {
       search,
     );
 
-    const data: DriverListItem[] = result.data.map((row: any) => ({
-      id: row.id?.toString(),
-      fullName: row.fullName || "Driver",
-      phone: row.phone || "",
-      status: row.status,
-      profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
-        this.s3.getPublicUrl(key),
-      ),
-      suspended: row.suspended,
-      totalRides: row.totalRides,
-      totalEarnings: row.totalEarnings,
-      rating: row.rating,
-      joinedDate: row.createdAt ? new Date(row.createdAt).toDateString() : null,
-    }));
+    const data: DriverListItem[] = result.data.map((row: any) => {
+      console.log(row, "row");
+
+      return {
+        id: row.id?.toString(),
+        fullName: row.fullName || "Driver",
+        phone: row.phone || "",
+        status: row.status,
+        profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        ),
+        suspended: row.suspended,
+        totalRides: row.totalRides,
+        totalEarnings: row.totalEarnings,
+        rating: row.rating,
+        joinedDate: row.createdAt
+          ? new Date(row.createdAt)?.toDateString()
+          : null,
+      };
+    });
 
     return { data, pagination: result.pagination };
   }
