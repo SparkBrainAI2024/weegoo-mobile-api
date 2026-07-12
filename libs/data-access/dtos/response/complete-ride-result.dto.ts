@@ -25,6 +25,9 @@ export class CompleteRideResult {
   @Field(() => String, { nullable: true })
   completedAt?: string;
 
+  @Field(() => String, { nullable: true, description: "Timestamp when the ride was completed (rideCompletedAt)" })
+  rideCompletedAt?: string;
+
   @Field(() => Float, { nullable: true })
   walletAmount?: number;
 }
