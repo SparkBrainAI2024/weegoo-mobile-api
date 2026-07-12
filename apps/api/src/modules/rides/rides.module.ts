@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
+import { WalletModule } from "@libs/services/payment/src/wallet/wallet.module";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { MatchmakingIntegrationService } from "./matchmaking-integration.service";
 import { MatchmakingResolver } from "./resolver/matchmaking.resolver";
@@ -29,6 +30,7 @@ import { NotificationModule } from "@libs/services/notification";
         S3Module,
         PromoCodePersistenceModule,
         NotificationModule,
+        WalletModule,
         MongooseModule.forFeature([
             { name: Rides.name, schema: RidesSchema },
             { name: Vehicle.name, schema: VehicleSchema },
