@@ -1400,23 +1400,23 @@ export class MatchmakingService {
     }
   }
 
-  async acknowledgeAndFinishRide(rideId: string, driverId: string): Promise<{ success: boolean; message: string }> {
+  async acknowledgeAndFinishRide(rideId: string, driverId: string): Promise<{ success: boolean; acknowledged: boolean; message: string }> {
     this.logger.log(`Driver ${driverId} acknowledging and finishing ride ${rideId}`);
     try {
       const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
       if (!ride) {
-        return { success: false, message: 'Ride not found' };
+        return { success: false, message: 'Ride not found', acknowledged: false };
       }
 
       if (ride.driverId?.toString() !== driverId) {
-        return { success: false, message: 'You are not the assigned driver for this ride' };
+        return { success: false, message: 'You are not the assigned driver for this ride', acknowledged: false };
       }
 
       if (ride.rideStatus !== RideStatus.COMPLETED || ride?.paymentDetails?.paymentStatus !== PaymentStatusEnum.PAID) {
-        return { success: false, message: `Ride must be completed and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}` };
+        return { success: false, message: `Ride must be completed and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}`, acknowledged: false };
       }
       if (ride.isAcknowledgeByDriver) {
-        return { success: false, message: 'Ride has already been acknowledged by driver' };
+        return { success: false, message: 'Ride has already been acknowledged by driver',acknowledged: true };
       }
 
       // Fetch driver details from both User and UserDetails for optimized snapshot
@@ -1444,7 +1444,7 @@ export class MatchmakingService {
       ).exec();
 
       if (!updatedRide) {
-        return { success: false, message: 'Failed to update ride' };
+        return { success: false, message: 'Failed to update ride', acknowledged: false };
       }
 
       // Send notification to passenger with only driverSnapshot
@@ -1475,10 +1475,10 @@ export class MatchmakingService {
       this.rideChannelService.releaseRideChannel(updatedRide.rideUUId);
 
       this.logger.log(`Ride ${rideId} acknowledged and finished by driver ${driverId}`);
-      return { success: true, message: 'Ride acknowledged and finished successfully' };
+      return { success: true, acknowledged: true, message: 'acknowledged the payment successfully' };
     } catch (err: any) {
       this.logger.error(`Failed to acknowledge and finish ride: ${err?.message || err}`);
-      return { success: false, message: 'Failed to acknowledge and finish ride' };
+      return { success: false, acknowledged: false, message: 'Failed to acknowledge and finish ride' };
     }
   }
 
