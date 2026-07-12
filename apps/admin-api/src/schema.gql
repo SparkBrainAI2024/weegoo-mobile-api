@@ -251,7 +251,9 @@ type Rides {
   passenger: RideUserSnapshot
   driver: RideUserSnapshot
 
-  """Wallet balance of the requesting user at the time of this response"""
+  """
+  Wallet balance of the requesting user at the time of this response
+  """
   walletAmount: Float
 }
 
@@ -733,6 +735,11 @@ type NotificationListWithCursorPaginationResponse {
   pageInfo: CursorPageInfo!
 }
 
+type NotificationListWithCursorPaginationResponse {
+  data: [NotificationGroup!]!
+  pageInfo: CursorPageInfo!
+}
+
 type MatchAttemptInfo {
   attemptNumber: Int!
   radiusKm: Float!
@@ -890,7 +897,9 @@ type RideWithoutRelations {
   actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
 
-  """Wallet balance of the requesting user at the time of this response"""
+  """
+  Wallet balance of the requesting user at the time of this response
+  """
   walletAmount: Float
 }
 
@@ -1194,8 +1203,6 @@ type Query {
     documentType: DriverDocumentType!
     side: DriverDocumentSide!
   ): DocumentViewUrlResponse!
-
-  getPassengers(input: PassengerListInput): PassengerListResponse!
   getVehicle: Vehicle!
 }
 
@@ -1238,20 +1245,6 @@ input CursorPaginationInput {
   limit: Int! = 5
   cursor: String
   sortOrder: SortBy
-}
-
-input DriverListInput {
-  page: Int! = 0
-  limit: Int! = 5
-  search: String
-  status: String
-}
-
-input PassengerListInput {
-  page: Int! = 0
-  limit: Int! = 5
-  search: String
-  status: String
 }
 
 type Mutation {

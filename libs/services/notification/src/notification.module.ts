@@ -7,6 +7,8 @@ import { FirebaseMessagingService } from "@libs/services/firebase-messaging";
 import { ConfigModule } from "@nestjs/config";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
+import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
+import { EnvService } from "@libs/common/config/env.service";
 
 @Module({
   imports: [NotificationPersistentModule, ConfigModule, UserPersistenceModule],
