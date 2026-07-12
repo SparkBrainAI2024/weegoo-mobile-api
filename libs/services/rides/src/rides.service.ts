@@ -21,32 +21,25 @@ import {
   VehicleDocument,
 } from "@libs/data-access";
 
-import {
-  PromoCodeUsed,
-  PromoCodeUsedDocument,
-} from "@libs/data-access/entities/promo-code-used.entity";
-import { Model, Types } from "mongoose";
-import { HttpStatus, Injectable } from "@nestjs/common";
-import { TransactionService } from "@libs/services/payment/src/transaction/transaction.service";
-import { ErrorException } from "@libs/common/exceptions";
-import { CancelRideInput } from "@libs/data-access/dtos/input/cancel-ride.input";
-import { UpdateRideInput } from "@libs/data-access/dtos/input/update-ride.input";
-import { IssueRepository } from "@libs/data-access/repositories/issue.repository";
-import {
-  CategoryAccessedByRole,
-  IssueCategoryForRole,
-  IssueParentCategory,
-} from "@libs/data-access/enums/issue.enum";
-import { toMongoId, REQUIRED_SIDES } from "@libs/common";
-import { CreatePromoCodeInput } from "@libs/data-access";
-import {
-  getActiveProfileImageUrl,
-  transformToEntityNameObjectFromId,
-} from "@libs/common/utils/entity.utils";
-import { S3Service } from "@libs/s3/s3.service";
-import axios from "axios";
-import { InjectModel } from "@nestjs/mongoose";
-import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
+import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
+import { Model, Types } from 'mongoose';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
+import { ErrorException } from '@libs/common/exceptions';
+import { CancelRideInput } from '@libs/data-access/dtos/input/cancel-ride.input';
+import { UpdateRideInput } from '@libs/data-access/dtos/input/update-ride.input';
+import { IssueRepository } from '@libs/data-access/repositories/issue.repository';
+import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory } from '@libs/data-access/enums/issue.enum';
+import { toMongoId, REQUIRED_SIDES } from '@libs/common';
+import { CreatePromoCodeInput } from '@libs/data-access';
+import { getActiveProfileImageUrl, transformToEntityNameObjectFromId } from '@libs/common/utils/entity.utils';
+import { S3Service } from '@libs/s3/s3.service';
+import { WalletService } from '@libs/services/payment/src/wallet/wallet.service';
+import axios from 'axios';
+
+
+import { InjectModel } from '@nestjs/mongoose';
+import { DriverDocumentBundleStatus } from '@libs/data-access/enums/driver-document.enum';
 @Injectable()
 export class RidesService {
   constructor(
@@ -62,9 +55,9 @@ export class RidesService {
     @InjectModel(PromoCodeUsed.name)
     private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Vehicle.name)
-    private readonly vehicleModel: Model<VehicleDocument>,
-  ) {}
+    @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
+    private readonly walletService: WalletService,
+  ) { }
 
   /**
    * Fetches rides for the current user based on their role with pagination.
@@ -204,12 +197,18 @@ export class RidesService {
    * Calculates actual duration from rideStartedAt to rideCompletedAt for
    * estimatedTimeInMinutes and estimatedFare.
    */
-  async completeRide(
-    rideId: Types.ObjectId,
-    completedAt: Date,
-    distanceInKm?: number,
-  ): Promise<RidesDocument | null> {
-    return this.rideRepository.completeRide(rideId, completedAt, distanceInKm);
+  async completeRide(rideId: Types.ObjectId, completedAt: Date, distanceInKm?: number): Promise<any> {
+    const ride = await this.rideRepository.completeRide(rideId, completedAt, distanceInKm);
+    if (!ride) return null;
+    const userId = ride.passengerId?.toString();
+    const walletAmount = userId ? await this.walletService.getBalance(userId) : 0;
+    const rideObj = (ride as any).toObject ? (ride as any).toObject() : ride;
+    return {
+      ...rideObj,
+      _id: ride._id.toString(),
+      rideCompletedAt: ride.rideCompletedAt,
+      walletAmount,
+    };
   }
 
   /**
@@ -653,7 +652,13 @@ export class RidesService {
         ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
       }
     }
-    return this.enrichRideDetails(rideDocument);
+    const enriched = await this.enrichRideDetails(rideDocument);
+    const walletAmount = await this.walletService.getBalance(user._id.toString());
+    return {
+      ...enriched,
+      rideCompletedAt: rideDocument.rideCompletedAt,
+      walletAmount,
+    };
   }
 
   /**

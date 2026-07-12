@@ -216,6 +216,9 @@ type Rides {
   cancellationDetail: CancellationDetail
   passenger: RideUserSnapshot
   driver: RideUserSnapshot
+
+  """Wallet balance of the requesting user at the time of this response"""
+  walletAmount: Float
 }
 
 """Types of rides"""
@@ -551,7 +554,7 @@ type Rating {
   """Populated remark (with name and id) for this rating"""
   remark: Remark
 
-  """Remark text provided by the user""" 
+  """Remark text provided by the user"""
   remarkByUser: String
 }
 
@@ -607,6 +610,11 @@ enum RidePreference {
 type NotificationGroup {
   title: String!
   notifications: [Notification!]!
+}
+
+type NotificationListWithCursorPaginationResponse {
+  data: [NotificationGroup!]!
+  pageInfo: CursorPageInfo!
 }
 
 type MatchAttemptInfo {
@@ -765,6 +773,9 @@ type RideWithoutRelations {
   ablyChannelId: String
   actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
+
+  """Wallet balance of the requesting user at the time of this response"""
+  walletAmount: Float
 }
 
 type DocumentStatus {
@@ -1031,11 +1042,13 @@ type Query {
   promoCode(id: ID!): PromoCode!
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
+  getNotifications(options: CursorPaginationInput!): NotificationListWithCursorPaginationResponse!
+  unreadNotificationCount: Int!
   getDriver(driverId: String!): DriverWDocuments!
   getDrivers(input: DriverListInput): DriverListResponse!
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
-  getVehicle(vehicleId: String!): Vehicle!
+  getVehicle: Vehicle!
 }
 
 input PaginationInputOnly {
@@ -1067,6 +1080,12 @@ input PromoCodeFilterInput {
   occasion: ID
 }
 
+input CursorPaginationInput {
+  limit: Int! = 5
+  cursor: String
+  sortOrder: SortBy
+}
+
 input DriverListInput {
   page: Int! = 0
   limit: Int! = 5
@@ -1092,6 +1111,9 @@ type Mutation {
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
+  readNotification(id: String!): Notification!
+  openNotifications: Notification!
+  createNotification(notificationPayload: CreateNotificationInput!): Notification!
   deleteDriver(input: DeleteDriverInput!): Boolean!
   blockDriver(id: ID!): DriverListItem!
   unblockDriver(id: ID!): DriverListItem!
@@ -1218,6 +1240,54 @@ input UpdatePromoCodeInput {
   """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
+}
+
+input CreateNotificationInput {
+  title: String!
+  notificationType: NotificationType!
+  description: String
+  ablyChannelId: String
+  rideId: String
+  rideType: RideTypes
+  rideStatus: RideStatus
+  waitTimeSeconds: Float
+  estimatedFare: Float
+  pickupLocation: NotificationLocationInput
+  dropoffLocation: NotificationLocationInput
+  distanceInKm: Float
+  estimatedTimeInMinutes: Float
+  actualTimeInMinutes: Float
+  passengerId: String
+  driverScore: Float
+  distanceToPickupKm: Float
+  passengerName: String
+  passengerPhone: String
+  passengerGender: GenderEnum = UNPUBLISHED
+  passengerProfileImages: [String!]
+  driverName: String
+  driverPhone: String
+  driverProfileImage: String
+  driverRating: Float
+  vehicleType: String
+  vehicleModel: String
+  vehicleColor: String
+  vehicleNumberPlate: String
+  passengerSnapshot: RideUserInputSnapshot
+  driverSnapshot: RideUserInputSnapshot
+  noOfPassengers: Float
+}
+
+input NotificationLocationInput {
+  address: String
+  coordinates: [Float!]
+  city: String
+}
+
+input RideUserInputSnapshot {
+  fullName: String
+  profileImage: String
+  rating: Float! = 0
+  phone: String
 }
 
 input DeleteDriverInput {

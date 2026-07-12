@@ -7,6 +7,7 @@ import { DriverRideAcceptanceService } from "./driver-ride-acceptance.service";
 import { DriverRideResolver } from "./driver-ride.resolver";
 import { TransactionModule } from "../transaction/transaction.module";
 import { S3Module } from "@libs/s3";
+import { WalletModule } from "@libs/services/payment/src/wallet/wallet.module";
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { S3Module } from "@libs/s3";
         UserPersistenceModule,
         TransactionModule,
         S3Module,
+        WalletModule,
         IssuePersistenceModule,
     ],
     providers: [

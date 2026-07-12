@@ -7,4 +7,7 @@ export class BasicResult {
 
   @Field(() => String)
   message: string;
+
+  @Field(() => Boolean, { nullable: true })
+  acknowledged?: boolean;
 }

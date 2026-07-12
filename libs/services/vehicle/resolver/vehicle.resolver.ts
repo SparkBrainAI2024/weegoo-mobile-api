@@ -51,10 +51,9 @@ export class VehicleResolver {
   @Query(() => Vehicle)
   async getVehicle(
     @CurrentLang() lang: string,
-    @CurrentUser() user: { _id: string },
-    @Args("vehicleId") vehicleId: string,
-  ): Promise<BasicResponse> {
-    return this.vehicleService.getVehicle(vehicleId, user._id, lang);
+    @CurrentUser() user: { _id: string }
+  ): Promise<Vehicle> {
+    return this.vehicleService.getVehicle( user._id, lang);
   }
 }
 
