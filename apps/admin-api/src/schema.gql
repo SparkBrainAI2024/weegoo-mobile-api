@@ -250,6 +250,9 @@ type Rides {
   cancellationDetail: CancellationDetail
   passenger: RideUserSnapshot
   driver: RideUserSnapshot
+
+  """Wallet balance of the requesting user at the time of this response"""
+  walletAmount: Float
 }
 
 """
@@ -886,6 +889,9 @@ type RideWithoutRelations {
   ablyChannelId: String
   actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
+
+  """Wallet balance of the requesting user at the time of this response"""
+  walletAmount: Float
 }
 
 type DocumentStatus {

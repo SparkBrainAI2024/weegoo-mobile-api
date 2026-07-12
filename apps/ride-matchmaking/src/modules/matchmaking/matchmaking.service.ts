@@ -12,6 +12,7 @@ import { NotificationType } from '@libs/data-access/enums/notification.enum';
 import { CreateNotificationInput } from '@libs/data-access/dtos/input/create-notification.input';
 import { AblyService, RideChannelService } from '@libs/services/ably';
 import { NotificationService } from '@libs/services/notification';
+import { WalletService } from '@libs/services/payment/src/wallet/wallet.service';
 import {
   MatchResult,
   MatchAttemptResult,
@@ -47,6 +48,7 @@ export class MatchmakingService {
     private readonly pricingService: DynamicPricingService,
     private readonly notificationService: NotificationService,
     private readonly s3: S3Service,
+    private readonly walletService: WalletService,
   ) { }
 
   async matchDrivers(params: { rideId: string }): Promise<MatchResult> {
@@ -1188,6 +1190,8 @@ export class MatchmakingService {
       totalDuration: string;
       fareBreakdown: { baseFare: number; distanceCharge: number; discount: number; totalFare: number; };
       completedAt: string;
+      rideCompletedAt?: string;
+      walletAmount?: number;
     };
   }> {
     this.logger.log(`Driver ${driverId} completing ride ${rideId}`);
@@ -1294,6 +1298,10 @@ export class MatchmakingService {
           totalDuration: durationStr,
           fareBreakdown: { baseFare: Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
           completedAt: updatedRide.rideCompletedAt.toISOString(),
+          rideCompletedAt: updatedRide.rideCompletedAt.toISOString(),
+          walletAmount: updatedRide.passengerId
+            ? await this.walletService.getBalance(driverId)
+            : 0,
         },
       };
     } catch (err: any) {
