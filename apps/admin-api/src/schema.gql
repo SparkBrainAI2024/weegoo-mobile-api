@@ -1028,6 +1028,25 @@ type VehicleRegistrationResponse {
   vehicle: Vehicle
 }
 
+type PassengerListItem {
+  id: String!
+  fullName: String!
+  phone: String
+  profileImage: String
+  status: String!
+  suspended: Boolean
+  totalTripsAsPassenger: Int!
+  totalSpendingOnRides: Float!
+  rating: Float!
+  joinedDate: String
+}
+
+type PassengerListResponse {
+  message: String
+  data: [PassengerListItem!]
+  pagination: Pagination!
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -1043,6 +1062,7 @@ type Query {
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle(vehicleId: String!): Vehicle!
+  getPassengers(input: PassengerListInput): PassengerListResponse!
 }
 
 input PaginationInputOnly {
@@ -1087,6 +1107,13 @@ input DriverListInput {
   status: String
 }
 
+input PassengerListInput {
+  page: Int! = 0
+  limit: Int! = 5
+  search: String
+  status: String
+}
+
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
@@ -1115,6 +1142,9 @@ type Mutation {
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
   editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
+  deletePassenger(input: DeletePassengerInput!): Boolean!
+  blockPassenger(id: ID!): PassengerListItem!
+  unblockPassenger(id: ID!): PassengerListItem!
 }
 
 input AdminSignUpInput {
@@ -1349,4 +1379,8 @@ input EditVehicleInput {
   """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VechileModelType
   name: String!
+}
+
+input DeletePassengerInput {
+  passengerId: String!
 }

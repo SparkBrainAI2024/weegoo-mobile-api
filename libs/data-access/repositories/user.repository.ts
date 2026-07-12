@@ -138,8 +138,10 @@ export class UserRepository extends BaseRepository<UserDocument> {
     status?: string,
     search?: string,
   ): Promise<IPaginatedResult<any>> {
+    console.log(status, "status");
+
     const match: Record<string, any> = {
-      roles: roles.USER,
+      roles: { $in: [roles.USER] },
       deleted: false,
     };
 
@@ -147,29 +149,29 @@ export class UserRepository extends BaseRepository<UserDocument> {
       { $match: match },
 
       // fullName, trips, spend, rating, profile image — all live on UserDetails
-      {
-        $lookup: {
-          from: "userdetails",
-          localField: "_id",
-          foreignField: "userId",
-          as: "details",
-        },
-      },
-      { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
+      // {
+      //   $lookup: {
+      //     from: "userdetails",
+      //     localField: "_id",
+      //     foreignField: "userId",
+      //     as: "details",
+      //   },
+      // },
+      // { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
 
-      // search runs after the join, same reason as the driver pipeline
-      ...(search
-        ? [
-            {
-              $match: {
-                $or: [
-                  { "details.fullName": { $regex: search, $options: "i" } },
-                  { phone: { $regex: search, $options: "i" } },
-                ],
-              },
-            } as PipelineStage,
-          ]
-        : []),
+      // // search runs after the join, same reason as the driver pipeline
+      // ...(search
+      //   ? [
+      //       {
+      //         $match: {
+      //           $or: [
+      //             { "details.fullName": { $regex: search, $options: "i" } },
+      //             { phone: { $regex: search, $options: "i" } },
+      //           ],
+      //         },
+      //       } as PipelineStage,
+      //     ]
+      //   : []),
 
       {
         $addFields: {
@@ -202,13 +204,14 @@ export class UserRepository extends BaseRepository<UserDocument> {
         },
       },
 
-      ...(status
-        ? [{ $match: { status: "$computedStatus" } } as PipelineStage]
-        : []),
+      ...(status ? [{ $match: { status } } as PipelineStage] : []),
     ];
 
-    return this.aggregatePaginate(basePipeline, pageInput, {
+    const data = await this.aggregatePaginate(basePipeline, pageInput, {
       totalTripsAsPassenger: -1,
     });
+    console.log(data, "data");
+
+    return data;
   }
 }

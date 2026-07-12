@@ -20,9 +20,6 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 export class PassengerService {
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly userDetailsRepository: UserDetailsRepository,
-    private readonly transactionRepository: TransactionRepository, // Replace with actual TransactionRepository type
-    private readonly ridesRepository: RidesRepository, // Replace with actual RidesRepository type
     private readonly s3: S3Service,
   ) {}
 
