@@ -551,7 +551,7 @@ type Rating {
   """Populated remark (with name and id) for this rating"""
   remark: Remark
 
-  """Remark text provided by the user"""
+  """Remark text provided by the user""" 
   remarkByUser: String
 }
 
@@ -975,6 +975,25 @@ type DriverWDocuments {
   vehicle: Vehicle
 }
 
+type DriverListItem {
+  id: String!
+  fullName: String!
+  phone: String
+  profileImage: String
+  status: String!
+  suspended: Boolean
+  totalRides: Int!
+  totalEarnings: Float!
+  rating: Float!
+  joinedDate: String
+}
+
+type DriverListResponse {
+  message: String
+  data: [DriverListItem!]
+  pagination: Pagination!
+}
+
 type DriverDocumentConfirmUploadResponse {
   message: String!
   success: Boolean!
@@ -1013,6 +1032,7 @@ type Query {
   promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
   getDriver(driverId: String!): DriverWDocuments!
+  getDrivers(input: DriverListInput): DriverListResponse!
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle(vehicleId: String!): Vehicle!
@@ -1047,6 +1067,13 @@ input PromoCodeFilterInput {
   occasion: ID
 }
 
+input DriverListInput {
+  page: Int! = 0
+  limit: Int! = 5
+  search: String
+  status: String
+}
+
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
@@ -1065,6 +1092,9 @@ type Mutation {
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
+  deleteDriver(input: DeleteDriverInput!): Boolean!
+  blockDriver(id: ID!): DriverListItem!
+  unblockDriver(id: ID!): DriverListItem!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
@@ -1188,6 +1218,10 @@ input UpdatePromoCodeInput {
   """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
+}
+
+input DeleteDriverInput {
+  driverId: String!
 }
 
 input UpsertDocumentFileInput {
