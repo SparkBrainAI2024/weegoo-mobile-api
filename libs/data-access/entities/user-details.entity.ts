@@ -111,13 +111,31 @@ export class UserDetails extends BaseEntity {
   @Field(() => Number, { nullable: true, defaultValue: 0 })
   @Prop({ required: false, type: Number, default: 0 })
   amountDueToCompany?: number;
+
+  @Field(() => Number, { nullable: true, defaultValue: 0 })
+  @Prop({ required: false, type: Number, default: 0 })
+  totalEarnings?: number;
+
+  @Field(() => Number, { nullable: true, defaultValue: 0 })
+  @Prop({ required: false, type: Number, default: 0 })
+  totalTripsAsPassenger?: number;
+
+  @Field(() => Number, { nullable: true, defaultValue: 0 })
+  @Prop({ required: false, type: Number, default: 0 })
+  totalSpentOnRides?: number;
+
+  @Field(() => Number, { nullable: true, defaultValue: 0 })
+  @Prop({ required: false, type: Number, default: 0 })
+  totalRidesAsDriver?: number;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
 // Create a 2dsphere index on the geoLocation field for $geoNear queries
-UserDetailsSchema.index({ 'geoLocation': '2dsphere' });
+UserDetailsSchema.index({ geoLocation: "2dsphere" });
 
 export const userDetailModel = {
   name: UserDetails.name,
   schema: UserDetailsSchema,
 };
+
+UserDetailsSchema.index({ userId: 1 });

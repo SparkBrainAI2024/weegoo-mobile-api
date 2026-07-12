@@ -1,11 +1,15 @@
 import { toMongoId } from "@libs/common";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import {
+  BasicResponse,
+  IPaginatedResult,
   RidesRepository,
   RideStatus,
   Transaction,
   TransactionRepository,
 } from "@libs/data-access";
+import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
+import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
@@ -96,5 +100,68 @@ export class DriverService {
       joinedDate: userDoc.createdAt.toDateString(),
       ...driverEnrichedWithRideDetails,
     };
+  }
+
+  async listDrivers(
+    input: DriverListInput,
+  ): Promise<IPaginatedResult<DriverListItem>> {
+    const { page, limit, search, status } = input;
+
+    const result = await this.userRepository.getDriverList(
+      { page, limit },
+      status,
+      search,
+    );
+
+    const data: DriverListItem[] = result.data.map((row: any) => ({
+      id: row.id?.toString(),
+      fullName: row.fullName || "Driver",
+      phone: row.phone || "",
+      status: row.status,
+      profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
+        this.s3.getPublicUrl(key),
+      ),
+      suspended: row.suspended,
+      totalRides: row.totalRides,
+      totalEarnings: row.totalEarnings,
+      rating: row.rating,
+      joinedDate: row.createdAt ? new Date(row.createdAt).toDateString() : null,
+    }));
+
+    return { data, pagination: result.pagination };
+  }
+
+  async softDeleteDriver(driverId: string): Promise<boolean> {
+    const driver = await this.userRepository.findById(toMongoId(driverId));
+    if (!driver) {
+      throw new NotFoundException("Driver not found");
+    }
+
+    await this.userRepository.softDeleteById(toMongoId(driverId));
+    return true;
+  }
+
+  async setSuspended(
+    id: string,
+    suspended: boolean,
+  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
+    const driver = await this.userRepository.findById(toMongoId(id));
+    if (!driver) {
+      throw new NotFoundException(`Driver ${id} not found`);
+    }
+
+    // atomic update — avoids the read-modify-write TOCTOU gap
+    // you've been digging into on Labasam; same concern applies here
+    const updated = await this.userRepository.findOneAndUpdate(
+      { _id: toMongoId(id) },
+      { suspended },
+      { new: true }, // return the doc *after* update, not before
+    );
+
+    if (!updated) {
+      throw new NotFoundException(`Driver ${id} not found`);
+    }
+
+    return { id: updated._id.toString(), suspended: updated.suspended };
   }
 }

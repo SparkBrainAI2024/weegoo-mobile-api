@@ -1,4 +1,4 @@
-import { escapeRegex } from '@libs/common/helpers/mongo-helper';
+import { escapeRegex } from "@libs/common/helpers/mongo-helper";
 import {
   AnyKeys,
   Document,
@@ -12,11 +12,14 @@ import {
   Types,
   UpdateQuery,
   UpdateWithAggregationPipeline,
-} from 'mongoose';
+} from "mongoose";
 
-import { IPaginatedResult, IPaginationRequest } from '../interfaces/pagination.interface';
-import { CursorPaginationInput, PaginationInput } from './base.input';
-import { BaseModel } from './base.model';
+import {
+  IPaginatedResult,
+  IPaginationRequest,
+} from "../interfaces/pagination.interface";
+import { CursorPaginationInput, PaginationInput } from "./base.input";
+import { BaseModel } from "./base.model";
 
 export type Populate = string | string[] | PopulateOptions | PopulateOptions[];
 
@@ -34,7 +37,7 @@ export class BaseRepository<T extends Document> {
    * Creates an instance of BaseRepository.
    * @param model - The Mongoose model to be used for database operations.
    */
-  constructor(protected readonly model: BaseModel<T>) { }
+  constructor(protected readonly model: BaseModel<T>) {}
 
   get searchKeys(): string[] {
     return [];
@@ -84,7 +87,10 @@ export class BaseRepository<T extends Document> {
     options?: QueryOptions<T> | null,
   ): Promise<T | null> {
     options = this.mergePopulateOptions(options, populate);
-    console.log("🚀 ~ file: base.repository.ts:122 ~ BaseRepository ~ findOne ~ options:", filter)
+    console.log(
+      "🚀 ~ file: base.repository.ts:122 ~ BaseRepository ~ findOne ~ options:",
+      filter,
+    );
     return this.model.findOne(filter, projection, options);
   }
 
@@ -200,7 +206,10 @@ export class BaseRepository<T extends Document> {
    * @param options - Optional update options.
    * @returns A promise that resolves to the result of the delete operation.
    */
-  async deleteOne(filter?: FilterQuery<T>, options?: MongooseUpdateQueryOptions<T>): Promise<any> {
+  async deleteOne(
+    filter?: FilterQuery<T>,
+    options?: MongooseUpdateQueryOptions<T>,
+  ): Promise<any> {
     return this.model.deleteOne(filter, options);
   }
 
@@ -210,7 +219,10 @@ export class BaseRepository<T extends Document> {
    * @param options - Optional query options.
    * @returns A promise that resolves to the deleted document or null if not found.
    */
-  async deleteById(_id: Types.ObjectId, options?: QueryOptions<T>): Promise<T | null> {
+  async deleteById(
+    _id: Types.ObjectId,
+    options?: QueryOptions<T>,
+  ): Promise<T | null> {
     return this.model.findByIdAndDelete(_id, options);
   }
 
@@ -220,7 +232,10 @@ export class BaseRepository<T extends Document> {
    * @param options - Optional update options.
    * @returns A promise that resolves to the result of the delete operation.
    */
-  async deleteMany(filter?: FilterQuery<T>, options?: MongooseUpdateQueryOptions<T>): Promise<any> {
+  async deleteMany(
+    filter?: FilterQuery<T>,
+    options?: MongooseUpdateQueryOptions<T>,
+  ): Promise<any> {
     return this.model.deleteMany(filter, options);
   }
 
@@ -239,7 +254,10 @@ export class BaseRepository<T extends Document> {
    * @param options - Optional update options.
    * @returns A promise that resolves to the result of the soft delete operation.
    */
-  async softDelete(filter: FilterQuery<T>, options?: MongooseUpdateQueryOptions<T>): Promise<any> {
+  async softDelete(
+    filter: FilterQuery<T>,
+    options?: MongooseUpdateQueryOptions<T>,
+  ): Promise<any> {
     return this.model.softDelete(filter, options);
   }
 
@@ -249,7 +267,10 @@ export class BaseRepository<T extends Document> {
    * @param options - Optional update options.
    * @returns A promise that resolves to the result of the soft delete operation.
    */
-  async softDeleteById(_id: Types.ObjectId, options?: MongooseUpdateQueryOptions<T>): Promise<any> {
+  async softDeleteById(
+    _id: Types.ObjectId,
+    options?: MongooseUpdateQueryOptions<T>,
+  ): Promise<any> {
     return this.model.softDelete({ _id }, options);
   }
 
@@ -327,7 +348,7 @@ export class BaseRepository<T extends Document> {
     //  Handle sorting
     if (order) {
       request.sort = {
-        [orderBy || '_id']: order, // Default to sorting by _id if no orderBy is provided
+        [orderBy || "_id"]: order, // Default to sorting by _id if no orderBy is provided
       };
     }
 
@@ -335,20 +356,24 @@ export class BaseRepository<T extends Document> {
       const decodedText = decodeURIComponent(searchText);
       let _searchKeys = this.searchKeys;
 
-      if (_searchKeys.includes('email')) {
+      if (_searchKeys.includes("email")) {
         // remove email from searchKeys
-        _searchKeys = _searchKeys.filter((key) => key !== 'email');
+        _searchKeys = _searchKeys.filter((key) => key !== "email");
         filter = {
           ...filter,
           $or: [
-            ..._searchKeys.map((key) => ({ [key]: { $regex: decodedText, $options: 'i' } })),
-            { email: { $regex: escapeRegex(decodedText), $options: 'i' } },
+            ..._searchKeys.map((key) => ({
+              [key]: { $regex: decodedText, $options: "i" },
+            })),
+            { email: { $regex: escapeRegex(decodedText), $options: "i" } },
           ],
         };
       } else {
         filter = {
           ...filter,
-          $or: this.searchKeys.map((key) => ({ [key]: { $regex: decodedText, $options: 'i' } })),
+          $or: this.searchKeys.map((key) => ({
+            [key]: { $regex: decodedText, $options: "i" },
+          })),
         };
       }
     }
@@ -376,7 +401,10 @@ export class BaseRepository<T extends Document> {
 
     // Manual Pagination implementation to avoid "model.paginate is not a function" errors
     const total = await this.model.countDocuments(filter);
-    console.log("🚀 ~ file: base.repository.ts:263 ~ BaseRepository ~ paginate ~ filter:", filter)
+    console.log(
+      "🚀 ~ file: base.repository.ts:263 ~ BaseRepository ~ paginate ~ filter:",
+      filter,
+    );
     const data = await this.model.find(filter, null, {
       ...options,
       skip: request.page * request.limit,
@@ -392,7 +420,10 @@ export class BaseRepository<T extends Document> {
         limit: request.limit,
         hasNextPage: (request.page + 1) * request.limit < total,
         hasPreviousPage: request.page > 0,
-        nextPage: (request.page + 1) * request.limit < total ? request.page + 1 : undefined,
+        nextPage:
+          (request.page + 1) * request.limit < total
+            ? request.page + 1
+            : undefined,
         previousPage: request.page > 0 ? request.page - 1 : undefined,
       },
     };
@@ -412,11 +443,10 @@ export class BaseRepository<T extends Document> {
       delete options.populate; // Remove existing populate to avoid conflicts
     }
     if (populate) {
-      options['populate'] = populate;
+      options["populate"] = populate;
     }
     return options;
   }
-
 
   /**
    * Counts the number of documents based on the provided filter.
@@ -427,11 +457,11 @@ export class BaseRepository<T extends Document> {
     return this.model.countDocuments(filter);
   }
   protected encodeCursor(data: any): string {
-    return Buffer.from(JSON.stringify(data)).toString('base64');
+    return Buffer.from(JSON.stringify(data)).toString("base64");
   }
 
   protected decodeCursor(cursor: string): any {
-    return JSON.parse(Buffer.from(cursor, 'base64').toString());
+    return JSON.parse(Buffer.from(cursor, "base64").toString());
   }
 
   /**
@@ -455,10 +485,10 @@ export class BaseRepository<T extends Document> {
     hasNextPage: boolean;
   }> {
     const limit = input.limit ?? 20;
-    const sortOrder = input.sortOrder ?? 'desc';
+    const sortOrder = input.sortOrder ?? "desc";
     const cursor = input.cursor;
 
-    const sortDirection = sortOrder;;
+    const sortDirection = sortOrder;
 
     let queryFilter: any = { ...filter };
 
@@ -472,15 +502,17 @@ export class BaseRepository<T extends Document> {
         ...queryFilter,
         $or: [
           {
-            createdAt: sortDirection === -1
-              ? { $lt: new Date(decoded.createdAt) }
-              : { $gt: new Date(decoded.createdAt) },
+            createdAt:
+              sortDirection === -1
+                ? { $lt: new Date(decoded.createdAt) }
+                : { $gt: new Date(decoded.createdAt) },
           },
           {
             createdAt: new Date(decoded.createdAt),
-            _id: sortDirection === -1
-              ? { $lt: new Types.ObjectId(decoded._id) }
-              : { $gt: new Types.ObjectId(decoded._id) },
+            _id:
+              sortDirection === -1
+                ? { $lt: new Types.ObjectId(decoded._id) }
+                : { $gt: new Types.ObjectId(decoded._id) },
           },
         ],
       };
@@ -519,5 +551,45 @@ export class BaseRepository<T extends Document> {
       nextCursor,
       hasNextPage,
     };
+  }
+
+  async aggregatePaginate<R = any>(
+    basePipeline: PipelineStage[],
+    pageInput: { page?: number; limit?: number },
+    sort: Record<string, 1 | -1> = { createdAt: -1 },
+  ): Promise<IPaginatedResult<R>> {
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 5;
+
+    const dataPipeline: PipelineStage[] = [
+      ...basePipeline,
+      { $sort: sort },
+      { $skip: page * limit },
+      { $limit: limit },
+    ];
+    const countPipeline: PipelineStage[] = [
+      ...basePipeline,
+      { $count: "count" },
+    ];
+
+    const [data, countResult] = await Promise.all([
+      this.model.aggregate(dataPipeline),
+      this.model.aggregate(countPipeline),
+    ]);
+
+    const total = countResult[0]?.count ?? 0;
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        hasNextPage: (page + 1) * limit < total,
+        hasPreviousPage: page > 0,
+        nextPage: (page + 1) * limit < total ? page + 1 : undefined,
+        previousPage: page > 0 ? page - 1 : undefined,
+      },
+    } as IPaginatedResult<R>;
   }
 }

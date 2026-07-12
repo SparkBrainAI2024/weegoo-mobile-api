@@ -4,10 +4,14 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Rides, RidesDocument } from "../entities/rides.entity";
 import { BaseModel } from "../base/base.model";
 import { User } from "../entities/user.entity";
-import { GetAllRidesPaginationInput, RideFilterStatus, RideSortBy } from "../dtos/input/get-all-rides.input";
+import {
+  GetAllRidesPaginationInput,
+  RideFilterStatus,
+  RideSortBy,
+} from "../dtos/input/get-all-rides.input";
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
-import { RideStatus  } from "../enums/rides.enum";
+import { RideStatus } from "../enums/rides.enum";
 import { CategoryAccessedByRole } from "../enums/issue.enum";
 interface CancelRideParams {
   rideId: string;
@@ -18,11 +22,12 @@ interface CancelRideParams {
   cancelReasonContent?: string;
 }
 
-
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
   private readonly logger = new Logger(RidesRepository.name);
-  constructor(@InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>) {
+  constructor(
+    @InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>,
+  ) {
     super(_model);
   }
 
@@ -41,7 +46,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    * Sets rideStartedAt and recalculates estimatedFare and estimatedTimeInMinutes
    * based on distance and booking time.
    */
-  async startRide(rideId: Types.ObjectId, startedAt: Date, distanceInKm?: number): Promise<RidesDocument | null> {
+  async startRide(
+    rideId: Types.ObjectId,
+    startedAt: Date,
+    distanceInKm?: number,
+  ): Promise<RidesDocument | null> {
     const updateData: any = {
       rideStartedAt: startedAt,
       rideStatus: "ONGOING",
@@ -62,7 +71,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    * Uses rideStartedAt and rideCompletedAt to calculate actual duration,
    * then derives estimatedTimeInMinutes and estimatedFare.
    */
-  async completeRide(rideId: Types.ObjectId, completedAt: Date, distanceInKm?: number): Promise<RidesDocument | null> {
+  async completeRide(
+    rideId: Types.ObjectId,
+    completedAt: Date,
+    distanceInKm?: number,
+  ): Promise<RidesDocument | null> {
     const ride = await this.findById(rideId);
     if (!ride || !ride.rideStartedAt) {
       return null;
@@ -92,10 +105,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   async findRidesByUserWithCursorPagination(
     user: Partial<User>,
     paginationInput: GetAllRidesPaginationInput,
-  ): Promise<{ data: any[]; pageInfo: { nextCursor: string | null; hasNextPage: boolean } }> {
+  ): Promise<{
+    data: any[];
+    pageInfo: { nextCursor: string | null; hasNextPage: boolean };
+  }> {
     // Build filter based on user role
-    const filter: any = {
-    };
+    const filter: any = {};
 
     // Apply ride status filter
     if (paginationInput.filter) {
@@ -112,7 +127,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         case RideFilterStatus.ALL:
         default:
           // Exclude PICKUP and CONFIRMED rides for ALL/default filter
-          filter.rideStatus = { $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED] };
+          filter.rideStatus = {
+            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED],
+          };
           break;
       }
     }
@@ -161,7 +178,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       .sort({ [sortField]: sortDirection, _id: sortDirection })
       .limit(limit + 1)
       .exec();
-    console.log("docs",docs)
     let hasNextPage = false;
     let nextCursor: string | null = null;
 
@@ -177,7 +193,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     // Map populated vehicleId to vehicle field for GraphQL
     const mappedDocs = docs.map((ride: any) => {
-      if (ride.vehicleId && typeof ride.vehicleId === 'object') {
+      if (ride.vehicleId && typeof ride.vehicleId === "object") {
         ride.vehicle = ride.vehicleId;
         ride.vehicleId = ride.vehicleId._id.toString();
       }
@@ -196,7 +212,11 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
 
     const getMonthYearLabel = (date: Date): string => {
-      return date.toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'Asia/Kathmandu' });
+      return date.toLocaleString("en-US", {
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Kathmandu",
+      });
     };
 
     // Sort mappedDocs by status priority first, then by sortField descending
@@ -219,10 +239,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       groupMap.get(label)!.push(ride);
     }
 
-    const groupedData = Array.from(groupMap.entries()).map(([title, rides]) => ({
-      title,
-      rides,
-    }));
+    const groupedData = Array.from(groupMap.entries()).map(
+      ([title, rides]) => ({
+        title,
+        rides,
+      }),
+    );
 
     return {
       data: groupedData,
@@ -233,9 +255,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
   }
 
-  async homeDashboardApi(
-    user: Partial<User>,
-  ): Promise<RidesDocument[]> {
+  async homeDashboardApi(user: Partial<User>): Promise<RidesDocument[]> {
     // Build filter based on user role
     let filter: any = {
       deleted: false,
@@ -248,25 +268,44 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
     const populateOptions = [
       { path: "vehicleId" },
-      { path: "driverId", select: '_id phone email' },
-      { path: "passengerId", select: '_id phone email' },
+      { path: "driverId", select: "_id phone email" },
+      { path: "passengerId", select: "_id phone email" },
     ];
-    const upcomingResult = await this.model.find({
-     rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
-      ...filter
-    }).populate(populateOptions).limit(3)
+    const upcomingResult = await this.model
+      .find({
+        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
+        ...filter,
+      })
+      .populate(populateOptions)
+      .limit(3);
 
-    const ongoingResult = await this.model.find({
-      rideStatus: { $in: [RideStatus.ONGOING,RideStatus.PICKUP] },
-      ...filter
-    }).populate(populateOptions).sort({createdAt: -1}).limit(1)
+    const ongoingResult = await this.model
+      .find({
+        rideStatus: { $in: [RideStatus.ONGOING, RideStatus.PICKUP] },
+        ...filter,
+      })
+      .populate(populateOptions)
+      .sort({ createdAt: -1 })
+      .limit(1);
 
     return [...ongoingResult, ...upcomingResult];
   }
 
-  async findByIdWithVehicle(rideId: string, passengerId: string): Promise<RidesDocument | null> {
-    const rideWithVechile = await this._model.findOne({ _id: new Types.ObjectId(rideId), passengerId: new Types.ObjectId(passengerId) }).populate('vehicleId').exec();
-    if (rideWithVechile?.vehicleId && typeof rideWithVechile?.vehicleId === 'object') {
+  async findByIdWithVehicle(
+    rideId: string,
+    passengerId: string,
+  ): Promise<RidesDocument | null> {
+    const rideWithVechile = await this._model
+      .findOne({
+        _id: new Types.ObjectId(rideId),
+        passengerId: new Types.ObjectId(passengerId),
+      })
+      .populate("vehicleId")
+      .exec();
+    if (
+      rideWithVechile?.vehicleId &&
+      typeof rideWithVechile?.vehicleId === "object"
+    ) {
       rideWithVechile.vehicle = rideWithVechile.vehicleId as any;
       delete rideWithVechile.vehicleId;
     }
@@ -297,9 +336,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
 
     const populate: Populate = [
-      { path: 'vehicleId' },
-      { path: 'driverId', select: '_id phone email' },
-      { path: 'passengerId', select: '_id  email phone' },
+      { path: "vehicleId" },
+      { path: "driverId", select: "_id phone email" },
+      { path: "passengerId", select: "_id  email phone" },
     ];
 
     return this.findOne(filter, populate);
@@ -323,9 +362,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     }
 
     const populate: Populate = [
-      { path: 'vehicleId' },
-      { path: 'passengerId', select: '_id phone email' },
-      { path: 'driverId', select: '_id phone email' },
+      { path: "vehicleId" },
+      { path: "passengerId", select: "_id phone email" },
+      { path: "driverId", select: "_id phone email" },
     ];
 
     return this.findOne(filter, populate);
@@ -356,17 +395,25 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     const setFields: any = {};
     if (updateData.bookingTime) setFields.bookingTime = updateData.bookingTime;
-    if (updateData.pickupLocation) setFields.pickupLocation = updateData.pickupLocation;
-    if (updateData.dropoffLocation) setFields.dropoffLocation = updateData.dropoffLocation;
-    if (updateData.noOfPassengers) setFields.noOfPassengers = updateData.noOfPassengers;
+    if (updateData.pickupLocation)
+      setFields.pickupLocation = updateData.pickupLocation;
+    if (updateData.dropoffLocation)
+      setFields.dropoffLocation = updateData.dropoffLocation;
+    if (updateData.noOfPassengers)
+      setFields.noOfPassengers = updateData.noOfPassengers;
 
     const populate: Populate = [
-      { path: 'vehicleId' },
-      { path: 'passengerId', select: '_id  email phone' },
-      { path: 'driverId', select: '_id email phone' },
+      { path: "vehicleId" },
+      { path: "passengerId", select: "_id  email phone" },
+      { path: "driverId", select: "_id email phone" },
     ];
 
-    return this.findOneAndUpdate(filter, { $set: setFields }, { new: true }, populate);
+    return this.findOneAndUpdate(
+      filter,
+      { $set: setFields },
+      { new: true },
+      populate,
+    );
   }
 
   async getOngoingRideWithDetails(
@@ -380,18 +427,35 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
 
     const populate: Populate = [
-      { path: 'vehicleId', select: 'vehicleModel year color numberPlate vehicleType' },
-      { path: 'driverId', select: '_id email phone' },
-      { path: 'passengerId', select: '_id phone email' },
+      {
+        path: "vehicleId",
+        select: "vehicleModel year color numberPlate vehicleType",
+      },
+      { path: "driverId", select: "_id email phone" },
+      { path: "passengerId", select: "_id phone email" },
     ];
 
     const projection = {
-      _id: 1, rideUUId: 1, rideStatus: 1, rideType: 1,
-      bookingTime: 1, rideStartedAt: 1, rideCompletedAt: 1,
-      estimatedTimeInMinutes: 1, estimatedFare: 1, distanceInKm: 1,
-      distanceToReachPassenger: 1, estimatedTimeToReachPassenger: 1,
-      pickupLocation: 1, dropoffLocation: 1, fare: 1, paymentDetails: 1,
-      vehicleId: 1, driverId: 1, passengerId: 1, ablyChannelId: 1,
+      _id: 1,
+      rideUUId: 1,
+      rideStatus: 1,
+      rideType: 1,
+      bookingTime: 1,
+      rideStartedAt: 1,
+      rideCompletedAt: 1,
+      estimatedTimeInMinutes: 1,
+      estimatedFare: 1,
+      distanceInKm: 1,
+      distanceToReachPassenger: 1,
+      estimatedTimeToReachPassenger: 1,
+      pickupLocation: 1,
+      dropoffLocation: 1,
+      fare: 1,
+      paymentDetails: 1,
+      vehicleId: 1,
+      driverId: 1,
+      passengerId: 1,
+      ablyChannelId: 1,
     };
 
     return this.findOne(filter, populate, projection);
@@ -400,12 +464,16 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   async findActiveRidesByDriverId(driverId: string): Promise<RidesDocument[]> {
     return this._model.find({
       driverId: new Types.ObjectId(driverId),
-      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      rideStatus: {
+        $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP],
+      },
       deleted: false,
     });
   }
 
-  async findUpcomingRidesByDriverId(driverId: string): Promise<RidesDocument[]> {
+  async findUpcomingRidesByDriverId(
+    driverId: string,
+  ): Promise<RidesDocument[]> {
     return this._model.find({
       driverId: new Types.ObjectId(driverId),
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
@@ -414,15 +482,21 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     });
   }
 
-  async findActiveRidesByPassengerId(passengerId: string): Promise<RidesDocument[]> {
+  async findActiveRidesByPassengerId(
+    passengerId: string,
+  ): Promise<RidesDocument[]> {
     return this._model.find({
       passengerId: new Types.ObjectId(passengerId),
-      rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      rideStatus: {
+        $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP],
+      },
       deleted: false,
     });
   }
 
-  async findUpcomingRidesByPassengerId(passengerId: string): Promise<RidesDocument[]> {
+  async findUpcomingRidesByPassengerId(
+    passengerId: string,
+  ): Promise<RidesDocument[]> {
     return this._model.find({
       passengerId: new Types.ObjectId(passengerId),
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
@@ -435,13 +509,13 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    * Encodes a cursor from a data object for pagination.
    */
   protected encodeCursor(data: any): string {
-    return Buffer.from(JSON.stringify(data)).toString('base64');
+    return Buffer.from(JSON.stringify(data)).toString("base64");
   }
 
   /**
    * Decodes a cursor string back to a data object.
    */
   protected decodeCursor(cursor: string): any {
-    return JSON.parse(Buffer.from(cursor, 'base64').toString());
+    return JSON.parse(Buffer.from(cursor, "base64").toString());
   }
 }

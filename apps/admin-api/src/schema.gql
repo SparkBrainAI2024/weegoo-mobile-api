@@ -986,6 +986,25 @@ type DriverWDocuments {
   vehicle: Vehicle
 }
 
+type DriverListItem {
+  id: String!
+  fullName: String!
+  phone: String
+  profileImage: String
+  status: String!
+  suspended: Boolean
+  totalRides: Int!
+  totalEarnings: Float!
+  rating: Float!
+  joinedDate: String
+}
+
+type DriverListResponse {
+  message: String
+  data: [DriverListItem!]
+  pagination: Pagination!
+}
+
 type DriverDocumentConfirmUploadResponse {
   message: String!
   success: Boolean!
@@ -1026,6 +1045,7 @@ type Query {
   getNotifications(options: CursorPaginationInput!): NotificationListWithCursorPaginationResponse!
   unreadNotificationCount: Int!
   getDriver(driverId: String!): DriverWDocuments!
+  getDrivers(input: DriverListInput): DriverListResponse!
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle: Vehicle!
@@ -1066,6 +1086,13 @@ input CursorPaginationInput {
   sortOrder: SortBy
 }
 
+input DriverListInput {
+  page: Int! = 0
+  limit: Int! = 5
+  search: String
+  status: String
+}
+
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
@@ -1087,6 +1114,9 @@ type Mutation {
   readNotification(id: String!): Notification!
   openNotifications: Notification!
   createNotification(notificationPayload: CreateNotificationInput!): Notification!
+  deleteDriver(input: DeleteDriverInput!): Boolean!
+  blockDriver(id: ID!): DriverListItem!
+  unblockDriver(id: ID!): DriverListItem!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
@@ -1258,6 +1288,10 @@ input RideUserInputSnapshot {
   profileImage: String
   rating: Float! = 0
   phone: String
+}
+
+input DeleteDriverInput {
+  driverId: String!
 }
 
 input UpsertDocumentFileInput {
