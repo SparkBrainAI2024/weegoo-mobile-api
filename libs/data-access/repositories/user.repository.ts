@@ -149,29 +149,29 @@ export class UserRepository extends BaseRepository<UserDocument> {
       { $match: match },
 
       // fullName, trips, spend, rating, profile image — all live on UserDetails
-      // {
-      //   $lookup: {
-      //     from: "userdetails",
-      //     localField: "_id",
-      //     foreignField: "userId",
-      //     as: "details",
-      //   },
-      // },
-      // { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "_id",
+          foreignField: "userId",
+          as: "details",
+        },
+      },
+      { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
 
-      // // search runs after the join, same reason as the driver pipeline
-      // ...(search
-      //   ? [
-      //       {
-      //         $match: {
-      //           $or: [
-      //             { "details.fullName": { $regex: search, $options: "i" } },
-      //             { phone: { $regex: search, $options: "i" } },
-      //           ],
-      //         },
-      //       } as PipelineStage,
-      //     ]
-      //   : []),
+      // search runs after the join, same reason as the driver pipeline
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { "details.fullName": { $regex: search, $options: "i" } },
+                  { phone: { $regex: search, $options: "i" } },
+                ],
+              },
+            } as PipelineStage,
+          ]
+        : []),
 
       {
         $addFields: {
