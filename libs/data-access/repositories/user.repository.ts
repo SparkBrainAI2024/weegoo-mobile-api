@@ -138,8 +138,6 @@ export class UserRepository extends BaseRepository<UserDocument> {
     status?: string,
     search?: string,
   ): Promise<IPaginatedResult<any>> {
-    console.log(status, "status");
-
     const match: Record<string, any> = {
       roles: { $in: [roles.USER] },
       deleted: false,
@@ -210,7 +208,6 @@ export class UserRepository extends BaseRepository<UserDocument> {
     const data = await this.aggregatePaginate(basePipeline, pageInput, {
       totalTripsAsPassenger: -1,
     });
-    console.log(data, "data");
 
     return data;
   }
