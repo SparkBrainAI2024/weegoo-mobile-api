@@ -1514,7 +1514,7 @@ export class MatchmakingService {
         rating: userDetails?.rating ?? 0,
         profileImage: getActiveProfileImageUrl(userDetails?.profileImages, (key) => this.s3.getPublicUrl(key)),
       }
-      await this.rideChannelService.publishRideEvent(rideId, 'ride-cancelled', {
+      await this.rideChannelService.publishRideEvent(ride.rideUUId, 'ride-cancelled', {
         rideId: rideId,
         rideUUId: ride.rideUUId,
         cancelled: true,
