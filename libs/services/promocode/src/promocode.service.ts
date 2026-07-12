@@ -19,9 +19,11 @@ import {
   PromocodeUpdateResponse,
 } from "@libs/data-access/dtos/response/promocode.response";
 import { PromoCodeRepository } from "@libs/data-access/repositories/promo-code.repository";
+import { UserTokenMetaRepository } from "@libs/data-access/repositories/user-token-meta.repository";
+import { NotificationService } from "@libs/services/notification";
 import { Message } from "@libs/localization";
 import { PROMO_CODE } from "@libs/localization/en/promocode.messages";
-import { Injectable, Logger, HttpStatus } from "@nestjs/common";
+import { Injectable, Logger, HttpStatus, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { FilterQuery, Types } from "mongoose";
 
@@ -31,6 +33,9 @@ export class PromoCodeService {
 
   constructor(
     private readonly promoCodeRepository: PromoCodeRepository,
+    private readonly userTokenRepository: UserTokenMetaRepository,
+    @Inject(forwardRef(() => NotificationService))
+    private readonly notificationService: NotificationService,
     @InjectModel(Occasion.name)
     private readonly ocassionModel: BaseModel<OccasionDocument>,
   ) {}
@@ -96,6 +101,9 @@ export class PromoCodeService {
         { path: "occasion" },
       );
 
+      // Send promocode notification to all users with firebase tokens
+      this.notifyUsersOfNewPromoCode(createdObj, lang);
+
       return {
         message: Message(lang, "PROMO_CODE.CREATED_SUCCESSFULLY"),
         success: true,
@@ -103,6 +111,53 @@ export class PromoCodeService {
       };
     } catch (e) {
       ErrorException(e, "PROMO_CODE.CREATE", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Sends promocode notification to all users who have firebase tokens and USER role.
+   * This is a fire-and-forget operation - errors are logged but don't block the response.
+   */
+  private async notifyUsersOfNewPromoCode(
+    promoCode: PromoCodeDocument,
+    lang: string,
+  ): Promise<void> {
+    try {
+      const userIds = await this.userTokenRepository.findDistinctUserIdsWithFirebaseToken();
+
+      if (userIds.length === 0) {
+        this.logger.log('No users with firebase tokens found for promocode notification');
+        return;
+      }
+
+      const title = 'New Promo Code Available';
+      const description = `Use code ${promoCode.name} for exciting discounts!`;
+
+      const promoPayload = {
+        title,
+        description,
+        promoCodeId: promoCode._id.toString(),
+        discountType: promoCode.discountType,
+        percentageAmount: promoCode.percentageAmount,
+        flatAmount: promoCode.flatAmount,
+        minimumFare: promoCode.minimumFare,
+        startDateTime: promoCode.startDateTime,
+        expiryDateTime: promoCode.expiryDateTime,
+        offerAvailableTime: promoCode.startDateTime,
+        appliedTo: promoCode.appliedTo.toString(),
+        promoCode: promoCode.name,
+      };
+
+      // Fire-and-forget broadcast
+      this.notificationService.broadcastPromoCodeToRiders(userIds, promoPayload)
+        .then((result) => {
+          this.logger.log(`Promocode notification sent to ${result.notifiedCount} users`);
+        })
+        .catch((err) => {
+          this.logger.error('Failed to send promocode notifications', err);
+        });
+    } catch (err) {
+      this.logger.error('Error in notifyUsersOfNewPromoCode', err);
     }
   }
 
@@ -289,6 +344,33 @@ export class PromoCodeService {
       );
     } catch (e) {
       ErrorException(e, "PROMO_CODE.DEACTIVATE", HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  // ── GET ACTIVE PROMO CODES (for USER role) ───────────────────
+  async getActivePromoCodes(
+    paginationInput?: PaginationInput,
+  ): Promise<IPaginatedResult<PromoCodeDocument>> {
+    try {
+      const now = new Date();
+      const filter: FilterQuery<PromoCodeDocument> = {
+        status: PromoCodeStatusEnum.ACTIVE,
+        expiryDateTime: { $gt: now },
+        startDateTime: { $lte: now },
+      };
+
+      const pagination = paginationInput || new PaginationInput();
+      return this.promoCodeRepository.paginate(
+        pagination,
+        { path: "occasion" },
+        filter,
+      );
+    } catch (e) {
+      ErrorException(
+        e,
+        "PROMO_CODE.FIND_ALL",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

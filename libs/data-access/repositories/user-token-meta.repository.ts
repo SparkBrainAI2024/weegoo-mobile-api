@@ -78,4 +78,21 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
       ErrorException(e, 'COMMON.INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  /**
+   * Finds all distinct user IDs that have firebase tokens and USER role.
+   * Used for broadcasting promocode notifications to all users.
+   */
+  async findDistinctUserIdsWithFirebaseToken(): Promise<string[]> {
+    try {
+      const result = await this.model.distinct('userId', {
+        firebaseToken: { $exists: true, $nin: [null, ''] },
+        role: 'USER',
+      });
+      return result.map((id: Types.ObjectId | string) => id.toString());
+    } catch (e) {
+      console.error('Error finding distinct user IDs with firebase token:', e);
+      return [];
+    }
+  }
 }

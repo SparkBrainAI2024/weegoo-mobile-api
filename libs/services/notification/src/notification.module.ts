@@ -4,11 +4,13 @@ import { NotificationService } from "./notification.service";
 import { NotificationResolver } from "./resolver/notification.resolver";
 // Import FirebaseMessagingService - adjust the path if it is located elsewhere
 import { FirebaseMessagingService } from "@libs/services/firebase-messaging";
-
-// Use direct imports instead of the @libs/data-access barrel to avoid circular dependency "undefined" issues
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
-    imports: [NotificationPersistentModule],
+    imports: [
+        NotificationPersistentModule,
+        ConfigModule,
+    ],
     providers: [ 
         FirebaseMessagingService, 
         NotificationService, 

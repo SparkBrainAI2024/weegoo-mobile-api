@@ -7,12 +7,14 @@ import { PromoCodeService } from "@libs/services/promocode/src/promocode.service
 import { AdminAuthModule } from "../auth/auth.module";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Occasion, OccasionSchema } from "@libs/data-access";
+import { NotificationModule } from "@libs/services/notification";
 
 @Module({
   imports: [
     PromoCodePersistenceModule,
     UserPersistenceModule,
     AdminAuthModule,
+    NotificationModule,
     MongooseModule.forFeature([
       { name: Occasion.name, schema: OccasionSchema },
     ]),
@@ -20,8 +22,6 @@ import { Occasion, OccasionSchema } from "@libs/data-access";
   providers: [
     PromoCodeService,
     PromoCodeResolver,
-    // NotificationService,
-    // FirebaseMessagingService,
     EnvService,
   ],
   exports: [PromoCodeService],
