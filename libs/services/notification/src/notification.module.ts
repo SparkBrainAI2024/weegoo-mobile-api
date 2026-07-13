@@ -9,17 +9,13 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { EnvService } from "@libs/common/config/env.service";
 
 @Module({
-    imports: [
-        NotificationPersistentModule,
-        ConfigModule,
-        UserPersistenceModule
-    ],
-    providers: [ 
-        FirebaseMessagingService, 
-        EnvService,
-        NotificationService, 
-        NotificationResolver
-    ],
-    exports: [NotificationService]
+  imports: [NotificationPersistentModule, ConfigModule, UserPersistenceModule],
+  providers: [
+    FirebaseMessagingService,
+    EnvService,
+    NotificationService,
+    NotificationResolver,
+  ],
+  exports: [NotificationService],
 })
-export class NotificationModule { }
+export class NotificationModule {}

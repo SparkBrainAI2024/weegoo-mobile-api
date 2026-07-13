@@ -1,4 +1,8 @@
-import { RidePersistentModule, RidesService, RidesResolver } from "@libs/services/rides";
+import {
+  RidePersistentModule,
+  RidesService,
+  RidesResolver,
+} from "@libs/services/rides";
 import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
@@ -16,44 +20,56 @@ import { NearbyDriversResolver } from "./resolver/nearby-drivers.resolver";
 import { UserTransactionResolver } from "@libs/services/payment/src/transaction/resolver/transaction.resolver";
 import { S3Module } from "@libs/s3/s3.module";
 import { MongooseModule } from "@nestjs/mongoose";
-import { Rides, RidesSchema, Vehicle, VehicleSchema, UserDetails, UserDetailsSchema, PromoCode, PromoCodeSchema } from "@libs/data-access";
-import { UserTokenMeta, UserTokenMetaSchema } from "@libs/data-access/entities/user-token-meta.entity";
+import {
+  Rides,
+  RidesSchema,
+  Vehicle,
+  VehicleSchema,
+  UserDetails,
+  UserDetailsSchema,
+  PromoCode,
+  PromoCodeSchema,
+} from "@libs/data-access";
+import {
+  UserTokenMeta,
+  UserTokenMetaSchema,
+} from "@libs/data-access/entities/user-token-meta.entity";
 import { PromoCodeService } from "@libs/services/promocode/src/promocode.service";
 import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promocode.persistence.module";
 import { NotificationModule } from "@libs/services/notification";
 @Module({
-    imports: [
-        RidePersistentModule,
-        UserPersistenceModule,
-        TransactionModule,
-        IssuePersistenceModule,
-        S3Module,
-        PromoCodePersistenceModule,
-        NotificationModule,
-        WalletModule,
-        MongooseModule.forFeature([
-            { name: Rides.name, schema: RidesSchema },
-            { name: Vehicle.name, schema: VehicleSchema },
-            { name: UserDetails.name, schema: UserDetailsSchema },
-            { name: PromoCode.name, schema: PromoCodeSchema },
-            { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
-        ]),
-    ],
-    providers: [
-        RidesService,
-        RidesResolver,
-        EnvService,
-        MatchmakingIntegrationService,
-        MatchmakingResolver,
-        PassengerRidesResolver,
-        PassengerHomeService,
-        PassengerHomeResolver,
-        PassengerPromoCodeResolver,
-        PromoCodeService,
-        NearbyDriversService,
-        NearbyDriversResolver,
-        UserTransactionResolver,
-    ],
-    exports: [RidesService]
+  imports: [
+    RidePersistentModule,
+    UserPersistenceModule,
+    TransactionModule,
+    IssuePersistenceModule,
+    S3Module,
+    PromoCodePersistenceModule,
+    NotificationModule,
+    WalletModule,
+    MongooseModule.forFeature([
+      { name: Rides.name, schema: RidesSchema },
+      { name: Vehicle.name, schema: VehicleSchema },
+      { name: UserDetails.name, schema: UserDetailsSchema },
+      { name: PromoCode.name, schema: PromoCodeSchema },
+      { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
+    ]),
+  ],
+  providers: [
+    RidesService,
+    RidesResolver,
+    EnvService,
+    MatchmakingIntegrationService,
+    MatchmakingResolver,
+    PassengerRidesResolver,
+    PassengerHomeService,
+    PassengerHomeResolver,
+    PassengerPromoCodeResolver,
+    PromoCodeService,
+    NearbyDriversService,
+    NearbyDriversResolver,
+    UserTransactionResolver,
+  ],
+  exports: [RidesService],
 })
-export class RidesModule { }
+export class RidesModule {}

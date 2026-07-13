@@ -13,8 +13,8 @@ export class DriverWDocuments {
   @Field({ nullable: true })
   profileImage?: string;
 
-  @Field()
-  rating: number;
+  @Field({ nullable: true })
+  rating?: number;
 
   @Field({ nullable: true })
   email?: string;
@@ -41,7 +41,7 @@ export class DriverWDocuments {
   joinedDate: String;
 
   @Field(() => Number, { nullable: true })
-  totalRides?: number;
+  totalRidesAsDriver?: number;
 
   @Field(() => Number, { nullable: true })
   totalEarnings?: number;
@@ -52,13 +52,13 @@ export class DriverWDocuments {
   @Field(() => String, { nullable: true })
   lastTripAt: string;
 
-  @Field(() => String)
+  @Field(() => String, { nullable: true })
   lastTripStartTime: string;
 
-  @Field(() => String)
+  @Field(() => String, { nullable: true })
   lastTripEndTime: string;
 
-  @Field(() => Number)
+  @Field(() => Number, { nullable: true })
   lastTripDuration: number;
 
   @Field(() => [DriverDocument], { nullable: true })

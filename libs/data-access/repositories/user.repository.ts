@@ -139,7 +139,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
     search?: string,
   ): Promise<IPaginatedResult<any>> {
     const match: Record<string, any> = {
-      roles: roles.USER,
+      roles: { $in: [roles.USER] },
       deleted: false,
     };
 
@@ -193,20 +193,22 @@ export class UserRepository extends BaseRepository<UserDocument> {
           totalTripsAsPassenger: {
             $ifNull: ["$details.totalTripsAsPassenger", 0],
           },
-          totalSpentOnRides: { $ifNull: ["$details.totalSpentOnRides", 0] },
+          totalSpendingOnRides: {
+            $ifNull: ["$details.totalSpendingOnRides", 0],
+          },
           rating: { $ifNull: ["$details.rating", 0] },
           createdAt: 1,
           suspended: 1,
         },
       },
 
-      ...(status
-        ? [{ $match: { status: "$computedStatus" } } as PipelineStage]
-        : []),
+      ...(status ? [{ $match: { status } } as PipelineStage] : []),
     ];
 
-    return this.aggregatePaginate(basePipeline, pageInput, {
+    const data = await this.aggregatePaginate(basePipeline, pageInput, {
       totalTripsAsPassenger: -1,
     });
+
+    return data;
   }
 }

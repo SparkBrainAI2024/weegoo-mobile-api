@@ -3,7 +3,7 @@ import { IsBoolean, IsMongoId, IsOptional, IsString } from "class-validator";
 import { PaginationInputOnly } from "@libs/data-access/base/base.input";
 
 @InputType()
-export class DriverListInput extends PaginationInputOnly {
+export class PassengerListInput extends PaginationInputOnly {
   @Field(() => String, { nullable: true })
   @IsOptional()
   @IsString()
@@ -13,4 +13,15 @@ export class DriverListInput extends PaginationInputOnly {
   @IsOptional()
   @IsString()
   status?: string; // "ACTIVE" | "PENDING" | "BLOCKED"
+}
+
+@InputType() // ← must be present
+export class ToggleBlockPassengerInput {
+  @Field()
+  @IsMongoId()
+  id: string;
+
+  @Field()
+  @IsBoolean()
+  isBlocked: boolean;
 }
