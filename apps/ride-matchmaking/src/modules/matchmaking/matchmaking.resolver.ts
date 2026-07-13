@@ -422,9 +422,9 @@ export class MatchmakingResolver {
   }
 
   @Mutation(() => BasicResult, {
-    name: "cancelRideNotification",
+    name: "acknowledgeAndFinishRide",
     description:
-      "Cancel ride notification: sets isAcknowledgeByDriver to false, updates status to CANCELLED, sends notification to passenger, publishes to Ably channel and releases it",
+      "Driver acknowledges and finishes ride - validates ride, updates status, handles payment and sends notifications",
   })
   async acknowledgeAndFinishRide(
     @Args("rideId") rideId: string,

@@ -1,10 +1,19 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, ObjectType, Field } from '@nestjs/graphql';
 import { UseGuards, SetMetadata } from '@nestjs/common';
 import { AuthGuard, RoleGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
 import { User, roles } from '@libs/data-access';
 import axios from 'axios';
 import { EnvService } from '@libs/common/config/env.service';
+
+@ObjectType()
+class AcknowledgeAndFinishResult {
+  @Field(() => Boolean)
+  success: boolean;
+
+  @Field(() => Boolean)
+  isAcknowledged: boolean;
+}
 
 @Resolver()
 @UseGuards(AuthGuard, RoleGuard)
@@ -14,11 +23,11 @@ export class AcknowledgeAndFinishResolver {
     private readonly envService: EnvService,
   ) {}
 
-  @Mutation(() => Boolean)
+  @Mutation(() => AcknowledgeAndFinishResult)
   async acknowledgeAndFinishRide(
     @CurrentUser() driver: User,
     @Args('rideId') rideId: string,
-  ): Promise<boolean> {
+  ): Promise<AcknowledgeAndFinishResult> {
     const matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
 
     const query = `
@@ -26,6 +35,7 @@ export class AcknowledgeAndFinishResolver {
         acknowledgeAndFinishRide(rideId: $rideId, driverId: $driverId) {
           success
           message
+          acknowledged
         }
       }
     `;
@@ -44,10 +54,17 @@ export class AcknowledgeAndFinishResolver {
         },
       );
 
-      if (response.data?.data?.acknowledgeAndFinishRide) {
-        return true;
+      const result = response.data?.data?.acknowledgeAndFinishRide;
+      if (result) {
+        return {
+          success: result.success,
+          isAcknowledged: result.acknowledged,
+        };
       }
-      return false;
+      return {
+        success: false,
+        isAcknowledged: false,
+      };
     } catch (error: any) {
       console.error('Error calling matchmaking service:', error);
       if (error.response?.data?.errors) {
