@@ -1,10 +1,14 @@
-import { Controller, Post, Query, Body, HttpCode, HttpStatus, Logger, Get } from '@nestjs/common';
+import { Controller, Post, Query, Body, HttpCode, HttpStatus, Logger, Get, Res, Redirect } from '@nestjs/common';
 import { WalletService } from '@libs/services/payment/src/wallet/wallet.service';
 import { PaymentMediumEnum } from '@libs/data-access/enums/payment.enum';
+import { Response } from 'express';
 
 /**
  * REST controller to handle eSewa and Khalti payment callbacks.
  * Gateways redirect users to these URLs after payment processing.
+ *
+ * IMPORTANT: eSewa redirects via GET (not POST), while Khalti redirects via GET.
+ * All callback endpoints use @Get with query parameters.
  */
 @Controller('payment')
 export class PaymentController {
@@ -13,58 +17,87 @@ export class PaymentController {
   constructor(private readonly walletService: WalletService) {}
 
   // ── eSewa Callbacks ──────────────────────────────────────────────────
+  //
+  // eSewa redirects the user to the success/failure URL via GET with query params:
+  //   ?transactionId=xxx&refId=yyy&oid=zzz (success)
+  //   ?transactionId=xxx                  (failure)
+  //
 
-  @Post('esewa/success')
+  @Get('esewa/success')
   @HttpCode(HttpStatus.OK)
   async esewaSuccess(
-    @Query('transactionId') transactionId: string,
+    @Query('transactionUuid') transactionUuid: string,
     @Query('refId') refId?: string,
     @Query('oid') oid?: string,
-  ): Promise<{ success: boolean; message: string }> {
-    this.logger.log(`eSewa success callback: transactionId=${transactionId}, refId=${refId}, oid=${oid}`);
+    @Res({ passthrough: true }) res?: Response,
+  ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
+    this.logger.log(`eSewa success callback: transactionUuid=${transactionUuid}, refId=${refId}, oid=${oid}`);
 
-    if (!transactionId) {
-      return { success: false, message: 'Missing transactionId' };
+    if (!transactionUuid) {
+      return { success: false, message: 'Missing transactionUuid' };
     }
 
     try {
       // Verify with eSewa server before crediting the wallet
-      await this.walletService.completeTopup(transactionId, 0);
-      return { success: true, message: 'Topup completed successfully' };
+      // Pass refId as the reference for verification
+      await this.walletService.completeTopupByUuid(transactionUuid, 0, { refId });
+      return {
+        success: true,
+        message: 'Topup completed successfully',
+        redirectUrl: this.getRedirectUrl('success'),
+      };
     } catch (error: any) {
       this.logger.error(`eSewa success callback error: ${error.message}`);
       // Mark as failed if verification fails
       try {
-        await this.walletService.failTopup(transactionId, error.message);
+        await this.walletService.failTopupByUuid(transactionUuid, error.message);
       } catch (failError: any) {
         this.logger.error(`Failed to mark transaction as failed: ${failError.message}`);
       }
-      return { success: false, message: error.message };
+      return {
+        success: false,
+        message: error.message,
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     }
   }
 
-  @Post('esewa/failure')
+  @Get('esewa/failure')
   @HttpCode(HttpStatus.OK)
   async esewaFailure(
-    @Query('transactionId') transactionId: string,
-    @Body('remarks') remarks?: string,
-  ): Promise<{ success: boolean; message: string }> {
-    this.logger.log(`eSewa failure callback: transactionId=${transactionId}, remarks=${remarks}`);
+    @Query('transactionUuid') transactionUuid: string,
+    @Query('remarks') remarks?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
+    this.logger.log(`eSewa failure callback: transactionUuid=${transactionUuid}, remarks=${remarks}`);
 
-    if (!transactionId) {
-      return { success: false, message: 'Missing transactionId' };
+    if (!transactionUuid) {
+      return { success: false, message: 'Missing transactionUuid' };
     }
 
     try {
-      await this.walletService.failTopup(transactionId, remarks || 'eSewa payment declined by user');
-      return { success: true, message: 'Transaction marked as failed' };
+      await this.walletService.failTopupByUuid(transactionUuid, remarks || 'eSewa payment declined by user');
+      return {
+        success: true,
+        message: 'Transaction marked as failed',
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     } catch (error: any) {
       this.logger.error(`eSewa failure callback error: ${error.message}`);
-      return { success: false, message: error.message };
+      return {
+        success: false,
+        message: error.message,
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     }
   }
 
   // ── Khalti Callbacks ─────────────────────────────────────────────────
+  //
+  // Khalti redirects the user to the return_url via GET with query params:
+  //   ?pidx=xxx&status=Completed&transaction_id=yyy&total_amount=zzz (success)
+  //   ?pidx=xxx&status=User+Cancelled                                   (failure)
+  //
 
   @Get('khalti/success')
   @HttpCode(HttpStatus.OK)
@@ -73,20 +106,36 @@ export class PaymentController {
     @Query('status') status: string,
     @Query('transaction_id') transactionId: string,
     @Query('total_amount') totalAmount?: string,
-  ): Promise<{ success: boolean; message: string }> {
+    @Res({ passthrough: true }) res?: Response,
+  ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
     this.logger.log(`Khalti success callback: pidx=${pidx}, status=${status}, transactionId=${transactionId}`);
 
-    if (!pidx || !transactionId) {
-      return { success: false, message: 'Missing required parameters' };
+    if (!pidx) {
+      return { success: false, message: 'Missing pidx' };
     }
 
     try {
-      const amount = totalAmount ? parseFloat(totalAmount) / 100 : 0; // Khalti sends amount in paisa
-      await this.walletService.completeTopup(transactionId, amount);
-      return { success: true, message: 'Topup completed successfully' };
+      // Use pidx to look up / verify the transaction on Khalti's server
+      const lookupResult = await this.walletService.completeTopupWithKhalti(pidx, transactionId);
+      if (lookupResult.success) {
+        return {
+          success: true,
+          message: 'Topup completed successfully',
+          redirectUrl: this.getRedirectUrl('success'),
+        };
+      }
+      return {
+        success: false,
+        message: lookupResult.message || 'Khalti verification failed',
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     } catch (error: any) {
       this.logger.error(`Khalti success callback error: ${error.message}`);
-      return { success: false, message: error.message };
+      return {
+        success: false,
+        message: error.message,
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     }
   }
 
@@ -95,19 +144,43 @@ export class PaymentController {
   async khaltiFailure(
     @Query('pidx') pidx: string,
     @Query('status') status?: string,
-  ): Promise<{ success: boolean; message: string }> {
-    this.logger.log(`Khalti failure callback: pidx=${pidx}, status=${status}`);
+    @Query('transaction_id') transactionId?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
+    this.logger.log(`Khalti failure callback: pidx=${pidx}, status=${status}, transactionId=${transactionId}`);
 
-    if (!pidx) {
-      return { success: false, message: 'Missing pidx' };
+    if (!pidx && !transactionId) {
+      return { success: false, message: 'Missing pidx or transactionId' };
     }
 
+    // Try to fail by transactionId first, then pidx
+    const txnId = transactionId || pidx;
     try {
-      await this.walletService.failTopup(pidx, `Khalti payment failed with status: ${status || 'unknown'}`);
-      return { success: true, message: 'Transaction marked as failed' };
+      await this.walletService.failTopup(txnId, `Khalti payment failed with status: ${status || 'unknown'}`);
+      return {
+        success: true,
+        message: 'Transaction marked as failed',
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     } catch (error: any) {
       this.logger.error(`Khalti failure callback error: ${error.message}`);
-      return { success: false, message: error.message };
+      return {
+        success: false,
+        message: error.message,
+        redirectUrl: this.getRedirectUrl('failure'),
+      };
     }
+  }
+
+  /**
+   * Get the frontend redirect URL for success/failure.
+   * Reads from env or defaults to localhost.
+   * User payments redirect to the user-facing frontend.
+   */
+  private getRedirectUrl(type: 'success' | 'failure'): string {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    return type === 'success'
+      ? `${frontendUrl}/payment/success`
+      : `${frontendUrl}/payment/failure`;
   }
 }
