@@ -1,16 +1,37 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { EnvService } from '@libs/common/config/env.service';
+import * as crypto from 'crypto';
 
 export interface EsewaPaymentPayload {
+  /** Amount to be paid (in NPR) */
   amt: number;
+  /** Service charge (usually 0) */
   psc: number;
+  /** Delivery charge (usually 0) */
   pdc: number;
+  /** Tax amount (usually 0) */
   txAmt: number;
+  /** Total amount = amt + psc + pdc + txAmt */
   tAmt: number;
+  /** Product ID / Transaction UUID (our internal unique identifier) */
   pid: string;
+  /** Merchant Code / Service Code */
   scd: string;
+  /** Success URL - eSewa redirects here after successful payment */
   su: string;
+  /** Failure URL - eSewa redirects here after failed payment */
   fu: string;
+}
+
+export interface EsewaSdkPayload {
+  /** The payment URL to redirect the user to */
+  paymentUrl: string;
+  /** Form fields to POST to the payment URL */
+  formFields: EsewaPaymentPayload;
+  /** Epay-v2 signature (if secret key is configured) */
+  signature?: string;
+  /** Signed fields for Epay-v2 */
+  signedFields?: string;
 }
 
 export interface EsewaVerificationResponse {
@@ -25,78 +46,119 @@ export interface EsewaVerificationResponse {
 
 export interface EsewaStatusResponse {
   status: string;
+  total_amount?: number;
+  transaction_id?: string;
 }
 
 @Injectable()
 export class EsewaService {
+  private readonly logger = new Logger(EsewaService.name);
+
   constructor(private readonly envService: EnvService) {}
 
   /**
+   * Get the base URL for eSewa endpoints based on environment.
+   */
+  private getBaseUrl(): string {
+    return this.envService.isProduction()
+      ? 'https://esewa.com.np'
+      : 'https://rc-epay.esewa.com.np';
+  }
+
+  /**
    * Generate the real eSewa payment payload for form-based redirect.
-   * Reference: https://developer.esewa.com.np/#eSewa%20Payment%20Integration
+   * Supports both old Epay and new Epay-v2 (with HMAC-SHA256 signature).
+   *
+   * eSewa Flow (Old Epay - most common):
+   * 1. Merchant posts form to eSewa with: amt, psc, pdc, txAmt, tAmt, pid, scd, su, fu
+   * 2. User logs into eSewa and confirms payment
+   * 3. eSewa redirects to su (success URL) with: refId, oid, transactionId
+   *    OR to fu (failure URL) with: transactionId
+   * 4. Merchant verifies via POST to /epay/transrec with: scd, rid (refId), amt
+   *
+   * Reference: https://developer.esewa.com.np
    */
   generatePaymentPayload(params: {
     transactionId: string;
     amount: number;
     successUrl: string;
     failureUrl: string;
-  }): EsewaPaymentPayload {
+  }): EsewaSdkPayload {
     const scd = this.envService.getString('ESEWA_MERCHANT_CODE', 'EPAYTEST');
+    const secretKey = this.envService.getString('ESEWA_SECRET_KEY', '');
+    const baseUrl = this.getBaseUrl() + '/api/epay/main/v2/form';
 
-    return {
+    const formFields: EsewaPaymentPayload = {
       amt: params.amount,
       psc: 0,
       pdc: 0,
       txAmt: 0,
       tAmt: params.amount,
-      pid: params.transactionId,
+      pid: params.transactionId, // Our transaction UUID, returned as oid by eSewa
       scd,
       su: params.successUrl,
       fu: params.failureUrl,
     };
+
+    const sdkPayload: EsewaSdkPayload = {
+      paymentUrl: baseUrl,
+      formFields,
+    };
+
+    // If secret key is configured, generate Epay-v2 signature
+    if (secretKey) {
+      const message = `total_amount=${params.amount},transaction_uuid=${params.transactionId},product_code=${scd}`;
+      sdkPayload.signature = this.generateHmacSha256(message, secretKey);
+      sdkPayload.signedFields = 'total_amount,transaction_uuid,product_code';
+    }
+    console.log('Generated eSewa SDK payload:', sdkPayload);
+    return sdkPayload;
   }
 
   /**
    * Get the eSewa payment gateway URL (test or production based on env).
-   * Test: https://uat.esewa.com.np/epay/main
+   * Test: https://rc-epay.esewa.com.np
    * Prod: https://esewa.com.np/epay/main
    */
   getPaymentUrl(): string {
-    const isProduction = this.envService.isProduction();
-    return isProduction
-      ? 'https://esewa.com.np/epay/main'
-      : 'https://uat.esewa.com.np/epay/main';
+    return this.getBaseUrl() + '/epay/main';
   }
 
   /**
-   * Verify eSewa transaction after successful payment.
+   * PRIMARY VERIFICATION: Verify eSewa transaction using the transrec endpoint.
+   * 
+   * This is the standard verification method for the old eSewa Epay API.
+   * After eSewa redirects the user back to our success URL, we call this
+   * method with the refId (reference ID) provided by eSewa.
+   *
+   * Steps:
+   * 1. POST to /epay/transrec with scd, rid (refId from eSewa), amt (total amount)
+   * 2. eSewa returns XML: <response_code>Success</response_code> or Failure
+   *
    * Supports both old Epay and new Epay-v2 verification.
-   * 
-   * Old Epay: POST https://uat.esewa.com.np/epay/transrec
-   * New Epay-v2: Uses HMAC-SHA256 signature with secret key
-   * 
+   *
    * Reference: https://developer.esewa.com.np/#verification
    */
   async verifyTransaction(
     referenceId: string,
     totalAmount: number,
   ): Promise<boolean> {
-    const scd = this.envService.getString('ESEWA_MERCHANT_CODE', 'EPAYTEST');
-    const secretKey = this.envService.getString('ESEWA_SECRET_KEY', '');
-    const isProduction = this.envService.isProduction();
-    const baseUrl = isProduction ? 'https://esewa.com.np' : 'https://uat.esewa.com.np';
+    const scd = this.envService.getString('ESEWA_MERCHANT_CODE');
+    const secretKey = this.envService.getString('ESEWA_SECRET_KEY');
+    const baseUrl = this.getBaseUrl();
 
     // If secret key is provided, use Epay-v2 verification with HMAC signature
     if (secretKey) {
       return this.verifyEpayV2(baseUrl, scd, secretKey, referenceId, totalAmount);
     }
 
-    // Fallback to old Epay verification
+    // Fallback to old Epay verification (transrec endpoint)
     return this.verifyOldEpay(baseUrl, scd, referenceId, totalAmount);
   }
 
   /**
    * Old eSewa Epay verification (still widely used)
+   * Uses the /epay/transrec endpoint for verification.
    */
   private async verifyOldEpay(
     baseUrl: string,
@@ -125,7 +187,7 @@ export class EsewaService {
       // <response_code>Success</response_code> or <response_code>Failure</response_code>
       return text.includes('<response_code>Success</response_code>');
     } catch (error) {
-      console.error('eSewa old epay verification error:', error);
+      this.logger.error('eSewa old epay verification error:', error);
       return false;
     }
   }
@@ -159,7 +221,7 @@ export class EsewaService {
       // Epay-v2 returns JSON: { status: "COMPLETED", ... }
       return data.status === 'COMPLETED';
     } catch (error) {
-      console.error('eSewa epay-v2 verification error:', error);
+      this.logger.error('eSewa epay-v2 verification error:', error);
       return false;
     }
   }
@@ -168,12 +230,18 @@ export class EsewaService {
    * Generate HMAC-SHA256 signature for Epay-v2
    */
   private generateHmacSha256(message: string, secretKey: string): string {
-    const crypto = require('crypto');
-    return crypto.createHmac('sha256', secretKey).update(message).digest('hex');
+    return crypto.createHmac('sha256', secretKey).update(message).digest('base64');
   }
 
   /**
-   * Get transaction status from eSewa Status API (for topup verification)
+   * FALLBACK STATUS CHECK: Get transaction status from eSewa Status API.
+   * 
+   * This should ONLY be used as a fallback when no callback is received
+   * within 5 minutes (per eSewa documentation, step 6-7 in the flow).
+   *
+   * Primary verification should use verifyTransaction() with the refId
+   * from eSewa's callback redirect.
+   *
    * Reference: https://developer.esewa.com.np/#status
    */
   async getTransactionStatus(
@@ -181,9 +249,7 @@ export class EsewaService {
     totalAmount: number,
     transactionUuid: string,
   ): Promise<'COMPLETE' | 'PENDING' | 'CANCELED' | 'NOT_FOUND' | 'AMBIGUOUS'> {
-    const isProduction = this.envService.isProduction();
-    const baseUrl = isProduction ? 'https://esewa.com.np' : 'https://uat.esewa.com.np';
-
+    const baseUrl = this.getBaseUrl();
     const url = `${baseUrl}/api/epay/transaction/status?product_code=${encodeURIComponent(productCode)}&total_amount=${encodeURIComponent(totalAmount)}&transaction_uuid=${encodeURIComponent(transactionUuid)}`;
 
     try {
@@ -203,7 +269,7 @@ export class EsewaService {
       }
       return 'NOT_FOUND';
     } catch (error) {
-      console.error('eSewa status API error:', error);
+      this.logger.error('eSewa status API error:', error);
       return 'NOT_FOUND';
     }
   }
@@ -255,7 +321,7 @@ export class EsewaService {
       const verifyData = await verifyResponse.json();
       return verifyData.status === 'COMPLETED';
     } catch (error) {
-      console.error('eSewa client credentials verification error:', error);
+      this.logger.error('eSewa client credentials verification error:', error);
       return false;
     }
   }

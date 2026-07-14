@@ -63,6 +63,10 @@ export class Transaction extends BaseEntity {
 
   @Field(() => String, { nullable: true })
   @Prop({ type: String, default: null })
+  gatewayRef?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, default: null })
   remarks?: string;
 
   @Field(() => String, { nullable: true })

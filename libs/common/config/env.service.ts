@@ -347,5 +347,33 @@ export class EnvService {
   getBaatoApiUrl(): string {
     return this.getString('BAATO_API_URL', 'https://api.baato.io/api/v1');
   }
-  
+
+  // ==========================================
+  // API & Frontend URL helper methods
+  // ==========================================
+
+  /**
+   * Get the API base URL used for constructing payment callback URLs.
+   * Example: https://api.example.com or http://localhost:3000
+   */
+  getApiBaseUrl(): string {
+    return this.getString('API_BASE_URL', 'http://localhost:3000');
+  }
+
+  /**
+   * Get the website URL for Khalti/eSewa payloads.
+   * Example: https://example.com or http://localhost:3000
+   */
+  getWebsiteUrl(): string {
+    return this.getString('WEBSITE_URL', 'http://localhost:3000');
+  }
+
+  /**
+   * Get the frontend URL for redirecting users after payment.
+   * Example: https://app.example.com or http://localhost:3001
+   */
+  getFrontendUrl(): string {
+    return this.getString('FRONTEND_URL', 'http://localhost:3001');
+  }
+
 }
