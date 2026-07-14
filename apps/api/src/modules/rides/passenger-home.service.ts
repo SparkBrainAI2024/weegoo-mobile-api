@@ -79,7 +79,9 @@ export class PassengerHomeService {
       if (!promo) return null;
 
       return {
+        promocodeId: promo._id.toString(),
         name: promo.name,
+        promocodeUserLimit: promo.perUserLimit,
         amount:
           promo.discountType === 'PERCENTAGE'
             ? promo.percentageAmount ?? 0

@@ -15,10 +15,15 @@ export class PassengerLocationResponse {
 @ObjectType()
 export class PassengerPromoCodeResponse {
   @Field(() => String)
-  name: string;
+  promocodeId: string;
 
   @Field(() => Float)
   amount: number;
+  @Field(() => String)
+  name: string;
+
+  @Field(() => Number, { defaultValue: 0 })
+  promocodeUserLimit: number;
 
   @Field(() => Date)
   expiryTime: Date;
