@@ -254,7 +254,7 @@ export class MatchmakingService {
       const radiusKm = radii[attemptIdx];
       const waitTimeSeconds = DRIVER_RESPONSE_TIMEOUT_SECONDS;
       this.logger.log(`[INSTANT] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km`);
-      const drivers = await this.findAvailableDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx, ride.passengerId.toString());
+      const drivers = await this.findAvailableDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx, ride.passengerId.toString(),ride.rideType);
       const filteredDrivers = drivers.filter((d) => !respondedDriverIds.has(d.driverId));
       if (filteredDrivers.length === 0) {
         attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: 0, driversRequested: 0, driverAccepted: false, timeoutExpired: false, status: 'no_drivers_found' });
@@ -380,7 +380,7 @@ export class MatchmakingService {
     return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, driverImage: acceptedDriverImage, rating: acceptedRating, estimatedFare, attempts, message: 'Driver matched successfully' };
   }
 
-  private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, passengerId?: string): Promise<DriverScore[]> {
+  private async findAvailableDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, passengerId?: string,rideType?: RideTypes): Promise<DriverScore[]> {
     const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     if (vehicles.length === 0) return [];
 
@@ -431,6 +431,7 @@ export class MatchmakingService {
       if (driver.suspended || !driver.verified) continue;
       const userDetails = userDetailsMap.get(driver._id.toString());
       if (userDetails?.driverOnlineStatus !== DriverOnlineStatus.ONLINE) continue;
+      if (userDetails?.ridePreference && userDetails.ridePreference !== rideType && userDetails.ridePreference !== ridePreference.BOTH) continue;
       if (activeRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
       let driverLat: number; let driverLng: number;

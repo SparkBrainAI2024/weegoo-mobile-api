@@ -56,7 +56,7 @@ export class UserDetails extends BaseEntity {
   })
   gender?: string;
 
-  @Field(() => ridePreference, { defaultValue: ridePreference.SCHEDULED })
+  @Field(() => ridePreference, { defaultValue: ridePreference.BOTH })
   @Prop({
     type: String,
     enum: ridePreference,
