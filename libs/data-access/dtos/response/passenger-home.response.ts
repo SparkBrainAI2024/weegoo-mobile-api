@@ -1,3 +1,4 @@
+import { DiscountTypeEnum } from '@libs/data-access/enums/promo-code.enum';
 import { Field, ObjectType, Float, Int } from '@nestjs/graphql';
 
 @ObjectType()
@@ -31,8 +32,8 @@ export class PassengerPromoCodeResponse {
   @Field(() => Date)
   offerAvailableTime: Date;
 
-  @Field(() => String)
-  promocodeType: string; // 'PERCENTAGE' or 'FLAT'
+  @Field(() => DiscountTypeEnum)
+  promocodeType: DiscountTypeEnum; // 'PERCENTAGE' or 'FLAT'
 
   @Field(() => Float, { nullable: true })
   discountPercentage?: number;
