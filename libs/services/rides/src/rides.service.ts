@@ -911,32 +911,37 @@ export class RidesService {
       ErrorException(null, "RIDES.MIN_FARE_NOT_MET", HttpStatus.BAD_REQUEST);
     }
 
-    // Calculate discount
+    // Calculate discount (rounded to nearest integer)
     let discount = 0;
     if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
-      discount =
+      discount = Math.round(
         Number(ride.estimatedFare) *
-        ((Number(promo.percentageAmount) || 0) / 100);
+        ((Number(promo.percentageAmount) || 0) / 100));
       if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
-        discount = Number(promo.maxDiscount);
+        discount = Math.round(Number(promo.maxDiscount));
       }
     } else {
-      discount = Number(promo.flatAmount) || 0;
+      discount = Math.round(Number(promo.flatAmount) || 0);
     }
+
+    // Calculate subtotal (total amount before discount, rounded)
+    const subTotal = Math.round(Number(ride.estimatedFare));
+    const finalAmount = Math.max(0, subTotal - discount);
 
     // Update ride
     const updatedRide = await this.rideRepository.findOneAndUpdate(
       { _id: ride._id },
       {
         $set: {
-          estimatedFare: Math.max(
-            0,
-            Number(ride.estimatedFare) - Number(discount),
-          ),
-          "fare.discountAmount": Number(discount),
+          estimatedFare: finalAmount,
+          "fare.discountAmount": discount,
           "fare.promoCodeId": promo._id,
+          "fare.promoCodeName": promo.name,
+          "fare.subTotal": subTotal,
           "paymentDetails.promoCodeId": promo._id,
-          "paymentDetails.discountAmount": Number(discount),
+          "paymentDetails.promoCodeName": promo.name,
+          "paymentDetails.discountAmount": discount,
+          "paymentDetails.subTotal": subTotal,
         },
       },
       { new: true },
@@ -978,15 +983,20 @@ export class RidesService {
     const promoId = ride.fare["promoCodeId"];
 
     // Update ride - revert estimated fare and clear fields
+    const revertedFare = Math.round(Number(ride.estimatedFare) + Number(discountAmount));
     const updatedRide = await this.rideRepository.findOneAndUpdate(
       { _id: ride._id },
       {
         $set: {
-          estimatedFare: Number(ride.estimatedFare) + Number(discountAmount),
+          estimatedFare: revertedFare,
           "fare.discountAmount": 0,
           "fare.promoCodeId": null,
+          "fare.promoCodeName": null,
+          "fare.subTotal": 0,
           "paymentDetails.promoCodeId": null,
+          "paymentDetails.promoCodeName": null,
           "paymentDetails.discountAmount": 0,
+          "paymentDetails.subTotal": 0,
         },
       },
       { new: true },

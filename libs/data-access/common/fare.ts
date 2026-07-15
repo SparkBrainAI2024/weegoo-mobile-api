@@ -24,6 +24,11 @@ export class Fare {
   @ApiProperty({ nullable: false })
   totalAmount: number;
 
+  @Field(() => Number, { defaultValue: 0 })
+  @Prop({ type: Number, default: 0, required: false, nullable: true })
+  @ApiProperty({ nullable: false })
+  subTotal: number;
+
   @Field(() => Number, { defaultValue: 1 })
   @Prop({ type: Number, default: 1, required: false, nullable: true })
   @ApiProperty({ nullable: false })
@@ -38,4 +43,9 @@ export class Fare {
   @Prop({ type: Types.ObjectId, ref: "PromoCode", default: null })
   @ApiProperty({ nullable: true })
   promoCodeId?: Types.ObjectId;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false })
+  @ApiProperty({ nullable: true })
+  promoCodeName?: String;
 }

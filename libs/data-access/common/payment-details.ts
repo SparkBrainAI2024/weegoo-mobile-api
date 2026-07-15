@@ -5,24 +5,28 @@ import { Types } from "mongoose";
 import { PaymentMethodEnum, PaymentStatusEnum } from "../enums/payment.enum";
 @ObjectType()
 export class PaymentDetails {
-    @Field(() => Number,{defaultValue: 0})
-    @Prop({ type: Number, default: 0, required: false,nullable:true })
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: false, nullable: true })
     @ApiProperty({ nullable: false })
     baseAmount: Number;
 
-    @Field(() => Number,{defaultValue: 0})
-    @Prop({ type: Number, default: 0, required: false,nullable:true })
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: false, nullable: true })
     @ApiProperty({ nullable: false })
     distanceAmount: Number;
 
-    @Field(() => Number,{defaultValue: 0})
-    @Prop({ type: Number, default: 0, required: false,nullable:true })
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: false, nullable: true })
     @ApiProperty({ nullable: false })
     totalAmount: Number;
+    
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: false, nullable: true })
+    @ApiProperty({ nullable: false })
+    subTotal: number;
 
-
-    @Field(() => Number,{defaultValue: 1})
-    @Prop({ type: Number, default: 1, required: false,nullable:true })
+    @Field(() => Number, { defaultValue: 1 })
+    @Prop({ type: Number, default: 1, required: false, nullable: true })
     @ApiProperty({ nullable: false })
     noOfPassengers: Number;
 
@@ -31,8 +35,8 @@ export class PaymentDetails {
     @ApiProperty({ nullable: true })
     paymentMethod?: PaymentMethodEnum;
 
-    @Field(() => Number,{defaultValue: 0})
-    @Prop({ type: Number, default: 0, required: false,nullable:true })
+    @Field(() => Number, { defaultValue: 0 })
+    @Prop({ type: Number, default: 0, required: false, nullable: true })
     @ApiProperty({ nullable: false })
     discountAmount: Number;
 
@@ -41,12 +45,17 @@ export class PaymentDetails {
     @ApiProperty({ nullable: true })
     promoCodeId?: Types.ObjectId;
 
-    @Field(() => Number,{defaultValue:0.2})
-    @Prop({ type: Number, default: 0.2, required: false,nullable:true })
+    @Field(() => String, { nullable: true })
+    @Prop({ type: String, required: false })
+    @ApiProperty({ nullable: true })
+    promoCodeName?: String;
+
+    @Field(() => Number, { defaultValue: 0.2 })
+    @Prop({ type: Number, default: 0.2, required: false, nullable: true })
     @ApiProperty({ nullable: false })
     driverCommission: Number;
 
-    @Field(() => PaymentStatusEnum, { nullable: true ,defaultValue:PaymentStatusEnum.PENDING})
+    @Field(() => PaymentStatusEnum, { nullable: true, defaultValue: PaymentStatusEnum.PENDING })
     @Prop({ type: String, enum: PaymentStatusEnum, required: false })
     @ApiProperty({ nullable: true })
     paymentStatus?: PaymentStatusEnum;

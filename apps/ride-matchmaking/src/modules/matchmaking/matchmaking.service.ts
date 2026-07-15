@@ -1225,10 +1225,12 @@ export class MatchmakingService {
       const distanceFare = Number(ride.fare?.distanceAmount || (distanceInKm * perKmRate));
       const totalFare = ride.fare?.totalAmount || Number(Number(baseFareAmount) + Number(distanceFare));
 
-      const discountAmount = Number(ride.paymentDetails?.discountAmount || 0);
-      const finalAmount = Number(Number(totalFare) - Number(discountAmount));
+      const discountAmount = Math.round(Number(ride.paymentDetails?.discountAmount || 0));
+      const finalAmount = Math.max(0, Math.round(Number(Number(totalFare) - Number(discountAmount))));
 
       const commissionRate = Number(ride.paymentDetails?.driverCommission) || 0.2;
+
+      const existingFare: any = ride.fare || {};
 
       const updatedRide = await this.ridesModel.findByIdAndUpdate(
         ride._id,
@@ -1246,6 +1248,16 @@ export class MatchmakingService {
               totalAmount: finalAmount,
               noOfPassengers: ride.noOfPassengers || 1,
               driverCommission: commissionRate,
+              discountAmount: existingFare.discountAmount || 0,
+              promoCodeId: existingFare.promoCodeId || null,
+              promoCodeName: existingFare.promoCodeName || null,
+              subTotal: existingFare.subTotal || 0,
+            },
+            paymentDetails: {
+              ...(ride.paymentDetails ? (ride.paymentDetails as any).toObject ? (ride.paymentDetails as any).toObject() : ride.paymentDetails : {}),
+              totalAmount: finalAmount,
+              baseAmount: baseFareAmount,
+              distanceAmount: distanceFare,
             },
           },
         },

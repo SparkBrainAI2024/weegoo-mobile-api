@@ -192,13 +192,14 @@ export class PassengerPaymentService {
         ride: RidesDocument,
         promoCodeId?: string,
         passengerId?: string,
-    ): Promise<{ baseFare: number; distanceCharge: number; discount: number; totalFare: number, commissionAmount: number }> {
+    ): Promise<{ baseFare: number; distanceCharge: number; discount: number; subtotal: number; totalFare: number; commissionAmount: number; promoCodeName?: string }> {
         // Use base fare and distance charge from ride.fare (already calculated during ride completion)
         const baseFare = Number(ride.fare?.baseAmount || 0);
         const distanceCharge = Number(ride.fare?.distanceAmount || 0);
 
-        let subtotal = baseFare + distanceCharge;
+        let subtotal = Math.round(baseFare + distanceCharge);
         let discount = 0;
+        let promoCodeName: string | undefined;
 
         // Apply promo code discount if provided
         if (promoCodeId) {
@@ -234,15 +235,17 @@ export class PassengerPaymentService {
                 }
             }
 
+            promoCodeName = promoCode.name;
+
             // Calculate discount
             if (promoCode.discountType === 'PERCENTAGE' && promoCode.percentageAmount) {
-                discount = (subtotal * promoCode.percentageAmount) / 100;
+                discount = Math.round((subtotal * promoCode.percentageAmount) / 100);
                 // Cap at max discount
                 if (promoCode.maxDiscount && discount > promoCode.maxDiscount) {
-                    discount = promoCode.maxDiscount;
+                    discount = Math.round(promoCode.maxDiscount);
                 }
             } else if (promoCode.discountType === 'FLAT' && promoCode.flatAmount) {
-                discount = promoCode.flatAmount;
+                discount = Math.round(promoCode.flatAmount);
                 // Don't let discount exceed subtotal
                 if (discount > subtotal) {
                     discount = subtotal;
@@ -250,15 +253,17 @@ export class PassengerPaymentService {
             }
         }
 
-        const totalFare = subtotal - discount;
+        const totalFare = Math.max(0, Math.round(subtotal - discount));
         const commissionAmountFromTotal = totalFare * 0.2; // Assuming 20% commission 
 
         return {
             baseFare,
             distanceCharge,
             discount,
+            subtotal,
             totalFare,
             commissionAmount: commissionAmountFromTotal,
+            promoCodeName,
         };
     }
 
@@ -421,11 +426,13 @@ export class PassengerPaymentService {
             baseAmount: fareBreakdown.baseFare,
             distanceAmount: fareBreakdown.distanceCharge,
             totalAmount: fareBreakdown.totalFare,
+            subTotal: fareBreakdown.subtotal,
             noOfPassengers: ride.noOfPassengers || 1,
             paymentMethod,
             discountAmount: fareBreakdown.discount,
             paymentStatus: PaymentStatusEnum.PAID,
             promoCodeId: promoCodeId ? new Types.ObjectId(promoCodeId) : null,
+            promoCodeName: fareBreakdown.promoCodeName || null,
             driverCommission: 0.2,
         };
 
