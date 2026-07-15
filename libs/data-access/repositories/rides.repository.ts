@@ -518,4 +518,38 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   protected decodeCursor(cursor: string): any {
     return JSON.parse(Buffer.from(cursor, "base64").toString());
   }
+
+  async getRideHistoryOfIndividualRiderOrUser(
+    user: Partial<User>,
+    paginationInput: GetAllRidesPaginationInput,
+  ) {
+    // Build filter based on user role
+    const filter: any = {};
+    if (user.loginAs === roles.USER) {
+      filter.passengerId = new Types.ObjectId(user._id);
+    } else if (user.loginAs === roles.RIDER) {
+      filter.driverId = new Types.ObjectId(user._id);
+    }
+    // Apply ride status filter
+    if (paginationInput.filter) {
+      switch (paginationInput.filter) {
+        case RideFilterStatus.PENDING:
+          filter.rideStatus = { $in: [RideStatus.PENDING] };
+          break;
+        case RideFilterStatus.COMPLETED:
+          filter.rideStatus = RideStatus.COMPLETED;
+          break;
+        case RideFilterStatus.CANCELLED:
+          filter.rideStatus = RideStatus.CANCELLED;
+          break;
+        case RideFilterStatus.ALL:
+        default:
+          // Exclude PICKUP and CONFIRMED rides for ALL/default filter
+          filter.rideStatus = {
+            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED],
+          };
+          break;
+      }
+    }
+  }
 }

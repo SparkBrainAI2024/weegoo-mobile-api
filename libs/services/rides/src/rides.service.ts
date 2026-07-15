@@ -19,6 +19,8 @@ import {
   UserDocument,
   Vehicle,
   VehicleDocument,
+  UserRepository,
+  UserType,
 } from "@libs/data-access";
 
 import {
@@ -53,6 +55,7 @@ import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-docum
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
+    private readonly userRepository: UserRepository,
     private readonly transactionService: TransactionService,
     private readonly issueRepository: IssueRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
@@ -78,6 +81,21 @@ export class RidesService {
    */
   async findRides(user: User, options: GetAllRidesPaginationInput) {
     return this.rideRepository.findRidesByUserWithCursorPagination(
+      user,
+      options,
+    );
+  }
+
+  //userId can be of  either driver or passenger
+  async enlistRidesByDriverOrPassenger(
+    userId: string,
+    historyAs: UserType,
+    options: GetAllRidesPaginationInput,
+  ) {
+    //get fullname and phone number and uuid for driver and passenger
+    const user = this.userRepository.findById(toMongoId(userId));
+
+    return this.rideRepository.getRideHistoryOfIndividualRiderOrUser(
       user,
       options,
     );

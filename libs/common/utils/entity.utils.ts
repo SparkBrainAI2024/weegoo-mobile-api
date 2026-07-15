@@ -5,21 +5,27 @@ export function transformToEntityNameObjectFromId(
   obj: Record<string, unknown>,
   [key, alias]: [string, string],
 ): Record<string, unknown> {
-  if (obj[key] != null && typeof obj[key] === 'object') {
+  if (obj[key] != null && typeof obj[key] === "object") {
     obj[alias] = obj[key];
     delete obj[key];
   }
   return obj;
 }
 
-
-
 export const getActiveProfileImageUrl = (
   profileImages: UserProfileImageEntity[],
   getPublicUrl: (key: string) => string,
 ): string => {
-  const social = profileImages?.find(img => img.socialPicture && img.status === ImageStatus.ACTIVE)?.socialPicture;
+  const social = profileImages?.find(
+    (img) => img.socialPicture && img.status === ImageStatus.ACTIVE,
+  )?.socialPicture;
   if (social) return social;
-  const key = profileImages?.find(img => img.status === ImageStatus.ACTIVE)?.s3Key;
+  const key = profileImages?.find(
+    (img) => img.status === ImageStatus.ACTIVE,
+  )?.s3Key;
   return key ? getPublicUrl(key) : "";
+};
+
+export const generateRandomUuid = (type: string) => {
+  return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
 };

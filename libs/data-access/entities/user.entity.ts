@@ -80,6 +80,22 @@ export class User extends BaseEntity {
   @Field(() => roles, { defaultValue: roles.USER })
   @Prop({ type: String, enum: roles, default: roles.USER })
   loginAs: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({
+    required: false,
+    unique: true,
+    type: String,
+  })
+  driverSlugId?: string;
+
+  @Field(() => String, { nullable: true })
+  @Prop({
+    required: false,
+    unique: true,
+    type: String,
+  })
+  passengerSlugId?: string;
 }
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -89,5 +105,32 @@ export const userModel = {
   schema: UserSchema,
 };
 
-UserSchema.index({ authProvider: 1, deleted: 1, deletedAt: 1 });
+// Existing index
+UserSchema.index({
+  authProvider: 1,
+  deleted: 1,
+  deletedAt: 1,
+});
+
+// passengerSlugId
+UserSchema.index(
+  { passengerSlugId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      passengerSlugId: { $type: "string" },
+    },
+  },
+);
+
+// driverSlugId
+UserSchema.index(
+  { driverSlugId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      driverSlugId: { $type: "string" },
+    },
+  },
+);
 UserSchema.plugin(paginateAndSoftDelete);
