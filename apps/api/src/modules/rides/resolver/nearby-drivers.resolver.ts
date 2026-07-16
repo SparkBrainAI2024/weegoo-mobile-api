@@ -2,7 +2,7 @@ import { Resolver, Query, Args, Float } from '@nestjs/graphql';
 import { UseGuards, SetMetadata } from '@nestjs/common';
 import { AuthGuard, RoleGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { User, roles } from '@libs/data-access';
+import { User, VehicleType, roles } from '@libs/data-access';
 import { NearbyDriversSubscriptionResponse } from '@libs/data-access/dtos/response/nearby-driver.response';
 import { NearbyDriversService } from '../nearby-drivers.service';
 
@@ -22,12 +22,14 @@ export class NearbyDriversResolver {
     @Args('latitude', { type: () => Float }) latitude: number,
     @Args('longitude', { type: () => Float }) longitude: number,
     @Args('radiusKm', { type: () => Float, nullable: true, defaultValue: 10 }) radiusKm?: number,
+    @Args('vehicleType', { type: () => VehicleType, nullable: false  }) vehicleType?: VehicleType
   ): Promise<NearbyDriversSubscriptionResponse> {
     return this.nearbyDriversService.getNearbyDrivers(
       user._id.toString(),
       latitude,
       longitude,
       radiusKm,
+      vehicleType
     );
   }
 }

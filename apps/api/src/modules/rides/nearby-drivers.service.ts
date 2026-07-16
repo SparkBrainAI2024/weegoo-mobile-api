@@ -41,6 +41,7 @@ export class NearbyDriversService {
     latitude: number,
     longitude: number,
     searchRadiusKm: number = 10,
+    vehicleType?: string
   ): Promise<NearbyDriversSubscriptionResponse> {
     // Clamp search radius between 1 and 10 km
     const radiusKm = Math.min(Math.max(searchRadiusKm, 1), 10);
@@ -160,6 +161,12 @@ export class NearbyDriversService {
       const driverLng = driverCoords[1];
       const distanceInKm = result.distanceInMeters / 1000;
       const vehicle = vehicleMap.get(driverId);
+
+      // If a vehicleType filter is requested, only include drivers whose
+      // vehicle matches that type.
+      if (vehicleType && vehicle?.vehicleType !== vehicleType) {
+        continue;
+      }
 
       drivers.push({
         driverId,

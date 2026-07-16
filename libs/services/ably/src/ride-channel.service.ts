@@ -550,6 +550,8 @@ export interface RideCompletedPayload {
     distanceCharge: number;
     discount: number;
     totalFare: number;
+    subTotal: number;
+    promocodeName ?: string;
   };
   /** The actual completed at timestamp */
   completedAt: string;
