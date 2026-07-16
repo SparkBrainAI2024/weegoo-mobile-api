@@ -23,4 +23,15 @@ export class PassengerPromoCodeResolver {
   ): Promise<PromocodeListWithPaginationResponse> {
     return this.promoCodeService.getActivePromoCodes(input);
   }
+
+  @Query(() => PromoCode, {
+    name: 'getPromoCodeById',
+    description: 'Get a single promo code by its id for the logged-in passenger. Only accessible by USER role.',
+  })
+  async getPromoCodeById(
+    @CurrentUser() user: User,
+    @Args('promoCodeId', { type: () => String }) promoCodeId: string,
+  ): Promise<PromoCode> {
+    return this.promoCodeService.findById(promoCodeId);
+  }
 }
