@@ -333,7 +333,7 @@ export class AuthService {
 
       if (userExistWithThisPhone) {
         // If user is verified
-        if (userExistWithThisPhone.verified) {
+        if (userExistWithThisPhone.verified && !userExistWithThisPhone.suspended) {
 
           // If password is not set
           if (!userExistWithThisPhone.password) {
@@ -374,6 +374,9 @@ export class AuthService {
           }
 
           else {
+            if(userExistWithThisPhone.suspended){
+              ErrorException(null, "USER.SUSPENDED", HttpStatus.LOCKED);
+            }
             if (!userExistWithThisPhone.roles.includes(this.defaultRole)) {
               ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
             } // If password is already set, prompt user to sign in
