@@ -135,10 +135,22 @@ export class RidesService {
         )
       : { netEarning: 0 };
 
-    // 3. Total Trip History
+    // 3. Total Trip History (Today only)
+    // Use rideCompletedAt when available, otherwise fall back to bookingTime
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
     const totalTrips = await this.rideRepository.count({
       driverId: userId,
       rideStatus: RideStatus.COMPLETED,
+      $or: [
+        { rideCompletedAt: { $gte: startOfToday, $lte: endOfToday } },
+        {
+          rideCompletedAt: null,
+          bookingTime: { $gte: startOfToday, $lte: endOfToday },
+        },
+      ],
     });
 
     // 4. Online Hours Tracking (from UserDailyOnlineStatus)
