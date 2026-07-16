@@ -13,6 +13,9 @@ class AcknowledgeAndFinishResult {
 
   @Field(() => Boolean)
   isAcknowledged: boolean;
+  
+   @Field(() => String, { nullable: true })
+  message: String;
 }
 
 @Resolver()
@@ -59,11 +62,13 @@ export class AcknowledgeAndFinishResolver {
         return {
           success: result.success,
           isAcknowledged: result.acknowledged,
+          message: result.message
         };
       }
       return {
         success: false,
         isAcknowledged: false,
+        message: 'No response from matchmaking service',
       };
     } catch (error: any) {
       console.error('Error calling matchmaking service:', error);

@@ -721,22 +721,17 @@ export class MatchmakingService {
           this.notificationService.createNotification(notificationInput, passengerUser);
         }
 
+        // Subscribe (or resubscribe) to the driver's location channel so live
+        // location updates are tracked for the duration of the ride.
+        this.subscribeToDriverLocationChannel(driverId).catch((err: any) =>
+          this.logger.warn(
+            `Failed to subscribe driver ${driverId} location channel on accept: ${err?.message || err}`,
+          ),
+        );
+
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
       } else if (action === 'reject') {
-        if (ride.passengerId) {
-          const notificationInput: CreateNotificationInput = {
-            title: 'Ride Rejected', notificationType: NotificationType.RIDE_REQUEST,
-            description: 'A driver has declined your ride request. We are looking for other drivers.',
-            ablyChannelId: `WG-RIDE-${rideUUID}-ride-details`,
-            rideId: ride._id.toString(),
-            passengerId: ride.passengerId.toString(),
-          };
-          await this.notificationService.createNotification(
-            notificationInput,
-            { _id: new Types.ObjectId(ride.passengerId), loginAs: roles.USER },
-          );
-        }
         return { success: true, message: 'Ride rejected' };
       }
     } catch (err) {
