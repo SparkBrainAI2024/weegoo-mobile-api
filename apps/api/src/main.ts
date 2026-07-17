@@ -42,7 +42,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix("driver-api");
   app.useGlobalFilters(new HttpExceptionFilter());
 
   app.use(
