@@ -35,7 +35,7 @@ async function bootstrap() {
       new ValidationPipe({ transform: true, whitelist: true,forbidNonWhitelisted:true }),
     );
 
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix("driver-api");
   app.useGlobalFilters(new HttpExceptionFilter());
 
   app.use(
