@@ -25,7 +25,7 @@ export class PaymentController {
   @Get('esewa/success')
   @HttpCode(HttpStatus.OK)
   async esewaSuccess(
-    @Query('transactionId') transactionId: string,
+    @Query('transactionUuid') transactionId: string,
     @Query('refId') refId?: string,
     @Query('oid') oid?: string,
     @Res({ passthrough: true }) res?: Response,
@@ -37,7 +37,7 @@ export class PaymentController {
     }
 
     try {
-      await this.walletService.completeTopup(transactionId, 0, { refId });
+      await this.walletService.completeTopupByUuid(transactionId, 0, { refId });
       return {
         success: true,
         message: 'Topup completed successfully',
