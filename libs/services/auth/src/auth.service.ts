@@ -339,7 +339,7 @@ export class AuthService {
 
       if (userExistWithThisPhone) {
         // If user is verified
-        if (userExistWithThisPhone.verified && !userExistWithThisPhone.suspended) {
+        if (userExistWithThisPhone.verified && !userExistWithThisPhone.suspended && !userExistWithThisPhone.profileCompleted) {
 
           // If password is not set
           if (!userExistWithThisPhone.password) {
