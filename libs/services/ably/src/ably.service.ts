@@ -37,6 +37,46 @@ export class AblyService implements OnModuleInit {
   }
 
   /**
+   * Check if the Ably connection is in idle (disconnected) or suspended state.
+   * In these states, the connection is not actively transmitting messages.
+   */
+  isConnectionIdleOrSuspended(): boolean {
+    if (!this.realtime) return false;
+    const state = this.realtime.connection.state;
+    return state === 'disconnected' || state === 'suspended';
+  }
+
+  /**
+   * Reconnect the Ably connection if it is currently in idle (disconnected) or suspended state.
+   * This is useful when the app re-establishes network connectivity after a call,
+   * ensuring real-time messaging resumes.
+   *
+   * - DISCONNECTED (idle): The client detected a network issue and will automatically
+   *   retry based on its retry logic. Calling connect() forces an immediate manual reconnect.
+   * - SUSPENDED: The client has exhausted its automatic retry attempts and requires
+   *   manual intervention. Calling connect() restores the connection.
+   *
+   * @returns true if reconnection was triggered, false otherwise
+   */
+  reconnectIfNeeded(): boolean {
+    if (!this.realtime) {
+      this.logger.warn('Ably not initialized. Cannot reconnect.');
+      return false;
+    }
+
+    const state = this.realtime.connection.state;
+    if (state === 'disconnected' || state === 'suspended') {
+      this.logger.log(
+        `Ably connection state is '${state}'. Triggering reconnection...`,
+      );
+      this.realtime.connection.connect();
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Publish a message to a specific channel.
    * @param channelName - The name of the channel to publish to
    * @param eventName - The event name
