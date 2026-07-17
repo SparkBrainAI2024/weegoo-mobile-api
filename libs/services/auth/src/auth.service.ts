@@ -388,7 +388,9 @@ export class AuthService {
 
           };
         }
-
+        if(userExistWithThisPhone.profileCompleted) {
+             ErrorException('', "USER.USED_PHONE", HttpStatus.BAD_REQUEST);
+        }
         // User exists but not verified - OTP flow
         // Check if there's a valid non-expired OTP
         const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
