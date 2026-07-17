@@ -29,6 +29,7 @@ export class PaymentController {
     @Query('transactionUuid') transactionUuid: string,
     @Query('refId') refId?: string,
     @Query('oid') oid?: string,
+     @Query('data') data?: string,
     @Res({ passthrough: true }) res?: Response,
   ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
     this.logger.log(`eSewa success callback: transactionUuid=${transactionUuid}, refId=${refId}, oid=${oid}`);
