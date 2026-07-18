@@ -107,7 +107,9 @@ export class PassengerService {
 
     return {
       data,
-      pagination,
+      averageRating: 4,
+      totalReviews: 34,
+      pagination: { ...pagination, hasNextPage: true, hasPreviousPage: true },
       summary: {
         totalTrips: details?.totalTripsAsPassenger ?? 0,
         completed,
@@ -147,7 +149,7 @@ export class PassengerService {
         oneStar: 0,
       },
       data,
-      pagination,
+      pagination: { ...pagination, hasNextPage: true, hasPreviousPage: false },
     };
   }
 

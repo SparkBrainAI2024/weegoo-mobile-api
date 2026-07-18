@@ -84,19 +84,23 @@ type Fare {
   trafficCongestionAmount: Float!
   distanceAmount: Float!
   totalAmount: Float!
+  subTotal: Float!
   noOfPassengers: Float!
   discountAmount: Float!
   promoCodeId: String
+  promoCodeName: String
 }
 
 type PaymentDetails {
   baseAmount: Float!
   distanceAmount: Float!
   totalAmount: Float!
+  subTotal: Float!
   noOfPassengers: Float!
   paymentMethod: PaymentMethodEnum
   discountAmount: Float!
   promoCodeId: String
+  promoCodeName: String
   driverCommission: Float!
   paymentStatus: PaymentStatusEnum
   paymentFailedReason: String
@@ -1056,6 +1060,77 @@ type PassengerListResponse {
   pagination: Pagination!
 }
 
+type RiderOverviewResponse {
+  id: ID!
+  fullName: String!
+  profileImage: String
+  phone: String!
+  email: String
+  suspended: Boolean!
+  joinedDate: String
+  lastActive: String
+  phoneVerified: Boolean
+}
+
+type TripListItem {
+  id: ID!
+  rideUUId: String!
+  createdAt: String!
+  pickupLocation: String
+  dropoffLocation: String
+  fare: Float!
+  paymentMethod: String
+  status: String!
+}
+
+type RiderTripsSummary {
+  totalTrips: Float!
+  completed: Float!
+  cancelled: Float!
+  totalSpend: Float!
+  avgFare: Float!
+}
+
+type RiderTripsResponse {
+  message: String
+  data: [TripListItem!]
+  pagination: Pagination!
+  averageRating: Float!
+  totalReviews: Float!
+  summary: RiderTripsSummary!
+}
+
+type RatingBreakdown {
+  fiveStar: Float!
+  fourStar: Float!
+  threeStar: Float!
+  twoStar: Float!
+  oneStar: Float!
+}
+
+type RatingListItem {
+  rideId: ID!
+  rideUUId: String!
+  pickup: String
+  drop: String
+  fare: Float
+  driverName: String!
+  driverShortId: String
+  createdAt: String!
+  rating: Float!
+  review: String
+  feedbackTags: [String!]
+}
+
+type RiderRatingsResponse {
+  message: String
+  data: [RatingListItem!]
+  pagination: Pagination!
+  averageRating: Float!
+  totalReviews: Float!
+  breakdown: RatingBreakdown!
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -1072,6 +1147,9 @@ type Query {
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle: Vehicle!
   getPassengers(input: PassengerListInput): PassengerListResponse!
+  getRiderOverview(riderId: String!): RiderOverviewResponse!
+  getRiderTrips(input: RiderTripsInput!): RiderTripsResponse!
+  getPassengerRatings(input: RiderRatingsInput!): RiderRatingsResponse!
 }
 
 input PaginationInputOnly {
@@ -1121,6 +1199,21 @@ input PassengerListInput {
   limit: Int! = 5
   search: String
   status: String
+}
+
+input RiderTripsInput {
+  riderId: ID!
+  page: Float = 0
+  limit: Float = 10
+  search: String
+  status: String
+  paymentMethod: String
+}
+
+input RiderRatingsInput {
+  riderId: ID!
+  page: Float = 0
+  limit: Float = 10
 }
 
 type Mutation {

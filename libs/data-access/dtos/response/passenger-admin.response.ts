@@ -1,4 +1,5 @@
 import { PaginationInput } from "@libs/data-access/base/base.input";
+import { Paginated } from "@libs/data-access/base/base.response";
 import { Field, ID, ObjectType } from "@nestjs/graphql";
 
 @ObjectType()
@@ -36,10 +37,10 @@ export class RiderTripsSummary {
 }
 
 @ObjectType()
-export class RiderTripsResponse {
-  @Field(() => [TripListItem]) data: TripListItem[];
+export class RiderTripsResponse extends Paginated(TripListItem) {
+  @Field() averageRating: number;
+  @Field() totalReviews: number;
   @Field(() => RiderTripsSummary) summary: RiderTripsSummary;
-  @Field(() => PaginationInput) pagination: PaginationInput;
 }
 
 @ObjectType()
@@ -67,10 +68,8 @@ export class RatingListItem {
 }
 
 @ObjectType()
-export class RiderRatingsResponse {
+export class RiderRatingsResponse extends Paginated(RatingListItem) {
   @Field() averageRating: number;
   @Field() totalReviews: number;
   @Field(() => RatingBreakdown) breakdown: RatingBreakdown;
-  @Field(() => [RatingListItem]) data: RatingListItem[];
-  @Field(() => PaginationInput) pagination: PaginationInput;
 }
