@@ -127,6 +127,14 @@ export class UserDetails extends BaseEntity {
   @Field(() => Number, { nullable: true, defaultValue: 0 })
   @Prop({ required: false, type: Number, default: 0 })
   totalRidesAsDriver?: number;
+
+  @Field({ nullable: true })
+  @Prop({ required: false, type: String, default: null })
+  esewaAccount?: string;
+
+  @Field({ nullable: true })
+  @Prop({ required: false, type: String, default: null })
+  khaltiAccount?: string;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 

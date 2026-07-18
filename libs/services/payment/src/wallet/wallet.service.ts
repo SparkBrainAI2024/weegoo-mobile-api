@@ -29,6 +29,9 @@ export interface WithdrawInput {
   userId: string;
   amount: number;
   paymentMethod: PaymentMethodEnum;
+  paymentMedium: PaymentMediumEnum;
+  /** The user's eSewa mobile/email or Khalti mobile for receiving the payout */
+  accountIdentifier: string;
   loginAs?: string;
 }
 
@@ -411,6 +414,10 @@ export class WalletService {
     transactionId: string;
     amount: number;
     status: TransactionStatus;
+    /** The payment medium (ESEWA or KHALTI) for the withdrawal */
+    paymentMedium: PaymentMediumEnum;
+    /** The account identifier where funds were sent */
+    accountIdentifier: string;
   }> {
     // Check sufficient balance first
     const balance = await this.walletRepo.getBalance(input.userId);
@@ -418,8 +425,18 @@ export class WalletService {
       throw new BadRequestException('Insufficient wallet balance');
     }
 
-    // Create PENDING withdrawal transaction
+    if (!input.paymentMedium) {
+      throw new BadRequestException('Payment medium (ESEWA or KHALTI) is required for withdrawal');
+    }
+
+    if (!input.accountIdentifier) {
+      throw new BadRequestException('Account identifier (eSewa mobile/email or Khalti mobile) is required for withdrawal');
+    }
+
     const isDriver = input.loginAs === 'RIDER';
+    const transactionUuid = `WITHDRAW-${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+    // Create PENDING withdrawal transaction
     const [txn] = await this.transactionRepo.createMany([
       {
         ...(isDriver ? { driverId: input.userId } : { riderId: input.userId }),
@@ -427,14 +444,87 @@ export class WalletService {
         type: TransactionType.WITHDRAWAL,
         amount: input.amount,
         paymentMethod: input.paymentMethod,
+        paymentMedium: input.paymentMedium,
+        transactionUuid,
+        reference: input.accountIdentifier,
         status: TransactionStatus.PENDING,
       },
     ]);
 
+    const txnId = txn._id.toString();
+
+    // ── Process actual payout to eSewa/Khalti ──
+    // We attempt the payout immediately. If it fails, we mark the transaction as failed.
+    let payoutResult: { success: boolean; message: string; referenceId?: string };
+
+    if (input.paymentMedium === PaymentMediumEnum.ESEWA) {
+      payoutResult = await this.esewaService.initiatePayout({
+        receiverAccount: input.accountIdentifier,
+        amount: input.amount,
+        transactionId: transactionUuid,
+        remarks: 'Wallet withdrawal',
+      });
+    } else if (input.paymentMedium === PaymentMediumEnum.KHALTI) {
+      payoutResult = await this.khaltiService.initiatePayout({
+        receiverAccount: input.accountIdentifier,
+        amount: input.amount,
+        transactionId: transactionUuid,
+        remarks: 'Wallet withdrawal',
+      });
+    } else {
+      throw new BadRequestException(`Unsupported payment medium: ${input.paymentMedium}`);
+    }
+
+    if (payoutResult.success) {
+      // Payout succeeded - debit wallet and mark as completed
+      await this.debitWallet(input.userId, input.amount);
+      await this.transactionRepo['model'].findByIdAndUpdate(txnId, {
+        $set: {
+          status: TransactionStatus.COMPLETED,
+          reference: payoutResult.referenceId || input.accountIdentifier,
+          remarks: `Payout completed via ${input.paymentMedium} to ${input.accountIdentifier}`,
+        },
+      });
+
+      // Send success notification
+      await this.notificationService.createNotification(
+        {
+          title: 'Withdrawal Successful',
+          description: `NPR ${input.amount} has been sent to your ${input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti'} account (${input.accountIdentifier}).`,
+          notificationType: NotificationType.PAYMENT_RECEIPT as any,
+          rideId: undefined,
+        },
+        { _id: new Types.ObjectId(input.userId), loginAs: isDriver ? 'RIDER' : 'USER' } as any,
+      );
+    } else {
+      // Payout failed - mark transaction as failed
+      await this.transactionRepo['model'].findByIdAndUpdate(txnId, {
+        $set: {
+          status: TransactionStatus.FAILED,
+          remarks: payoutResult.message || `${input.paymentMedium} payout failed`,
+        },
+      });
+
+      // Send failure notification
+      await this.notificationService.createNotification(
+        {
+          title: 'Withdrawal Failed',
+          description: `Your NPR ${input.amount} withdrawal to ${input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti'} (${input.accountIdentifier}) could not be completed. ${payoutResult.message || 'Please try again or contact support.'}`,
+          notificationType: NotificationType.PAYMENT_FAILURE as any,
+          rideId: undefined,
+        },
+        { _id: new Types.ObjectId(input.userId), loginAs: isDriver ? 'RIDER' : 'USER' } as any,
+      );
+
+      throw new BadRequestException(payoutResult.message || `${input.paymentMedium} payout failed. Please try again.`);
+    }
+
     return {
-      transactionId: txn._id.toString(),
+      transactionId: txnId,
       amount: input.amount,
-      status: TransactionStatus.PENDING,
+      status: TransactionStatus.COMPLETED,
+      paymentMedium: input.paymentMedium,
+      accountIdentifier: input.accountIdentifier,
     };
   }
 
@@ -453,7 +543,7 @@ export class WalletService {
     }
 
     // Debit wallet
-    await this.debitWallet(txn.riderId, txn.amount);
+    await this.debitWallet(txn.riderId || txn.driverId, txn.amount);
 
     // Mark transaction COMPLETED
     txn.status = TransactionStatus.COMPLETED;
