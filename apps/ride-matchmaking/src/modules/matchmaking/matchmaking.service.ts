@@ -632,8 +632,8 @@ export class MatchmakingService {
               driverLat, driverLng,
               vType,
             );
-            driverToPickupDistanceKm = Math.round(dist.distanceKm);
-            driverToPickupDurationMinutes = Math.round(dist.durationMinutes);
+            driverToPickupDistanceKm = dist.distanceKm;
+            driverToPickupDurationMinutes = dist.durationMinutes;
           } catch { }
         }
 
@@ -689,13 +689,6 @@ export class MatchmakingService {
           driverUser, driverDetails, vehicle, passengerUser,
         );
 
-        // If driver is within 300 meters of pickup, publish their location immediately
-        // in the background so the passenger sees the driver's position right away.
-        if (driverToPickupDistanceKm <= 0.3 && driverLat !== 0 && driverLng !== 0) {
-          this.rideChannelService.publishDriverLocationToChannel(driverId, { driverId, latitude: driverLat, longitude: driverLng, updatedAt: new Date().toISOString() })
-            .catch((err) => this.logger.warn(`Background driver location publish failed: ${err}`));
-        }
-
         if (passengerUser) {
           const ablyChannelId = `WG-RIDE-${rideUUID}-ride-details`;
           const driverSnapshot = {
@@ -713,8 +706,8 @@ export class MatchmakingService {
             vehicleColor: acceptDetails?.vehicle?.color || vehicle?.color || null, vehicleNumberPlate: acceptDetails?.vehicle?.numberPlate || vehicle?.numberPlate || null,
             pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
             dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-            distanceInKm: ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
-            estimatedTimeInMinutes: acceptDetails?.estimatedTimeInMinutes || ride.estimatedTimeInMinutes || null,
+            distanceInKm: driverToPickupDistanceKm ||ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
+            estimatedTimeInMinutes: driverToPickupDurationMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
             rideId: updatedRide._id.toString(),
             passengerId: updatedRide.passengerId?.toString() || null,
@@ -724,11 +717,18 @@ export class MatchmakingService {
 
         // Subscribe (or resubscribe) to the driver's location channel so live
         // location updates are tracked for the duration of the ride.
-        this.subscribeToDriverLocationChannel(driverId).catch((err: any) =>
+        await this.subscribeToDriverLocationChannel(driverId).catch((err: any) =>
           this.logger.warn(
             `Failed to subscribe driver ${driverId} location channel on accept: ${err?.message || err}`,
           ),
         );
+
+        // If driver is within 300 meters of pickup, publish their location immediately
+        // in the background so the passenger sees the driver's position right away.
+        if (driverToPickupDistanceKm <= 0.3 ) {
+          this.rideChannelService.publishDriverLocationToChannel(driverId, { driverId, latitude: driverLat, longitude: driverLng, updatedAt: new Date().toISOString() })
+            .catch((err) => this.logger.warn(`Background driver location publish failed: ${err}`));
+        }
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
