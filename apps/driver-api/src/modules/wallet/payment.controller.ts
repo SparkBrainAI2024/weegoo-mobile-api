@@ -25,9 +25,10 @@ export class PaymentController {
   @Get('esewa/success')
   @HttpCode(HttpStatus.OK)
   async esewaSuccess(
-    @Query('transactionId') transactionId: string,
+    @Query('transactionUuid') transactionId: string,
     @Query('refId') refId?: string,
     @Query('oid') oid?: string,
+     @Query('data') data?: string,
     @Res({ passthrough: true }) res?: Response,
   ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
     this.logger.log(`eSewa success callback: transactionId=${transactionId}, refId=${refId}, oid=${oid}`);
@@ -37,7 +38,7 @@ export class PaymentController {
     }
 
     try {
-      await this.walletService.completeTopup(transactionId, 0, { refId });
+      await this.walletService.completeTopupByUuid(transactionId, 0, { refId });
       return {
         success: true,
         message: 'Topup completed successfully',
@@ -172,9 +173,9 @@ export class PaymentController {
    * Driver payments redirect to the driver-facing frontend.
    */
   private getRedirectUrl(type: 'success' | 'failure'): string {
-    const frontendUrl = process.env.DRIVER_FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3001';
+    const baseAPI = process.env.API_BASE_URL;
     return type === 'success'
-      ? `${frontendUrl}/payment/success`
-      : `${frontendUrl}/payment/failure`;
+      ? `${baseAPI}/payment/esewa/success`
+      : `${baseAPI}/payment/esewa/failure`;
   }
 }

@@ -117,6 +117,16 @@ export class AuthService {
   }
 
 
+  /**
+   * Check if a user is suspended and throw an error if so.
+   * Duplicate checks centralised here to avoid code duplication.
+   */
+  private checkUserSuspended(user: { suspended?: boolean }, status: HttpStatus = HttpStatus.FORBIDDEN): void {
+    if (user.suspended) {
+      ErrorException(null, 'USER.SUSPENDED', status);
+    }
+  }
+
   // Helper to extract the token expiry timestamp from a JWT
   private getTokenExpiryFromJwt(token: string): number {
     try {
@@ -274,9 +284,7 @@ export class AuthService {
         ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
       }
     }
-    if (user.suspended) {
-      ErrorException(null, "USER.SUSPENDED", HttpStatus.FORBIDDEN);
-    }
+    this.checkUserSuspended(user);
     console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ validateUserForSignIn ~ user:", userDetails)
     return { user, userDetails };
   }
@@ -298,9 +306,7 @@ export class AuthService {
     } else {
       ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.NOT_FOUND);
     }
-    if (user.suspended) {
-      ErrorException(null, "USER.SUSPENDED", HttpStatus.FORBIDDEN);
-    }
+    this.checkUserSuspended(user);
     return { user, userDetails };
   }
 
@@ -333,7 +339,7 @@ export class AuthService {
 
       if (userExistWithThisPhone) {
         // If user is verified
-        if (userExistWithThisPhone.verified) {
+        if (userExistWithThisPhone.verified && !userExistWithThisPhone.suspended && !userExistWithThisPhone.profileCompleted) {
 
           // If password is not set
           if (!userExistWithThisPhone.password) {
@@ -374,6 +380,7 @@ export class AuthService {
           }
 
           else {
+            this.checkUserSuspended(userExistWithThisPhone, HttpStatus.LOCKED);
             if (!userExistWithThisPhone.roles.includes(this.defaultRole)) {
               ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
             } // If password is already set, prompt user to sign in
@@ -381,7 +388,9 @@ export class AuthService {
 
           };
         }
-
+        if(userExistWithThisPhone.profileCompleted) {
+             ErrorException('', "USER.USED_PHONE", HttpStatus.BAD_REQUEST);
+        }
         // User exists but not verified - OTP flow
         // Check if there's a valid non-expired OTP
         const validOtp = await this.hasValidOtp(userExistWithThisPhone._id, verificationType.VERIFICATION_PHONE);
@@ -503,9 +512,7 @@ export class AuthService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
-      if (user.suspended) {
-        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-      }
+      this.checkUserSuspended(user, HttpStatus.UNAUTHORIZED);
       if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
@@ -688,6 +695,7 @@ export class AuthService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
+      this.checkUserSuspended(user, HttpStatus.LOCKED);
 
       // Check if there's a valid non-expired OTP
       const validOtp = await this.hasValidOtp(user._id, type);
@@ -750,6 +758,7 @@ export class AuthService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
+      this.checkUserSuspended(user, HttpStatus.LOCKED);
       const verification = await this.userVerificationRepository.findOne({
         userId: user._id,
         otp,
@@ -819,9 +828,7 @@ export class AuthService {
       if (!userDetails) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
       }
-      if (user.suspended) {
-        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-      }
+      this.checkUserSuspended(user, HttpStatus.UNAUTHORIZED);
 
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
@@ -859,9 +866,7 @@ export class AuthService {
     try {
       const { password, device } = setPasswordInput;
 
-      if (user.suspended) {
-        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-      }
+      this.checkUserSuspended(user, HttpStatus.UNAUTHORIZED);
 
       // Verify the JTI from the token exists in user-token-meta (server-side check)
       if (verificationTokenData?.jti) {
@@ -931,9 +936,7 @@ export class AuthService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.UNAUTHORIZED);
       }
-      if (user.suspended) {
-        ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-      }
+      this.checkUserSuspended(user, HttpStatus.UNAUTHORIZED);
       await this.userRepository.updateOne(
         { _id: user._id },
         { password: await hashPassword(password, passwordSalt) },
