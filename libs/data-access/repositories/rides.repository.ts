@@ -74,7 +74,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         $project: {
           id: "$_id",
           rideUUId: 1,
-          createdAt: 1,
+          createdAt: {
+            $dateToString: {
+              date: "$createdAt",
+              format: "%Y-%m-%dT%H:%M:%S.%LZ",
+            },
+          },
           pickupLocation: "$pickupLocation.address",
           dropoffLocation: "$dropoffLocation.address",
           fare: { $ifNull: ["$fare.totalFare", 0] },
@@ -150,19 +155,13 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           fare: { $ifNull: ["$ride.fare.totalFare", 0] },
           raterName: "$ratedByUser.fullName",
           raterProfileImage: "$ratedByUser.profileImage",
-          raterShortId: {
-            $let: {
-              vars: { idStr: { $toString: "$ratedBy" } },
-              in: {
-                $substrBytes: [
-                  "$$idStr",
-                  { $subtract: [{ $strLenBytes: "$$idStr" }, 4] },
-                  4,
-                ],
-              },
+          raterShortId: { $substrBytes: [{ $toString: "$ratedBy" }, 20, 4] },
+          createdAt: {
+            $dateToString: {
+              date: "$createdAt",
+              format: "%Y-%m-%dT%H:%M:%S.%LZ",
             },
           },
-          createdAt: 1,
           rating: 1,
           review: { $ifNull: ["$remarkByUser", "$ratingRemarks"] },
           feedbackTag: "$remarkDoc.name",
