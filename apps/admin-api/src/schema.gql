@@ -1114,12 +1114,13 @@ type RatingListItem {
   pickup: String
   drop: String
   fare: Float
-  driverName: String!
-  driverShortId: String
+  raterName: String!
+  raterProfileImage: String
+  raterShortId: String
   createdAt: String!
   rating: Float!
   review: String
-  feedbackTags: [String!]
+  feedbackTag: String
 }
 
 type RiderRatingsResponse {

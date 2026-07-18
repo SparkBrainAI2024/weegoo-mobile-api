@@ -13,6 +13,7 @@ import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus } from "../enums/rides.enum";
 import { CategoryAccessedByRole } from "../enums/issue.enum";
+import { Rating, RatingDocument } from "../entities/rating.entity";
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
@@ -27,6 +28,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   private readonly logger = new Logger(RidesRepository.name);
   constructor(
     @InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>,
+    @InjectModel(Rating.name)
+    private readonly ratingModel: BaseModel<RatingDocument>,
   ) {
     super(_model);
   }
@@ -112,48 +115,57 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   }
 
   async getRiderReviews(
-    passengerId: Types.ObjectId,
+    riderId: Types.ObjectId,
     pageInput: { page?: number; limit?: number },
   ) {
     const page = pageInput.page ?? 0;
     const limit = pageInput.limit ?? 10;
 
-    // requires riderRating / riderReview / riderFeedbackTags on the Rides schema — see note above
-    const [result] = await this.model.aggregate([
-      { $match: { passengerId, riderRating: { $exists: true, $ne: null } } },
+    const [result] = await this.ratingModel.aggregate([
+      { $match: { ratedTo: riderId } }, // ratings THIS rider received
       {
         $lookup: {
-          from: "users",
-          localField: "driverId",
+          from: "rides",
+          localField: "rideId",
           foreignField: "_id",
-          as: "driverUser",
+          as: "ride",
         },
       },
-      { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$ride", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "userdetails",
-          localField: "driverId",
-          foreignField: "userId",
-          as: "driverDetails",
+          from: "remarks",
+          localField: "remark",
+          foreignField: "_id",
+          as: "remarkDoc",
         },
       },
-      { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$remarkDoc", preserveNullAndEmptyArrays: true } },
       {
         $project: {
-          rideId: "$_id",
-          rideUUId: 1,
-          pickup: "$pickupLocation.address",
-          drop: "$dropoffLocation.address",
-          fare: { $ifNull: ["$fare.totalFare", 0] },
-          driverName: {
-            $ifNull: ["$driverDetails.fullName", "$driverUser.fullName"],
+          rideId: "$ride._id",
+          rideUUId: "$ride.rideUUId",
+          pickup: "$ride.pickupLocation.address",
+          drop: "$ride.dropoffLocation.address",
+          fare: { $ifNull: ["$ride.fare.totalFare", 0] },
+          raterName: "$ratedByUser.fullName",
+          raterProfileImage: "$ratedByUser.profileImage",
+          raterShortId: {
+            $let: {
+              vars: { idStr: { $toString: "$ratedBy" } },
+              in: {
+                $substrBytes: [
+                  "$$idStr",
+                  { $subtract: [{ $strLenBytes: "$$idStr" }, 4] },
+                  4,
+                ],
+              },
+            },
           },
-          driverShortId: { $substr: [{ $toString: "$driverId" }, -4, 4] },
           createdAt: 1,
-          rating: "$riderRating",
-          review: "$riderReview",
-          feedbackTags: "$riderFeedbackTags",
+          rating: 1,
+          review: { $ifNull: ["$remarkByUser", "$ratingRemarks"] },
+          feedbackTag: "$remarkDoc.name",
         },
       },
       {
@@ -169,7 +181,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     ]);
 
     const total = result?.totalCount?.[0]?.count ?? 0;
-
     return {
       data: result?.paginatedResults ?? [],
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },

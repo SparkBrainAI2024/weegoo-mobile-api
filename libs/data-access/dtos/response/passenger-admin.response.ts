@@ -59,12 +59,13 @@ export class RatingListItem {
   @Field({ nullable: true }) pickup?: string;
   @Field({ nullable: true }) drop?: string;
   @Field({ nullable: true }) fare?: number;
-  @Field() driverName: string;
-  @Field({ nullable: true }) driverShortId?: string;
+  @Field() raterName: string;
+  @Field({ nullable: true }) raterProfileImage?: string;
+  @Field({ nullable: true }) raterShortId?: string;
   @Field() createdAt: string;
   @Field() rating: number;
   @Field({ nullable: true }) review?: string;
-  @Field(() => [String], { nullable: true }) feedbackTags?: string[];
+  @Field({ nullable: true }) feedbackTag?: string;
 }
 
 @ObjectType()
