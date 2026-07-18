@@ -1,8 +1,8 @@
+import { PaginationInput, UserDetailsRepository } from "@libs/data-access";
 import {
-  PaginationInput,
-  UserDetailsRepository,
-} from "@libs/data-access";
-import { Rating, RatingDocument } from "@libs/data-access/entities/rating.entity";
+  Rating,
+  RatingDocument,
+} from "@libs/data-access/entities/rating.entity";
 import { RatingRepository } from "@libs/data-access/repositories/rating.repository";
 import { RemarkRepository } from "@libs/data-access/repositories/remark.repository";
 import { CreateRatingInput } from "@libs/data-access/dtos/input/create-rating.input";
@@ -25,7 +25,9 @@ export class RatingService {
   /**
    * Builds a RideUserSnapshot from a User document.
    */
-  private async buildUserSnapshot(userId: Types.ObjectId): Promise<RideUserSnapshot> {
+  private async buildUserSnapshot(
+    userId: Types.ObjectId,
+  ): Promise<RideUserSnapshot> {
     const user = await this.userRepository.findById(userId);
     const userDetails = await this.userDetailsRepository.findOne({ userId });
 
@@ -34,9 +36,10 @@ export class RatingService {
     snapshot.phone = user?.phone || "";
     snapshot.rating = userDetails?.rating || 0;
     const activeImage = userDetails?.profileImages?.find(
-      (img) => img.status === "ACTIVE"
+      (img) => img.status === "ACTIVE",
     );
-    snapshot.profileImage = activeImage?.socialPicture || activeImage?.s3Key || undefined;
+    snapshot.profileImage =
+      activeImage?.socialPicture || activeImage?.s3Key || undefined;
     snapshot.locationChannelId = userDetails?.locationChannelId || undefined;
     snapshot.geoLocation = userDetails?.geoLocation || undefined;
 
@@ -70,16 +73,16 @@ export class RatingService {
     );
 
     if (alreadyRated) {
-      ErrorException(
-        null,
-        "RATING.ALREADY_RATED",
-        HttpStatus.BAD_REQUEST,
-      );
+      ErrorException(null, "RATING.ALREADY_RATED", HttpStatus.BAD_REQUEST);
     }
 
     // Build user snapshots
-    const ratedByUserSnapshot = await this.buildUserSnapshot(new Types.ObjectId(user._id));
-    const ratedToUserSnapshot = await this.buildUserSnapshot(new Types.ObjectId(input.ratedTo));
+    const ratedByUserSnapshot = await this.buildUserSnapshot(
+      new Types.ObjectId(user._id),
+    );
+    const ratedToUserSnapshot = await this.buildUserSnapshot(
+      new Types.ObjectId(input.ratedTo),
+    );
 
     // Create the rating
     const rating = await this.ratingRepository.createRating({
@@ -88,9 +91,7 @@ export class RatingService {
       ratedTo: new Types.ObjectId(input.ratedTo),
       rideId: new Types.ObjectId(input.rideId),
       ratingRemarks: input.ratingRemarks,
-      remark: input.remarkId
-        ? new Types.ObjectId(input.remarkId)
-        : undefined,
+      remark: input.remarkId ? new Types.ObjectId(input.remarkId) : undefined,
       ratedByUser: ratedByUserSnapshot,
       ratedToUser: ratedToUserSnapshot,
       remarkByUser: input.remarkByUser,
@@ -105,32 +106,23 @@ export class RatingService {
   /**
    * Lists ratings created by the current user with pagination.
    */
-  async listRatings(
-    user: User,
-    paginationInput: PaginationInput,
-  ) {
-    return this.ratingRepository.listRatings(
-      paginationInput,
-      { ratedBy: new Types.ObjectId(user._id) },
-    );
+  async listRatings(user: User, paginationInput: PaginationInput) {
+    return this.ratingRepository.listRatings(paginationInput, {
+      ratedBy: new Types.ObjectId(user._id),
+    });
   }
 
   /**
    * Gets a single rating by its ID.
    */
   async getRatingDetail(ratingId: string): Promise<RatingDocument | null> {
-    return this.ratingRepository.getRatingDetail(
-      new Types.ObjectId(ratingId),
-    );
+    return this.ratingRepository.getRatingDetail(new Types.ObjectId(ratingId));
   }
 
   /**
    * Gets ratings for a specific user (ratedTo) with pagination.
    */
-  async getRatingsForUser(
-    userId: string,
-    paginationInput: PaginationInput,
-  ) {
+  async getRatingsForUser(userId: string, paginationInput: PaginationInput) {
     return this.ratingRepository.getRatingByUser(
       new Types.ObjectId(userId),
       paginationInput,

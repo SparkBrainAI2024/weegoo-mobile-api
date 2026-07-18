@@ -1,7 +1,7 @@
-import { Field, InputType, Int, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsString, Min } from 'class-validator';
+import { Field, InputType, Int, registerEnumType } from "@nestjs/graphql";
+import { IsOptional, IsString, Min } from "class-validator";
 
-import { GraphQLJSON } from 'graphql-scalars';
+import { GraphQLJSON } from "graphql-scalars";
 
 export enum SortBy {
   asc = 1,
@@ -12,7 +12,7 @@ export const DEFAULT_PAGINATION_INPUT: PaginationInput = {
   page: 0,
   limit: 5,
   searchText: undefined,
-  orderBy: '_id',
+  orderBy: "_id",
   order: SortBy.asc,
   filter: undefined,
 };
@@ -33,7 +33,7 @@ export class PaginationInput {
 
   @Field(() => SortBy, { defaultValue: SortBy.desc })
   @IsOptional()
-  order: SortBy = SortBy.desc;
+  order?: SortBy = SortBy.desc;
 
   @Field(() => String, { nullable: true })
   @IsString()
@@ -72,14 +72,14 @@ export class CursorPaginationInput {
 
 // Register the OrderBy enum for GraphQL
 registerEnumType(SortBy, {
-  name: 'SortBy',
-  description: 'Order by direction for pagination',
+  name: "SortBy",
+  description: "Order by direction for pagination",
   valuesMap: {
     asc: {
-      description: 'Ascending order',
+      description: "Ascending order",
     },
     desc: {
-      description: 'Descending order',
+      description: "Descending order",
     },
   },
 });

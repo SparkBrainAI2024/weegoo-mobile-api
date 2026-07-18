@@ -95,10 +95,10 @@ export class RidesService {
     //get fullname and phone number and uuid for driver and passenger
     const user = this.userRepository.findById(toMongoId(userId));
 
-    return this.rideRepository.getRideHistoryOfIndividualRiderOrUser(
-      user,
-      options,
-    );
+    // return this.rideRepository.getRideHistoryOfIndividualRiderOrUser(
+    //   user,
+    //   options,
+    // );
   }
 
   async homeDashboardApi(user: User): Promise<any> {

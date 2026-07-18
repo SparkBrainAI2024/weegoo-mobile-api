@@ -153,7 +153,11 @@ export class Rides extends BaseEntity {
   @Field(() => RideUserSnapshot, { nullable: true })
   driver?: RideUserSnapshot;
 
-  @Field(() => Number, { nullable: true, description: "Wallet balance of the requesting user at the time of this response" })
+  @Field(() => Number, {
+    nullable: true,
+    description:
+      "Wallet balance of the requesting user at the time of this response",
+  })
   walletAmount?: number;
 }
 export type RidesDocument = HydratedDocument<Rides>;

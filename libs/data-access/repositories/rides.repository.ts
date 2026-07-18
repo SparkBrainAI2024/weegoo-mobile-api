@@ -41,6 +41,141 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return ride;
   }
 
+  async getPassengerTrips(
+    passengerId: Types.ObjectId,
+    pageInput: { page?: number; limit?: number },
+    filters: { search?: string; status?: string; paymentMethod?: string },
+  ) {
+    const match: Record<string, any> = { passengerId };
+    if (filters.status) match.rideStatus = filters.status;
+    if (filters.paymentMethod)
+      match["paymentDetails.method"] = filters.paymentMethod;
+    if (filters.search) {
+      match.$or = [
+        { rideUUId: { $regex: filters.search, $options: "i" } },
+        { "pickupLocation.address": { $regex: filters.search, $options: "i" } },
+        {
+          "dropoffLocation.address": { $regex: filters.search, $options: "i" },
+        },
+      ];
+    }
+
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
+    // single round trip: page of rows + completed/cancelled counts + avg fare,
+    // all via $facet instead of four separate queries
+    const [result] = await this.model.aggregate([
+      { $match: match },
+      {
+        $project: {
+          id: "$_id",
+          rideUUId: 1,
+          createdAt: 1,
+          pickupLocation: "$pickupLocation.address",
+          dropoffLocation: "$dropoffLocation.address",
+          fare: { $ifNull: ["$fare.totalFare", 0] },
+          paymentMethod: "$paymentDetails.method",
+          status: "$rideStatus",
+        },
+      },
+      {
+        $facet: {
+          paginatedResults: [
+            { $sort: { createdAt: -1 } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ],
+          totalCount: [{ $count: "count" }],
+          completedCount: [
+            { $match: { status: RideStatus.COMPLETED } },
+            { $count: "count" },
+          ],
+          cancelledCount: [
+            { $match: { status: RideStatus.CANCELLED } },
+            { $count: "count" },
+          ],
+          avgFare: [{ $group: { _id: null, avg: { $avg: "$fare" } } }],
+        },
+      },
+    ]);
+
+    const total = result?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data: result?.paginatedResults ?? [],
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      completed: result?.completedCount?.[0]?.count ?? 0,
+      cancelled: result?.cancelledCount?.[0]?.count ?? 0,
+      avgFare: Math.round(result?.avgFare?.[0]?.avg ?? 0),
+    };
+  }
+
+  async getRiderReviews(
+    passengerId: Types.ObjectId,
+    pageInput: { page?: number; limit?: number },
+  ) {
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
+    // requires riderRating / riderReview / riderFeedbackTags on the Rides schema — see note above
+    const [result] = await this.model.aggregate([
+      { $match: { passengerId, riderRating: { $exists: true, $ne: null } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driverUser",
+        },
+      },
+      { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "driverId",
+          foreignField: "userId",
+          as: "driverDetails",
+        },
+      },
+      { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          rideId: "$_id",
+          rideUUId: 1,
+          pickup: "$pickupLocation.address",
+          drop: "$dropoffLocation.address",
+          fare: { $ifNull: ["$fare.totalFare", 0] },
+          driverName: {
+            $ifNull: ["$driverDetails.fullName", "$driverUser.fullName"],
+          },
+          driverShortId: { $substr: [{ $toString: "$driverId" }, -4, 4] },
+          createdAt: 1,
+          rating: "$riderRating",
+          review: "$riderReview",
+          feedbackTags: "$riderFeedbackTags",
+        },
+      },
+      {
+        $facet: {
+          paginatedResults: [
+            { $sort: { createdAt: -1 } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ]);
+
+    const total = result?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data: result?.paginatedResults ?? [],
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   /**
    * Updates ride with timing data when the ride starts.
    * Sets rideStartedAt and recalculates estimatedFare and estimatedTimeInMinutes
