@@ -123,8 +123,8 @@ export class WalletService {
     const txnId = txn._id.toString();
     const callbackSuccessUrl = `${baseUrl}/payment/esewa/success?transactionUuid=${transactionUuid}`;
     const callbackFailureUrl = `${baseUrl}/payment/esewa/failure?transactionUuid=${transactionUuid}`;
-    const frontendSuccessUrl = `${baseUrl}/esewa/payment/success`;
-    const frontendFailureUrl = `${baseUrl}/esewa/payment/failure`;
+    const frontendSuccessUrl = `${baseUrl}/payment/esewa/success`;
+    const frontendFailureUrl = `${baseUrl}/payment/esewa/failure`;
 
     let esewaPayload: EsewaSdkPayload | undefined;
     let khaltiPayload: KhaltiSdkPayload | undefined;
