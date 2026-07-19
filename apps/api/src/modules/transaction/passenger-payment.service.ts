@@ -383,7 +383,7 @@ export class PassengerPaymentService {
             const driverTxn = await this.createTransaction(
                 driverId,
                 TransactionDirection.CREDIT,
-                TransactionType.COMMISSION,
+                TransactionType.RIDE_PAYMENT,
                 driverAmount,
                 paymentMethod,
                 ride._id.toString(),
