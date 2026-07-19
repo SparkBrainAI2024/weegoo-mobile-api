@@ -14,6 +14,7 @@ import { Types } from "mongoose";
 import { RideStatus } from "../enums/rides.enum";
 import { CategoryAccessedByRole } from "../enums/issue.enum";
 import { Rating, RatingDocument } from "../entities/rating.entity";
+import { RidesListInput, RideTimeRange } from "../dtos/input/rides-list.input";
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
@@ -23,6 +24,11 @@ interface CancelRideParams {
   cancelReasonContent?: string;
 }
 
+const TIME_RANGE_MS: Record<RideTimeRange, number> = {
+  [RideTimeRange.LAST_24_HOURS]: 24 * 60 * 60 * 1000,
+  [RideTimeRange.LAST_7_DAYS]: 7 * 24 * 60 * 60 * 1000,
+  [RideTimeRange.LAST_30_DAYS]: 30 * 24 * 60 * 60 * 1000,
+};
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
   private readonly logger = new Logger(RidesRepository.name);
@@ -183,6 +189,68 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return {
       data: result?.paginatedResults ?? [],
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findRides(input: RidesListInput) {
+    const { status, timeRange, search, page, limit } = input;
+
+    const match: Record<string, any> = {
+      deleted: { $ne: true },
+      bookingTime: { $gte: new Date(Date.now() - TIME_RANGE_MS[timeRange]) },
+    };
+    if (status) match.rideStatus = status;
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: "users",
+          localField: "passengerId",
+          foreignField: "_id",
+          as: "riderUser",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driverUser",
+        },
+      },
+      { $unwind: { path: "$riderUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+    ];
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+      pipeline.push({
+        $match: {
+          $or: [
+            { rideUUId: regex },
+            { "riderUser.fullName": regex },
+            { "driverUser.fullName": regex },
+          ],
+        },
+      });
+    }
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $sort: { bookingTime: -1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    });
+
+    const [result] = await this._model.aggregate(pipeline);
+    return {
+      rides: result.data,
+      total: result.totalCount[0]?.count ?? 0,
     };
   }
 
@@ -696,5 +764,79 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           break;
       }
     }
+  }
+
+  async findRideByIdAdmin(id: string) {
+    const [ride] = await this._model.aggregate([
+      { $match: { _id: new Types.ObjectId(id), deleted: { $ne: true } } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "passengerId",
+          foreignField: "userId",
+          as: "passengerDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "driverId",
+          foreignField: "userId",
+          as: "driverDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "passengerId",
+          foreignField: "_id",
+          as: "passengerUser",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driverUser",
+        },
+      },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      {
+        $unwind: {
+          path: "$passengerDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$passengerUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$vehicle", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          passenger: {
+            fullName: "$passengerUser.fullName",
+            phone: "$passengerUser.phone",
+            profileImages: "$passengerDetails.profileImages",
+
+            rating: "$passengerDetails.rating",
+          },
+          driver: {
+            fullName: "$driverUser.fullName",
+            phone: "$driverUser.phone",
+            profileImages: "$driverDetails.profileImages",
+            rating: "$driverDetails.rating",
+          },
+        },
+      },
+    ]);
+    return ride ?? null;
   }
 }

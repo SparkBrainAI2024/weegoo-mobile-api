@@ -51,6 +51,7 @@ import axios from "axios";
 
 import { InjectModel } from "@nestjs/mongoose";
 import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
+import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 @Injectable()
 export class RidesService {
   constructor(
@@ -84,6 +85,16 @@ export class RidesService {
       user,
       options,
     );
+  }
+
+  async getRidesList(input: RidesListInput) {
+    const { rides, total } = await this.rideRepository.findRides(input);
+    return {
+      rides,
+      total,
+      page: input.page,
+      limit: input.limit,
+    };
   }
 
   //userId can be of  either driver or passenger
@@ -946,7 +957,8 @@ export class RidesService {
     if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
       discount = Math.round(
         Number(ride.estimatedFare) *
-        ((Number(promo.percentageAmount) || 0) / 100));
+          ((Number(promo.percentageAmount) || 0) / 100),
+      );
       if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
         discount = Math.round(Number(promo.maxDiscount));
       }
@@ -1013,7 +1025,9 @@ export class RidesService {
     const promoId = ride.fare["promoCodeId"];
 
     // Update ride - revert estimated fare and clear fields
-    const revertedFare = Math.round(Number(ride.estimatedFare) + Number(discountAmount));
+    const revertedFare = Math.round(
+      Number(ride.estimatedFare) + Number(discountAmount),
+    );
     const updatedRide = await this.rideRepository.findOneAndUpdate(
       { _id: ride._id },
       {
@@ -1046,6 +1060,29 @@ export class RidesService {
       message: "RIDES.PROMO_REMOVED",
       success: true,
       ride: rideObj,
+    };
+  }
+
+  async getRideByIdAdmin(id: string) {
+    const ride = await this.rideRepository.findRideByIdAdmin(id);
+    if (!ride) return null;
+
+    return {
+      ...ride,
+      passenger: ride.passenger && {
+        ...ride.passenger,
+        profileImage: getActiveProfileImageUrl(
+          ride.passenger.profileImages,
+          (key) => this.s3.getPublicUrl(key),
+        ),
+      },
+      driver: ride.driver && {
+        ...ride.driver,
+        profileImage: getActiveProfileImageUrl(
+          ride.driver.profileImages,
+          (key) => this.s3.getPublicUrl(key),
+        ),
+      },
     };
   }
 }
