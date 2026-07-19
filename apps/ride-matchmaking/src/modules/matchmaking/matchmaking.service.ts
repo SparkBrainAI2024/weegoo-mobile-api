@@ -636,7 +636,7 @@ export class MatchmakingService {
             driverToPickupDurationMinutes = dist.durationMinutes;
           } catch { }
         }
-
+        this.logger.log(`Driver ${driverId} is ${driverToPickupDistanceKm} km away from pickup, ETA ${driverToPickupDurationMinutes} minutes`);
         // Use the fare already persisted to the ride document by executeExpandingRingMatch or matchScheduledDrivers
         const pickupToDropoffKm = ride.distanceInKm || 0;
         const storedFare = ride.fare;
@@ -724,17 +724,19 @@ export class MatchmakingService {
           ),
         );
 
-        // If driver is within 300 meters of pickup, publish their location to the ride channel
-        // immediately so the passenger sees the driver's position right away on the map.
+        // If driver is within 300 meters of pickup, publish their location to both the ride channel
+        // and the driver's personal location channel immediately so the passenger sees the driver's
+        // position right away on the map.
         if (driverToPickupDistanceKm <= 0.3) {
-          this.rideChannelService.publishDriverLocationUpdate(rideUUID, {
+        
+          // Also publish to the driver's personal location channel so that any subscribers
+          // (e.g. passenger app location tracking) immediately see the driver's initial position.
+          this.rideChannelService.publishDriverLocationToChannel(driverId, {
             driverId,
             latitude: driverLat,
             longitude: driverLng,
-            distanceToReachPassenger: driverToPickupDistanceKm,
-            estimatedTimeToReachPassenger: driverToPickupDurationMinutes,
             updatedAt: new Date().toISOString(),
-          }).catch((err) => this.logger.warn(`Background driver location publish to ride channel failed: ${err}`));
+          }).catch((err) => this.logger.warn(`Background driver location publish to driver channel failed: ${err}`));
         }
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
