@@ -40,6 +40,9 @@ export class DriverWDocuments {
   @Field(() => String)
   joinedDate: String;
 
+  @Field(() => String, { nullable: true })
+  downloadUrl?: string;
+
   @Field(() => Number, { nullable: true })
   totalRidesAsDriver?: number;
 

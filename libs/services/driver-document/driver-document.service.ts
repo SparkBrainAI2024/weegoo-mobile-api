@@ -188,9 +188,29 @@ export class DriverDocumentService {
   async getDriverDocuments(driverId: string) {
     const myDocs = await this.repository.getDriverDocuments(driverId);
 
-    return myDocs.map((doc) => ({
-      ...doc.toObject(),
-    }));
+    await Promise.all(
+      myDocs.flatMap((doc) =>
+        doc.files
+          .filter((file) => file.isActive)
+          .map(async (file) => {
+            const rawKey = file.s3Key; // grab before overwriting
+
+            const [viewUrl, downloadUrl] = await Promise.all([
+              this.s3.getViewUrl(rawKey, VIEW_URL_EXPIRES_ADMIN_SECONDS),
+              this.s3.getDownloadUrl(
+                rawKey,
+                VIEW_URL_EXPIRES_ADMIN_SECONDS,
+                `${doc.type}_${file.side}.${rawKey.split(".").pop()}`,
+              ),
+            ]);
+
+            file.s3Key = viewUrl;
+            (file as any).downloadUrl = downloadUrl;
+          }),
+      ),
+    );
+
+    return myDocs;
   }
 
   // ─── Driver URL ───────────────────────────────────────────────────────────────
@@ -257,6 +277,46 @@ export class DriverDocumentService {
     const url = await this.s3.getViewUrl(
       file.s3Key,
       VIEW_URL_EXPIRES_ADMIN_SECONDS,
+    );
+
+    return {
+      url,
+      expiresInSeconds: VIEW_URL_EXPIRES_ADMIN_SECONDS,
+    };
+  }
+
+  async getDocumentDownloadUrlAsAdmin(params: {
+    driverId: string;
+    documentType: DriverDocumentType;
+    side: DriverDocumentSide;
+  }) {
+    const doc = await this.repository.findByDriverAndType(
+      params.driverId,
+      params.documentType,
+    );
+
+    if (!doc) {
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
+    }
+
+    const file = findActiveFileBySide(doc, params.side);
+
+    if (!file) {
+      ErrorException(
+        null,
+        "DRIVER_DOCUMENT.FILE_NOT_FOUND",
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // e.g. "driver_license_FRONT.jpg" — derive extension from the stored key
+    const ext = file.s3Key.split(".").pop();
+    const filename = `${params.documentType}_${params.side}.${ext}`;
+
+    const url = await this.s3.getDownloadUrl(
+      file.s3Key,
+      VIEW_URL_EXPIRES_ADMIN_SECONDS, // reuse, or add a separate DOWNLOAD_URL_EXPIRES_ADMIN_SECONDS if you want a different TTL
+      filename,
     );
 
     return {

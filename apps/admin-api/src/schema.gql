@@ -256,8 +256,10 @@ enum RideStatus {
 }
 
 type DocumentFile {
+  _id: String
   side: DriverDocumentSide!
   s3Key: String!
+  downloadUrl: String
   isActive: Boolean!
   status: DocumentFileStatus!
   verifiedBy: String
@@ -990,6 +992,7 @@ type DriverWDocuments {
   locationChannelId: String
   dateOfBirth: String
   joinedDate: String!
+  downloadUrl: String
   totalRidesAsDriver: Float
   totalEarnings: Float
   amountDueToCompany: Float
