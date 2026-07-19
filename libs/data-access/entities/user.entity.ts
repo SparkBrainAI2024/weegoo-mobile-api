@@ -65,7 +65,6 @@ export class User extends BaseEntity {
   @Field(() => String, { nullable: true })
   @Prop({
     required: false,
-    unique: true,
     type: String,
   })
   phone?: string;
@@ -90,4 +89,13 @@ export const userModel = {
 };
 
 UserSchema.index({ authProvider: 1, deleted: 1, deletedAt: 1 });
+UserSchema.index(
+  { phone: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      phone: { $exists: true, $type: 'string' },
+    },
+  },
+);
 UserSchema.plugin(paginateAndSoftDelete);

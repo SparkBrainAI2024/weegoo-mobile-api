@@ -706,10 +706,11 @@ export class MatchmakingService {
             vehicleColor: acceptDetails?.vehicle?.color || vehicle?.color || null, vehicleNumberPlate: acceptDetails?.vehicle?.numberPlate || vehicle?.numberPlate || null,
             pickupLocation: ride.pickupLocation ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city } : undefined,
             dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-            distanceInKm: driverToPickupDistanceKm ||ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
+            distanceInKm: ride.distanceInKm || null, estimatedFare: acceptDetails?.estimatedFare || ride.estimatedFare || null,
             estimatedTimeInMinutes: driverToPickupDurationMinutes || ride.estimatedTimeInMinutes || null,
             driverSnapshot,
             rideId: updatedRide._id.toString(),
+            distanceToPickupKm: driverToPickupDistanceKm || null,
             passengerId: updatedRide.passengerId?.toString() || null,
           };
           this.notificationService.createNotification(notificationInput, passengerUser);
@@ -723,11 +724,17 @@ export class MatchmakingService {
           ),
         );
 
-        // If driver is within 300 meters of pickup, publish their location immediately
-        // in the background so the passenger sees the driver's position right away.
-        if (driverToPickupDistanceKm <= 0.3 ) {
-          this.rideChannelService.publishDriverLocationToChannel(driverId, { driverId, latitude: driverLat, longitude: driverLng, updatedAt: new Date().toISOString() })
-            .catch((err) => this.logger.warn(`Background driver location publish failed: ${err}`));
+        // If driver is within 300 meters of pickup, publish their location to the ride channel
+        // immediately so the passenger sees the driver's position right away on the map.
+        if (driverToPickupDistanceKm <= 0.3) {
+          this.rideChannelService.publishDriverLocationUpdate(rideUUID, {
+            driverId,
+            latitude: driverLat,
+            longitude: driverLng,
+            distanceToReachPassenger: driverToPickupDistanceKm,
+            estimatedTimeToReachPassenger: driverToPickupDurationMinutes,
+            updatedAt: new Date().toISOString(),
+          }).catch((err) => this.logger.warn(`Background driver location publish to ride channel failed: ${err}`));
         }
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
