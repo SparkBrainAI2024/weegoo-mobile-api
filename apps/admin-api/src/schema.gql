@@ -182,6 +182,8 @@ type RideUserSnapshot {
   phone: String
   locationChannelId: String
   geoLocation: GeoLocation
+  totalTripsAsPassenger: Float
+  totalRidesAsDriver: Float
 }
 
 type Rides {
@@ -876,6 +878,12 @@ type DriverRideDetails {
   acceptedAt: String
 }
 
+type TransactionListWithPaginationResponse {
+  data: [Transaction!]
+  pagination: Pagination!
+  walletAmount: Float
+}
+
 type CompleteRideFareBreakdown {
   baseFare: Float!
   distanceCharge: Float!
@@ -1132,6 +1140,13 @@ type RiderRatingsResponse {
   breakdown: RatingBreakdown!
 }
 
+type RidesListResponse {
+  rides: [Rides!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
@@ -1151,6 +1166,13 @@ type Query {
   getRiderOverview(riderId: String!): RiderOverviewResponse!
   getRiderTrips(input: RiderTripsInput!): RiderTripsResponse!
   getPassengerRatings(input: RiderRatingsInput!): RiderRatingsResponse!
+  rides(input: RidesListInput!): RidesListResponse!
+  ride(id: String!): Rides
+
+  """
+  Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
+  """
+  getTransactionHistory(input: TransactionPaginationInput!): TransactionListWithPaginationResponse!
 }
 
 input PaginationInputOnly {
@@ -1215,6 +1237,26 @@ input RiderRatingsInput {
   riderId: ID!
   page: Float = 0
   limit: Float = 10
+}
+
+input RidesListInput {
+  status: RideStatus
+  timeRange: RideTimeRange! = LAST_24_HOURS
+  search: String
+  page: Int! = 1
+  limit: Int! = 10
+}
+
+"""Fixed time-range filter for the rides list"""
+enum RideTimeRange {
+  LAST_24_HOURS
+  LAST_7_DAYS
+  LAST_30_DAYS
+}
+
+input TransactionPaginationInput {
+  limit: Int! = 10
+  page: Int! = 0
 }
 
 type Mutation {
