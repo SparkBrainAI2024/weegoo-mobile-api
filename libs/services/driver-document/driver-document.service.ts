@@ -295,7 +295,6 @@ export class DriverDocumentService {
   }
   async getDriverDocuments(driverId: string) {
     const myDocs = await this.repository.getDriverDocuments(driverId);
-    console.log(myDocs, "mydocs");
 
     const docsWithUrls = await Promise.all(
       myDocs.map(async (doc) => {
@@ -313,7 +312,6 @@ export class DriverDocumentService {
                   `${doc.type}_${file.side}.${rawKey.split(".").pop()}`,
                 ),
               ]);
-              console.log(file, "file");
 
               return {
                 _id: file._id?.toString(),
@@ -341,7 +339,6 @@ export class DriverDocumentService {
         };
       }),
     );
-    console.log(docsWithUrls, "docs w urls");
 
     return docsWithUrls;
   }

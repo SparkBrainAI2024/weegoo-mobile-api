@@ -107,8 +107,6 @@ export class DriverService {
     );
 
     const data: DriverListItem[] = result.data.map((row: any) => {
-      console.log(row, "row");
-
       return {
         id: row.id?.toString(),
         fullName: row.fullName || "Driver",

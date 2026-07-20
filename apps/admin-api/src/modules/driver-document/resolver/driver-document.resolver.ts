@@ -35,8 +35,6 @@ export class DriverDocumentResolver {
     @Args("input") input: ApproveDocumentFileInput,
     @CurrentUser() admin: { id: string },
   ) {
-    console.log(input, "input");
-
     return this.driverDocService.approveDocumentFile(
       input.documentFileId,
       admin.id,
