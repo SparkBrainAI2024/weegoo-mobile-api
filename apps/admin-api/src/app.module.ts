@@ -16,6 +16,7 @@ import { PromoCodeModule } from "./modules/promocode/promocode.module";
 import { DriverModule } from "./modules/driver/driver.module";
 import { PassengerModule } from "./modules/passenger/passenger.module";
 import { AdminRidesModule } from "./modules/ride/rides.module";
+import { DriverDocumentModule } from "./modules/driver-document/driver-document.module";
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { AdminRidesModule } from "./modules/ride/rides.module";
     DriverModule,
     PassengerModule,
     AdminRidesModule,
+    DriverDocumentModule,
   ],
   providers: [HealthResolver],
 })

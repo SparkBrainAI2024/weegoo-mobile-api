@@ -282,7 +282,7 @@ enum DocumentFileStatus {
 }
 
 type DriverDocument {
-  _id: String!
+  _id: String
   createdAt: DateTime
   updatedAt: DateTime
   deletedAt: DateTime
@@ -1293,6 +1293,8 @@ type Mutation {
   deletePassenger(input: DeletePassengerInput!): Boolean!
   blockPassenger(id: ID!): PassengerListItem!
   unblockPassenger(id: ID!): PassengerListItem!
+  approveDriverDocumentFile(input: ApproveDocumentFileInput!): DriverDocument!
+  rejectDriverDocumentFile(input: RejectDocumentFileInput!): DriverDocument!
 }
 
 input AdminSignUpInput {
@@ -1531,4 +1533,13 @@ input EditVehicleInput {
 
 input DeletePassengerInput {
   passengerId: String!
+}
+
+input ApproveDocumentFileInput {
+  documentFileId: String!
+}
+
+input RejectDocumentFileInput {
+  documentFileId: String!
+  rejectionReason: String!
 }
