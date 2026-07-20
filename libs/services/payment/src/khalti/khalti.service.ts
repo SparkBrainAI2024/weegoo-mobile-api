@@ -249,4 +249,72 @@ export class KhaltiService {
   }> {
     return this.lookupTransaction(pidx);
   }
+
+  /**
+   * Initiate a merchant payout (disbursement) to a user's Khalti account.
+   * 
+   * Khalti Merchant Payout API allows merchants to send money directly to
+   * a user's Khalti account using their mobile number.
+   * 
+   * Reference: https://docs.khalti.com/khalti-epayment/#merchant-payment
+   * 
+   * NOTE: This requires merchant payout to be enabled on your Khalti merchant account.
+   * You may need to contact Khalti support to enable this feature.
+   */
+  async initiatePayout(params: {
+    /** The recipient's Khalti mobile number (e.g. "98XXXXXXXX") */
+    receiverAccount: string;
+    /** Amount in NPR to send */
+    amount: number;
+    /** Your internal transaction/reference ID */
+    transactionId: string;
+    /** Optional remarks for the payout */
+    remarks?: string;
+  }): Promise<{ success: boolean; message: string; referenceId?: string }> {
+    const secretKey = this.envService.getString('KHALTI_SECRET_KEY', 'test_secret_key');
+    const isProduction = this.envService.isProduction();
+    const payoutUrl = isProduction
+      ? 'https://khalti.com/api/v2/merchant/payment/'
+      : 'https://a.khalti.com/api/v2/merchant/payment/';
+
+    this.logger.log(`Initiating Khalti payout: receiver=${params.receiverAccount}, amount=${params.amount}`);
+
+    try {
+      const response = await fetch(payoutUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${secretKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          receiver: params.receiverAccount,
+          amount: params.amount * 100, // Convert to paisa
+          transaction_id: params.transactionId,
+          remarks: params.remarks || 'Wallet withdrawal',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'Completed') {
+        return {
+          success: true,
+          message: 'Payout completed successfully',
+          referenceId: data.transaction_id || data.idx,
+        };
+      }
+
+      this.logger.error(`Khalti payout failed: ${JSON.stringify(data)}`);
+      return {
+        success: false,
+        message: data.detail || data.message || data.status || 'Khalti payout failed',
+      };
+    } catch (error: any) {
+      this.logger.error('Khalti payout error:', error);
+      return {
+        success: false,
+        message: error.message || 'Khalti payout request failed',
+      };
+    }
+  }
 }

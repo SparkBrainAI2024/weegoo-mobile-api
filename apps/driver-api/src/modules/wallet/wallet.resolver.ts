@@ -115,16 +115,21 @@ export class WalletResolver {
   @Mutation(() => WithdrawInitiateResponse, {
     name: 'initiateWithdraw',
     description:
-      'Initiate a wallet withdrawal. Creates a PENDING withdrawal transaction that must be approved by admin.',
+      'Initiate a wallet withdrawal to eSewa or Khalti. Provide paymentMedium (ESEWA or KHALTI) and accountIdentifier (eSewa phone/email or Khalti phone). The payout is processed immediately via the gateway.',
   })
   async initiateWithdraw(
     @CurrentUser() user: User,
     @Args('amount', { type: () => Float }) amount: number,
+    @Args('paymentMedium', { type: () => PaymentMediumEnum })
+    paymentMedium: PaymentMediumEnum,
+    @Args('accountIdentifier', { type: () => String }) accountIdentifier: string,
   ): Promise<WithdrawInitiateResponse> {
     return this.walletService.initiateWithdraw({
       userId: user._id.toString(),
       amount,
       paymentMethod: PaymentMethodEnum.WALLET,
+      paymentMedium,
+      accountIdentifier,
       loginAs: user.loginAs,
     });
   }
