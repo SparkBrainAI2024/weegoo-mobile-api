@@ -2,6 +2,7 @@ import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-docum
 import {
   Args,
   ID,
+  Int,
   Mutation,
   Parent,
   Query,
@@ -19,6 +20,8 @@ import {
 } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
 import { DeleteDriverInput } from "@libs/data-access/dtos/input/delete-driver.input";
+import { DriverCommissionSummary } from "@libs/data-access/dtos/response/driver-commission-summary.response";
+import { DriverTripsPage } from "@libs/data-access/dtos/response/driver-trips.response";
 
 // @UseGuards(AuthGuard, RoleGuard)
 // @SetMetadata("roles", [roles.ADMIN])
@@ -74,5 +77,29 @@ export class DriverResolver {
     @Args("id", { type: () => ID }) id: string,
   ): Promise<Pick<DriverListItem, "id" | "suspended">> {
     return this.driverService.setSuspended(id, false);
+  }
+
+  @Query(() => DriverTripsPage)
+  async driverTrips(
+    @Args("driverId", { type: () => ID }) driverId: string,
+    @Args("page", { type: () => Int, nullable: true }) page?: number,
+    @Args("limit", { type: () => Int, nullable: true }) limit?: number,
+    @Args("search", { nullable: true }) search?: string,
+    @Args("status", { nullable: true }) status?: string,
+    @Args("orderBy", { nullable: true }) orderBy?: string,
+    @Args("order", { nullable: true }) order?: string,
+  ) {
+    return this.driverService.getDriverTrips(
+      driverId,
+      { page, limit },
+      { search, status, orderBy, order },
+    );
+  }
+
+  @Query(() => DriverCommissionSummary)
+  async driverCommissionSummary(
+    @Args("driverId", { type: () => ID }) driverId: string,
+  ) {
+    return this.driverService.getDriverCommissionSummary(driverId);
   }
 }

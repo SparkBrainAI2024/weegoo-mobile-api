@@ -1023,6 +1023,40 @@ type DriverListResponse {
   pagination: Pagination!
 }
 
+type DriverCommissionSummary {
+  outstandingToPay: Float!
+  commissionPaid: Float
+  totalRides: Int!
+  lastSettlementDate: String
+  lastSettlementAmount: Float
+  lastSettlementMethod: String
+}
+
+type DriverTripRow {
+  id: ID!
+  rideUUId: String!
+  createdAt: String!
+  pickupLocation: String
+  dropoffLocation: String
+  fare: Float!
+  paymentMethod: String
+  driverCommission: Float
+  driverGets: Float
+  status: String
+}
+
+type PaginationInfo {
+  total: Float!
+  page: Float!
+  limit: Float!
+  totalPages: Float!
+}
+
+type DriverTripsPage {
+  data: [DriverTripRow!]!
+  pagination: PaginationInfo!
+}
+
 type DriverDocumentConfirmUploadResponse {
   message: String!
   success: Boolean!
@@ -1162,6 +1196,8 @@ type Query {
   unreadNotificationCount: Int!
   getDriver(driverId: String!): DriverWDocuments!
   getDrivers(input: DriverListInput): DriverListResponse!
+  driverTrips(driverId: ID!, page: Int, limit: Int, search: String, status: String, orderBy: String, order: String): DriverTripsPage!
+  driverCommissionSummary(driverId: ID!): DriverCommissionSummary!
   myDriverDocuments: [DriverDocument!]!
   driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle: Vehicle!

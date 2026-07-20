@@ -125,6 +125,98 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
   }
 
+  async getDriverTrips(
+    driverId: Types.ObjectId,
+    pageInput: { page?: number; limit?: number },
+    filters: {
+      search?: string;
+      status?: string;
+      orderBy?: string; //field
+      order?: string; //
+    },
+  ) {
+    const match: Record<string, any> = { driverId };
+    if (filters.status) {
+      match.rideStatus = filters.status;
+    }
+    const sortField = filters.orderBy || "createdAt";
+    const sortDirection = filters.order === "asc" ? 1 : -1; // aggregation $sort needs 1/-1, not "asc"/"desc" strings
+
+    if (filters.status) match.rideStatus = filters.status;
+
+    if (filters.search) {
+      match.$or = [
+        { rideUUId: { $regex: filters.search, $options: "i" } },
+        { "pickupLocation.address": { $regex: filters.search, $options: "i" } },
+        {
+          "dropoffLocation.address": { $regex: filters.search, $options: "i" },
+        },
+      ];
+    }
+
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
+    // single round trip: page of rows + completed/cancelled counts + avg fare,
+    // all via $facet instead of four separate queries
+    const [result] = await this.model.aggregate([
+      { $match: match },
+      {
+        $project: {
+          id: "$_id",
+          rideUUId: 1,
+          createdAt: {
+            $dateToString: {
+              date: "$createdAt",
+              format: "%Y-%m-%dT%H:%M:%S.%LZ",
+            },
+          },
+          pickupLocation: "$pickupLocation.address",
+          dropoffLocation: "$dropoffLocation.address",
+          fare: { $ifNull: ["$fare.totalFare", 0] },
+          paymentMethod: "$paymentDetails.paymentMethod",
+          driverCommission: "$paymentDetails.driverCommission",
+          driverGets: {
+            $subtract: [
+              { $ifNull: ["$fare.totalFare", 0] },
+              { $ifNull: ["$paymentDetails.driverCommission", 0] },
+            ],
+          },
+          status: { $literal: null }, // settlement status — TODO once WalletTransaction join is wired
+        },
+      },
+      {
+        $facet: {
+          paginatedResults: [
+            { $sort: { [sortField]: sortDirection } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ],
+          totalCount: [{ $count: "count" }],
+          completedCount: [
+            { $match: { status: RideStatus.COMPLETED } },
+            { $count: "count" },
+          ],
+          cancelledCount: [
+            { $match: { status: RideStatus.CANCELLED } },
+            { $count: "count" },
+          ],
+          avgFare: [{ $group: { _id: null, avg: { $avg: "$fare" } } }],
+        },
+      },
+    ]);
+
+    const total = result?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data: result?.paginatedResults ?? [],
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      completed: result?.completedCount?.[0]?.count ?? 0,
+      cancelled: result?.cancelledCount?.[0]?.count ?? 0,
+      avgFare: Math.round(result?.avgFare?.[0]?.avg ?? 0),
+    };
+  }
+
   async getRiderReviews(
     riderId: Types.ObjectId,
     pageInput: { page?: number; limit?: number },
