@@ -1,4 +1,9 @@
-import { HttpStatus, Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { Types } from "mongoose";
 
 import {
@@ -28,12 +33,20 @@ import { log } from "console";
 import { DriverDocumentConfirmUploadResponse } from "@libs/data-access/dtos/response/driver-document-confirm-upload.response";
 import { SubmitDocumentForReviewInput } from "@libs/data-access/dtos/input/submit-for-review.input";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
+import {
+  BaseModel,
+  DriverDocument,
+  DriverDocumentDocument,
+} from "@libs/data-access";
+import { InjectModel } from "@nestjs/mongoose";
 
 @Injectable()
 export class DriverDocumentService {
   constructor(
     private readonly repository: DriverDocumentRepository,
     private readonly s3: S3Service,
+    @InjectModel(DriverDocument.name)
+    private readonly _model: BaseModel<DriverDocumentDocument>,
   ) {}
 
   // ─── Upsert document ──────────────────────────────────────────────────────────
@@ -185,12 +198,149 @@ export class DriverDocumentService {
     }));
   }
 
+  private toObjectId(id: string, label = "id"): Types.ObjectId {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException(`Invalid ${label}: ${id}`);
+    }
+    return new Types.ObjectId(id);
+  }
+
+  private async findBundleByFileId(
+    documentFileId: string,
+  ): Promise<DriverDocumentDocument> {
+    const fileObjectId = this.toObjectId(documentFileId, "documentFileId");
+
+    const bundle = await this._model.findOne({
+      "files._id": fileObjectId,
+    });
+
+    if (!bundle) {
+      throw new NotFoundException(
+        `No document bundle found containing file ${documentFileId}`,
+      );
+    }
+    return bundle;
+  }
+
+  async approveDocumentFile(
+    documentFileId: string,
+    adminId: string,
+  ): Promise<DriverDocumentDocument> {
+    const bundle = await this.findBundleByFileId(documentFileId);
+    const file = bundle.files.find((f) => f._id?.toString() === documentFileId);
+
+    if (!file)
+      throw new NotFoundException(`File ${documentFileId} not found in bundle`);
+    if (!file.isActive)
+      throw new BadRequestException("Cannot approve an inactive file");
+    if (file.status === DocumentFileStatus.VERIFIED) {
+      throw new BadRequestException("File is already verified");
+    }
+
+    file.status = DocumentFileStatus.VERIFIED;
+    file.verifiedBy = adminId;
+    file.verifiedAt = new Date();
+
+    const activeFiles = bundle.files.filter((f) => f.isActive);
+    const allActiveApproved =
+      activeFiles.length > 0 &&
+      activeFiles.every((f) => f.status === DocumentFileStatus.VERIFIED);
+
+    if (allActiveApproved) {
+      bundle.status = DriverDocumentBundleStatus.APPROVED;
+      bundle.reviewedBy = this.toObjectId(adminId, "adminId");
+      bundle.reviewedAt = new Date();
+      bundle.rejectionReason = null;
+    }
+    // else: leave bundle.status as-is — still waiting on other side(s)
+
+    await bundle.save();
+    return bundle;
+  }
+
+  async rejectDocumentFile(
+    documentFileId: string,
+    adminId: string,
+    rejectionReason: string,
+  ): Promise<DriverDocumentDocument> {
+    const bundle = await this.findBundleByFileId(documentFileId);
+    const file = bundle.files.find((f) => f._id?.toString() === documentFileId);
+
+    if (!file)
+      throw new NotFoundException(`File ${documentFileId} not found in bundle`);
+    if (!file.isActive)
+      throw new BadRequestException("Cannot reject an inactive file");
+    if (file.status === DocumentFileStatus.REJECTED) {
+      throw new BadRequestException("File is already rejected");
+    }
+
+    file.status = DocumentFileStatus.REJECTED;
+    file.verifiedBy = adminId;
+    file.verifiedAt = new Date();
+
+    const activeFiles = bundle.files.filter((f) => f.isActive);
+    const allActiveRejected =
+      activeFiles.length > 0 &&
+      activeFiles.every((f) => f.status === DocumentFileStatus.REJECTED);
+
+    if (allActiveRejected) {
+      bundle.status = DriverDocumentBundleStatus.REJECTED;
+      bundle.reviewedBy = this.toObjectId(adminId, "adminId");
+      bundle.reviewedAt = new Date();
+      bundle.rejectionReason = rejectionReason;
+    }
+
+    await bundle.save();
+    return bundle;
+  }
   async getDriverDocuments(driverId: string) {
     const myDocs = await this.repository.getDriverDocuments(driverId);
 
-    return myDocs.map((doc) => ({
-      ...doc.toObject(),
-    }));
+    const docsWithUrls = await Promise.all(
+      myDocs.map(async (doc) => {
+        const files = await Promise.all(
+          doc.files
+            .filter((file) => file.isActive)
+            .map(async (file) => {
+              const rawKey = file.s3Key;
+
+              const [viewUrl, downloadUrl] = await Promise.all([
+                this.s3.getViewUrl(rawKey, VIEW_URL_EXPIRES_ADMIN_SECONDS),
+                this.s3.getDownloadUrl(
+                  rawKey,
+                  VIEW_URL_EXPIRES_ADMIN_SECONDS,
+                  `${doc.type}_${file.side}.${rawKey.split(".").pop()}`,
+                ),
+              ]);
+
+              return {
+                _id: file._id?.toString(),
+                side: file.side,
+                isActive: file.isActive,
+                status: file.status,
+                verifiedBy: file.verifiedBy,
+                verifiedAt: file.verifiedAt,
+                createdAt: file.createdAt,
+                s3Key: viewUrl,
+                downloadUrl,
+              };
+            }),
+        );
+
+        return {
+          _id: doc._id?.toString(),
+          type: doc.type,
+          status: doc.status,
+          rejectionReason: doc.rejectionReason,
+          reviewedBy: doc.reviewedBy?.toString(),
+          reviewedAt: doc.reviewedAt,
+          submittedAt: doc.submittedAt,
+          files,
+        };
+      }),
+    );
+
+    return docsWithUrls;
   }
 
   // ─── Driver URL ───────────────────────────────────────────────────────────────
@@ -257,6 +407,46 @@ export class DriverDocumentService {
     const url = await this.s3.getViewUrl(
       file.s3Key,
       VIEW_URL_EXPIRES_ADMIN_SECONDS,
+    );
+
+    return {
+      url,
+      expiresInSeconds: VIEW_URL_EXPIRES_ADMIN_SECONDS,
+    };
+  }
+
+  async getDocumentDownloadUrlAsAdmin(params: {
+    driverId: string;
+    documentType: DriverDocumentType;
+    side: DriverDocumentSide;
+  }) {
+    const doc = await this.repository.findByDriverAndType(
+      params.driverId,
+      params.documentType,
+    );
+
+    if (!doc) {
+      ErrorException(null, "DRIVER_DOCUMENT.NOT_FOUND", HttpStatus.NOT_FOUND);
+    }
+
+    const file = findActiveFileBySide(doc, params.side);
+
+    if (!file) {
+      ErrorException(
+        null,
+        "DRIVER_DOCUMENT.FILE_NOT_FOUND",
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    // e.g. "driver_license_FRONT.jpg" — derive extension from the stored key
+    const ext = file.s3Key.split(".").pop();
+    const filename = `${params.documentType}_${params.side}.${ext}`;
+
+    const url = await this.s3.getDownloadUrl(
+      file.s3Key,
+      VIEW_URL_EXPIRES_ADMIN_SECONDS, // reuse, or add a separate DOWNLOAD_URL_EXPIRES_ADMIN_SECONDS if you want a different TTL
+      filename,
     );
 
     return {

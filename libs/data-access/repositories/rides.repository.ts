@@ -13,6 +13,8 @@ import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus } from "../enums/rides.enum";
 import { CategoryAccessedByRole } from "../enums/issue.enum";
+import { Rating, RatingDocument } from "../entities/rating.entity";
+import { RidesListInput, RideTimeRange } from "../dtos/input/rides-list.input";
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
@@ -22,11 +24,18 @@ interface CancelRideParams {
   cancelReasonContent?: string;
 }
 
+const TIME_RANGE_MS: Record<RideTimeRange, number> = {
+  [RideTimeRange.LAST_24_HOURS]: 24 * 60 * 60 * 1000,
+  [RideTimeRange.LAST_7_DAYS]: 7 * 24 * 60 * 60 * 1000,
+  [RideTimeRange.LAST_30_DAYS]: 30 * 24 * 60 * 60 * 1000,
+};
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
   private readonly logger = new Logger(RidesRepository.name);
   constructor(
     @InjectModel(Rides.name) private readonly _model: BaseModel<RidesDocument>,
+    @InjectModel(Rating.name)
+    private readonly ratingModel: BaseModel<RatingDocument>,
   ) {
     super(_model);
   }
@@ -39,6 +48,302 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     // Logic handled by RidesSchema.pre('save')
     const ride = await this._model.create(rideData);
     return ride;
+  }
+
+  async getPassengerTrips(
+    passengerId: Types.ObjectId,
+    pageInput: { page?: number; limit?: number },
+    filters: { search?: string; status?: string; paymentMethod?: string },
+  ) {
+    const match: Record<string, any> = { passengerId };
+    if (filters.status) match.rideStatus = filters.status;
+    if (filters.paymentMethod)
+      match["paymentDetails.method"] = filters.paymentMethod;
+    if (filters.search) {
+      match.$or = [
+        { rideUUId: { $regex: filters.search, $options: "i" } },
+        { "pickupLocation.address": { $regex: filters.search, $options: "i" } },
+        {
+          "dropoffLocation.address": { $regex: filters.search, $options: "i" },
+        },
+      ];
+    }
+
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
+    // single round trip: page of rows + completed/cancelled counts + avg fare,
+    // all via $facet instead of four separate queries
+    const [result] = await this.model.aggregate([
+      { $match: match },
+      {
+        $project: {
+          id: "$_id",
+          rideUUId: 1,
+          createdAt: {
+            $dateToString: {
+              date: "$createdAt",
+              format: "%Y-%m-%dT%H:%M:%S.%LZ",
+            },
+          },
+          pickupLocation: "$pickupLocation.address",
+          dropoffLocation: "$dropoffLocation.address",
+          fare: { $ifNull: ["$fare.totalFare", 0] },
+          paymentMethod: "$paymentDetails.method",
+          status: "$rideStatus",
+        },
+      },
+      {
+        $facet: {
+          paginatedResults: [
+            { $sort: { createdAt: -1 } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ],
+          totalCount: [{ $count: "count" }],
+          completedCount: [
+            { $match: { status: RideStatus.COMPLETED } },
+            { $count: "count" },
+          ],
+          cancelledCount: [
+            { $match: { status: RideStatus.CANCELLED } },
+            { $count: "count" },
+          ],
+          avgFare: [{ $group: { _id: null, avg: { $avg: "$fare" } } }],
+        },
+      },
+    ]);
+
+    const total = result?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data: result?.paginatedResults ?? [],
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      completed: result?.completedCount?.[0]?.count ?? 0,
+      cancelled: result?.cancelledCount?.[0]?.count ?? 0,
+      avgFare: Math.round(result?.avgFare?.[0]?.avg ?? 0),
+    };
+  }
+
+  async getDriverTrips(
+    driverId: Types.ObjectId,
+    pageInput: { page?: number; limit?: number },
+    filters: {
+      search?: string;
+      status?: string;
+      orderBy?: string; //field
+      order?: string; //
+    },
+  ) {
+    const match: Record<string, any> = { driverId };
+    if (filters.status) {
+      match.rideStatus = filters.status;
+    }
+    const sortField = filters.orderBy || "createdAt";
+    const sortDirection = filters.order === "asc" ? 1 : -1; // aggregation $sort needs 1/-1, not "asc"/"desc" strings
+
+    if (filters.status) match.rideStatus = filters.status;
+
+    if (filters.search) {
+      match.$or = [
+        { rideUUId: { $regex: filters.search, $options: "i" } },
+        { "pickupLocation.address": { $regex: filters.search, $options: "i" } },
+        {
+          "dropoffLocation.address": { $regex: filters.search, $options: "i" },
+        },
+      ];
+    }
+
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
+    // single round trip: page of rows + completed/cancelled counts + avg fare,
+    // all via $facet instead of four separate queries
+    const [result] = await this.model.aggregate([
+      { $match: match },
+      {
+        $project: {
+          id: "$_id",
+          rideUUId: 1,
+          createdAt: {
+            $dateToString: {
+              date: "$createdAt",
+              format: "%Y-%m-%dT%H:%M:%S.%LZ",
+            },
+          },
+          pickupLocation: "$pickupLocation.address",
+          dropoffLocation: "$dropoffLocation.address",
+          fare: { $ifNull: ["$fare.totalFare", 0] },
+          paymentMethod: "$paymentDetails.paymentMethod",
+          driverCommission: "$paymentDetails.driverCommission",
+          driverGets: {
+            $subtract: [
+              { $ifNull: ["$fare.totalFare", 0] },
+              { $ifNull: ["$paymentDetails.driverCommission", 0] },
+            ],
+          },
+          status: { $literal: null }, // settlement status — TODO once WalletTransaction join is wired
+        },
+      },
+      {
+        $facet: {
+          paginatedResults: [
+            { $sort: { [sortField]: sortDirection } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ],
+          totalCount: [{ $count: "count" }],
+          completedCount: [
+            { $match: { status: RideStatus.COMPLETED } },
+            { $count: "count" },
+          ],
+          cancelledCount: [
+            { $match: { status: RideStatus.CANCELLED } },
+            { $count: "count" },
+          ],
+          avgFare: [{ $group: { _id: null, avg: { $avg: "$fare" } } }],
+        },
+      },
+    ]);
+
+    const total = result?.totalCount?.[0]?.count ?? 0;
+
+    return {
+      data: result?.paginatedResults ?? [],
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      completed: result?.completedCount?.[0]?.count ?? 0,
+      cancelled: result?.cancelledCount?.[0]?.count ?? 0,
+      avgFare: Math.round(result?.avgFare?.[0]?.avg ?? 0),
+    };
+  }
+
+  async getRiderReviews(
+    riderId: Types.ObjectId,
+    pageInput: { page?: number; limit?: number },
+  ) {
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
+    const [result] = await this.ratingModel.aggregate([
+      { $match: { ratedTo: riderId } }, // ratings THIS rider received
+      {
+        $lookup: {
+          from: "rides",
+          localField: "rideId",
+          foreignField: "_id",
+          as: "ride",
+        },
+      },
+      { $unwind: { path: "$ride", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "remarks",
+          localField: "remark",
+          foreignField: "_id",
+          as: "remarkDoc",
+        },
+      },
+      { $unwind: { path: "$remarkDoc", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          rideId: "$ride._id",
+          rideUUId: "$ride.rideUUId",
+          pickup: "$ride.pickupLocation.address",
+          drop: "$ride.dropoffLocation.address",
+          fare: { $ifNull: ["$ride.fare.totalFare", 0] },
+          raterName: "$ratedByUser.fullName",
+          raterProfileImage: "$ratedByUser.profileImage",
+          raterShortId: { $substrBytes: [{ $toString: "$ratedBy" }, 20, 4] },
+          createdAt: {
+            $dateToString: {
+              date: "$createdAt",
+              format: "%Y-%m-%dT%H:%M:%S.%LZ",
+            },
+          },
+          rating: 1,
+          review: { $ifNull: ["$remarkByUser", "$ratingRemarks"] },
+          feedbackTag: "$remarkDoc.name",
+        },
+      },
+      {
+        $facet: {
+          paginatedResults: [
+            { $sort: { createdAt: -1 } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ]);
+
+    const total = result?.totalCount?.[0]?.count ?? 0;
+    return {
+      data: result?.paginatedResults ?? [],
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async findRides(input: RidesListInput) {
+    const { status, timeRange, search, page, limit } = input;
+
+    const match: Record<string, any> = {
+      deleted: { $ne: true },
+      bookingTime: { $gte: new Date(Date.now() - TIME_RANGE_MS[timeRange]) },
+    };
+    if (status) match.rideStatus = status;
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: "users",
+          localField: "passengerId",
+          foreignField: "_id",
+          as: "riderUser",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driverUser",
+        },
+      },
+      { $unwind: { path: "$riderUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+    ];
+
+    if (search) {
+      const regex = new RegExp(search, "i");
+      pipeline.push({
+        $match: {
+          $or: [
+            { rideUUId: regex },
+            { "riderUser.fullName": regex },
+            { "driverUser.fullName": regex },
+          ],
+        },
+      });
+    }
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $sort: { bookingTime: -1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+        ],
+        totalCount: [{ $count: "count" }],
+      },
+    });
+
+    const [result] = await this._model.aggregate(pipeline);
+    return {
+      rides: result.data,
+      total: result.totalCount[0]?.count ?? 0,
+    };
   }
 
   /**
@@ -517,5 +822,113 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    */
   protected decodeCursor(cursor: string): any {
     return JSON.parse(Buffer.from(cursor, "base64").toString());
+  }
+
+  async getRideHistoryOfIndividualRiderOrUser(
+    user: Partial<User>,
+    paginationInput: GetAllRidesPaginationInput,
+  ) {
+    // Build filter based on user role
+    const filter: any = {};
+    if (user.loginAs === roles.USER) {
+      filter.passengerId = new Types.ObjectId(user._id);
+    } else if (user.loginAs === roles.RIDER) {
+      filter.driverId = new Types.ObjectId(user._id);
+    }
+    // Apply ride status filter
+    if (paginationInput.filter) {
+      switch (paginationInput.filter) {
+        case RideFilterStatus.PENDING:
+          filter.rideStatus = { $in: [RideStatus.PENDING] };
+          break;
+        case RideFilterStatus.COMPLETED:
+          filter.rideStatus = RideStatus.COMPLETED;
+          break;
+        case RideFilterStatus.CANCELLED:
+          filter.rideStatus = RideStatus.CANCELLED;
+          break;
+        case RideFilterStatus.ALL:
+        default:
+          // Exclude PICKUP and CONFIRMED rides for ALL/default filter
+          filter.rideStatus = {
+            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED],
+          };
+          break;
+      }
+    }
+  }
+
+  async findRideByIdAdmin(id: string) {
+    const [ride] = await this._model.aggregate([
+      { $match: { _id: new Types.ObjectId(id), deleted: { $ne: true } } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "passengerId",
+          foreignField: "userId",
+          as: "passengerDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "driverId",
+          foreignField: "userId",
+          as: "driverDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "passengerId",
+          foreignField: "_id",
+          as: "passengerUser",
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driverUser",
+        },
+      },
+      {
+        $lookup: {
+          from: "vehicles",
+          localField: "vehicleId",
+          foreignField: "_id",
+          as: "vehicle",
+        },
+      },
+      {
+        $unwind: {
+          path: "$passengerDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$passengerUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$vehicle", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          passenger: {
+            fullName: "$passengerUser.fullName",
+            phone: "$passengerUser.phone",
+            profileImages: "$passengerDetails.profileImages",
+
+            rating: "$passengerDetails.rating",
+          },
+          driver: {
+            fullName: "$driverUser.fullName",
+            phone: "$driverUser.phone",
+            profileImages: "$driverDetails.profileImages",
+            rating: "$driverDetails.rating",
+          },
+        },
+      },
+    ]);
+    return ride ?? null;
   }
 }

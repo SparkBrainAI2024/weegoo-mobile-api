@@ -4,9 +4,11 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { PassengerService } from "@libs/services/passenger/passenger.service";
 import { UserAuthModule } from "@libs/services/auth/auth.module";
 import { EnvService } from "@libs/common/config/env.service";
-import { PassengerResolver } from "./resolver/passenger.resolver";
 import { S3Module } from "@libs/s3";
 import { RidePersistentModule } from "@libs/services/rides/rides-persistent.module";
+import { DriverDocumentResolver } from "./resolver/driver-document.resolver";
+import { CommonDriverDocumentModule } from "@libs/services/driver-document/driver-document.module";
+import { AdminAuthModule } from "../auth/auth.module";
 
 @Module({
   imports: [
@@ -14,8 +16,10 @@ import { RidePersistentModule } from "@libs/services/rides/rides-persistent.modu
     UserPersistenceModule,
     S3Module,
     RidePersistentModule,
+    CommonDriverDocumentModule,
+    AdminAuthModule,
   ],
-  providers: [PassengerResolver, PassengerService, EnvService],
-  exports: [PassengerResolver],
+  providers: [DriverDocumentResolver, EnvService],
+  exports: [DriverDocumentResolver],
 })
-export class PassengerModule {}
+export class DriverDocumentModule {}

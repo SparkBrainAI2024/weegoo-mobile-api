@@ -7,8 +7,11 @@ import {
   RideStatus,
   Transaction,
   TransactionRepository,
+  UserDetails,
+  UserDetailsDocument,
 } from "@libs/data-access";
 import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
+import { DriverCommissionSummary } from "@libs/data-access/dtos/response/driver-commission-summary.response";
 import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
@@ -16,6 +19,8 @@ import { UserDetailsRepository } from "@libs/data-access/repositories/user-detai
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
 import { S3Service } from "@libs/s3";
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 
 @Injectable()
 export class DriverService {
@@ -26,6 +31,8 @@ export class DriverService {
     private readonly transactionRepository: TransactionRepository, // Replace with actual TransactionRepository type
     private readonly ridesRepository: RidesRepository, // Replace with actual RidesRepository type
     private readonly s3: S3Service,
+    @InjectModel(UserDetails.name)
+    private readonly userdetailsModel: Model<UserDetailsDocument>,
   ) {}
 
   private async enrichDataDriverWithRideDetails(driverId: string) {
@@ -45,6 +52,40 @@ export class DriverService {
       lastTripStartTime: driverLastTrip?.rideStartedAt?.toDateString() ?? null,
 
       lastTripEndTime: driverLastTrip?.rideCompletedAt?.toDateString() ?? null,
+    };
+  }
+
+  async getDriverTrips(
+    driverId: string,
+    pageInput: { page?: number; limit?: number },
+    filters: {
+      search?: string;
+      status?: string;
+      orderBy?: string;
+      order?: string;
+    },
+  ) {
+    return this.ridesRepository.getDriverTrips(
+      new Types.ObjectId(driverId),
+      pageInput,
+      filters,
+    );
+  }
+
+  async getDriverCommissionSummary(
+    driverId: string,
+  ): Promise<DriverCommissionSummary> {
+    const userDetails = await this.userdetailsModel
+      .findOne({ userId: new Types.ObjectId(driverId) })
+      .lean();
+
+    return {
+      outstandingToPay: userDetails?.amountDueToCompany ?? 0,
+      commissionPaid: null,
+      totalRides: userDetails?.totalRidesAsDriver ?? 0,
+      lastSettlementDate: null,
+      lastSettlementAmount: null,
+      lastSettlementMethod: null,
     };
   }
 
@@ -107,8 +148,6 @@ export class DriverService {
     );
 
     const data: DriverListItem[] = result.data.map((row: any) => {
-      console.log(row, "row");
-
       return {
         id: row.id?.toString(),
         fullName: row.fullName || "Driver",
@@ -118,7 +157,7 @@ export class DriverService {
           this.s3.getPublicUrl(key),
         ),
         suspended: row.suspended,
-        totalRides: row.totalRides,
+        totalRidesAsDriver: row.totalRidesAsDriver,
         totalEarnings: row.totalEarnings,
         rating: row.rating,
         joinedDate: row.createdAt

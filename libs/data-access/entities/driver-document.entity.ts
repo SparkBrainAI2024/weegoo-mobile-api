@@ -3,13 +3,19 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "@libs/data-access/base/base.entity";
 import { DocumentFile, DocumentFileSchema } from "./document-file.embedded";
-import { DriverDocumentBundleStatus, DriverDocumentType } from "../enums/driver-document.enum";
+import {
+  DriverDocumentBundleStatus,
+  DriverDocumentType,
+} from "../enums/driver-document.enum";
 
 export type DriverDocumentDocument = HydratedDocument<DriverDocument>;
 
 @ObjectType()
 @Schema({ timestamps: true })
 export class DriverDocument extends BaseEntity {
+  @Field(() => String, { nullable: true })
+  _id: Types.ObjectId;
+
   @Field(() => String)
   @Prop({ type: Types.ObjectId, required: true, ref: "User", index: true })
   driverId: Types.ObjectId;
@@ -27,10 +33,10 @@ export class DriverDocument extends BaseEntity {
   // Bundle-level review status
   @Field(() => DriverDocumentBundleStatus)
   @Prop({
-    type:    String,
-    enum:    DriverDocumentBundleStatus,
+    type: String,
+    enum: DriverDocumentBundleStatus,
     default: DriverDocumentBundleStatus.PENDING,
-    index:   true,
+    index: true,
   })
   status: DriverDocumentBundleStatus;
 
@@ -51,7 +57,8 @@ export class DriverDocument extends BaseEntity {
   submittedAt?: Date;
 }
 
-export const DriverDocumentSchema = SchemaFactory.createForClass(DriverDocument);
+export const DriverDocumentSchema =
+  SchemaFactory.createForClass(DriverDocument);
 
 // One bundle per driver + document type
 DriverDocumentSchema.index({ driverId: 1, type: 1 }, { unique: true });

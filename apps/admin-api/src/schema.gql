@@ -55,43 +55,27 @@ type RideLocation {
   fullAddress: String
 }
 
-"""
-The provinces of Nepal
-"""
+"""The provinces of Nepal"""
 enum ProvinceEnum {
-  """
-  Province No. 1 (Koshi)
-  """
+  """Province No. 1 (Koshi)"""
   PROVINCE_1
 
-  """
-  Province No. 2 (Madhesh)
-  """
+  """Province No. 2 (Madhesh)"""
   PROVINCE_2
 
-  """
-  Bagmati Province
-  """
+  """Bagmati Province"""
   BAGMATI
 
-  """
-  Gandaki Province
-  """
+  """Gandaki Province"""
   GANDAKI
 
-  """
-  Lumbini Province
-  """
+  """Lumbini Province"""
   LUMBINI
 
-  """
-  Karnali Province
-  """
+  """Karnali Province"""
   KARNALI
 
-  """
-  Sudurpashchim Province
-  """
+  """Sudurpashchim Province"""
   SUDURPASHCHIM
 }
 
@@ -100,56 +84,46 @@ type Fare {
   trafficCongestionAmount: Float!
   distanceAmount: Float!
   totalAmount: Float!
+  subTotal: Float!
   noOfPassengers: Float!
   discountAmount: Float!
   promoCodeId: String
+  promoCodeName: String
 }
 
 type PaymentDetails {
   baseAmount: Float!
   distanceAmount: Float!
   totalAmount: Float!
+  subTotal: Float!
   noOfPassengers: Float!
   paymentMethod: PaymentMethodEnum
   discountAmount: Float!
   promoCodeId: String
+  promoCodeName: String
   driverCommission: Float!
   paymentStatus: PaymentStatusEnum
   paymentFailedReason: String
 }
 
-"""
-Payment method for the ride
-"""
+"""Payment method for the ride"""
 enum PaymentMethodEnum {
-  """
-  Payment method is cash
-  """
+  """Payment method is cash"""
   CASH
 
-  """
-  Payment via internal wallet
-  """
+  """Payment via internal wallet"""
   WALLET
 }
 
-"""
-Status of the payment transaction
-"""
+"""Status of the payment transaction"""
 enum PaymentStatusEnum {
-  """
-  Payment has been completed
-  """
+  """Payment has been completed"""
   PAID
 
-  """
-  Payment is pending
-  """
+  """Payment is pending"""
   PENDING
 
-  """
-  Payment has failed
-  """
+  """Payment has failed"""
   FAILED
 }
 
@@ -194,14 +168,10 @@ type CancellationDetail {
 Indicates the role that accessed the category, either driver or passenger
 """
 enum CategoryAccessedByRole {
-  """
-  Accessed by a passenger
-  """
+  """Accessed by a passenger"""
   PASSENGER
 
-  """
-  Accessed by a driver
-  """
+  """Accessed by a driver"""
   DRIVER
 }
 
@@ -212,6 +182,8 @@ type RideUserSnapshot {
   phone: String
   locationChannelId: String
   geoLocation: GeoLocation
+  totalTripsAsPassenger: Float
+  totalRidesAsDriver: Float
 }
 
 type Rides {
@@ -251,61 +223,43 @@ type Rides {
   passenger: RideUserSnapshot
   driver: RideUserSnapshot
 
-  """
-  Wallet balance of the requesting user at the time of this response
-  """
+  """Wallet balance of the requesting user at the time of this response"""
   walletAmount: Float
 }
 
-"""
-Types of rides
-"""
+"""Types of rides"""
 enum RideTypes {
-  """
-  Instant ride
-  """
+  """Instant ride"""
   INSTANT
 
-  """
-  Scheduled ride
-  """
+  """Scheduled ride"""
   SCHEDULED
 }
 
-"""
-Rides status
-"""
+"""Rides status"""
 enum RideStatus {
-  """
-  Ride is confirmed
-  """
+  """Ride is confirmed"""
   CONFIRMED
 
-  """
-  Ride is ongoing
-  """
+  """Ride is ongoing"""
   ONGOING
 
-  """
-  Driver has picked up the rider
-  """
+  """Driver has picked up the rider"""
   PICKUP
 
-  """
-  Ride is completed
-  """
+  """Ride is completed"""
   COMPLETED
 
-  """
-  Ride is cancelled
-  """
+  """Ride is cancelled"""
   CANCELLED
   PENDING
 }
 
 type DocumentFile {
+  _id: String
   side: DriverDocumentSide!
   s3Key: String!
+  downloadUrl: String
   isActive: Boolean!
   status: DocumentFileStatus!
   verifiedBy: String
@@ -328,7 +282,7 @@ enum DocumentFileStatus {
 }
 
 type DriverDocument {
-  _id: String!
+  _id: String
   createdAt: DateTime
   updatedAt: DateTime
   deletedAt: DateTime
@@ -441,26 +395,20 @@ type PromoCode {
   promoCodeUsedCount: Float!
 }
 
-"""
-Type of discount (percentage or flat amount)
-"""
+"""Type of discount (percentage or flat amount)"""
 enum DiscountTypeEnum {
   PERCENTAGE
   FLAT
 }
 
-"""
-To which ride types the promo code applies
-"""
+"""To which ride types the promo code applies"""
 enum AppliedToEnum {
   ALL_RIDES
   INSTANT
   SCHEDULED
 }
 
-"""
-Status of the promo code
-"""
+"""Status of the promo code"""
 enum PromoCodeStatusEnum {
   DRAFT
   ACTIVE
@@ -484,79 +432,52 @@ type Transaction {
   paymentMedium: PaymentMediumEnum
   status: TransactionStatus!
   reference: String
+  gatewayRef: String
   remarks: String
   transactionUuid: String
 }
 
-"""
-Direction of the wallet transaction
-"""
+"""Direction of the wallet transaction"""
 enum TransactionDirection {
-  """
-  Amount is deducted from wallet
-  """
+  """Amount is deducted from wallet"""
   DEBIT
 
-  """
-  Amount is added to wallet
-  """
+  """Amount is added to wallet"""
   CREDIT
 }
 
-"""
-Type of wallet transaction
-"""
+"""Type of wallet transaction"""
 enum TransactionType {
-  """
-  Payment made for a ride
-  """
+  """Payment made for a ride"""
   RIDE_PAYMENT
 
-  """
-  Wallet balance top-up
-  """
+  """Wallet balance top-up"""
   TOPUP
 
-  """
-  Withdrawal from wallet
-  """
+  """Withdrawal from wallet"""
   WITHDRAWAL
 
-  """
-  Commission transaction
-  """
+  """Commission transaction"""
   COMMISSION
 }
 
-"""
-Payment medium/gateway used for the transaction
-"""
+"""Payment medium/gateway used for the transaction"""
 enum PaymentMediumEnum {
-  """
-  Payment processed through eSewa gateway
-  """
+  """Payment processed through eSewa gateway"""
   ESEWA
 
-  """
-  Payment processed through Khalti gateway
-  """
+  """Payment processed through Khalti gateway"""
   KHALTI
 }
 
-"""
-Status of the wallet transaction
-"""
+"""Status of the wallet transaction"""
 enum TransactionStatus {
   PENDING
 
-  """
-  Transaction completed successfully
-  """
+  """Transaction completed successfully"""
   COMPLETED
 
-  """
-  Transaction failed
-  """
+  """Transaction failed"""
   FAILED
 }
 
@@ -566,28 +487,18 @@ type IssueCategoryEmbed {
   subCategoryLabel: String
 }
 
-"""
-Top-level grouping for issue templates
-"""
+"""Top-level grouping for issue templates"""
 enum IssueParentCategory {
-  """
-  Problems that occurred during a ride
-  """
+  """Problems that occurred during a ride"""
   RIDE
 
-  """
-  Issues related to ride cancellations
-  """
+  """Issues related to ride cancellations"""
   CANCEL
 
-  """
-  Complaints about drivers, passengers, or service
-  """
+  """Complaints about drivers, passengers, or service"""
   COMPLAINT
 
-  """
-  Problems with the in-app chat feature
-  """
+  """Problems with the in-app chat feature"""
   CHAT
 }
 
@@ -609,14 +520,10 @@ type Issue {
 The type of the user who reported the issue since driver and passenger are allowed to report issues
 """
 enum ReportedByType {
-  """
-  The user is a passenger
-  """
+  """The user is a passenger"""
   PASSENGER
 
-  """
-  The user is a driver
-  """
+  """The user is a driver"""
   DRIVER
 }
 
@@ -633,9 +540,7 @@ type Remark {
   deletedAt: DateTime
   deleted: Boolean
 
-  """
-  Display name / text of the remark
-  """
+  """Display name / text of the remark"""
   name: String!
 }
 
@@ -647,26 +552,18 @@ type Rating {
   deleted: Boolean
   rating: Float!
 
-  """
-  Snapshot of the rater user details
-  """
+  """Snapshot of the rater user details"""
   ratedByUser: RideUserSnapshot
 
-  """
-  Snapshot of the rated user details
-  """
+  """Snapshot of the rated user details"""
   ratedToUser: RideUserSnapshot
   rideId: String!
   ratingRemarks: String
 
-  """
-  Populated remark (with name and id) for this rating
-  """
+  """Populated remark (with name and id) for this rating"""
   remark: Remark
 
-  """
-  Remark text provided by the user
-  """
+  """Remark text provided by the user"""
   remarkByUser: String
 }
 
@@ -709,18 +606,12 @@ enum GenderEnum {
   UNPUBLISHED
 }
 
-"""
-The preference for booking a ride
-"""
+"""The preference for booking a ride"""
 enum RidePreference {
-  """
-  The ride is scheduled for a later time
-  """
+  """The ride is scheduled for a later time"""
   SCHEDULED
 
-  """
-  The ride is requested for immediate pickup
-  """
+  """The ride is requested for immediate pickup"""
   INSTANT
   BOTH
 }
@@ -728,11 +619,6 @@ enum RidePreference {
 type NotificationGroup {
   title: String!
   notifications: [Notification!]!
-}
-
-type NotificationListWithCursorPaginationResponse {
-  data: [NotificationGroup!]!
-  pageInfo: CursorPageInfo!
 }
 
 type NotificationListWithCursorPaginationResponse {
@@ -897,9 +783,7 @@ type RideWithoutRelations {
   actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
 
-  """
-  Wallet balance of the requesting user at the time of this response
-  """
+  """Wallet balance of the requesting user at the time of this response"""
   walletAmount: Float
 }
 
@@ -927,11 +811,13 @@ type PassengerLocationResponse {
 }
 
 type PassengerPromoCodeResponse {
-  name: String!
+  promocodeId: String!
   amount: Float!
+  name: String!
+  promocodeUserLimit: Float!
   expiryTime: DateTime!
   offerAvailableTime: DateTime!
-  promocodeType: String!
+  promocodeType: DiscountTypeEnum!
   discountPercentage: Float
 }
 
@@ -994,6 +880,12 @@ type DriverRideDetails {
   acceptedAt: String
 }
 
+type TransactionListWithPaginationResponse {
+  data: [Transaction!]
+  pagination: Pagination!
+  walletAmount: Float
+}
+
 type CompleteRideFareBreakdown {
   baseFare: Float!
   distanceCharge: Float!
@@ -1051,17 +943,13 @@ type Page {
   updatedAt: DateTime!
 }
 
-"""
-Type of the page
-"""
+"""Type of the page"""
 enum PageType {
   LEGAL
   INFO
 }
 
-"""
-Publication status of the page
-"""
+"""Publication status of the page"""
 enum PageStatus {
   DRAFT
   PUBLISHED
@@ -1104,6 +992,7 @@ type DriverWDocuments {
   locationChannelId: String
   dateOfBirth: String
   joinedDate: String!
+  downloadUrl: String
   totalRidesAsDriver: Float
   totalEarnings: Float
   amountDueToCompany: Float
@@ -1122,7 +1011,7 @@ type DriverListItem {
   profileImage: String
   status: String!
   suspended: Boolean
-  totalRides: Int!
+  totalRidesAsDriver: Int!
   totalEarnings: Float!
   rating: Float!
   joinedDate: String
@@ -1132,6 +1021,40 @@ type DriverListResponse {
   message: String
   data: [DriverListItem!]
   pagination: Pagination!
+}
+
+type DriverCommissionSummary {
+  outstandingToPay: Float!
+  commissionPaid: Float
+  totalRides: Int!
+  lastSettlementDate: String
+  lastSettlementAmount: Float
+  lastSettlementMethod: String
+}
+
+type DriverTripRow {
+  id: ID!
+  rideUUId: String!
+  createdAt: String!
+  pickupLocation: String
+  dropoffLocation: String
+  fare: Float!
+  paymentMethod: String
+  driverCommission: Float
+  driverGets: Float
+  status: String
+}
+
+type PaginationInfo {
+  total: Float!
+  page: Float!
+  limit: Float!
+  totalPages: Float!
+}
+
+type DriverTripsPage {
+  data: [DriverTripRow!]!
+  pagination: PaginationInfo!
 }
 
 type DriverDocumentConfirmUploadResponse {
@@ -1182,28 +1105,113 @@ type PassengerListResponse {
   pagination: Pagination!
 }
 
+type RiderOverviewResponse {
+  id: ID!
+  fullName: String!
+  profileImage: String
+  phone: String!
+  email: String
+  suspended: Boolean!
+  joinedDate: String
+  lastActive: String
+  phoneVerified: Boolean
+}
+
+type TripListItem {
+  id: ID!
+  rideUUId: String!
+  createdAt: String!
+  pickupLocation: String
+  dropoffLocation: String
+  fare: Float!
+  paymentMethod: String
+  status: String!
+}
+
+type RiderTripsSummary {
+  totalTrips: Float!
+  completed: Float!
+  cancelled: Float!
+  totalSpend: Float!
+  avgFare: Float!
+}
+
+type RiderTripsResponse {
+  message: String
+  data: [TripListItem!]
+  pagination: Pagination!
+  averageRating: Float!
+  totalReviews: Float!
+  summary: RiderTripsSummary!
+}
+
+type RatingBreakdown {
+  fiveStar: Float!
+  fourStar: Float!
+  threeStar: Float!
+  twoStar: Float!
+  oneStar: Float!
+}
+
+type RatingListItem {
+  rideId: ID!
+  rideUUId: String!
+  pickup: String
+  drop: String
+  fare: Float
+  raterName: String!
+  raterProfileImage: String
+  raterShortId: String
+  createdAt: String!
+  rating: Float!
+  review: String
+  feedbackTag: String
+}
+
+type RiderRatingsResponse {
+  message: String
+  data: [RatingListItem!]
+  pagination: Pagination!
+  averageRating: Float!
+  totalReviews: Float!
+  breakdown: RatingBreakdown!
+}
+
+type RidesListResponse {
+  rides: [Rides!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+}
+
 type Query {
   health: String!
   page(id: ID!): Page!
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
   pageBySlug(slug: String!): Page!
   promoCode(id: ID!): PromoCode!
-  promoCodes(
-    paginationInput: PromoCodeFindAllInput!
-  ): PromocodeListWithPaginationResponse!
+  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
-  getNotifications(
-    options: CursorPaginationInput!
-  ): NotificationListWithCursorPaginationResponse!
+  getNotifications(options: CursorPaginationInput!): NotificationListWithCursorPaginationResponse!
   unreadNotificationCount: Int!
   getDriver(driverId: String!): DriverWDocuments!
   getDrivers(input: DriverListInput): DriverListResponse!
+  driverTrips(driverId: ID!, page: Int, limit: Int, search: String, status: String, orderBy: String, order: String): DriverTripsPage!
+  driverCommissionSummary(driverId: ID!): DriverCommissionSummary!
   myDriverDocuments: [DriverDocument!]!
-  driverDocumentFileViewUrl(
-    documentType: DriverDocumentType!
-    side: DriverDocumentSide!
-  ): DocumentViewUrlResponse!
+  driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle: Vehicle!
+  getPassengers(input: PassengerListInput): PassengerListResponse!
+  getRiderOverview(riderId: String!): RiderOverviewResponse!
+  getRiderTrips(input: RiderTripsInput!): RiderTripsResponse!
+  getPassengerRatings(input: RiderRatingsInput!): RiderRatingsResponse!
+  rides(input: RidesListInput!): RidesListResponse!
+  ride(id: String!): Rides
+
+  """
+  Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
+  """
+  getTransactionHistory(input: TransactionPaginationInput!): TransactionListWithPaginationResponse!
 }
 
 input PaginationInputOnly {
@@ -1220,18 +1228,12 @@ input PromoCodeFindAllInput {
   filter: PromoCodeFilterInput
 }
 
-"""
-Order by direction for pagination
-"""
+"""Order by direction for pagination"""
 enum SortBy {
-  """
-  Ascending order
-  """
+  """Ascending order"""
   asc
 
-  """
-  Descending order
-  """
+  """Descending order"""
   desc
 }
 
@@ -1247,6 +1249,55 @@ input CursorPaginationInput {
   sortOrder: SortBy
 }
 
+input DriverListInput {
+  page: Int! = 0
+  limit: Int! = 5
+  search: String
+  status: String
+}
+
+input PassengerListInput {
+  page: Int! = 0
+  limit: Int! = 5
+  search: String
+  status: String
+}
+
+input RiderTripsInput {
+  riderId: ID!
+  page: Float = 0
+  limit: Float = 10
+  search: String
+  status: String
+  paymentMethod: String
+}
+
+input RiderRatingsInput {
+  riderId: ID!
+  page: Float = 0
+  limit: Float = 10
+}
+
+input RidesListInput {
+  status: RideStatus
+  timeRange: RideTimeRange! = LAST_24_HOURS
+  search: String
+  page: Int! = 1
+  limit: Int! = 10
+}
+
+"""Fixed time-range filter for the rides list"""
+enum RideTimeRange {
+  LAST_24_HOURS
+  LAST_7_DAYS
+  LAST_30_DAYS
+}
+
+input TransactionPaginationInput {
+  limit: Int! = 10
+  page: Int! = 0
+}
+
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
@@ -1260,36 +1311,26 @@ type Mutation {
   removePage(id: ID!): Boolean!
   createPromoCode(input: CreatePromoCodeInput!): PromocodeCreateResponse!
 
-  """
-  Updates a existing promo code
-  """
-  updatePromoCode(
-    id: ID!
-    input: UpdatePromoCodeInput!
-  ): PromocodeUpdateResponse!
+  """Updates a existing promo code"""
+  updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromocodeUpdateResponse!
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
   readNotification(id: String!): Notification!
   openNotifications: Notification!
-  createNotification(
-    notificationPayload: CreateNotificationInput!
-  ): Notification!
+  createNotification(notificationPayload: CreateNotificationInput!): Notification!
   deleteDriver(input: DeleteDriverInput!): Boolean!
   blockDriver(id: ID!): DriverListItem!
   unblockDriver(id: ID!): DriverListItem!
-  confirmUpsertDocumentFile(
-    input: UpsertDocumentFileInput!
-  ): DriverDocumentConfirmUploadResponse!
+  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
-  editVehicle(
-    vehicleId: String!
-    input: EditVehicleInput!
-  ): VehicleRegistrationResponse!
+  editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
   deletePassenger(input: DeletePassengerInput!): Boolean!
   blockPassenger(id: ID!): PassengerListItem!
   unblockPassenger(id: ID!): PassengerListItem!
+  approveDriverDocumentFile(input: ApproveDocumentFileInput!): DriverDocument!
+  rejectDriverDocumentFile(input: RejectDocumentFileInput!): DriverDocument!
 }
 
 input AdminSignUpInput {
@@ -1318,34 +1359,24 @@ input AdminResetPasswordInput {
 }
 
 input CreatePageInput {
-  """
-  Title of the page; slug is auto-generated from this
-  """
+  """Title of the page; slug is auto-generated from this"""
   title: String
   type: PageType!
 
-  """
-  HTML or markdown content of the page
-  """
+  """HTML or markdown content of the page"""
   content: String!
 
-  """
-  Optional:status of the page, by default if not sent will be Draft
-  """
+  """Optional:status of the page, by default if not sent will be Draft"""
   status: PageStatus!
 }
 
 input UpdatePageInput {
-  """
-  Title of the page; slug is regenerated if changed
-  """
+  """Title of the page; slug is regenerated if changed"""
   title: String
   type: PageType
   content: String
 
-  """
-  Optional:status of the page, by default if not sent will be Draft
-  """
+  """Optional:status of the page, by default if not sent will be Draft"""
   status: PageStatus
 }
 
@@ -1355,50 +1386,32 @@ input CreatePromoCodeInput {
   """
   name: String!
 
-  """
-  Whether the discount is a percentage or flat amount
-  """
+  """Whether the discount is a percentage or flat amount"""
   discountType: DiscountTypeEnum!
 
-  """
-  Percentage value (0-100) if discountType is PERCENTAGE
-  """
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
   percentageAmount: Float
 
-  """
-  Fixed currency amount if discountType is FLAT
-  """
+  """Fixed currency amount if discountType is FLAT"""
   flatAmount: Float
 
-  """
-  Cap on the discount amount for percentage-based promos
-  """
+  """Cap on the discount amount for percentage-based promos"""
   maxDiscount: Float
 
-  """
-  Minimum ride fare required to apply this code
-  """
+  """Minimum ride fare required to apply this code"""
   minimumFare: Float
   appliedTo: AppliedToEnum!
 
-  """
-  Maximum number of times this code can be used in total
-  """
+  """Maximum number of times this code can be used in total"""
   totalUsageLimit: Float!
 
-  """
-  Maximum number of times a single user can use this code
-  """
+  """Maximum number of times a single user can use this code"""
   perUserLimit: Float!
 
-  """
-  When the promo code becomes valid
-  """
+  """When the promo code becomes valid"""
   startDateTime: DateTime!
 
-  """
-  When the promo code expires
-  """
+  """When the promo code expires"""
   expiryDateTime: DateTime!
   occasionId: ID!
 }
@@ -1409,100 +1422,34 @@ input UpdatePromoCodeInput {
   """
   name: String
 
-  """
-  Whether the discount is a percentage or flat amount
-  """
+  """Whether the discount is a percentage or flat amount"""
   discountType: DiscountTypeEnum
 
-  """
-  Percentage value (0-100) if discountType is PERCENTAGE
-  """
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
   percentageAmount: Float
 
-  """
-  Fixed currency amount if discountType is FLAT
-  """
+  """Fixed currency amount if discountType is FLAT"""
   flatAmount: Float
 
-  """
-  Cap on the discount amount for percentage-based promos
-  """
+  """Cap on the discount amount for percentage-based promos"""
   maxDiscount: Float
 
-  """
-  Minimum ride fare required to apply this code
-  """
+  """Minimum ride fare required to apply this code"""
   minimumFare: Float
   appliedTo: AppliedToEnum
 
-  """
-  Maximum number of times this code can be used in total
-  """
+  """Maximum number of times this code can be used in total"""
   totalUsageLimit: Float
 
-  """
-  Maximum number of times a single user can use this code
-  """
+  """Maximum number of times a single user can use this code"""
   perUserLimit: Float
 
-  """
-  When the promo code becomes valid
-  """
+  """When the promo code becomes valid"""
   startDateTime: DateTime
 
-  """
-  When the promo code expires
-  """
+  """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
-}
-
-input CreateNotificationInput {
-  title: String!
-  notificationType: NotificationType!
-  description: String
-  ablyChannelId: String
-  rideId: String
-  rideType: RideTypes
-  rideStatus: RideStatus
-  waitTimeSeconds: Float
-  estimatedFare: Float
-  pickupLocation: NotificationLocationInput
-  dropoffLocation: NotificationLocationInput
-  distanceInKm: Float
-  estimatedTimeInMinutes: Float
-  actualTimeInMinutes: Float
-  passengerId: String
-  driverScore: Float
-  distanceToPickupKm: Float
-  passengerName: String
-  passengerPhone: String
-  passengerGender: GenderEnum = UNPUBLISHED
-  passengerProfileImages: [String!]
-  driverName: String
-  driverPhone: String
-  driverProfileImage: String
-  driverRating: Float
-  vehicleType: String
-  vehicleModel: String
-  vehicleColor: String
-  vehicleNumberPlate: String
-  passengerSnapshot: RideUserInputSnapshot
-  driverSnapshot: RideUserInputSnapshot
-  noOfPassengers: Float
-}
-
-input NotificationLocationInput {
-  address: String
-  coordinates: [Float!]
-  city: String
-}
-
-input RideUserInputSnapshot {
-  fullName: String
-  profileImage: String
-  rating: Float! = 0
-  phone: String
 }
 
 input CreateNotificationInput {
@@ -1568,39 +1515,25 @@ input SubmitDocumentForReviewInput {
 }
 
 input RegisterVehicleInput {
-  """
-  Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER.
-  """
+  """Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER."""
   vehicleType: VehicleType!
 
-  """
-  Vehicle model name, for example: Honda City.
-  """
+  """Vehicle model name, for example: Honda City."""
   vehicleModel: String!
 
-  """
-  Manufacturing year of the vehicle.
-  """
+  """Manufacturing year of the vehicle."""
   year: Int!
 
-  """
-  Official number plate of the vehicle (must be unique).
-  """
+  """Official number plate of the vehicle (must be unique)."""
   numberPlate: String!
 
-  """
-  Vehicle color, for example: White, Red, Black.
-  """
+  """Vehicle color, for example: White, Red, Black."""
   color: String!
 
-  """
-  S3 key for the vehicle image.
-  """
+  """S3 key for the vehicle image."""
   imageS3Key: String!
 
-  """
-  Vehicle model Type type: EV or PETROL.
-  """
+  """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VechileModelType
   name: String!
 }
@@ -1611,43 +1544,38 @@ enum VechileModelType {
 }
 
 input EditVehicleInput {
-  """
-  S3 key for the new vehicle image.
-  """
+  """S3 key for the new vehicle image."""
   imageS3Key: String
 
-  """
-  Vehicle type: CAR, MOTORBIKE, or SCOOTER.
-  """
+  """Vehicle type: CAR, MOTORBIKE, or SCOOTER."""
   vehicleType: VehicleType
 
-  """
-  Vehicle model name, for example: Honda City.
-  """
+  """Vehicle model name, for example: Honda City."""
   vehicleModel: String
 
-  """
-  Manufacturing year of the vehicle.
-  """
+  """Manufacturing year of the vehicle."""
   year: Int
 
-  """
-  Number plate (must be unique across other vehicles).
-  """
+  """Number plate (must be unique across other vehicles)."""
   numberPlate: String
 
-  """
-  Vehicle color, for example: White, Red, Black.
-  """
+  """Vehicle color, for example: White, Red, Black."""
   color: String
 
-  """
-  Vehicle model Type type: EV or PETROL.
-  """
+  """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VechileModelType
   name: String!
 }
 
 input DeletePassengerInput {
   passengerId: String!
+}
+
+input ApproveDocumentFileInput {
+  documentFileId: String!
+}
+
+input RejectDocumentFileInput {
+  documentFileId: String!
+  rejectionReason: String!
 }
