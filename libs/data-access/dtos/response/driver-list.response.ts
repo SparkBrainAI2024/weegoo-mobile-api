@@ -25,7 +25,7 @@ export class DriverListItem {
   suspended?: boolean;
 
   @Field(() => Int, { defaultValue: 0 })
-  totalRides: number;
+  totalRidesAsDriver: number;
 
   @Field(() => Float, { defaultValue: 0 })
   totalEarnings: number;

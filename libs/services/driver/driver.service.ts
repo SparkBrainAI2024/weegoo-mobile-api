@@ -118,7 +118,7 @@ export class DriverService {
           this.s3.getPublicUrl(key),
         ),
         suspended: row.suspended,
-        totalRides: row.totalRides,
+        totalRidesAsDriver: row.totalRidesAsDriver,
         totalEarnings: row.totalEarnings,
         rating: row.rating,
         joinedDate: row.createdAt

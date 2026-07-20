@@ -117,7 +117,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
           phone: 1,
           status: "$computedStatus",
           profileImages: "$details.profileImages",
-          totalRides: {
+          totalRidesAsDriver: {
             $ifNull: [{ $arrayElemAt: ["$rideStats.count", 0] }, 0],
           },
           totalEarnings: { $ifNull: ["$details.totalEarnings", 0] },
