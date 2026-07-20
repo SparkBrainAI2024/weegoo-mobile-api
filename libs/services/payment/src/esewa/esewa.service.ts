@@ -325,4 +325,85 @@ export class EsewaService {
       return false;
     }
   }
+
+  /**
+   * Initiate a merchant payout (disbursement) to a user's eSewa account.
+   * 
+   * eSewa Merchant Payout API allows merchants to send money directly to
+   * a user's eSewa account using their mobile number or email.
+   * 
+   * Reference: https://developer.esewa.com.np/#merchant-payout
+   * 
+   * NOTE: This requires merchant payout to be enabled on your eSewa merchant account.
+   * You may need to contact eSewa support to enable this feature.
+   */
+  async initiatePayout(params: {
+    /** The recipient's eSewa mobile number (e.g. "98XXXXXXXX") or email */
+    receiverAccount: string;
+    /** Amount in NPR to send */
+    amount: number;
+    /** Your internal transaction/reference ID */
+    transactionId: string;
+    /** Optional remarks for the payout */
+    remarks?: string;
+  }): Promise<{ success: boolean; message: string; referenceId?: string }> {
+    const merchantCode = this.envService.getString('ESEWA_MERCHANT_CODE', 'EPAYTEST');
+    const secretKey = this.envService.getString('ESEWA_SECRET_KEY', '');
+    const baseUrl = this.getBaseUrl();
+
+    this.logger.log(`Initiating eSewa payout: receiver=${params.receiverAccount}, amount=${params.amount}`);
+
+    try {
+      // eSewa merchant payout endpoint
+      const payoutUrl = `${baseUrl}/api/epay/merchant/payout`;
+
+      const payload = {
+        merchantCode,
+        receiverAccount: params.receiverAccount,
+        amount: params.amount,
+        transactionId: params.transactionId,
+        remarks: params.remarks || 'Wallet withdrawal',
+      };
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      };
+
+      // If secret key is configured, add HMAC signature
+      if (secretKey) {
+        const message = `merchantCode=${merchantCode},receiverAccount=${params.receiverAccount},amount=${params.amount},transactionId=${params.transactionId}`;
+        const signature = this.generateHmacSha256(message, secretKey);
+        headers['Authorization'] = `Bearer ${signature}`;
+      }
+
+      const response = await fetch(payoutUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'COMPLETED') {
+        return {
+          success: true,
+          message: 'Payout completed successfully',
+          referenceId: data.referenceId || data.transactionId,
+        };
+      }
+
+      this.logger.error(`eSewa payout failed: ${JSON.stringify(data)}`);
+      return {
+        success: false,
+        message: data.message || data.detail || 'eSewa payout failed',
+      };
+    } catch (error: any) {
+      this.logger.error('eSewa payout error:', error);
+      return {
+        success: false,
+        message: error.message || 'eSewa payout request failed',
+      };
+    }
+  }
 }

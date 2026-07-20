@@ -65,7 +65,6 @@ export class User extends BaseEntity {
   @Field(() => String, { nullable: true })
   @Prop({
     required: false,
-    unique: true,
     type: String,
   })
   phone?: string;
