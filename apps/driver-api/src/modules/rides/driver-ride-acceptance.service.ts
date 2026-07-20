@@ -16,9 +16,17 @@ import axios from "axios";
 import { EnvService } from "@libs/common/config/env.service";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import { S3Service } from "@libs/s3/s3.service";
-import { CompleteRideInput, RidesRepository } from "@libs/data-access";
+import {
+  CompleteRideInput,
+  RidesRepository,
+  Transaction,
+  TransactionDirection,
+  TransactionDocument,
+  TransactionType,
+} from "@libs/data-access";
 import { ErrorException, toMongoId } from "@libs/common";
 import { DriverActionEnum } from "@libs/data-access/enums/matchmaking.enum";
+import { USER } from "@libs/localization/en/user.messages";
 
 // Cached GraphQL mutations to avoid string reconstruction on every call
 const DRIVER_RESPONSE_MUTATION = `
@@ -116,6 +124,8 @@ export class DriverRideAcceptanceService {
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(UserDetails.name)
     private readonly userDetailsModel: Model<UserDetailsDocument>,
+    @InjectModel(Transaction.name)
+    private readonly transactionModel: Model<TransactionDocument>,
     @InjectModel(Vehicle.name)
     private readonly vehicleModel: Model<VehicleDocument>,
     private readonly rideChannelService: RideChannelService,
@@ -417,6 +427,37 @@ export class DriverRideAcceptanceService {
       if (!updatedRide) {
         throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
       }
+      //check if driver exist
+      const driver = await this.userDetailsModel.findById(updatedRide.driverId);
+      if (!driver) {
+        throw ErrorException(null, "USER.NOT_FOUND", 404);
+      }
+      this.logger.log(
+        `Updating total earnings of the driver ${updatedRide.driverId}, current earnings ${driver.totalEarnings}`,
+      );
+      this.logger.log(
+        `Retrieving transaction of the driver ${updatedRide.driverId} for ride ${updatedRide._id.toString()}`,
+      );
+      //update total earnings in driver's user details entity
+      //the data should be taken from transaction model with rideid this trip id and type ride payment and direction credit driver
+      const transaction = await this.transactionModel.findOne({
+        tripId: updatedRide._id,
+        direction: TransactionDirection.CREDIT,
+        type: TransactionType.RIDE_PAYMENT,
+      });
+
+      this.logger.log(`Updated total earnings by ${transaction.amount}`);
+      const userDetails = await this.userDetailsModel.findByIdAndUpdate(
+        updatedRide.driverId,
+        {
+          $inc: { totalEarnings: transaction.amount },
+        },
+        { new: true }, // returns the updated document, not the pre-update one
+      );
+
+      this.logger.log(
+        `Updated total earnings of the driver ${userDetails.totalEarnings}`,
+      );
       return updatedRide;
     } catch (err: any) {
       this.logger.error(`Failed to complete ride: ${err?.message || err}`);

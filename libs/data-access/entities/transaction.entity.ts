@@ -2,10 +2,12 @@ import { Field, Float, ObjectType, registerEnumType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Schema as MongooseSchema } from "mongoose";
-import { TransactionDirection, TransactionStatus, TransactionType } from "../enums/transaction.enum";
+import {
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+} from "../enums/transaction.enum";
 import { PaymentMethodEnum, PaymentMediumEnum } from "../enums/payment.enum";
-
-
 
 // ── Entity ─────────────────────────────────────────────────────────────────
 
@@ -17,7 +19,7 @@ export class Transaction extends BaseEntity {
   // walletId?: string;
 
   @Field(() => String, { nullable: true })
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Trip", default: null })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Rides", default: null })
   tripId?: string;
 
   @Field(() => String, { nullable: true })
@@ -29,7 +31,12 @@ export class Transaction extends BaseEntity {
   riderId?: string;
 
   @Field(() => TransactionDirection)
-  @Prop({ required: true, type: String, enum: TransactionDirection, index: true })
+  @Prop({
+    required: true,
+    type: String,
+    enum: TransactionDirection,
+    index: true,
+  })
   direction: TransactionDirection;
 
   @Field(() => TransactionType)
