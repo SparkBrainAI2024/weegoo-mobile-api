@@ -131,18 +131,15 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     filters: {
       search?: string;
       status?: string;
-      orderBy?: string; //field
-      order?: string; //
+      orderBy?: string;
+      order?: string;
     },
   ) {
     const match: Record<string, any> = { driverId };
-    if (filters.status) {
-      match.rideStatus = filters.status;
-    }
-    const sortField = filters.orderBy || "createdAt";
-    const sortDirection = filters.order === "asc" ? 1 : -1; // aggregation $sort needs 1/-1, not "asc"/"desc" strings
-
     if (filters.status) match.rideStatus = filters.status;
+
+    const sortField = filters.orderBy || "createdAt";
+    const sortDirection = filters.order === "asc" ? 1 : -1;
 
     if (filters.search) {
       match.$or = [
@@ -157,13 +154,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const page = pageInput.page ?? 0;
     const limit = pageInput.limit ?? 10;
 
-    // single round trip: page of rows + completed/cancelled counts + avg fare,
-    // all via $facet instead of four separate queries
     const [result] = await this.model.aggregate([
       { $match: match },
       {
         $project: {
           id: "$_id",
+          status: "$rideStatus",
           rideUUId: 1,
           createdAt: {
             $dateToString: {
@@ -182,7 +178,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
               { $ifNull: ["$paymentDetails.driverCommission", 0] },
             ],
           },
-          status: { $literal: null }, // settlement status — TODO once WalletTransaction join is wired
         },
       },
       {
@@ -193,14 +188,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
             { $limit: limit },
           ],
           totalCount: [{ $count: "count" }],
-          completedCount: [
-            { $match: { status: RideStatus.COMPLETED } },
-            { $count: "count" },
-          ],
-          cancelledCount: [
-            { $match: { status: RideStatus.CANCELLED } },
-            { $count: "count" },
-          ],
           avgFare: [{ $group: { _id: null, avg: { $avg: "$fare" } } }],
         },
       },
@@ -211,8 +198,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return {
       data: result?.paginatedResults ?? [],
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
-      completed: result?.completedCount?.[0]?.count ?? 0,
-      cancelled: result?.cancelledCount?.[0]?.count ?? 0,
       avgFare: Math.round(result?.avgFare?.[0]?.avg ?? 0),
     };
   }

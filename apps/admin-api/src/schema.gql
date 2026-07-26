@@ -1021,6 +1021,8 @@ type DriverListResponse {
   message: String
   data: [DriverListItem!]
   pagination: Pagination!
+  totalPending: Float!
+  totalBlocked: Float!
 }
 
 type DriverCommissionSummary {

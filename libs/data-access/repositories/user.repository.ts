@@ -43,36 +43,20 @@ export class UserRepository extends BaseRepository<UserDocument> {
     pageInput: { page?: number; limit?: number },
     status?: string,
     search?: string,
-  ): Promise<IPaginatedResult<any>> {
-    // only structural filters here — fullName doesn't exist on the User
-    // collection itself, it lives on UserDetails, joined below
+  ): Promise<
+    IPaginatedResult<any> & { totalPending: number; totalBlocked: number }
+  > {
+    const page = pageInput.page ?? 0;
+    const limit = pageInput.limit ?? 10;
+
     const match: Record<string, any> = {
       roles: roles.RIDER,
       deleted: false,
     };
 
-    const basePipeline: PipelineStage[] = [
+    const commonPipeline: PipelineStage[] = [
       { $match: match },
 
-      // totalRides — scoped per driver, completed rides only
-      {
-        $lookup: {
-          from: "rides",
-          let: { driverId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: { $eq: ["$driverId", "$$driverId"] },
-                rideStatus: "COMPLETED",
-              },
-            },
-            { $count: "count" },
-          ],
-          as: "rideStats",
-        },
-      },
-
-      // earnings + rating + fullName + profile images from UserDetails
       {
         $lookup: {
           from: "userdetails",
@@ -83,7 +67,6 @@ export class UserRepository extends BaseRepository<UserDocument> {
       },
       { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
 
-      // search now runs AFTER the join, so details.fullName actually exists
       ...(search
         ? [
             {
@@ -97,7 +80,6 @@ export class UserRepository extends BaseRepository<UserDocument> {
           ]
         : []),
 
-      // derived status — adjust if a real status field exists elsewhere
       {
         $addFields: {
           computedStatus: {
@@ -109,28 +91,68 @@ export class UserRepository extends BaseRepository<UserDocument> {
           },
         },
       },
-
-      {
-        $project: {
-          id: "$_id",
-          fullName: "$details.fullName", // was `1` — pulled from wrong collection
-          phone: 1,
-          status: "$computedStatus",
-          profileImages: "$details.profileImages",
-          totalRidesAsDriver: {
-            $ifNull: [{ $arrayElemAt: ["$rideStats.count", 0] }, 0],
-          },
-          totalEarnings: { $ifNull: ["$details.totalEarnings", 0] },
-          rating: { $ifNull: ["$details.rating", 0] },
-          createdAt: 1,
-          suspended: 1,
-        },
-      },
-
-      ...(status ? [{ $match: { status } } as PipelineStage] : []),
     ];
 
-    return this.aggregatePaginate(basePipeline, pageInput, { totalRides: -1 });
+    const statusFilterStage: PipelineStage.FacetPipelineStage[] = status
+      ? [{ $match: { computedStatus: status } }]
+      : [];
+
+    const [result] = await this.model.aggregate([
+      ...commonPipeline,
+      {
+        $facet: {
+          paginatedResults: [
+            ...statusFilterStage,
+            {
+              $project: {
+                id: "$_id",
+                fullName: "$details.fullName",
+                phone: 1,
+                status: "$computedStatus",
+                profileImages: "$details.profileImages",
+                totalRidesAsDriver: { $ifNull: ["$details.totalRides", 0] },
+                totalEarnings: { $ifNull: ["$details.totalEarnings", 0] },
+                rating: { $ifNull: ["$details.rating", 0] },
+                createdAt: 1,
+                suspended: 1,
+              },
+            },
+            { $sort: { totalRidesAsDriver: -1 } },
+            { $skip: page * limit },
+            { $limit: limit },
+          ] as PipelineStage.FacetPipelineStage[],
+
+          totalCount: [
+            ...statusFilterStage,
+            { $count: "count" },
+          ] as PipelineStage.FacetPipelineStage[],
+
+          statusCounts: [
+            { $group: { _id: "$computedStatus", count: { $sum: 1 } } },
+          ] as PipelineStage.FacetPipelineStage[],
+        },
+      },
+    ]);
+
+    const total = result.totalCount[0]?.count ?? 0;
+    const counts = Object.fromEntries(
+      result.statusCounts.map((s: any) => [s._id, s.count]),
+    );
+
+    return {
+      data: result.paginatedResults,
+      pagination: {
+        total,
+        page,
+        limit,
+        hasNextPage: (page + 1) * limit < total,
+        hasPreviousPage: page > 0,
+        nextPage: (page + 1) * limit < total ? page + 1 : undefined,
+        previousPage: page > 0 ? page - 1 : undefined,
+      },
+      totalPending: counts["PENDING"] ?? 0,
+      totalBlocked: counts["BLOCKED"] ?? 0,
+    } as any;
   }
 
   async getPassengersList(
