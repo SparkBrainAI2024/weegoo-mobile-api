@@ -136,9 +136,12 @@ export class DriverService {
     };
   }
 
-  async listDrivers(
-    input: DriverListInput,
-  ): Promise<IPaginatedResult<DriverListItem>> {
+  async listDrivers(input: DriverListInput): Promise<
+    IPaginatedResult<DriverListItem> & {
+      totalPending: number;
+      totalBlocked: number;
+    }
+  > {
     const { page, limit, search, status } = input;
 
     const result = await this.userRepository.getDriverList(
@@ -166,7 +169,12 @@ export class DriverService {
       };
     });
 
-    return { data, pagination: result.pagination };
+    return {
+      data,
+      pagination: result.pagination,
+      totalPending: result.totalPending,
+      totalBlocked: result.totalBlocked,
+    };
   }
 
   async softDeleteDriver(driverId: string): Promise<boolean> {

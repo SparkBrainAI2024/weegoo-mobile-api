@@ -38,4 +38,10 @@ export class DriverListItem {
 }
 
 @ObjectType()
-export class DriverListResponse extends Paginated(DriverListItem) {}
+export class DriverListResponse extends Paginated(DriverListItem) {
+  @Field(() => Number)
+  totalPending: number;
+
+  @Field(() => Number)
+  totalBlocked: number;
+}
