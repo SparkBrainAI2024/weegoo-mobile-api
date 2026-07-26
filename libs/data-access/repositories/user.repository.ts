@@ -105,7 +105,16 @@ export class UserRepository extends BaseRepository<UserDocument> {
             ...statusFilterStage,
             {
               $project: {
-                /* ... */
+                id: "$_id",
+                fullName: "$details.fullName",
+                phone: 1,
+                status: "$computedStatus",
+                profileImages: "$details.profileImages",
+                totalRidesAsDriver: { $ifNull: ["$details.totalRides", 0] },
+                totalEarnings: { $ifNull: ["$details.totalEarnings", 0] },
+                rating: { $ifNull: ["$details.rating", 0] },
+                createdAt: 1,
+                suspended: 1,
               },
             },
             { $sort: { totalRidesAsDriver: -1 } },
