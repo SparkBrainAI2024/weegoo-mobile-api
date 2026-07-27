@@ -45,3 +45,24 @@ export class DriverListResponse extends Paginated(DriverListItem) {
   @Field(() => Number)
   totalBlocked: number;
 }
+
+@ObjectType()
+export class DeleteDriverResponse {
+  @Field()
+  deleted: boolean;
+
+  @Field()
+  message: string;
+}
+
+@ObjectType()
+export class SuspendDriverResponse {
+  @Field(() => String)
+  id: string;
+
+  @Field(() => String)
+  message: string;
+
+  @Field(() => Boolean)
+  suspended: boolean;
+}
