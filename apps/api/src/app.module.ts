@@ -22,6 +22,7 @@ import { RatingIModule } from "./modules/rating/rating.module";
 import { WalletApiModule } from "./modules/wallet/wallet.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
 import { UploadCenterModule } from "@libs/services/upload-center/src";
+import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { UploadCenterModule } from "@libs/services/upload-center/src";
     UploadCenterModule,
     WalletApiModule,
     TransactionModule,
+    ContactUsModule,
   ],
   providers: [HealthResolver],
 })

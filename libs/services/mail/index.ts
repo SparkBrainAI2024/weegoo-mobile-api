@@ -30,4 +30,24 @@ export class MailService {
       },
     });
   }
+
+  async sendContactUsEmail(data: {
+    name: string;
+    email: string;
+    mobileNumber: string;
+    message: string;
+  }) {
+    return await this.mailerService.sendMail({
+      to: "regmikaushal321@gmail.com",
+      from: '"Ride Hailing App" <no-reply@ride-hailing.com>',
+      subject: "New Contact Us Message",
+      template: "./templates/contact-us",
+      context: {
+        name: data.name,
+        email: data.email,
+        mobileNumber: data.mobileNumber,
+        message: data.message,
+      },
+    });
+  }
 }

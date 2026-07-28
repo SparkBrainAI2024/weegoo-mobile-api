@@ -567,6 +567,33 @@ type Rating {
   remarkByUser: String
 }
 
+type ContactUs {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  name: String!
+  email: String!
+  mobileNumber: String!
+  message: String!
+  userId: String
+  userRole: String
+  status: ContactUsStatus!
+}
+
+"""The status of a contact us message"""
+enum ContactUsStatus {
+  """The message is active and pending review"""
+  ACTIVE
+
+  """The message has been resolved"""
+  RESOLVED
+
+  """The message has been deactivated"""
+  INACTIVE
+}
+
 type BasicResponse {
   message: String!
   success: Boolean!
