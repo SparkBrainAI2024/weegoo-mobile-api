@@ -26,6 +26,7 @@ export * from './entities/issue.entity';
 export * from './entities/user-daily-online-status.entity';
 export * from './entities/rating.entity';
 export * from './entities/remark.entity';
+export * from './entities/contact-us.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -42,6 +43,7 @@ export * from './repositories/notification.repository';
 export * from './repositories/user-daily-online-status.repository';
 export * from './repositories/rating.repository';
 export * from './repositories/remark.repository';
+export * from './repositories/contact-us.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -53,6 +55,7 @@ export * from './enums/notification.enum';
 export * from './enums/issue.enum';
 export * from './enums/promo-code.enum';
 export * from './enums/transaction.enum';
+export * from './enums/contact-us.enum';
 
 //interfaces
 export * from './interfaces/pagination.interface';
@@ -113,6 +116,7 @@ export * from './dtos/input/complete-ride.input';
 export * from './dtos/input/create-rating.input';
 export * from './dtos/input/create-complaint.input';
 export * from './dtos/input/passenger-payment.input';
+export * from './dtos/input/create-contact-us.input';
 
 
 // dtos - response
@@ -147,6 +151,7 @@ export * from './dtos/response/create-complaint.response';
 export * from './dtos/response/complete-ride-fare-breakdown.dto';
 export * from './dtos/response/complete-ride-result.dto';
 export * from './dtos/response/passenger-payment.response';
+export * from './dtos/response/create-contact-us.response';
 
 //interfaces
 export * from './interfaces/location.interface'

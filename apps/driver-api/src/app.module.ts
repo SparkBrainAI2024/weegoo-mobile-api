@@ -25,6 +25,7 @@ import { RatingIModule } from "./modules/rating/rating.module";
 import { WalletApiModule } from "./modules/wallet/wallet.module";
 import { ProfileModule } from "@libs/services/profile";
 import { DriverModule } from "./modules/driver/driver.module";
+import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { DriverModule } from "./modules/driver/driver.module";
     WalletApiModule,
     ProfileModule,
     DriverModule,
+    ContactUsModule,
   ],
   providers: [HealthResolver],
 })
