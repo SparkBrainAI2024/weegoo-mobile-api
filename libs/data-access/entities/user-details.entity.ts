@@ -3,6 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
 import { SavedLocation } from "../common/saved-location";
+import { NotificationSettings } from "../common/notification-settings";
 import {
   GenderEnum,
   ridePreference,
@@ -24,7 +25,7 @@ export class UserDetails extends BaseEntity {
   @Prop({ type: Types.ObjectId, index: true, ref: "User" })
   userId: Types.ObjectId;
 
-  @Field()
+  @Field({ nullable: true })
   @Prop({ required: false, type: String })
   fullName?: string;
 
@@ -45,7 +46,7 @@ export class UserDetails extends BaseEntity {
   bio?: string;
 
   @Field(() => GeoLocation, { nullable: true })
-  @Prop({ required: false, type: Object, default: {} })
+  @Prop({ required: false, type: Object, default: null })
   geoLocation?: GeoLocation;
 
   @Field(() => GenderEnum, { defaultValue: GenderEnum.UNPUBLISHED })
@@ -135,15 +136,18 @@ export class UserDetails extends BaseEntity {
   @Field({ nullable: true })
   @Prop({ required: false, type: String, default: null })
   khaltiAccount?: string;
+
+  @Field(() => NotificationSettings, { nullable: true })
+  @Prop({ required: false, type: Object, default: { earnings: true, appUpdates: true } })
+  notificationSettings?: NotificationSettings;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
 // Create a 2dsphere index on the geoLocation field for $geoNear queries
 UserDetailsSchema.index({ geoLocation: "2dsphere" });
+UserDetailsSchema.index({ userId: 1 }, { unique: true });
 
 export const userDetailModel = {
   name: UserDetails.name,
   schema: UserDetailsSchema,
 };
-
-UserDetailsSchema.index({ userId: 1 });

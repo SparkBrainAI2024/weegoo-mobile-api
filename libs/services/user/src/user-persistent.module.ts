@@ -1,4 +1,4 @@
-import { Device, DeviceRepository, DeviceSchema, User, UserDetails, UserDetailsRepository, UserDetailsSchema, UserRepository, UserSchema, UserVerification, UserVerificationRepository, UserVerificationSchema, UserTokenMeta, UserTokenMetaSchema, UserTokenMetaRepository, UserDailyOnlineStatus, UserDailyOnlineStatusSchema, UserDailyOnlineStatusRepository } from "@libs/data-access";
+import { Device, DeviceRepository, DeviceSchema, User, UserDetails, UserDetailsRepository, UserDetailsSchema, UserRepository, UserSchema, UserVerification, UserVerificationRepository, UserVerificationSchema, UserTokenMeta, UserTokenMetaSchema, UserTokenMetaRepository, UserDailyOnlineStatus, UserDailyOnlineStatusSchema, UserDailyOnlineStatusRepository, Wallet, WalletRepository, WalletSchema } from "@libs/data-access";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 
@@ -11,6 +11,7 @@ import { MongooseModule } from "@nestjs/mongoose";
       { name: Device.name, schema: DeviceSchema },
       { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
       { name: UserDailyOnlineStatus.name, schema: UserDailyOnlineStatusSchema },
+      { name: Wallet.name, schema: WalletSchema },
     ]),
   ],
   providers: [
@@ -20,6 +21,7 @@ import { MongooseModule } from "@nestjs/mongoose";
     UserDetailsRepository,
     UserTokenMetaRepository,
     UserDailyOnlineStatusRepository,
+    WalletRepository,
   ],
   exports: [
     MongooseModule,
@@ -29,6 +31,7 @@ import { MongooseModule } from "@nestjs/mongoose";
     UserDetailsRepository,
     UserTokenMetaRepository,
     UserDailyOnlineStatusRepository,
+    WalletRepository,
   ],
 })
 export class UserPersistenceModule {}

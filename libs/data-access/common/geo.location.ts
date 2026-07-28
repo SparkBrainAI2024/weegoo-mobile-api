@@ -5,7 +5,7 @@ import { ApiProperty } from "@nestjs/swagger";
 export type Coordinates = [number, number];
 @ObjectType()
 export class GeoLocation {
-  @Field()
+  @Field({ nullable: true })
   @Prop({ type: String, enum: ["Point"], default: "Point", required: true })
   @ApiProperty()
   type: string;

@@ -1,5 +1,11 @@
 import { CurrentLang, CurrentUser } from "@libs/common";
-import { CreateUserDetailsInput, DriverOnlineStatus, UserDetails, UserDetailsResponse } from "@libs/data-access";
+import {
+  CreateUserDetailsInput,
+  DriverOnlineStatus,
+  UpdateNotificationSettingsInput,
+  UserDetails,
+  UserDetailsResponse,
+} from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
 import { UserDetailsService } from "../user.details.services";
 import { UseGuards } from "@nestjs/common";
@@ -25,5 +31,11 @@ export class UserDetailsResolver {
     return this.userDetailsService.findOne(user._id, lang);
   }
 
-
+  @Mutation(() => UserDetails)
+  updateNotificationSettings(
+    @CurrentUser() user,
+    @Args("input") input: UpdateNotificationSettingsInput,
+  ) {
+    return this.userDetailsService.updateNotificationSettings(user._id, input);
+  }
 }

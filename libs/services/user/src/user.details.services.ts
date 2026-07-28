@@ -9,7 +9,9 @@ import {
   UserDetailsRepository,
   UserRepository,
   UserDailyOnlineStatusRepository,
+  WalletRepository,
   GeoLocationInput,
+  UpdateNotificationSettingsInput,
 } from "@libs/data-access";
 import {
   ImageStatus,
@@ -30,6 +32,7 @@ export class UserDetailsService {
     private readonly s3: S3Service,
     private readonly envService: EnvService,
     private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
+    private readonly walletRepository: WalletRepository,
   ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
@@ -69,6 +72,7 @@ export class UserDetailsService {
           userId: toMongoId(userId),
           ...input,
           profileImages: profileImagesArr,
+          notificationSettings: { earnings: true, appUpdates: true },
         });
       }
 
@@ -136,6 +140,43 @@ export class UserDetailsService {
     }
   }
 
+  // ✅ Update notification settings for the current user
+  async updateNotificationSettings(
+    userId: string,
+    input: UpdateNotificationSettingsInput,
+  ): Promise<UserDetails> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // Merge existing settings with new values
+      const existingSettings = details.notificationSettings || { earnings: true, appUpdates: true };
+      const updatedSettings = {
+        ...existingSettings,
+        ...(input.earnings !== undefined ? { earnings: input.earnings } : {}),
+        ...(input.appUpdates !== undefined ? { appUpdates: input.appUpdates } : {}),
+      };
+
+      await this.userDetailsRepository.updateOne(
+        { userId: toMongoId(userId) },
+        { notificationSettings: updatedSettings },
+      );
+
+      return this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // ✅ Get current user details (self)
   async findOne(userId: string, lang: string) {
     try {
@@ -159,7 +200,22 @@ export class UserDetailsService {
       }
       delete toObjectDetails.profileImages;
 
-      return { email: user.email, ...toObjectDetails };
+      // Fetch wallet information
+      const wallet = await this.walletRepository.findByUserId(userId);
+
+      // Determine totalTrips based on user role
+      const isDriver = user.loginAs === roles.RIDER;
+      const totalTrips = isDriver
+        ? toObjectDetails.totalRidesAsDriver || 0
+        : toObjectDetails.totalTripsAsPassenger || 0;
+
+      return {
+        email: user.email,
+        phoneNumber: user.phone,
+        walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
+        totalTrips,
+        ...toObjectDetails,
+      };
     } catch (e) {
       ErrorException(
         e,
