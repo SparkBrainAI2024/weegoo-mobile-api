@@ -487,7 +487,7 @@ export class WalletService {
       });
 
       // Send success notification
-      await this.notificationService.createNotification(
+       this.notificationService.createNotification(
         {
           title: 'Withdrawal Successful',
           description: `NPR ${input.amount} has been sent to your ${input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti'} account (${input.accountIdentifier}).`,
@@ -506,7 +506,7 @@ export class WalletService {
       });
 
       // Send failure notification
-      await this.notificationService.createNotification(
+       this.notificationService.createNotification(
         {
           title: 'Withdrawal Failed',
           description: `Your NPR ${input.amount} withdrawal to ${input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti'} (${input.accountIdentifier}) could not be completed. ${payoutResult.message || 'Please try again or contact support.'}`,
