@@ -152,6 +152,7 @@ export * from './dtos/response/complete-ride-fare-breakdown.dto';
 export * from './dtos/response/complete-ride-result.dto';
 export * from './dtos/response/passenger-payment.response';
 export * from './dtos/response/create-contact-us.response';
+export * from './dtos/response/update-notification-settings.response';
 
 //interfaces
 export * from './interfaces/location.interface'

@@ -1,5 +1,6 @@
 import { GenderEnum, ridePreference, ProvinceEnum } from "@libs/data-access/enums/user.enum";
 import { NotificationSettings } from "@libs/data-access/common/notification-settings";
+import { RoleNotificationSettings } from "./update-notification-settings.response";
 import { Field, ObjectType } from "@nestjs/graphql";
 
 @ObjectType()
@@ -43,8 +44,8 @@ export class UserDetailsResponse {
   @Field({ nullable: true })
   rating?: number;
 
-  @Field(() => NotificationSettings, { nullable: true })
-  notificationSettings?: NotificationSettings;
+  @Field(() => [RoleNotificationSettings], { nullable: true })
+  notificationSettings?: RoleNotificationSettings[];
 
   @Field({ nullable: true })
   profileImage?: string;

@@ -3,7 +3,7 @@ import {
   CreateUserDetailsInput,
   DriverOnlineStatus,
   UpdateNotificationSettingsInput,
-  UserDetails,
+  UpdateNotificationSettingsResponse,
   UserDetailsResponse,
 } from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
@@ -31,7 +31,7 @@ export class UserDetailsResolver {
     return this.userDetailsService.findOne(user._id, lang);
   }
 
-  @Mutation(() => UserDetails)
+  @Mutation(() => UpdateNotificationSettingsResponse)
   updateNotificationSettings(
     @CurrentUser() user,
     @Args("input") input: UpdateNotificationSettingsInput,

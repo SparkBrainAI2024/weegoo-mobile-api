@@ -12,6 +12,7 @@ import {
   WalletRepository,
   GeoLocationInput,
   UpdateNotificationSettingsInput,
+  UpdateNotificationSettingsResponse,
 } from "@libs/data-access";
 import {
   ImageStatus,
@@ -72,7 +73,7 @@ export class UserDetailsService {
           userId: toMongoId(userId),
           ...input,
           profileImages: profileImagesArr,
-          notificationSettings: { earnings: true, appUpdates: true },
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { earnings: true, appUpdates: true } },
         });
       }
 
@@ -140,11 +141,11 @@ export class UserDetailsService {
     }
   }
 
-  // ✅ Update notification settings for the current user
+  // ✅ Update notification settings for the current user (role-specific)
   async updateNotificationSettings(
     userId: string,
     input: UpdateNotificationSettingsInput,
-  ): Promise<UserDetails> {
+  ): Promise<UpdateNotificationSettingsResponse> {
     try {
       const details = await this.userDetailsRepository.findOne({
         userId: toMongoId(userId),
@@ -154,12 +155,23 @@ export class UserDetailsService {
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-      // Merge existing settings with new values
-      const existingSettings = details.notificationSettings || { earnings: true, appUpdates: true };
-      const updatedSettings = {
-        ...existingSettings,
+      // Start with existing settings or defaults
+      const existingSettings = details.notificationSettings || {
+        RIDER: { earnings: true, appUpdates: true },
+        USER: { earnings: true, appUpdates: true },
+      };
+
+      // Get or create settings for the specified role
+      const roleSettings = existingSettings[input.role] || { earnings: true, appUpdates: true };
+      const updatedRoleSettings = {
+        ...roleSettings,
         ...(input.earnings !== undefined ? { earnings: input.earnings } : {}),
         ...(input.appUpdates !== undefined ? { appUpdates: input.appUpdates } : {}),
+      };
+
+      const updatedSettings = {
+        ...existingSettings,
+        [input.role]: updatedRoleSettings,
       };
 
       await this.userDetailsRepository.updateOne(
@@ -167,7 +179,10 @@ export class UserDetailsService {
         { notificationSettings: updatedSettings },
       );
 
-      return this.userDetailsRepository.findOne({ userId: toMongoId(userId) });
+      return {
+        role: input.role,
+        ...updatedRoleSettings,
+      } as UpdateNotificationSettingsResponse;
     } catch (e) {
       ErrorException(
         e,
@@ -208,6 +223,15 @@ export class UserDetailsService {
       const totalTrips = isDriver
         ? toObjectDetails.totalRidesAsDriver || 0
         : toObjectDetails.totalTripsAsPassenger || 0;
+
+      // Convert notificationSettings from Record to array for GraphQL response
+      if (toObjectDetails.notificationSettings) {
+        const settingsRecord = toObjectDetails.notificationSettings as Record<string, { earnings: boolean; appUpdates: boolean }>;
+        toObjectDetails.notificationSettings = Object.keys(settingsRecord).map((role) => ({
+          role,
+          settings: settingsRecord[role],
+        }));
+      }
 
       return {
         email: user.email,

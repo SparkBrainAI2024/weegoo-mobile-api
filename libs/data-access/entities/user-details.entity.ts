@@ -4,6 +4,7 @@ import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
 import { SavedLocation } from "../common/saved-location";
 import { NotificationSettings } from "../common/notification-settings";
+import { RoleNotificationSettings } from "../dtos/response/update-notification-settings.response";
 import {
   GenderEnum,
   ridePreference,
@@ -137,9 +138,9 @@ export class UserDetails extends BaseEntity {
   @Prop({ required: false, type: String, default: null })
   khaltiAccount?: string;
 
-  @Field(() => NotificationSettings, { nullable: true })
-  @Prop({ required: false, type: Object, default: { earnings: true, appUpdates: true } })
-  notificationSettings?: NotificationSettings;
+  @Field(() => [RoleNotificationSettings], { nullable: true })
+  @Prop({ required: false, type: Object, default: { RIDER: { earnings: true, appUpdates: true }, USER: { earnings: true, appUpdates: true } } })
+  notificationSettings?: Record<string, { earnings: boolean; appUpdates: boolean }>;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
