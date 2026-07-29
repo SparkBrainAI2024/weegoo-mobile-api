@@ -37,7 +37,7 @@ export class ContactUsService {
 
     // Send email notification to admin
     try {
-      await this.mailService.sendContactUsEmail({
+       this.mailService.sendContactUsEmail({
         name,
         email,
         mobileNumber,
