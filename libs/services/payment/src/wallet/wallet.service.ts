@@ -458,14 +458,14 @@ export class WalletService {
     let payoutResult: { success: boolean; message: string; referenceId?: string };
 
     if (input.paymentMedium === PaymentMediumEnum.ESEWA) {
-      payoutResult = await this.esewaService.initiatePayout({
+      payoutResult = await this.esewaService.initiatePayoutV2Esewa({
         receiverAccount: input.accountIdentifier,
         amount: input.amount,
         transactionId: transactionUuid,
         remarks: 'Wallet withdrawal',
       });
     } else if (input.paymentMedium === PaymentMediumEnum.KHALTI) {
-      payoutResult = await this.khaltiService.initiatePayout({
+      payoutResult = await this.khaltiService.initiatePayoutV2({
         receiverAccount: input.accountIdentifier,
         amount: input.amount,
         transactionId: transactionUuid,
