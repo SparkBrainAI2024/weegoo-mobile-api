@@ -73,7 +73,7 @@ export class UserDetailsService {
           userId: toMongoId(userId),
           ...input,
           profileImages: profileImagesArr,
-          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { earnings: true, appUpdates: true } },
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
         });
       }
 
@@ -145,6 +145,7 @@ export class UserDetailsService {
   async updateNotificationSettings(
     userId: string,
     input: UpdateNotificationSettingsInput,
+    loginAs: string,
   ): Promise<UpdateNotificationSettingsResponse> {
     try {
       const details = await this.userDetailsRepository.findOne({
@@ -158,20 +159,32 @@ export class UserDetailsService {
       // Start with existing settings or defaults
       const existingSettings = details.notificationSettings || {
         RIDER: { earnings: true, appUpdates: true },
-        USER: { earnings: true, appUpdates: true },
+        USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true },
       };
 
-      // Get or create settings for the specified role
-      const roleSettings = existingSettings[input.role] || { earnings: true, appUpdates: true };
-      const updatedRoleSettings = {
-        ...roleSettings,
-        ...(input.earnings !== undefined ? { earnings: input.earnings } : {}),
-        ...(input.appUpdates !== undefined ? { appUpdates: input.appUpdates } : {}),
+      // Role-specific defaults and validation
+      const roleDefaults: Record<string, Record<string, boolean>> = {
+        RIDER: { earnings: true, appUpdates: true },
+        USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true },
       };
+
+      // Get or create settings for the specified role (derived from loginAs)
+      const roleSettings = existingSettings[loginAs] || roleDefaults[loginAs] || {};
+      const updatedRoleSettings: Record<string, boolean> = { ...roleSettings };
+
+      // Apply only role-appropriate fields
+      if (loginAs === 'RIDER') {
+        if (input.earnings !== undefined) updatedRoleSettings.earnings = input.earnings;
+        if (input.appUpdates !== undefined) updatedRoleSettings.appUpdates = input.appUpdates;
+      } else if (loginAs === 'USER') {
+        if (input.appUpdates !== undefined) updatedRoleSettings.appUpdates = input.appUpdates;
+        if (input.offersAndPromotion !== undefined) updatedRoleSettings.offersAndPromotion = input.offersAndPromotion;
+        if (input.ridesUpdate !== undefined) updatedRoleSettings.ridesUpdate = input.ridesUpdate;
+      }
 
       const updatedSettings = {
         ...existingSettings,
-        [input.role]: updatedRoleSettings,
+        [loginAs]: updatedRoleSettings,
       };
 
       await this.userDetailsRepository.updateOne(
@@ -180,9 +193,12 @@ export class UserDetailsService {
       );
 
       return {
-        role: input.role,
-        ...updatedRoleSettings,
-      } as UpdateNotificationSettingsResponse;
+        role: loginAs,
+        earnings: updatedRoleSettings.earnings ?? false,
+        appUpdates: updatedRoleSettings.appUpdates ?? false,
+        offersAndPromotion: updatedRoleSettings.offersAndPromotion ?? false,
+        ridesUpdate: updatedRoleSettings.ridesUpdate ?? false,
+      };
     } catch (e) {
       ErrorException(
         e,
@@ -226,7 +242,7 @@ export class UserDetailsService {
 
       // Convert notificationSettings from Record to array for GraphQL response
       if (toObjectDetails.notificationSettings) {
-        const settingsRecord = toObjectDetails.notificationSettings as Record<string, { earnings: boolean; appUpdates: boolean }>;
+        const settingsRecord = toObjectDetails.notificationSettings as Record<string, Record<string, boolean>>;
         toObjectDetails.notificationSettings = Object.keys(settingsRecord).map((role) => ({
           role,
           settings: settingsRecord[role],

@@ -139,8 +139,8 @@ export class UserDetails extends BaseEntity {
   khaltiAccount?: string;
 
   @Field(() => [RoleNotificationSettings], { nullable: true })
-  @Prop({ required: false, type: Object, default: { RIDER: { earnings: true, appUpdates: true }, USER: { earnings: true, appUpdates: true } } })
-  notificationSettings?: Record<string, { earnings: boolean; appUpdates: boolean }>;
+  @Prop({ required: false, type: Object, default: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } } })
+  notificationSettings?: Record<string, Record<string, boolean>>;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 

@@ -421,7 +421,7 @@ export class AuthService {
       if (!existingDetails) {
         await this.userDetailsRepository.create({
           userId: user._id,
-          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { earnings: true, appUpdates: true } },
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
         });
       }
       await this.userVerificationRepository.sendPhoneVerificationOtp(
@@ -996,7 +996,7 @@ export class AuthService {
           profileImages: [{
             socialPicture: socialUser.picture || '',
           }],
-          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { earnings: true, appUpdates: true } },
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
         });
       }
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });

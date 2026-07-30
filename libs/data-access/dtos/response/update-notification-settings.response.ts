@@ -20,4 +20,10 @@ export class UpdateNotificationSettingsResponse {
 
   @Field(() => Boolean)
   appUpdates: boolean;
+
+  @Field(() => Boolean)
+  offersAndPromotion: boolean;
+
+  @Field(() => Boolean)
+  ridesUpdate: boolean;
 }

@@ -36,6 +36,6 @@ export class UserDetailsResolver {
     @CurrentUser() user,
     @Args("input") input: UpdateNotificationSettingsInput,
   ) {
-    return this.userDetailsService.updateNotificationSettings(user._id, input);
+    return this.userDetailsService.updateNotificationSettings(user._id, input, user.loginAs);
   }
 }

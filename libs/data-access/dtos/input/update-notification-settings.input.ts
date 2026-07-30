@@ -1,12 +1,8 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsOptional } from 'class-validator';
 
 @InputType()
 export class UpdateNotificationSettingsInput {
-  @Field(() => String)
-  @IsString()
-  role: string;
-
   @Field(() => Boolean, { nullable: true })
   @IsOptional()
   @IsBoolean()
@@ -16,4 +12,14 @@ export class UpdateNotificationSettingsInput {
   @IsOptional()
   @IsBoolean()
   appUpdates?: boolean;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  offersAndPromotion?: boolean;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  ridesUpdate?: boolean;
 }
