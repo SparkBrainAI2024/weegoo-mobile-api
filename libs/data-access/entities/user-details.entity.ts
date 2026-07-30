@@ -4,7 +4,7 @@ import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
 import { SavedLocation } from "../common/saved-location";
 import { NotificationSettings } from "../common/notification-settings";
-import { RoleNotificationSettings } from "../dtos/response/update-notification-settings.response";
+import { GraphQLJSON } from "graphql-scalars";
 import {
   GenderEnum,
   ridePreference,
@@ -138,7 +138,7 @@ export class UserDetails extends BaseEntity {
   @Prop({ required: false, type: String, default: null })
   khaltiAccount?: string;
 
-  @Field(() => [RoleNotificationSettings], { nullable: true })
+  @Field(() => GraphQLJSON, { nullable: true })
   @Prop({ required: false, type: Object, default: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } } })
   notificationSettings?: Record<string, Record<string, boolean>>;
 }

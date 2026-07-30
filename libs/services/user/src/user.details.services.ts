@@ -240,15 +240,6 @@ export class UserDetailsService {
         ? toObjectDetails.totalRidesAsDriver || 0
         : toObjectDetails.totalTripsAsPassenger || 0;
 
-      // Convert notificationSettings from Record to array for GraphQL response
-      if (toObjectDetails.notificationSettings) {
-        const settingsRecord = toObjectDetails.notificationSettings as Record<string, Record<string, boolean>>;
-        toObjectDetails.notificationSettings = Object.keys(settingsRecord).map((role) => ({
-          role,
-          settings: settingsRecord[role],
-        }));
-      }
-
       return {
         email: user.email,
         phoneNumber: user.phone,
