@@ -5,6 +5,7 @@ import { NotificationRepository } from '@libs/data-access/repositories/notificat
 import { CreateNotificationInput } from '@libs/data-access/dtos/input/create-notification.input';
 // Direct import for other repositories to avoid barrel circularity
 import { UserTokenMetaRepository } from '@libs/data-access/repositories/user-token-meta.repository';
+import { UserDetailsRepository } from '@libs/data-access/repositories/user-detail.repository';
 
 import { Types } from 'mongoose';
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
@@ -18,14 +19,80 @@ import { Connection } from 'mongoose';
 
 @Injectable()
 export class NotificationService {
+    // Maps NotificationType to the corresponding notification settings field name
+    // If a notification type is not in this map, the check is skipped (always sent)
+    private readonly NOTIFICATION_TYPE_SETTING_MAP: Record<string, string> = {
+        // Payment/earning related
+        [NotificationType.PAYMENT_RECEIPT]: 'earnings',
+        [NotificationType.PAYMENT_FAILURE]: 'earnings',
+        [NotificationType.PAYMENT_WITHDRAWAL]: 'earnings',
+        [NotificationType.WALLET_TOPUP]: 'earnings',
+        [NotificationType.WALLET_TOPUP_FAILED]: 'earnings',
+        [NotificationType.PAYMENT_CONFIRM]: 'earnings',
+        [NotificationType.PROCEED_PAYMENT]: 'earnings',
+        [NotificationType.REQUEST_TO_PAY]: 'earnings',
+        // Promotions
+        [NotificationType.PROMOCODE_PROMOTION]: 'offersAndPromotion',
+        // Ride updates
+        [NotificationType.RIDE_REQUEST]: 'ridesUpdate',
+        [NotificationType.RIDE_CANCELLATION]: 'ridesUpdate',
+        [NotificationType.RIDE_ACCEPTED]: 'ridesUpdate',
+        [NotificationType.RIDE_START]: 'ridesUpdate',
+        [NotificationType.RIDE_END]: 'ridesUpdate',
+        [NotificationType.RIDE_DETAILS]: 'ridesUpdate',
+        [NotificationType.DRIVER_ON_THE_WAY]: 'ridesUpdate',
+        [NotificationType.SCHEDULED_RIDE_NOTIFY]: 'ridesUpdate',
+        [NotificationType.RIDE_COMPLETE_NOTIFICATION]: 'ridesUpdate',
+        [NotificationType.REAL_TIME_RIDE_TRACKING]: 'ridesUpdate',
+        // App updates
+        [NotificationType.TERMS_AND_CONDITIONS_UPDATED]: 'appUpdates',
+    };
+
     constructor(
         @Inject(forwardRef(() => NotificationRepository))
         private readonly notificationRepository: NotificationRepository,
         private readonly firebaseMessagingService: FirebaseMessagingService,
         @Inject(forwardRef(() => UserTokenMetaRepository))
         private readonly userTokenRepository: UserTokenMetaRepository,
+        private readonly userDetailsRepository: UserDetailsRepository,
         @InjectConnection() private readonly connection: Connection,
     ) { }
+
+    /**
+     * Checks whether the user has the given notification type enabled in their settings.
+     * Returns true if:
+     *   - The notification type has no mapped setting (always send)
+     *   - The user's role has no settings defined (default to send)
+     *   - The specific setting key doesn't exist for the role (default to send)
+     *   - The setting is explicitly enabled
+     * Returns false only if the setting key exists and is explicitly disabled.
+     */
+    private async shouldSendNotification(
+        userId: Types.ObjectId,
+        loginAs: string,
+        notificationType: NotificationType,
+    ): Promise<boolean> {
+        const settingKey = this.NOTIFICATION_TYPE_SETTING_MAP[notificationType];
+        // No mapping for this type → always send
+        if (!settingKey) return true;
+
+        try {
+            const userDetails = await this.userDetailsRepository.findOne({ userId });
+            if (!userDetails?.notificationSettings) return true;
+
+            const roleSettings = userDetails.notificationSettings?.[loginAs];
+            // No settings for this role → always send
+            if (!roleSettings) return true;
+
+            // Setting key doesn't exist in role's settings → always send
+            if (roleSettings[settingKey] === undefined) return true;
+
+            return roleSettings[settingKey] === true;
+        } catch {
+            // If we can't fetch settings, default to sending
+            return true;
+        }
+    }
 
     /**
       * Retrieves a paginated list of notification rides for a given user. The method accepts the user object and pagination options, and returns a paginated response containing the user's favourite rides. The pagination options can include page number, limit, sorting, and filtering criteria to customize the results.
@@ -63,6 +130,14 @@ export class NotificationService {
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
         const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
+
+        // Check if user has this notification type enabled in their settings
+        const shouldSend = await this.shouldSendNotification(userId, user.loginAs, notificationPayload.notificationType);
+        if (!shouldSend) {
+            console.log(`Notification type ${notificationPayload.notificationType} is disabled for user ${userId} (role: ${user.loginAs}), skipping push`);
+            return notification;
+        }
+
         const token = await this.userTokenRepository.findOne({ userId: userId, grant: TokenGrantType.REFRESH_TOKEN });
                 console.log("========firebase token=====", token?.firebaseToken)
         if (token?.firebaseToken) {
@@ -298,6 +373,16 @@ export class NotificationService {
                         notificationPayload as any,
                         { loginAs: roles.USER, _id: new Types.ObjectId(userId) } as any,
                     );
+
+                    // Check settings before sending the additional promo push notification
+                    const shouldSend = await this.shouldSendNotification(
+                        new Types.ObjectId(userId),
+                        roles.USER,
+                        NotificationType.PROMOCODE_PROMOTION,
+                    );
+                    if (!shouldSend) {
+                        return;
+                    }
 
                     const token = await this.userTokenRepository.findOne(
                         { userId: new Types.ObjectId(userId), grant: TokenGrantType.REFRESH_TOKEN },
