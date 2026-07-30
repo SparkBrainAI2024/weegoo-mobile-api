@@ -9,7 +9,10 @@ import {
   UserDetailsRepository,
   UserRepository,
   UserDailyOnlineStatusRepository,
+  WalletRepository,
   GeoLocationInput,
+  UpdateNotificationSettingsInput,
+  UpdateNotificationSettingsResponse,
 } from "@libs/data-access";
 import {
   ImageStatus,
@@ -30,6 +33,7 @@ export class UserDetailsService {
     private readonly s3: S3Service,
     private readonly envService: EnvService,
     private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
+    private readonly walletRepository: WalletRepository,
   ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
@@ -69,6 +73,7 @@ export class UserDetailsService {
           userId: toMongoId(userId),
           ...input,
           profileImages: profileImagesArr,
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
         });
       }
 
@@ -136,6 +141,73 @@ export class UserDetailsService {
     }
   }
 
+  // ✅ Update notification settings for the current user (role-specific)
+  async updateNotificationSettings(
+    userId: string,
+    input: UpdateNotificationSettingsInput,
+    loginAs: string,
+  ): Promise<UpdateNotificationSettingsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // Start with existing settings or defaults
+      const existingSettings = details.notificationSettings || {
+        RIDER: { earnings: true, appUpdates: true },
+        USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true },
+      };
+
+      // Role-specific defaults and validation
+      const roleDefaults: Record<string, Record<string, boolean>> = {
+        RIDER: { earnings: true, appUpdates: true },
+        USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true },
+      };
+
+      // Get or create settings for the specified role (derived from loginAs)
+      const roleSettings = existingSettings[loginAs] || roleDefaults[loginAs] || {};
+      const updatedRoleSettings: Record<string, boolean> = { ...roleSettings };
+
+      // Apply only role-appropriate fields
+      if (loginAs === 'RIDER') {
+        if (input.earnings !== undefined) updatedRoleSettings.earnings = input.earnings;
+        if (input.appUpdates !== undefined) updatedRoleSettings.appUpdates = input.appUpdates;
+      } else if (loginAs === 'USER') {
+        if (input.appUpdates !== undefined) updatedRoleSettings.appUpdates = input.appUpdates;
+        if (input.offersAndPromotion !== undefined) updatedRoleSettings.offersAndPromotion = input.offersAndPromotion;
+        if (input.ridesUpdate !== undefined) updatedRoleSettings.ridesUpdate = input.ridesUpdate;
+      }
+
+      const updatedSettings = {
+        ...existingSettings,
+        [loginAs]: updatedRoleSettings,
+      };
+
+      await this.userDetailsRepository.updateOne(
+        { userId: toMongoId(userId) },
+        { notificationSettings: updatedSettings },
+      );
+
+      return {
+        role: loginAs,
+        earnings: updatedRoleSettings.earnings ?? false,
+        appUpdates: updatedRoleSettings.appUpdates ?? false,
+        offersAndPromotion: updatedRoleSettings.offersAndPromotion ?? false,
+        ridesUpdate: updatedRoleSettings.ridesUpdate ?? false,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // ✅ Get current user details (self)
   async findOne(userId: string, lang: string) {
     try {
@@ -159,7 +231,31 @@ export class UserDetailsService {
       }
       delete toObjectDetails.profileImages;
 
-      return { email: user.email, ...toObjectDetails };
+      // Fetch wallet information
+      const wallet = await this.walletRepository.findByUserId(userId);
+
+      // Determine totalTrips based on user role
+      const isDriver = user.loginAs === roles.RIDER;
+      const totalTrips = isDriver
+        ? toObjectDetails.totalRidesAsDriver || 0
+        : toObjectDetails.totalTripsAsPassenger || 0;
+
+      // Convert notificationSettings from Record to array for GraphQL response
+      if (toObjectDetails.notificationSettings) {
+        const settingsRecord = toObjectDetails.notificationSettings as Record<string, Record<string, boolean>>;
+        toObjectDetails.notificationSettings = Object.keys(settingsRecord).map((role) => ({
+          role,
+          settings: settingsRecord[role],
+        }));
+      }
+
+      return {
+        email: user.email,
+        phoneNumber: user.phone,
+        walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
+        totalTrips,
+        ...toObjectDetails,
+      };
     } catch (e) {
       ErrorException(
         e,

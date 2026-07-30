@@ -70,7 +70,7 @@ export * from './common/payment-details';
 export * from './common/ride-user-snapshot';
 export * from './common/rating-user-snapshot';
 export * from './common/saved-location';
-
+export * from './common/notification-settings';
 
 //plugins
 export * from './plugins/mongoose.plugin';
@@ -117,7 +117,7 @@ export * from './dtos/input/create-rating.input';
 export * from './dtos/input/create-complaint.input';
 export * from './dtos/input/passenger-payment.input';
 export * from './dtos/input/create-contact-us.input';
-
+export * from './dtos/input/update-notification-settings.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -152,6 +152,7 @@ export * from './dtos/response/complete-ride-fare-breakdown.dto';
 export * from './dtos/response/complete-ride-result.dto';
 export * from './dtos/response/passenger-payment.response';
 export * from './dtos/response/create-contact-us.response';
+export * from './dtos/response/update-notification-settings.response';
 
 //interfaces
 export * from './interfaces/location.interface'

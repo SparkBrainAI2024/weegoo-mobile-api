@@ -417,9 +417,13 @@ export class AuthService {
         roles: getUpdatedRoles(userExistWithThisPhone?.roles, this.defaultRole),
         loginAs: this.defaultRole,
       });
-      await this.userDetailsRepository.create({
-        userId: user._id,
-      });
+      const existingDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!existingDetails) {
+        await this.userDetailsRepository.create({
+          userId: user._id,
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
+        });
+      }
       await this.userVerificationRepository.sendPhoneVerificationOtp(
         user._id,
         verificationCode,
@@ -984,13 +988,17 @@ export class AuthService {
         roles: getUpdatedRoles(existingUser?.roles, this.defaultRole),
         loginAs: this.defaultRole,
       });
-      await this.userDetailsRepository.create({
-        userId: user._id,
-        fullName: socialUser.name || '',
-        profileImages: [{
-          socialPicture: socialUser.picture || '',
-        }]
-      });
+      const existingGoogleDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!existingGoogleDetails) {
+        await this.userDetailsRepository.create({
+          userId: user._id,
+          fullName: socialUser.name || '',
+          profileImages: [{
+            socialPicture: socialUser.picture || '',
+          }],
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
+        });
+      }
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
       return {
         message: Message(lang, "USER.GOOGLE_SIGNUP_SUCCESS"),
