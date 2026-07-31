@@ -146,7 +146,7 @@ export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
 // Create a 2dsphere index on the geoLocation field for $geoNear queries
 UserDetailsSchema.index({ geoLocation: "2dsphere" });
-UserDetailsSchema.index({ userId: 1 }, { unique: true });
+
 
 export const userDetailModel = {
   name: UserDetails.name,

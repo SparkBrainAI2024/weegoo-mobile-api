@@ -21,6 +21,7 @@ import {
   UserDocument,
   UserDetailsRepository,
   UserDetailsDocument,
+  WalletRepository,
   verificationType,
   PhoneInput,
   GoogleSignInInput,
@@ -80,6 +81,12 @@ export type UserDetailsResponse = {
   streetName?: string;
   ridePreference?: string;
   _id?: string;
+  notificationSettings?: Record<string, boolean>;
+  email?: string;
+  phoneNumber?: string;
+  totalTrips?: number;
+  walletInfo?: { balance: number };
+  amountDueToCompany?: number;
 };
 
 const MAX_PHONE_UPDATE_LIMIT = 5;
@@ -97,6 +104,7 @@ export class AuthService {
     private readonly envService: EnvService,
     private readonly socialAuthService: SocialAuthService,
     private readonly s3: S3Service,
+    private readonly walletRepository: WalletRepository,
   ) { }
 
   // Helper method to check if user has valid non-expired OTP
@@ -201,7 +209,20 @@ export class AuthService {
     };
   }
 
-  private buildUserDetailsResponse(userDetails: UserDetailsDocument): UserDetailsResponse {
+  private async buildUserDetailsResponse(userDetails: UserDetailsDocument, user: UserDocument): Promise<UserDetailsResponse> {
+    // Filter notificationSettings to only include the role the user is logged in as
+    const allNotificationSettings = userDetails.notificationSettings || {};
+    const roleNotificationSettings = user.loginAs ? (allNotificationSettings[user.loginAs] || {}) : {};
+
+    // Fetch wallet information
+    const wallet = await this.walletRepository.findByUserId(user._id.toString());
+
+    // Determine totalTrips based on user role
+    const isDriver = user.loginAs === roles.RIDER;
+    const totalTrips = isDriver
+      ? userDetails.totalRidesAsDriver || 0
+      : userDetails.totalTripsAsPassenger || 0;
+
     return {
       fullName: userDetails.fullName,
       address: userDetails.address,
@@ -217,18 +238,24 @@ export class AuthService {
       streetName: userDetails?.streetName || null,
       ridePreference: userDetails?.ridePreference || null,
       _id: userDetails._id.toString() || null,
+      notificationSettings: roleNotificationSettings,
+      email: user.email,
+      phoneNumber: user.phone,
+      totalTrips,
+      walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
+      amountDueToCompany: userDetails.amountDueToCompany || 0,
     };
   }
 
-  private buildSignInResult(
+  private async buildSignInResult(
     user: UserDocument,
     userDetails: UserDetailsDocument,
     accessToken: string,
     refreshToken: string,
-  ): SignInResult {
+  ): Promise<SignInResult> {
     return {
       user: this.buildUserResponse(user),
-      userDetails: this.buildUserDetailsResponse(userDetails),
+      userDetails: await this.buildUserDetailsResponse(userDetails, user),
       accessToken,
       refreshToken,
     };
@@ -538,7 +565,7 @@ export class AuthService {
 
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.phone, updatedRoles, device?.deviceId, device?.firebaseToken);
       await this.registerDeviceIfProvided(user._id, device);
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignIn ~ e:", e)
@@ -676,7 +703,7 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
 
       return {
         ...result,
@@ -854,7 +881,7 @@ export class AuthService {
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier, user.roles, verifiedToken.deviceId, verifiedToken.firebaseToken);
 
       // Optional: Delete the old session meta here if your repository supports it to keep DB clean
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ loginWithRefreshToken ~ e:", e)
@@ -911,7 +938,7 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-      return this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      return await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
     } catch (e) {
       ErrorException(
         e,
@@ -1040,7 +1067,7 @@ export class AuthService {
       );
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId, device?.firebaseToken);
       await this.registerDeviceIfProvided(user._id, device);
-      const result = this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
       return result;
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);

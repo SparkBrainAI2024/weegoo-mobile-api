@@ -128,8 +128,28 @@ export class UserDetailsService {
         (key) => this.s3.getPublicUrl(key),
       );
       delete userDetailsObj.profileImages;
+
+      // Fetch wallet information
+      const wallet = await this.walletRepository.findByUserId(userId);
+
+      // Determine totalTrips based on user role
+      const isDriver = updatedCoreUser.loginAs === roles.RIDER;
+      const totalTrips = isDriver
+        ? userDetailsObj.totalRidesAsDriver || 0
+        : userDetailsObj.totalTripsAsPassenger || 0;
+
+      // Filter notificationSettings to only include the role the user is logged in as
+      const loginAs = updatedCoreUser.loginAs;
+      const allNotificationSettings = userDetailsObj.notificationSettings || {};
+      const roleNotificationSettings = allNotificationSettings[loginAs] || {};
+      delete userDetailsObj.notificationSettings;
+
       return {
         email: updatedCoreUser.email,
+        phoneNumber: updatedCoreUser.phone,
+        walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
+        totalTrips,
+        notificationSettings: roleNotificationSettings,
         ...userDetailsObj,
       };
     } catch (e) {
@@ -173,10 +193,10 @@ export class UserDetailsService {
       const updatedRoleSettings: Record<string, boolean> = { ...roleSettings };
 
       // Apply only role-appropriate fields
-      if (loginAs === 'RIDER') {
+      if (loginAs === roles.RIDER) {
         if (input.earnings !== undefined) updatedRoleSettings.earnings = input.earnings;
         if (input.appUpdates !== undefined) updatedRoleSettings.appUpdates = input.appUpdates;
-      } else if (loginAs === 'USER') {
+      } else if (loginAs === roles.USER) {
         if (input.appUpdates !== undefined) updatedRoleSettings.appUpdates = input.appUpdates;
         if (input.offersAndPromotion !== undefined) updatedRoleSettings.offersAndPromotion = input.offersAndPromotion;
         if (input.ridesUpdate !== undefined) updatedRoleSettings.ridesUpdate = input.ridesUpdate;
@@ -240,11 +260,18 @@ export class UserDetailsService {
         ? toObjectDetails.totalRidesAsDriver || 0
         : toObjectDetails.totalTripsAsPassenger || 0;
 
+      // Filter notificationSettings to only include the role the user is logged in as
+      const loginAs = user.loginAs;
+      const allNotificationSettings = toObjectDetails.notificationSettings || {};
+      const roleNotificationSettings = allNotificationSettings[loginAs] || {};
+      delete toObjectDetails.notificationSettings;
+
       return {
         email: user.email,
         phoneNumber: user.phone,
         walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
         totalTrips,
+        notificationSettings: roleNotificationSettings,
         ...toObjectDetails,
       };
     } catch (e) {

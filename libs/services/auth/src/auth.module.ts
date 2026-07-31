@@ -17,6 +17,7 @@ import {
   UserVerificationRepository,
   DeviceRepository,
   UserDetailsRepository,
+  WalletRepository,
   User,
   UserSchema,
   UserVerification,
@@ -28,6 +29,8 @@ import {
   UserTokenMeta,
   UserTokenMetaSchema,
   UserTokenMetaRepository,
+  Wallet,
+  WalletSchema,
   roles,
 } from '@libs/data-access';
 import { S3Module } from '@libs/s3';
@@ -54,6 +57,7 @@ export class UserAuthModule {
           { name: UserDetails.name, schema: UserDetailsSchema },
           { name: Device.name, schema: DeviceSchema },
           { name: UserTokenMeta.name, schema: UserTokenMetaSchema },
+          { name: Wallet.name, schema: WalletSchema },
         ]),
         S3Module,
 
@@ -139,6 +143,7 @@ export class UserAuthModule {
         DeviceRepository,
         UserDetailsRepository,
         UserTokenMetaRepository,
+        WalletRepository,
         ...providers,
       ],
 
