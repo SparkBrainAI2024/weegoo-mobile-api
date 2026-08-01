@@ -2,6 +2,7 @@ import { toMongoId } from "@libs/common";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import {
   BasicResponse,
+  GenderEnum,
   IPaginatedResult,
   RidesRepository,
   RideStatus,
@@ -9,6 +10,8 @@ import {
   TransactionRepository,
   UserDetails,
   UserDetailsDocument,
+  UserDocument,
+  UserStatus,
 } from "@libs/data-access";
 import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
 import { DriverCommissionSummary } from "@libs/data-access/dtos/response/driver-commission-summary.response";
@@ -91,6 +94,12 @@ export class DriverService {
     };
   }
 
+  private getDriverStatus(user: UserDocument): UserStatus {
+    if (user.suspended) return UserStatus.BLOCKED;
+    if (user.verified) return UserStatus.ACTIVE;
+    return UserStatus.PENDING;
+  }
+
   async getDriverDetails(driverId: string): Promise<DriverWDocuments> {
     const userDoc = await this.userRepository.findById(toMongoId(driverId));
     if (!userDoc) {
@@ -108,8 +117,15 @@ export class DriverService {
         geoLocation: 1,
         totalRidesAsDriver: 1,
         totalEarnings: 1,
+        citizenshipNumber: 1,
+        gender: 1,
+        address: 1,
+        dateOfBirth: 1,
+        amountDueToCompany: 1,
       },
     );
+
+    const status = this.getDriverStatus(userDoc);
 
     const documents =
       await this.driverDocumentRepository.getDriverDocuments(driverId);
@@ -128,12 +144,16 @@ export class DriverService {
       dateOfBirth: details?.dateOfBirth?.toDateString() || null,
       email: userDoc.email || "",
       suspended: userDoc.suspended || false,
+      status: status,
       address: details?.address || "",
       locationChannelId: details?.locationChannelId ?? null,
       documents: documents ?? [],
       joinedDate: userDoc?.createdAt?.toDateString(),
       totalRidesAsDriver: details?.totalRidesAsDriver ?? 0,
+      gender: details?.gender ?? GenderEnum.OTHERS,
+      citizenshipNumber: details?.citizenshipNumber ?? null,
       totalEarnings: details?.totalEarnings ?? 0,
+      emergencyContact: "",
       ...driverEnrichedWithRideDetails,
     };
   }

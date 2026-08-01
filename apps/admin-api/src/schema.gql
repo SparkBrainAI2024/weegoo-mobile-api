@@ -1012,6 +1012,7 @@ type DriverWDocuments {
   profileImage: String
   rating: Float
   email: String
+  gender: GenderEnum!
   address: String
   suspended: Boolean
   geoLocation: String
@@ -1027,8 +1028,26 @@ type DriverWDocuments {
   lastTripStartTime: String
   lastTripEndTime: String
   lastTripDuration: Float
+  status: UserStatus
+  citizenshipNumber: String
+  emergencyContact: String
   documents: [DriverDocument!]
   vehicle: Vehicle
+}
+
+"""The status of the user"""
+enum UserStatus {
+  """The user is active"""
+  ACTIVE
+
+  """The user is pending verification"""
+  PENDING
+
+  """The user is blocked"""
+  BLOCKED
+
+  """The user is disabled"""
+  INACTIVE
 }
 
 type DriverListItem {

@@ -5,7 +5,7 @@ import { BaseRepository } from "../base/base.repository";
 import { User, UserDocument } from "../entities/user.entity";
 import { ErrorException } from "@libs/common";
 import { IPaginatedResult } from "../interfaces/pagination.interface";
-import { roles } from "../enums/user.enum";
+import { roles, UserStatus } from "../enums/user.enum";
 import { PipelineStage } from "mongoose";
 
 @Injectable()
@@ -85,8 +85,14 @@ export class UserRepository extends BaseRepository<UserDocument> {
           computedStatus: {
             $cond: [
               { $eq: ["$suspended", true] },
-              "BLOCKED",
-              { $cond: [{ $eq: ["$verified", true] }, "ACTIVE", "PENDING"] },
+              UserStatus.BLOCKED,
+              {
+                $cond: [
+                  { $eq: ["$verified", true] },
+                  UserStatus.ACTIVE,
+                  UserStatus.PENDING,
+                ],
+              },
             ],
           },
         },
