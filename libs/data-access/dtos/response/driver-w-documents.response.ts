@@ -73,6 +73,9 @@ export class DriverWDocuments {
   @Field(() => String, { nullable: true })
   citizenshipNumber?: string;
 
+  @Field(() => String, { nullable: true })
+  emergencyContact?: string;
+
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];
 

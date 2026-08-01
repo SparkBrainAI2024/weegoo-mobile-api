@@ -153,6 +153,7 @@ export class DriverService {
       gender: details?.gender ?? GenderEnum.OTHERS,
       citizenshipNumber: details?.citizenshipNumber ?? null,
       totalEarnings: details?.totalEarnings ?? 0,
+      emergencyContact: "",
       ...driverEnrichedWithRideDetails,
     };
   }

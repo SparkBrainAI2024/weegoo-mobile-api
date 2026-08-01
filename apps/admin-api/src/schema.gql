@@ -1003,6 +1003,7 @@ type DriverWDocuments {
   lastTripDuration: Float
   status: UserStatus
   citizenshipNumber: String
+  emergencyContact: String
   documents: [DriverDocument!]
   vehicle: Vehicle
 }
