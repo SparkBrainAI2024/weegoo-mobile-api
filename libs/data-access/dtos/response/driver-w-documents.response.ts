@@ -1,4 +1,4 @@
-import { Vehicle } from "@libs/data-access";
+import { GenderEnum, UserStatus, Vehicle } from "@libs/data-access";
 import { DriverDocument } from "@libs/data-access/entities/driver-document.entity";
 import { Field, ObjectType } from "@nestjs/graphql";
 
@@ -18,6 +18,9 @@ export class DriverWDocuments {
 
   @Field({ nullable: true })
   email?: string;
+
+  @Field(() => GenderEnum)
+  gender: GenderEnum;
 
   @Field({ nullable: true })
   address?: string;
@@ -63,6 +66,12 @@ export class DriverWDocuments {
 
   @Field(() => Number, { nullable: true })
   lastTripDuration: number;
+
+  @Field(() => UserStatus, { nullable: true })
+  status?: UserStatus;
+
+  @Field(() => String, { nullable: true })
+  citizenshipNumber?: string;
 
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];

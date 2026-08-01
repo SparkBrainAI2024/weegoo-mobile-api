@@ -54,7 +54,7 @@ export class UserDetails extends BaseEntity {
     enum: GenderEnum,
     default: GenderEnum.UNPUBLISHED,
   })
-  gender?: string;
+  gender?: GenderEnum;
 
   @Field(() => ridePreference, { defaultValue: ridePreference.BOTH })
   @Prop({
