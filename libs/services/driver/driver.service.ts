@@ -17,9 +17,11 @@ import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-docum
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
+import { Message } from "@libs/localization";
 import { S3Service } from "@libs/s3";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
+import { lang } from "moment-timezone";
 import { Model, Types } from "mongoose";
 
 @Injectable()
@@ -177,20 +179,24 @@ export class DriverService {
     };
   }
 
-  async softDeleteDriver(driverId: string): Promise<boolean> {
+  async softDeleteDriver(
+    driverId: string,
+    lang: string,
+  ): Promise<{ deleted: boolean } & { message: string }> {
     const driver = await this.userRepository.findById(toMongoId(driverId));
     if (!driver) {
       throw new NotFoundException("Driver not found");
     }
 
     await this.userRepository.softDeleteById(toMongoId(driverId));
-    return true;
+    return { deleted: true, message: Message(lang, "USER.DELETE_SUCCESS") };
   }
 
   async setSuspended(
     id: string,
     suspended: boolean,
-  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
+    lang: string,
+  ): Promise<Pick<DriverListItem, "id" | "suspended"> & { message: string }> {
     const driver = await this.userRepository.findById(toMongoId(id));
     if (!driver) {
       throw new NotFoundException(`Driver ${id} not found`);
@@ -208,6 +214,12 @@ export class DriverService {
       throw new NotFoundException(`Driver ${id} not found`);
     }
 
-    return { id: updated._id.toString(), suspended: updated.suspended };
+    return {
+      message: suspended
+        ? Message(lang, "USER.BLOCK_SUCCESS")
+        : Message(lang, "USER.UNBLOCK_SUCCESS"),
+      id: updated._id.toString(),
+      suspended: updated.suspended,
+    };
   }
 }

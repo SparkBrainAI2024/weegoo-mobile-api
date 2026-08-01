@@ -1052,6 +1052,17 @@ type DriverListResponse {
   totalBlocked: Float!
 }
 
+type DeleteDriverResponse {
+  deleted: Boolean!
+  message: String!
+}
+
+type SuspendDriverResponse {
+  id: String!
+  message: String!
+  suspended: Boolean!
+}
+
 type DriverCommissionSummary {
   outstandingToPay: Float!
   commissionPaid: Float
@@ -1348,9 +1359,9 @@ type Mutation {
   readNotification(id: String!): Notification!
   openNotifications: Notification!
   createNotification(notificationPayload: CreateNotificationInput!): Notification!
-  deleteDriver(input: DeleteDriverInput!): Boolean!
-  blockDriver(id: ID!): DriverListItem!
-  unblockDriver(id: ID!): DriverListItem!
+  deleteDriver(input: DeleteDriverInput!): DeleteDriverResponse!
+  blockDriver(id: ID!): SuspendDriverResponse!
+  unblockDriver(id: ID!): SuspendDriverResponse!
   confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!

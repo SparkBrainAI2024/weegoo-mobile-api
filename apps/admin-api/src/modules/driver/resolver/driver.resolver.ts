@@ -15,13 +15,16 @@ import { DriverService } from "@libs/services/driver/driver.service";
 import { DriverDocument } from "@libs/data-access";
 import { DriverDocumentService } from "@libs/services/driver-document/driver-document.service";
 import {
+  DeleteDriverResponse,
   DriverListItem,
   DriverListResponse,
+  SuspendDriverResponse,
 } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input";
 import { DeleteDriverInput } from "@libs/data-access/dtos/input/delete-driver.input";
 import { DriverCommissionSummary } from "@libs/data-access/dtos/response/driver-commission-summary.response";
 import { DriverTripsPage } from "@libs/data-access/dtos/response/driver-trips.response";
+import { Delete } from "@nestjs/common";
 
 // @UseGuards(AuthGuard, RoleGuard)
 // @SetMetadata("roles", [roles.ADMIN])
@@ -58,25 +61,29 @@ export class DriverResolver {
     return result;
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => DeleteDriverResponse)
   async deleteDriver(
     @Args("input") input: DeleteDriverInput,
-  ): Promise<boolean> {
-    return this.driverService.softDeleteDriver(input.driverId);
+    @CurrentLang() lang: string,
+  ): Promise<DeleteDriverResponse> {
+    return this.driverService.softDeleteDriver(input.driverId, lang);
   }
 
-  @Mutation(() => DriverListItem)
+  @Mutation(() => SuspendDriverResponse)
   async blockDriver(
     @Args("id", { type: () => ID }) id: string,
-  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
-    return this.driverService.setSuspended(id, true);
+    @CurrentLang() lang: string,
+  ): Promise<Pick<DriverListItem, "id" | "suspended"> & { message: string }> {
+    const res = await this.driverService.setSuspended(id, true, lang);
+    return res;
   }
 
-  @Mutation(() => DriverListItem)
+  @Mutation(() => SuspendDriverResponse)
   async unblockDriver(
     @Args("id", { type: () => ID }) id: string,
-  ): Promise<Pick<DriverListItem, "id" | "suspended">> {
-    return this.driverService.setSuspended(id, false);
+    @CurrentLang() lang: string,
+  ): Promise<Pick<DriverListItem, "id" | "suspended"> & { message: string }> {
+    return this.driverService.setSuspended(id, false, lang);
   }
 
   @Query(() => DriverTripsPage)
