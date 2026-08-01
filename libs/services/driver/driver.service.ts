@@ -1,5 +1,8 @@
 import { toMongoId } from "@libs/common";
-import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
+import {
+  generateRandomUuid,
+  getActiveProfileImageUrl,
+} from "@libs/common/utils/entity.utils";
 import {
   BasicResponse,
   GenderEnum,
@@ -133,7 +136,7 @@ export class DriverService {
     const driverEnrichedWithRideDetails =
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
-      id: driverId,
+      id: generateRandomUuid("DR-ID"),
       fullName: details?.fullName || userDoc.fullName || "Driver",
       profileImage: getActiveProfileImageUrl(details?.profileImages, (key) =>
         this.s3.getPublicUrl(key),
