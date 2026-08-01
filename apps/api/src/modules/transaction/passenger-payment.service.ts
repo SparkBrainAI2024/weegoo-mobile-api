@@ -118,7 +118,7 @@ export class PassengerPaymentService {
         if (!ride.driverId) {
             throw new BadRequestException('Ride has no assigned driver');
         }
-        const driver = await this.userDetailsRepository.findOne({ driverId: ride.driverId });
+        const driver = await this.userDetailsRepository.findOne({ userId: ride.driverId });
         if (!driver) {
             throw ErrorException(null, "USER.NOT_FOUND", 404);
         }
