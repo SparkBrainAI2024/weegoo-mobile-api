@@ -65,19 +65,25 @@ export class PassengerHomeService {
 
   private async getMostRecentActivePromoCode(): Promise<PassengerPromoCodeResponse | null> {
     try {
+      // Get current time in Kathmandu timezone (Asia/Katmandu, UTC+5:45)
       const now = new Date();
+      const kathmanduTimeString = now.toLocaleString('en-US', { timeZone: 'Asia/Katmandu' });
+      const nowInKathmandu = new Date(kathmanduTimeString);
+      
+      console.log(`Fetching most recent active promo code at ${now.toISOString()} (Kathmandu time: ${nowInKathmandu.toISOString()})`);
+      
       const promo = await this.promoCodeModel
         .findOne({
             status: PromoCodeStatusEnum.ACTIVE,
-            expiryDateTime: { $gt: now },
-            startDateTime: { $lte: now },
+            expiryDateTime: { $gt: nowInKathmandu },
+            startDateTime: { $lte: nowInKathmandu },
             deleted: { $ne: true },
         })
-        .sort({ createdAt: -1 })
+        .sort({ startDateTime: -1, _id: -1 })
         .exec();
 
       if (!promo) return null;
-``
+
       return {
         promocodeId: promo._id.toString(),
         name: promo.name,
