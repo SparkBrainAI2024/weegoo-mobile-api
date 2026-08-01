@@ -136,7 +136,7 @@ export class DriverService {
     const driverEnrichedWithRideDetails =
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
-      id: generateRandomUuid("ID"),
+      id: generateRandomUuid("DR-ID"),
       fullName: details?.fullName || userDoc.fullName || "Driver",
       profileImage: getActiveProfileImageUrl(details?.profileImages, (key) =>
         this.s3.getPublicUrl(key),
