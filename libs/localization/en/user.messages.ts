@@ -19,7 +19,8 @@ export const USER = {
   USER_ALREADY_VERIFIED: "User is already verified.",
   INVALID_OTP: "Invalid or expired otp.",
   USER_CREATED: "We have sent a otp in your email, please verify your email.",
-  USER_CREATED_PHONE: "We have sent a otp in your phone, please verify your phone.",
+  USER_CREATED_PHONE:
+    "We have sent a otp in your phone, please verify your phone.",
   OTP_SEND: "OTP send successfully.",
   USER_VERIFICATION_SUCCESS: "User verification succeeded.",
   PASSWORD_UPDATED: "Password updated.",
@@ -73,13 +74,13 @@ export const USER = {
     "Email already verified, change details from your profile.",
   GOOGLE_SIGNUP_SUCCESS:
     "User is created successfully. To verify user please add phone number we will send you otp on sms",
-  SET_PASSWORD_TO_LOGIN:
-    "Please set your password to login into the app.",
+  SET_PASSWORD_TO_LOGIN: "Please set your password to login into the app.",
   NO_ROLE_ASSIGNED: "No role assigned to the user.",
-  PHONE_VERIFIED_SUCCESS:
-    "Phone number verified successfully.",
-  USER_ALREADY_REGISTERED_AS_CUSTOMER:
-    "User already registered.Please login.",
-    SIGNUP_SUCCESS: "Signup successful. Please verify your email to continue.",
-};
+  PHONE_VERIFIED_SUCCESS: "Phone number verified successfully.",
+  USER_ALREADY_REGISTERED_AS_CUSTOMER: "User already registered.Please login.",
+  SIGNUP_SUCCESS: "Signup successful. Please verify your email to continue.",
 
+  BLOCK_SUCCESS: "User suspended successfully.",
+  UNBLOCK_SUCCESS: "User unblocked successfully.",
+  DELETE_SUCCESS: "USER deleted SUCCESSFUlly",
+};
