@@ -16,6 +16,7 @@ import { S3Service } from '@libs/s3';
 import { AblyModule } from '@libs/services/ably';
 import { TransactionModule } from '@libs/services/payment/src/transaction/transaction.module';
 import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
+import { UserPersistenceModule } from '@libs/services/user/user-persistent.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
       { name: Vehicle.name, schema: VehicleSchema },
     ]),
     NotificationPersistentModule,
+    UserPersistenceModule,
     AblyModule,
     TransactionModule,
     WalletModule,
