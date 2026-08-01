@@ -174,18 +174,28 @@ export class PassengerPaymentService {
                 type: TransactionType.RIDE_PAYMENT,
             });
 
-            this.logger.log(`Updated total earnings by ${transaction.amount}`);
-            const userDetails = await this.userDetailsRepository.findOneAndUpdate(
-                { driverId: ride.driverId },
-                {
-                    $inc: { totalEarnings: transaction.amount },
-                },
-                { new: true }, // returns the updated document, not the pre-update one
-            );
+            if (!transaction) {
+                this.logger.warn(`No driver credit transaction found for ride ${ride._id.toString()}, skipping earnings update`);
+            } else {
+                this.logger.log(`Updated total earnings by ${transaction.amount}`);
+                // $inc handles the case where totalEarnings field doesn't exist in the document -
+                // MongoDB will create it with the increment value (e.g. if field is missing, it's treated as 0)
+                const userDetails = await this.userDetailsRepository.findOneAndUpdate(
+                    { driverId: ride.driverId },
+                    {
+                        $inc: { totalEarnings: transaction.amount },
+                    },
+                    { new: true }, // returns the updated document, not the pre-update one
+                );
 
-            this.logger.log(
-                `Updated total earnings of the driver ${userDetails.totalEarnings}`,
-            );
+                if (!userDetails) {
+                    this.logger.warn(`User details not found for driver ${ride.driverId}, skipping earnings update`);
+                } else {
+                    this.logger.log(
+                        `Updated total earnings of the driver ${userDetails.totalEarnings ?? 0}`,
+                    );
+                }
+            }
         } catch (error: any) {
             this.logger.error('Error occurred while processing payment', error);
             throw ErrorException(null, 'Payment processing failed: ' + error.message, 500);
