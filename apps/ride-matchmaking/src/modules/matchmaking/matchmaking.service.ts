@@ -625,8 +625,9 @@ export class MatchmakingService {
 
         if (driverDetails?.geoLocation?.coordinates && pickupCoords?.[1]) {
           try {
-            driverLat = driverDetails.geoLocation.coordinates[0];
-            driverLng = driverDetails.geoLocation.coordinates[1];
+            // GeoJSON coordinates are stored as [longitude, latitude]
+            driverLng = driverDetails.geoLocation.coordinates[0];
+            driverLat = driverDetails.geoLocation.coordinates[1];
             const dist = await this.distanceCalculator.calculateDriverDistance(
               pickupCoords[1], pickupCoords[0],
               driverLat, driverLng,
@@ -718,16 +719,13 @@ export class MatchmakingService {
 
         // Subscribe (or resubscribe) to the driver's location channel so live
         // location updates are tracked for the duration of the ride.
-        await this.subscribeToDriverLocationChannel(driverId).catch((err: any) =>
-          this.logger.warn(
-            `Failed to subscribe driver ${driverId} location channel on accept: ${err?.message || err}`,
-          ),
-        );
-
-        // If driver is within 300 meters of pickup, publish their location to both the ride channel
+        await this.subscribeToDriverLocationChannel(driverId).then((res: any) => {
+          this.logger.log(`Successfully subscribed driver ${driverId} to location channel`);
+           // If driver is within 300 meters of pickup, publish their location to both the ride channel
         // and the driver's personal location channel immediately so the passenger sees the driver's
         // position right away on the map.
         if (driverToPickupDistanceKm <= 0.3) {
+          // Publish to the ride channel so the passenger immediately sees the driver's position
         
           // Also publish to the driver's personal location channel so that any subscribers
           // (e.g. passenger app location tracking) immediately see the driver's initial position.
@@ -738,6 +736,13 @@ export class MatchmakingService {
             updatedAt: new Date().toISOString(),
           }).catch((err) => this.logger.warn(`Background driver location publish to driver channel failed: ${err}`));
         }
+        }).catch((err: any) =>
+          this.logger.warn(
+            `Failed to subscribe driver ${driverId} location channel on accept: ${err?.message || err}`,
+          ),
+        );
+
+       
 
         this.logger.log(`Driver ${driverId} accepted ride ${rideUUID}`);
         return { success: true, message: 'Ride accepted successfully', acceptedDetails: acceptDetails };
