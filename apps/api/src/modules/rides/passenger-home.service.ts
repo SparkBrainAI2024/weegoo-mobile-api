@@ -68,16 +68,16 @@ export class PassengerHomeService {
       const now = new Date();
       const promo = await this.promoCodeModel
         .findOne({
-          status: PromoCodeStatusEnum.ACTIVE,
-          expiryDateTime: { $gt: now },
-          startDateTime: { $lte: now },
-          deleted: false,
+            status: PromoCodeStatusEnum.ACTIVE,
+            expiryDateTime: { $gt: now },
+            startDateTime: { $lte: now },
+            deleted: { $ne: true },
         })
         .sort({ createdAt: -1 })
         .exec();
 
       if (!promo) return null;
-
+``
       return {
         promocodeId: promo._id.toString(),
         name: promo.name,

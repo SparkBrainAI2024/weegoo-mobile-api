@@ -2,9 +2,8 @@ import { Injectable, Logger, BadRequestException, NotFoundException } from '@nes
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
-import { Transaction, TransactionDocument } from '@libs/data-access/entities/transaction.entity';
-import { User, UserDocument } from '@libs/data-access/entities/user.entity';
-import { PromoCode, PromoCodeDocument } from '@libs/data-access/entities/promo-code.entity';
+import { PromoCodeUsed } from '@libs/data-access/entities/promo-code-used.entity';
+import { TransactionDocument } from '@libs/data-access/entities/transaction.entity';
 import { RideChannelService } from '@libs/services/ably';
 import { WalletService } from '@libs/services/payment/src/wallet/wallet.service';
 import { RidesRepository } from '@libs/data-access/repositories/rides.repository';
@@ -22,6 +21,7 @@ import { PaymentDetails } from '@libs/data-access/common/payment-details';
 import axios from 'axios';
 import { AdminUser, AdminUserDocument } from '@libs/data-access/entities/admin-user.entity';
 import { ErrorException } from '@libs/common';
+import { DiscountTypeEnum } from '@libs/data-access';
 
 export interface PassengerPaymentResult {
     success: boolean;
@@ -53,10 +53,13 @@ export class PassengerPaymentService {
     constructor(
         @InjectConnection() private readonly connection: Connection,
         @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
+        @InjectModel(PromoCodeUsed.name)
+        private readonly promoCodeUsedModel: Model<PromoCodeUsed>,
 
         private readonly ridesRepository: RidesRepository,
         private readonly transactionRepository: TransactionRepository,
         private readonly promoCodeRepository: PromoCodeRepository,
+        private readonly userDetailsRepository: UserDetailsRepository,
         private readonly walletService: WalletService,
         private readonly rideChannelService: RideChannelService,
         private readonly envService: EnvService,
@@ -115,7 +118,11 @@ export class PassengerPaymentService {
         if (!ride.driverId) {
             throw new BadRequestException('Ride has no assigned driver');
         }
-        if(ride.isAcknowledgeByDriver ===true){
+        const driver = await this.userDetailsRepository.findOne({ driverId: ride.driverId });
+        if (!driver) {
+            throw ErrorException(null, "USER.NOT_FOUND", 404);
+        }
+        if (ride.isAcknowledgeByDriver === true) {
             throw new BadRequestException('Driver has already acknowledged the ride');
         }
         // Calculate fare breakdown
@@ -150,6 +157,35 @@ export class PassengerPaymentService {
                     promoCodeId,
                 );
             }
+
+            //check if driver exist
+
+            this.logger.log(
+                `Updating total earnings of the driver ${ride.driverId}, current earnings ${driver.totalEarnings}`,
+            );
+            this.logger.log(
+                `Retrieving transaction of the driver ${ride.driverId} for ride ${ride._id.toString()}`,
+            );
+            //update total earnings in driver's user details entity
+            //the data should be taken from transaction model with rideid this trip id and type ride payment and direction credit driver
+            const transaction = await this.transactionRepository.findOne({
+                tripId: ride._id.toString(),
+                direction: TransactionDirection.CREDIT,
+                type: TransactionType.RIDE_PAYMENT,
+            });
+
+            this.logger.log(`Updated total earnings by ${transaction.amount}`);
+            const userDetails = await this.userDetailsRepository.findOneAndUpdate(
+                { driverId: ride.driverId },
+                {
+                    $inc: { totalEarnings: transaction.amount },
+                },
+                { new: true }, // returns the updated document, not the pre-update one
+            );
+
+            this.logger.log(
+                `Updated total earnings of the driver ${userDetails.totalEarnings}`,
+            );
         } catch (error: any) {
             this.logger.error('Error occurred while processing payment', error);
             throw ErrorException(null, 'Payment processing failed: ' + error.message, 500);
@@ -226,7 +262,7 @@ export class PassengerPaymentService {
 
             // Check if user has already used this promo code
             if (promoCode.perUserLimit > 0) {
-                const usedCount = await this.promoCodeRepository.count({
+                const usedCount = await this.promoCodeUsedModel.countDocuments({
                     promoCodeId: promoCode._id,
                     userId: new Types.ObjectId(passengerId),
                 });
@@ -238,13 +274,13 @@ export class PassengerPaymentService {
             promoCodeName = promoCode.name;
 
             // Calculate discount
-            if (promoCode.discountType === 'PERCENTAGE' && promoCode.percentageAmount) {
+            if (promoCode.discountType === DiscountTypeEnum.PERCENTAGE && promoCode.percentageAmount) {
                 discount = Math.round((subtotal * promoCode.percentageAmount) / 100);
                 // Cap at max discount
                 if (promoCode.maxDiscount && discount > promoCode.maxDiscount) {
                     discount = Math.round(promoCode.maxDiscount);
                 }
-            } else if (promoCode.discountType === 'FLAT' && promoCode.flatAmount) {
+            } else if (promoCode.discountType === DiscountTypeEnum.FLAT && promoCode.flatAmount) {
                 discount = Math.round(promoCode.flatAmount);
                 // Don't let discount exceed subtotal
                 if (discount > subtotal) {
@@ -449,6 +485,18 @@ export class PassengerPaymentService {
 
         // ── Mark promo code as used if applicable ─────────────────
         if (promoCodeId) {
+            // Create promo code usage record (if not already created during applyPromoCode)
+            const existingUsage = await this.promoCodeUsedModel.findOne({
+                rideId: ride._id,
+            });
+            if (!existingUsage) {
+                await this.promoCodeUsedModel.create([{
+                    userId: new Types.ObjectId(passengerId),
+                    promoCodeId: new Types.ObjectId(promoCodeId),
+                    rideId: ride._id,
+                }], { session });
+            }
+
             await this.promoCodeRepository.updateById(
                 new Types.ObjectId(promoCodeId),
                 { $inc: { promoCodeUsedCount: 1 } },

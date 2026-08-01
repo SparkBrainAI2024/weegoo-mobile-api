@@ -186,4 +186,7 @@ export class TransactionRepository {
     ]);
     return response;
   }
+  async findOne (filter: Partial<Transaction>): Promise<Transaction | null> {
+    return this.model.findOne(filter).exec();
+  }
 }

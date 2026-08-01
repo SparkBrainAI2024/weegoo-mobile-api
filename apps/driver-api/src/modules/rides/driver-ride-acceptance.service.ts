@@ -131,7 +131,7 @@ export class DriverRideAcceptanceService {
     private readonly rideChannelService: RideChannelService,
     private readonly envService: EnvService,
     private readonly s3: S3Service,
-  ) {}
+  ) { }
 
   onModuleInit() {
     this.logger.log(
@@ -236,10 +236,10 @@ export class DriverRideAcceptanceService {
           },
           dropoffLocation: ride.dropoffLocation
             ? {
-                address: ride.dropoffLocation.address,
-                coordinates: ride.dropoffLocation.coordinates,
-                city: ride.dropoffLocation.city,
-              }
+              address: ride.dropoffLocation.address,
+              coordinates: ride.dropoffLocation.coordinates,
+              city: ride.dropoffLocation.city,
+            }
             : undefined,
           totalFareAmount: ride?.fare?.totalAmount,
           estimatedFare: mmDetails?.estimatedFare || ride.estimatedFare || 0,
@@ -354,8 +354,8 @@ export class DriverRideAcceptanceService {
         profileImage:
           driverDetails?.profileImages?.length > 0
             ? getActiveProfileImageUrl(driverDetails.profileImages, (key) =>
-                this.s3.getPublicUrl(key),
-              )
+              this.s3.getPublicUrl(key),
+            )
             : null,
         rating: driverDetails?.rating || 0,
       },
@@ -379,10 +379,10 @@ export class DriverRideAcceptanceService {
       },
       dropoffLocation: ride.dropoffLocation
         ? {
-            address: ride.dropoffLocation.address,
-            coordinates: ride.dropoffLocation.coordinates,
-            city: ride.dropoffLocation.city,
-          }
+          address: ride.dropoffLocation.address,
+          coordinates: ride.dropoffLocation.coordinates,
+          city: ride.dropoffLocation.city,
+        }
         : undefined,
       estimatedFare: ride.estimatedFare || 0,
       estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
@@ -424,40 +424,7 @@ export class DriverRideAcceptanceService {
       const updatedRide = await this.ridesRepository.findById(
         toMongoId(rideId),
       );
-      if (!updatedRide) {
-        throw ErrorException(null, "RIDES.RIDE_NOT_FOUND", 404);
-      }
-      //check if driver exist
-      const driver = await this.userDetailsModel.findById(updatedRide.driverId);
-      if (!driver) {
-        throw ErrorException(null, "USER.NOT_FOUND", 404);
-      }
-      this.logger.log(
-        `Updating total earnings of the driver ${updatedRide.driverId}, current earnings ${driver.totalEarnings}`,
-      );
-      this.logger.log(
-        `Retrieving transaction of the driver ${updatedRide.driverId} for ride ${updatedRide._id.toString()}`,
-      );
-      //update total earnings in driver's user details entity
-      //the data should be taken from transaction model with rideid this trip id and type ride payment and direction credit driver
-      const transaction = await this.transactionModel.findOne({
-        tripId: updatedRide._id,
-        direction: TransactionDirection.CREDIT,
-        type: TransactionType.RIDE_PAYMENT,
-      });
 
-      this.logger.log(`Updated total earnings by ${transaction.amount}`);
-      const userDetails = await this.userDetailsModel.findByIdAndUpdate(
-        updatedRide.driverId,
-        {
-          $inc: { totalEarnings: transaction.amount },
-        },
-        { new: true }, // returns the updated document, not the pre-update one
-      );
-
-      this.logger.log(
-        `Updated total earnings of the driver ${userDetails.totalEarnings}`,
-      );
       return updatedRide;
     } catch (err: any) {
       this.logger.error(`Failed to complete ride: ${err?.message || err}`);
