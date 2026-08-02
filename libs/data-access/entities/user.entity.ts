@@ -107,8 +107,6 @@ export const userModel = {
 // Existing index
 UserSchema.index({
   authProvider: 1,
-  deleted: 1,
-  deletedAt: 1,
 });
 
 // passengerSlugId

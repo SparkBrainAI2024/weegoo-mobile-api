@@ -981,6 +981,7 @@ type PromocodeCreateResponse {
 
 type DriverWDocuments {
   id: String!
+  userId: String!
   fullName: String
   profileImage: String
   rating: Float

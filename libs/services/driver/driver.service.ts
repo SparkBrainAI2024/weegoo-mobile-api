@@ -105,6 +105,7 @@ export class DriverService {
 
   async getDriverDetails(driverId: string): Promise<DriverWDocuments> {
     const userDoc = await this.userRepository.findById(toMongoId(driverId));
+
     if (!userDoc) {
       throw new NotFoundException("Driver not found");
     }
@@ -113,6 +114,7 @@ export class DriverService {
       { userId: toMongoId(driverId) },
       null,
       {
+        userId: 1,
         fullName: 1,
         profileImages: 1,
         rating: 1,
@@ -137,6 +139,7 @@ export class DriverService {
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
       id: generateRandomUuid("DR-ID"),
+      userId: details?.userId?.toString() || userDoc._id.toString(),
       fullName: details?.fullName || userDoc.fullName || "Driver",
       profileImage: getActiveProfileImageUrl(details?.profileImages, (key) =>
         this.s3.getPublicUrl(key),

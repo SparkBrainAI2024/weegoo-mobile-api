@@ -7,6 +7,9 @@ export class DriverWDocuments {
   @Field(() => String)
   id: string;
 
+  @Field(() => String)
+  userId: string;
+
   @Field({ nullable: true })
   fullName?: string;
 
