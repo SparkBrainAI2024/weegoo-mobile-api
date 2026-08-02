@@ -1,28 +1,25 @@
-import { escapeRegex } from '@libs/common/helpers/mongo-helper';
-import { PipelineStage, Schema } from 'mongoose';
+import { escapeRegex } from "@libs/common/helpers/mongo-helper";
+import { PipelineStage, Schema } from "mongoose";
 import {
   IPaginationRequest,
   LookupStage,
   LookupWithSearchOptions,
-} from '../interfaces/pagination.interface';
+} from "../interfaces/pagination.interface";
 
 export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
   if (!schema || !(schema instanceof Schema)) {
-    throw new Error('Mongoose plugin requires a valid Schema instance');
+    throw new Error("Mongoose plugin requires a valid Schema instance");
   }
 
   // enable timestamps on the schema
-  schema.set('timestamps', true);
-  schema.set('virtuals', true);
+  schema.set("timestamps", true);
+  schema.set("virtuals", true);
 
   // if options.skipSoftDelete is provided, set it on the schema
   schema.add({
     deletedAt: { type: Date, default: null },
     deleted: { type: Boolean, default: false },
   });
-
-  // create a compound index for deleted and deletedAt
-  schema.index({ deleted: 1, deletedAt: 1 });
 
   // Soft delete instance method
   schema.methods.softDelete = async function (filter = {}, options = {}) {
@@ -43,7 +40,10 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
   };
 
   // Static method for soft delete
-  schema.statics.softDelete = async function (filter: any = {}, options: any = {}) {
+  schema.statics.softDelete = async function (
+    filter: any = {},
+    options: any = {},
+  ) {
     const update = {
       $set: {
         deleted: true,
@@ -72,7 +72,10 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
   };
 
   // Static method for restore
-  schema.statics.restore = async function (filter: any = {}, options: any = {}) {
+  schema.statics.restore = async function (
+    filter: any = {},
+    options: any = {},
+  ) {
     const update = {
       $set: {
         deleted: false,
@@ -105,7 +108,12 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     filter: any = {},
     pipelines: PipelineStage[] = [],
   ) {
-    return await executeAggregationWithPagination.call(this, pipelines, request, filter);
+    return await executeAggregationWithPagination.call(
+      this,
+      pipelines,
+      request,
+      filter,
+    );
   };
 
   /**
@@ -113,7 +121,9 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
    * @param options - Options for the lookup and search
    * @returns  Paginated results with lookup and search applied
    */
-  schema.methods.paginationWithLookUps = async function (options: LookupWithSearchOptions) {
+  schema.methods.paginationWithLookUps = async function (
+    options: LookupWithSearchOptions,
+  ) {
     return await lookupWithSearch.call(this, options);
   };
 
@@ -122,7 +132,9 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
    * @param options - Options for the lookup and search
    * @returns  Paginated results with lookup and search applied
    */
-  schema.statics.paginationWithLookUps = async function (options: LookupWithSearchOptions) {
+  schema.statics.paginationWithLookUps = async function (
+    options: LookupWithSearchOptions,
+  ) {
     return await lookupWithSearch.call(this, options);
   };
 
@@ -132,7 +144,12 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     filter: any = {},
     pipeline: PipelineStage[] = [],
   ) {
-    return await executeAggregationWithPagination.call(this, pipeline, request, filter);
+    return await executeAggregationWithPagination.call(
+      this,
+      pipeline,
+      request,
+      filter,
+    );
   };
 
   async function executeAggregationWithPagination(
@@ -143,7 +160,7 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
   ) {
     // Ensure the pipeline is an array
     if (!Array.isArray(pipelines)) {
-      throw new Error('Pipeline must be an array');
+      throw new Error("Pipeline must be an array");
     }
 
     // Destructure pagination parameters from the request
@@ -155,15 +172,17 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     const skip = pageNumber * limitNumber;
 
     // Add soft delete filter to the pipeline
-    const skipDeleted = this.getOptions ? this.getOptions().skipSoftDelete : false;
+    const skipDeleted = this.getOptions
+      ? this.getOptions().skipSoftDelete
+      : false;
 
     const pipelineWithSoftDelete = [...pipelines];
 
     const hasDeletedMatch = pipelineWithSoftDelete.some(
       (stage) =>
         stage.$match &&
-        (Object.prototype.hasOwnProperty.call(stage.$match, 'deleted') ||
-          Object.prototype.hasOwnProperty.call(stage.$match, 'deletedAt')),
+        (Object.prototype.hasOwnProperty.call(stage.$match, "deleted") ||
+          Object.prototype.hasOwnProperty.call(stage.$match, "deletedAt")),
     );
     if (!skipDeleted && !hasDeletedMatch) {
       pipelineWithSoftDelete.unshift({
@@ -232,8 +251,11 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     const filter = this.getFilter ? this.getFilter() : {};
 
     // Only add filter if neither 'deleted' nor 'deletedAt' is already present in the query
-    const hasDeleted = Object.prototype.hasOwnProperty.call(filter, 'deleted');
-    const hasDeletedAt = Object.prototype.hasOwnProperty.call(filter, 'deletedAt');
+    const hasDeleted = Object.prototype.hasOwnProperty.call(filter, "deleted");
+    const hasDeletedAt = Object.prototype.hasOwnProperty.call(
+      filter,
+      "deletedAt",
+    );
 
     if (!hasDeleted && !hasDeletedAt) {
       this.where({
@@ -258,8 +280,8 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     const hasDeletedMatch = pipeline.some(
       (stage) =>
         stage.$match &&
-        (Object.prototype.hasOwnProperty.call(stage.$match, 'deleted') ||
-          Object.prototype.hasOwnProperty.call(stage.$match, 'deletedAt')),
+        (Object.prototype.hasOwnProperty.call(stage.$match, "deleted") ||
+          Object.prototype.hasOwnProperty.call(stage.$match, "deletedAt")),
     );
 
     if (!hasDeletedMatch) {
@@ -277,8 +299,8 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
 
   // Helper to check if filter or any $and clause already has deleted/deletedAt
   function hasSoftDeleteCondition(obj: any): boolean {
-    if (!obj || typeof obj !== 'object') return false;
-    if ('deleted' in obj || 'deletedAt' in obj) return true;
+    if (!obj || typeof obj !== "object") return false;
+    if ("deleted" in obj || "deletedAt" in obj) return true;
     if (Array.isArray(obj.$and)) {
       return obj.$and.some((sub: any) => hasSoftDeleteCondition(sub));
     }
@@ -298,7 +320,9 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     const limitNumber = Math.max(1, parseInt(limit.toString(), 10));
     const skip = pageNumber * limitNumber;
 
-    const skipDeleted = this.getOptions ? this.getOptions().skipSoftDelete : false;
+    const skipDeleted = this.getOptions
+      ? this.getOptions().skipSoftDelete
+      : false;
 
     // If skipDeleted is false, ensure soft delete conditions are applied
     if (!skipDeleted && !hasSoftDeleteCondition(filter)) {
@@ -328,7 +352,10 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
     }
 
     // Count total documents and get results matching the filter
-    const [total, results] = await Promise.all([this.countDocuments(filter).exec(), query.exec()]);
+    const [total, results] = await Promise.all([
+      this.countDocuments(filter).exec(),
+      query.exec(),
+    ]);
 
     // Determine pagination details
     // If results exceed limit, we have a next page
@@ -336,7 +363,9 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
 
     // If we have a next page, slice the results to return only the requested limit
     // Otherwise, return all results
-    const paginatedResults = hasNextPage ? results.slice(0, limitNumber) : results;
+    const paginatedResults = hasNextPage
+      ? results.slice(0, limitNumber)
+      : results;
 
     // has previous page is true if pageNumber is greater than 1
     const hasPreviousPage = pageNumber > 0;
@@ -370,7 +399,7 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
       page = 0,
       limit = 5,
       baseMatch = {},
-      searchText = '',
+      searchText = "",
       searchKeys = {},
       sort = { _id: -1 },
       lookup,
@@ -413,8 +442,8 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
 
     if (
       searchText &&
-      typeof searchText === 'string' &&
-      searchText.trim() !== '' &&
+      typeof searchText === "string" &&
+      searchText.trim() !== "" &&
       searchKeys &&
       Array.isArray(searchKeys) &&
       searchKeys.length > 0
@@ -423,8 +452,10 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
       const escapedText = escapeRegex(decodedText.trim()); // Always escape for all fields
 
       for (const key of searchKeys) {
-        if (typeof key === 'string' && key.trim()) {
-          searchConditions.push({ [key]: { $regex: escapedText, $options: 'i' } });
+        if (typeof key === "string" && key.trim()) {
+          searchConditions.push({
+            [key]: { $regex: escapedText, $options: "i" },
+          });
         }
       }
     }
@@ -459,13 +490,13 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
 
     const countPipelines: PipelineStage[] = pipelines.filter(
       (stage) =>
-        !Object.prototype.hasOwnProperty.call(stage, '$skip') &&
-        !Object.prototype.hasOwnProperty.call(stage, '$limit') &&
-        !Object.prototype.hasOwnProperty.call(stage, '$project') &&
-        !Object.prototype.hasOwnProperty.call(stage, '$set') &&
-        !Object.prototype.hasOwnProperty.call(stage, '$unset'),
+        !Object.prototype.hasOwnProperty.call(stage, "$skip") &&
+        !Object.prototype.hasOwnProperty.call(stage, "$limit") &&
+        !Object.prototype.hasOwnProperty.call(stage, "$project") &&
+        !Object.prototype.hasOwnProperty.call(stage, "$set") &&
+        !Object.prototype.hasOwnProperty.call(stage, "$unset"),
     );
-    countPipelines.push({ $count: 'count' });
+    countPipelines.push({ $count: "count" });
 
     // Execute the total count and the paginated results in parallel
     const [totalResult, results] = await Promise.all([
@@ -527,10 +558,10 @@ export function paginateAndSoftDelete(schema: Schema, options: any = {}): void {
   }
 
   // Apply the soft delete filter to various query methods
-  schema.pre('find', softDeleteFilter);
-  schema.pre('findOne', softDeleteFilter);
-  schema.pre('countDocuments', softDeleteFilter);
-  schema.pre('findOneAndUpdate', softDeleteFilter);
-  schema.pre('updateMany', softDeleteFilter);
-  schema.pre('aggregate', softDeleteFilterAggregate);
+  schema.pre("find", softDeleteFilter);
+  schema.pre("findOne", softDeleteFilter);
+  schema.pre("countDocuments", softDeleteFilter);
+  schema.pre("findOneAndUpdate", softDeleteFilter);
+  schema.pre("updateMany", softDeleteFilter);
+  schema.pre("aggregate", softDeleteFilterAggregate);
 }
