@@ -42,7 +42,9 @@ export class DriverResolver {
   ): Promise<DriverWDocuments> {
     console.log("here", driverId);
 
-    return this.driverService.getDriverDetails(driverId);
+    const res = await this.driverService.getDriverDetails(driverId);
+    console.log(res, "res");
+    return res;
   }
 
   @ResolveField(() => [DriverDocument])

@@ -24,7 +24,7 @@ import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
 import { Message } from "@libs/localization";
-import { S3Service } from "@libs/s3";
+import { S3Service, VIEW_URL_EXPIRES_ADMIN_SECONDS } from "@libs/s3";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { lang } from "moment-timezone";
@@ -104,7 +104,10 @@ export class DriverService {
   }
 
   async getDriverDetails(driverId: string): Promise<DriverWDocuments> {
-    const userDoc = await this.userRepository.findById(toMongoId(driverId));
+    const userDoc = await this.userRepository.findById(
+      toMongoId(driverId),
+      "vehicle",
+    );
 
     if (!userDoc) {
       throw new NotFoundException("Driver not found");
@@ -129,6 +132,17 @@ export class DriverService {
         amountDueToCompany: 1,
       },
     );
+    const vehicle = userDoc?.vehicle;
+    if (vehicle != null && vehicle?.images?.[0]?.s3Key) {
+      const s3Key = await this.s3.getViewUrl(
+        vehicle.images[0].s3Key,
+        VIEW_URL_EXPIRES_ADMIN_SECONDS,
+      );
+      console.log(s3Key, "s3key");
+
+      vehicle.images[0].s3Key = s3Key;
+      userDoc.vehicle = vehicle;
+    }
 
     const status = this.getDriverStatus(userDoc);
 
@@ -160,6 +174,7 @@ export class DriverService {
       citizenshipNumber: details?.citizenshipNumber ?? null,
       totalEarnings: details?.totalEarnings ?? 0,
       emergencyContact: "",
+      vehicle: vehicle,
       ...driverEnrichedWithRideDetails,
     };
   }
