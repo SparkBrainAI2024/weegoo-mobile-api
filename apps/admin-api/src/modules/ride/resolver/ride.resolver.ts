@@ -15,8 +15,6 @@ export class AdminRidesResolver {
   @UseGuards(AdminAuthGuard)
   @Query(() => RidesListResponse)
   async rides(@Args("input") input: RidesListInput) {
-    console.log("here");
-
     return this.ridesService.getRidesList(input);
   }
 

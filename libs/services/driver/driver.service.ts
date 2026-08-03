@@ -138,7 +138,6 @@ export class DriverService {
         vehicle.images[0].s3Key,
         VIEW_URL_EXPIRES_ADMIN_SECONDS,
       );
-      console.log(s3Key, "s3key");
 
       vehicle.images[0].s3Key = s3Key;
       userDoc.vehicle = vehicle;

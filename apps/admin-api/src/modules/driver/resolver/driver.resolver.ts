@@ -40,10 +40,7 @@ export class DriverResolver {
     @CurrentLang() lang: string,
     @Args("driverId") driverId: string,
   ): Promise<DriverWDocuments> {
-    console.log("here", driverId);
-
     const res = await this.driverService.getDriverDetails(driverId);
-    console.log(res, "res");
     return res;
   }
 
