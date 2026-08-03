@@ -9,6 +9,7 @@ import { EnvService } from '@libs/common/config/env.service';
 import { TransactionResolver } from './resolver/transaction.resolver';
 import { UserTransactionResolver } from '@libs/services/payment/src/transaction/resolver/transaction.resolver';
 import { AcknowledgeAndFinishResolver } from './acknowledge-and-finish.resolver';
+import { DriverEarningHistoryResolver } from './resolver/driver-earning-history.resolver';
 
 
 @Module({
@@ -18,7 +19,7 @@ import { AcknowledgeAndFinishResolver } from './acknowledge-and-finish.resolver'
     WalletModule,
     HttpModule,
   ],
-  providers: [TransactionService, TransactionResolver, EnvService, UserTransactionResolver, AcknowledgeAndFinishResolver],
+  providers: [TransactionService, TransactionResolver, EnvService, UserTransactionResolver, AcknowledgeAndFinishResolver, DriverEarningHistoryResolver],
   exports: [TransactionService, TransactionResolver],
 })
 export class TransactionModule {}
