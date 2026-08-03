@@ -148,4 +148,40 @@ export class TransactionService {
       }
     );
   }
+
+  async getDriverEarningHistory(
+    driverId: string,
+    page: number,
+    limit: number,
+  ): Promise<{
+    data: any[];
+    total: number;
+    totalEarnings: number;
+    pagination: IPagination;
+  }> {
+    const result = await this.transactionRepo.findDriverEarningHistory(
+      driverId,
+      page,
+      limit,
+    );
+
+    const totalPages = Math.ceil(result.total / limit);
+    const hasNextPage = page < totalPages - 1;
+    const hasPreviousPage = page > 0;
+
+    return {
+      data: result.data,
+      total: result.total,
+      totalEarnings: result.totalEarnings,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        hasNextPage,
+        hasPreviousPage,
+        nextPage: hasNextPage ? page + 1 : undefined,
+        previousPage: hasPreviousPage ? page - 1 : undefined,
+      },
+    };
+  }
 }

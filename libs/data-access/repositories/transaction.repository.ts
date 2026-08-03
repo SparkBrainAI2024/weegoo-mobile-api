@@ -118,6 +118,65 @@ export class TransactionRepository {
     return this.model.find({ walletId }).sort({ createdAt: -1 }).limit(limit);
   }
 
+  async findDriverEarningHistory(
+    driverId: string,
+    page: number,
+    limit: number,
+  ): Promise<{ data: any[]; total: number; totalEarnings: number }> {
+    const filter = {
+      driverId: new Types.ObjectId(driverId),
+      direction: TransactionDirection.CREDIT,
+      type: TransactionType.RIDE_PAYMENT,
+      status: TransactionStatus.COMPLETED,
+    };
+
+    const totalAgg = await this.model.aggregate([
+      { $match: filter },
+      { $group: { _id: null, totalEarnings: { $sum: "$amount" } } },
+    ]);
+
+    const totalEarnings = totalAgg[0]?.totalEarnings || 0;
+
+    const data = await this.model.aggregate([
+      { $match: filter },
+      {
+        $lookup: {
+          from: "rides",
+          localField: "tripId",
+          foreignField: "_id",
+          as: "ride",
+        },
+      },
+      { $unwind: { path: "$ride", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          transactionId: "$_id",
+          tripId: 1,
+          amount: 1,
+          paymentMethod: 1,
+          paymentStatus: '$status',
+          remarks: 1,
+          createdAt: 1,
+          rideStatus: "$ride.rideStatus",
+          rideUUId: "$ride.rideUUId",
+          pickupLocation: "$ride.pickupLocation",
+          dropoffLocation: "$ride.dropoffLocation",
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: page * limit },
+      { $limit: limit },
+    ]);
+
+    const total = await this.model.countDocuments(filter);
+
+    return {
+      data,
+      total,
+      totalEarnings,
+    };
+  }
+
   // reconciliation — sum credits and debits for a wallet
   async sumByWalletId(
     walletId: string,
