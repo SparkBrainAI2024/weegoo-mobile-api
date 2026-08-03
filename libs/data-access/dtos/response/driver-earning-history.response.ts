@@ -30,6 +30,9 @@ export class DriverEarningHistoryItem {
   paymentMethod?: PaymentMethodEnum;
 
   @Field(() => String, { nullable: true })
+  paymentStatus?: string;
+
+  @Field(() => String, { nullable: true })
   remarks?: string;
 
   @Field(() => Date)

@@ -154,6 +154,7 @@ export class TransactionRepository {
           tripId: 1,
           amount: 1,
           paymentMethod: 1,
+          paymentStatus: '$status',
           remarks: 1,
           createdAt: 1,
           rideStatus: "$ride.rideStatus",
