@@ -59,6 +59,11 @@ export enum DriverOnlineStatus {
   OFFLINE = "OFFLINE",
 }
 
+export enum SavedLocationType {
+  HOME = "HOME",
+  WORK = "WORK",
+}
+
 registerEnumType(DriverOnlineStatus, {
   name: "DriverOnlineStatus",
   description: "The online status of the driver",
@@ -68,6 +73,19 @@ registerEnumType(DriverOnlineStatus, {
     },
     OFFLINE: {
       description: "The driver is offline",
+    },
+  },
+});
+
+registerEnumType(SavedLocationType, {
+  name: "SavedLocationType",
+  description: "The type of saved location",
+  valuesMap: {
+    HOME: {
+      description: "Home location",
+    },
+    WORK: {
+      description: "Work location",
     },
   },
 });

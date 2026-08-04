@@ -13,6 +13,11 @@ import {
   GeoLocationInput,
   UpdateNotificationSettingsInput,
   UpdateNotificationSettingsResponse,
+  SaveLocationInput,
+  DeleteLocationInput,
+  SavedLocationsResponse,
+  SavedLocation,
+  SavedLocationType,
 } from "@libs/data-access";
 import {
   ImageStatus,
@@ -274,6 +279,105 @@ export class UserDetailsService {
         notificationSettings: roleNotificationSettings,
         ...toObjectDetails,
       };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async saveLocation(
+    userId: string,
+    input: SaveLocationInput,
+  ): Promise<SavedLocationsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      const location: SavedLocation = {
+        address: input.address,
+        latitude: input.latitude,
+        longitude: input.longitude,
+      };
+
+      if (input.locationType === SavedLocationType.HOME) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { homeLocation: location } },
+        );
+      } else if (input.locationType === SavedLocationType.WORK) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { workLocation: location } },
+        );
+      }
+
+      return this.getSavedLocations(userId);
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getSavedLocations(userId: string): Promise<SavedLocationsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      return {
+        homeLocation: details.homeLocation || null,
+        workLocation: details.workLocation || null,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async deleteLocation(
+    userId: string,
+    input: DeleteLocationInput,
+  ): Promise<SavedLocationsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      if (input.locationType === SavedLocationType.HOME) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { homeLocation: null } },
+        );
+      } else if (input.locationType === SavedLocationType.WORK) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { workLocation: null } },
+        );
+      }
+
+      return this.getSavedLocations(userId);
     } catch (e) {
       ErrorException(
         e,
