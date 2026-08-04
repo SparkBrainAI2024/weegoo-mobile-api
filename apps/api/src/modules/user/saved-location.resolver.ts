@@ -3,6 +3,7 @@ import {
   SaveLocationInput,
   DeleteLocationInput,
   SavedLocationsResponse,
+  RecentPlace,
 } from "@libs/data-access";
 import { AuthGuard, LangGuard } from "@libs/guards";
 import { UserDetailsService } from "@libs/services/user";
@@ -33,5 +34,10 @@ export class SavedLocationResolver {
     @Args("input") input: DeleteLocationInput,
   ) {
     return this.userDetailsService.deleteLocation(user._id, input);
+  }
+
+  @Query(() => [RecentPlace])
+  getRecentPlaces(@CurrentUser() user) {
+    return this.userDetailsService.getRecentPlaces(user._id);
   }
 }

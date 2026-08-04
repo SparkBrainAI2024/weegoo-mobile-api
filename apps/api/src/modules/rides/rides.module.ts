@@ -5,6 +5,7 @@ import {
 } from "@libs/services/rides";
 import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
+import { UserServiceModule } from "@libs/services/user/user.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 import { WalletModule } from "@libs/services/payment/src/wallet/wallet.module";
@@ -41,6 +42,7 @@ import { NotificationModule } from "@libs/services/notification";
   imports: [
     RidePersistentModule,
     UserPersistenceModule,
+    UserServiceModule,
     TransactionModule,
     IssuePersistenceModule,
     S3Module,

@@ -3,6 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { GeoLocation } from "../common/geo.location";
 import { SavedLocation } from "../common/saved-location";
+import { RecentPlace } from "../common/recent-place";
 import { NotificationSettings } from "../common/notification-settings";
 import { GraphQLJSON } from "graphql-scalars";
 import {
@@ -105,6 +106,10 @@ export class UserDetails extends BaseEntity {
   @Field(() => SavedLocation, { nullable: true })
   @Prop({ required: false, type: Object, default: null })
   workLocation?: SavedLocation;
+
+  @Field(() => [RecentPlace], { nullable: true })
+  @Prop({ required: false, type: [Object], default: [] })
+  recentPlaces?: RecentPlace[];
 
   @Field(() => Number, { nullable: true, defaultValue: 0 })
   @Prop({ required: false, type: Number, default: 0 })
