@@ -58,9 +58,9 @@ export class VehicleResolver {
 }
 
 // @Resolver(() => DriverWDocuments)
-export class DriverVehicleFieldResolver {
-  // @ResolveField(() => String, { nullable: true })
-  async vehicle(@Parent() driver: string) {
-    return "string";
-  }
-}
+// export class DriverVehicleFieldResolver {
+//   // @ResolveField(() => String, { nullable: true })
+//   async vehicle(@Parent() driver: string) {
+//     return "string";
+//   }
+// }
