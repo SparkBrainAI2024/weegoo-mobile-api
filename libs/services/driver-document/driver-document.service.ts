@@ -277,6 +277,7 @@ export class DriverDocumentService {
     file.status = DocumentFileStatus.REJECTED;
     file.verifiedBy = adminId;
     file.verifiedAt = new Date();
+    file.rejectionReason = rejectionReason;
 
     const activeFiles = bundle.files.filter((f) => f.isActive);
     const allActiveRejected =
@@ -287,7 +288,6 @@ export class DriverDocumentService {
       bundle.status = DriverDocumentBundleStatus.REJECTED;
       bundle.reviewedBy = this.toObjectId(adminId, "adminId");
       bundle.reviewedAt = new Date();
-      bundle.rejectionReason = rejectionReason;
     }
 
     await bundle.save();
