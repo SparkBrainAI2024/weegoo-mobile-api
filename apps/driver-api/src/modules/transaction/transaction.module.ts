@@ -10,6 +10,7 @@ import { TransactionResolver } from './resolver/transaction.resolver';
 import { UserTransactionResolver } from '@libs/services/payment/src/transaction/resolver/transaction.resolver';
 import { AcknowledgeAndFinishResolver } from './acknowledge-and-finish.resolver';
 import { DriverEarningHistoryResolver } from './resolver/driver-earning-history.resolver';
+import { DriverEarningsSummaryResolver } from './resolver/driver-earnings-summary.resolver';
 
 
 @Module({
@@ -19,7 +20,7 @@ import { DriverEarningHistoryResolver } from './resolver/driver-earning-history.
     WalletModule,
     HttpModule,
   ],
-  providers: [TransactionService, TransactionResolver, EnvService, UserTransactionResolver, AcknowledgeAndFinishResolver, DriverEarningHistoryResolver],
+  providers: [TransactionService, TransactionResolver, EnvService, UserTransactionResolver, AcknowledgeAndFinishResolver, DriverEarningHistoryResolver, DriverEarningsSummaryResolver],
   exports: [TransactionService, TransactionResolver],
 })
 export class TransactionModule {}
