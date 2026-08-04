@@ -70,6 +70,7 @@ export * from './common/payment-details';
 export * from './common/ride-user-snapshot';
 export * from './common/rating-user-snapshot';
 export * from './common/saved-location';
+export * from './common/recent-place';
 export * from './common/notification-settings';
 
 //plugins

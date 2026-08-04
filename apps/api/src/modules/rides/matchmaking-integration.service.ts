@@ -7,6 +7,7 @@ import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.ent
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
 import { RideLocationInput, TriggerMatchmakingResult, UpdateLocationResult, VehicleEstimateGraphQL } from '@libs/data-access';
+import { UserDetailsService } from '@libs/services/user';
 
 @Injectable()
 export class MatchmakingIntegrationService {
@@ -16,6 +17,7 @@ export class MatchmakingIntegrationService {
     @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly envService: EnvService,
+    private readonly userDetailsService: UserDetailsService,
   ) { }
 
   // ─── Shared GraphQL Queries ──────────────────────────────────────────────
@@ -176,6 +178,9 @@ export class MatchmakingIntegrationService {
       this.logger.error(`Failed to create ride: ${err.message}`);
       return { success: false, matched: false, rideId: '', rideUUId: '', message: 'Failed to create ride' };
     }
+
+    // Silently save recent places in the background
+    this.saveRecentPlacesSilently(userId, pickupLocation, dropoffLocation);
 
     try {
       const data = await this.callMatchmakingGraphql(
@@ -386,6 +391,9 @@ export class MatchmakingIntegrationService {
       return { success: false, matched: false, rideId: '', rideUUId: '', message: 'Failed to create ride' };
     }
 
+    // Silently save recent places in the background
+    this.saveRecentPlacesSilently(userId, pickupLocation, dropoffLocation);
+
     try {
       const data = await this.callMatchmakingGraphql(
         this.MATCH_SCHEDULED_QUERY,
@@ -486,6 +494,30 @@ export class MatchmakingIntegrationService {
       this.logger.error(`Failed to cancel instant ride ${error?.message || error}`);
       return { success: false, message: 'Failed to cancel ride' };
     }
+  }
+
+  private saveRecentPlacesSilently(
+    userId: string,
+    pickupLocation: RideLocationInput,
+    dropoffLocation: RideLocationInput,
+  ): void {
+    this.userDetailsService
+      .saveRecentPlace(
+        userId,
+        {
+          address: pickupLocation.address,
+          latitude: pickupLocation.latitude,
+          longitude: pickupLocation.longitude,
+        },
+        {
+          address: dropoffLocation.address,
+          latitude: dropoffLocation.latitude,
+          longitude: dropoffLocation.longitude,
+        },
+      )
+      .catch((err: any) => {
+        this.logger.warn(`Failed to save recent places for user ${userId}: ${err?.message || err}`);
+      });
   }
 
   private getMatchmakingUrl(): string {
