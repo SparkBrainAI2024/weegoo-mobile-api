@@ -87,6 +87,28 @@ export class RidesService {
     );
   }
 
+  async getDriverTripsWithCommission(
+    driverId: string,
+    filter: "ALL" | "DUE" | "PAID",
+    page: number,
+    limit: number,
+  ) {
+    const [result, walletAmount] = await Promise.all([
+      this.rideRepository.getDriverTripsWithCommission(
+        new Types.ObjectId(driverId),
+        filter,
+        page,
+        limit,
+      ),
+      this.walletService.getBalance(driverId),
+    ]);
+
+    return {
+      ...result,
+      walletAmount,
+    };
+  }
+
   async getRidesList(input: RidesListInput) {
     const { rides, total } = await this.rideRepository.findRides(input);
     return {

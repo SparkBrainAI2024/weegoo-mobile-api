@@ -118,6 +118,7 @@ export * from './dtos/input/create-complaint.input';
 export * from './dtos/input/passenger-payment.input';
 export * from './dtos/input/create-contact-us.input';
 export * from './dtos/input/update-notification-settings.input';
+export * from './dtos/input/get-driver-trips.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -153,6 +154,7 @@ export * from './dtos/response/complete-ride-result.dto';
 export * from './dtos/response/passenger-payment.response';
 export * from './dtos/response/create-contact-us.response';
 export * from './dtos/response/update-notification-settings.response';
+export * from './dtos/response/get-driver-trips.response';
 
 //interfaces
 export * from './interfaces/location.interface'
