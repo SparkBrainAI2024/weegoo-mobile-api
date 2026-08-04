@@ -6,6 +6,7 @@ import { EnvService } from "@libs/common/config/env.service";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { DriverRideAcceptanceService } from "./driver-ride-acceptance.service";
 import { DriverRideResolver } from "./driver-ride.resolver";
+import { DriverTripsResolver } from "./driver-trips.resolver";
 import { TransactionModule } from "../transaction/transaction.module";
 import { S3Module } from "@libs/s3";
 import { WalletModule } from "@libs/services/payment/src/wallet/wallet.module";
@@ -29,6 +30,7 @@ import { Transaction, TransactionSchema } from "@libs/data-access/entities/trans
         EnvService,
         DriverRideAcceptanceService,
         DriverRideResolver,
+        DriverTripsResolver,
     ],
     exports: [RidesService]
 })

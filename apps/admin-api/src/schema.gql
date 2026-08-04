@@ -956,6 +956,30 @@ type PaymentTransactionDetail {
   amount: Float!
 }
 
+type DriverTripItem {
+  tripId: String!
+  rideUUId: String!
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  fare: Fare
+  paymentDetails: PaymentDetails
+  commission: Float!
+  commissionStatus: DriverTripCommissionFilter
+  createdAt: DateTime
+}
+
+"""Filter driver trips by commission status"""
+enum DriverTripCommissionFilter {
+  """All trips regardless of commission status"""
+  ALL
+
+  """Only trips where commission is due (pending)"""
+  DUE
+
+  """Only trips where commission is paid (completed)"""
+  PAID
+}
+
 type AdminUserResponse {
   _id: String!
   fullName: String!
