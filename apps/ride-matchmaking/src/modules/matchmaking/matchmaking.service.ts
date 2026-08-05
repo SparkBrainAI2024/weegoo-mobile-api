@@ -1223,9 +1223,9 @@ export class MatchmakingService {
       const vehicle = await this.vehicleModel.findById(ride.vehicleId).exec();
       const distanceInKm = ride.distanceInKm || 0;
       const rideStartedAt = ride.rideStartedAt?.getTime() || 0;
-      const rideCompletedAt = Date.now();
+      const rideEndedAt = Date.now();
 
-      const actualCompleteDurationInMinutes = Math.floor((rideCompletedAt - rideStartedAt) / (1000 * 60));
+      const actualCompleteDurationInMinutes = Math.floor((rideEndedAt - rideStartedAt) / (1000 * 60));
 
       // Fare calculation
       const baseFare = (MATCHMAKING_CONFIG.FARE.BASE_PICKUP_COST[vehicle?.vehicleType] || 0) as number;
@@ -1246,8 +1246,7 @@ export class MatchmakingService {
         ride._id,
         {
           $set: {
-            rideStatus: RideStatus.COMPLETED,
-            rideCompletedAt: new Date(),
+            rideEndedAt: new Date(),
             distanceInKm,
             estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
             actualCompletedDurationInMinutes: actualCompleteDurationInMinutes,
@@ -1287,11 +1286,11 @@ export class MatchmakingService {
       await this.rideChannelService.publishRideCompleted(updatedRide.rideUUId, {
         rideId: updatedRide._id.toString(),
         rideUUId: updatedRide.rideUUId,
-        rideStatus: RideStatus.COMPLETED,
+        rideStatus: updatedRide.rideStatus,
         totalDurationInMinutes: totalDurationMinutes,
         totalDuration: durationStr,
         fareBreakdown: { baseFare: Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount), subTotal: Number(existingFare.subTotal || 0), promocodeName: existingFare.promoCodeName || null },
-        completedAt: updatedRide.rideCompletedAt.toISOString(),
+        completedAt: updatedRide.rideEndedAt.toISOString(),
       });
 
       const passenger = await this.userModel.findById(updatedRide.passengerId).exec();
@@ -1316,12 +1315,12 @@ export class MatchmakingService {
         data: {
           rideId: updatedRide._id.toString(),
           rideUUId: updatedRide.rideUUId,
-          rideStatus: RideStatus.COMPLETED,
+          rideStatus: updatedRide.rideStatus,
           totalDurationInMinutes: totalDurationMinutes,
           totalDuration: durationStr,
           fareBreakdown: { baseFare: Number(baseFareAmount), distanceCharge: Number(distanceCharge), discount: Number(discountAmount), totalFare: Number(finalAmount) },
-          completedAt: updatedRide.rideCompletedAt.toISOString(),
-          rideCompletedAt: updatedRide.rideCompletedAt.toISOString(),
+          completedAt: updatedRide.rideEndedAt.toISOString(),
+          rideCompletedAt: updatedRide.rideEndedAt.toISOString(),
           walletAmount: updatedRide.passengerId
             ? await this.walletService.getBalance(driverId)
             : 0,
@@ -1435,8 +1434,8 @@ export class MatchmakingService {
         return { success: false, message: 'You are not the assigned driver for this ride', acknowledged: false };
       }
 
-      if (ride.rideStatus !== RideStatus.COMPLETED || ride?.paymentDetails?.paymentStatus !== PaymentStatusEnum.PAID) {
-        return { success: false, message: `Ride must be completed and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}`, acknowledged: false };
+      if (!ride.rideEndedAt || ride?.paymentDetails?.paymentStatus !== PaymentStatusEnum.PAID) {
+        return { success: false, message: `Ride must be ended and payment should be confirmed to acknowledge and finish. Current: ${ride.rideStatus} ${ride?.paymentDetails?.paymentStatus}`, acknowledged: false };
       }
       if (ride.isAcknowledgeByDriver) {
         return { success: false, message: 'Ride has already been acknowledged by driver', acknowledged: true };
@@ -1461,6 +1460,8 @@ export class MatchmakingService {
         {
           $set: {
             isAcknowledgeByDriver: true,
+            rideStatus: RideStatus.COMPLETED,
+            rideCompletedAt: new Date(),
           },
         },
         { new: true },

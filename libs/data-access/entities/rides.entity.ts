@@ -78,6 +78,10 @@ export class Rides extends BaseEntity {
 
   @Field(() => Date, { nullable: true })
   @Prop({ type: Date, required: false })
+  rideEndedAt?: Date;
+
+  @Field(() => Date, { nullable: true })
+  @Prop({ type: Date, required: false })
   rideCompletedAt?: Date;
 
   @Field(() => Number, { nullable: true })

@@ -100,14 +100,14 @@ export class PassengerPaymentService {
     ): Promise<PassengerPaymentResult> {
         this.logger.log(`Processing payment for ride ${rideId} by passenger ${passengerId}`);
 
-        // Validate ride exists and is completed
+        // Validate ride exists and is ended
         const ride = await this.ridesRepository.findById(new Types.ObjectId(rideId));
         if (!ride) {
             throw new NotFoundException('Ride not found');
         }
 
-        if (ride.rideStatus !== 'COMPLETED') {
-            throw new BadRequestException('Ride must be completed before payment');
+        if (!ride.rideEndedAt ) {
+            throw new BadRequestException('Ride must be ended before payment');
         }
 
         // Check if already paid
