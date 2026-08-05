@@ -72,8 +72,9 @@ export class PromoCodeResolver {
   @Mutation(() => PromoCode)
   async activatePromoCode(
     @Args("id", { type: () => ID }) id: string,
+    @CurrentLang() lang: string,
   ): Promise<PromoCode> {
-    return this.promoCodeService.activate(id);
+    return this.promoCodeService.activate(id, lang);
   }
 
   @Mutation(() => PromoCode)
