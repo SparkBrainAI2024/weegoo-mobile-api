@@ -34,6 +34,7 @@ export interface PassengerPaymentResult {
         distanceCharge: number;
         discount: number;
         totalFare: number;
+        subTotal: number;
     };
     transactions: {
         transactionId: string;
@@ -128,9 +129,9 @@ export class PassengerPaymentService {
         // Calculate fare breakdown
         const fareBreakdown = await this.calculateFareBreakdown(
             ride,
-            promoCodeId,
-            passengerId,
+            promoCodeId, 
         );
+        this.logger.log(`Fare breakdown for ride ${rideId}: ${JSON.stringify(fareBreakdown)}`);
         const admin = await this.adminModel.findOne().sort({ createdAt: 1 }).exec();
         this.adminId = admin?._id.toString() || '';
         const useTransactions = this.isUsingAtlas();
@@ -223,7 +224,13 @@ export class PassengerPaymentService {
             rideId,
             rideUUId: ride.rideUUId,
             paymentMethod,
-            fareBreakdown,
+            fareBreakdown: {
+                baseFare: fareBreakdown.baseFare,
+                distanceCharge: fareBreakdown.distanceCharge,
+                discount: fareBreakdown.discount,
+                subTotal: fareBreakdown.subTotal,
+                totalFare: fareBreakdown.totalFare,
+            },
             transactions: (this as any)._transactions || [],
             paid: true,
         } as PassengerPaymentResult;
@@ -237,14 +244,14 @@ export class PassengerPaymentService {
     private async calculateFareBreakdown(
         ride: RidesDocument,
         promoCodeId?: string,
-        passengerId?: string,
-    ): Promise<{ baseFare: number; distanceCharge: number; discount: number; subtotal: number; totalFare: number; commissionAmount: number; promoCodeName?: string }> {
+     
+    ): Promise<{ baseFare: number; distanceCharge: number; discount: number; subTotal: number; totalFare: number; commissionAmount: number; promoCodeName?: string }> {
         // Use base fare and distance charge from ride.fare (already calculated during ride completion)
         const baseFare = Number(ride.fare?.baseAmount || 0);
         const distanceCharge = Number(ride.fare?.distanceAmount || 0);
 
-        let subtotal = Math.round(baseFare + distanceCharge);
-        let discount = 0;
+        let subTotal = Number(ride.fare?.subTotal || 0);
+        let discount = Number(ride.fare?.discountAmount || 0);
         let promoCodeName: string | undefined;
 
         // Apply promo code discount if provided
@@ -266,49 +273,30 @@ export class PassengerPaymentService {
                 throw new BadRequestException('Promo code is not valid at this time');
             }
 
-            if (promoCode.minimumFare && subtotal < promoCode.minimumFare) {
+            if (promoCode.minimumFare && subTotal < Number(promoCode.minimumFare)) {
                 throw new BadRequestException(`Minimum fare of NPR ${promoCode.minimumFare} required`);
-            }
-
-            // Check if user has already used this promo code
-            if (promoCode.perUserLimit > 0) {
-                const usedCount = await this.promoCodeUsedModel.countDocuments({
-                    promoCodeId: promoCode._id,
-                    userId: new Types.ObjectId(passengerId),
-                });
-                if (usedCount >= promoCode.perUserLimit) {
-                    throw new BadRequestException('Promo code usage limit reached');
-                }
             }
 
             promoCodeName = promoCode.name;
 
             // Calculate discount
             if (promoCode.discountType === DiscountTypeEnum.PERCENTAGE && promoCode.percentageAmount) {
-                discount = Math.round((subtotal * promoCode.percentageAmount) / 100);
-                // Cap at max discount
-                if (promoCode.maxDiscount && discount > promoCode.maxDiscount) {
-                    discount = Math.round(promoCode.maxDiscount);
-                }
+                discount = Number(ride.fare?.discountAmount || 0);
             } else if (promoCode.discountType === DiscountTypeEnum.FLAT && promoCode.flatAmount) {
-                discount = Math.round(promoCode.flatAmount);
-                // Don't let discount exceed subtotal
-                if (discount > subtotal) {
-                    discount = subtotal;
-                }
+                discount = Number(ride.fare?.discountAmount || 0);
             }
         }
 
-        const totalFare = Math.max(0, Math.round(subtotal - discount));
+        const totalFare = Number(ride.fare?.totalAmount || 0);
         const commissionAmountFromTotal = totalFare * 0.2; // Assuming 20% commission 
 
         return {
             baseFare,
             distanceCharge,
             discount,
-            subtotal,
+            subTotal,
             totalFare,
-            commissionAmount: commissionAmountFromTotal,
+            commissionAmount: Number(commissionAmountFromTotal.toFixed(2)),
             promoCodeName,
         };
     }
@@ -472,7 +460,7 @@ export class PassengerPaymentService {
             baseAmount: fareBreakdown.baseFare,
             distanceAmount: fareBreakdown.distanceCharge,
             totalAmount: fareBreakdown.totalFare,
-            subTotal: fareBreakdown.subtotal,
+            subTotal: fareBreakdown.subTotal,
             noOfPassengers: ride.noOfPassengers || 1,
             paymentMethod,
             discountAmount: fareBreakdown.discount,
@@ -493,29 +481,7 @@ export class PassengerPaymentService {
             { session },
         );
 
-        // ── Mark promo code as used if applicable ─────────────────
-        if (promoCodeId) {
-            // Create promo code usage record (if not already created during applyPromoCode)
-            const existingUsage = await this.promoCodeUsedModel.findOne({
-                rideId: ride._id,
-            });
-            if (!existingUsage) {
-                await this.promoCodeUsedModel.create([{
-                    userId: new Types.ObjectId(passengerId),
-                    promoCodeId: new Types.ObjectId(promoCodeId),
-                    rideId: ride._id,
-                }], { session });
-            }
-
-            await this.promoCodeRepository.updateById(
-                new Types.ObjectId(promoCodeId),
-                { $inc: { promoCodeUsedCount: 1 } },
-                undefined,
-                { session },
-            );
-        }
-
-        // Store transactions for response
+       // Store transactions for response
         (this as any)._transactions = transactions;
     }
 

@@ -14,6 +14,9 @@ export class PaymentFareBreakdown {
 
   @Field(() => Float)
   totalFare: number;
+
+@Field(() => Float)
+  subTotal: number;
 }
 
 @ObjectType()

@@ -39,6 +39,7 @@ export const RIDES = {
     "प्रोमो कोडहरू पुष्टि भएका राइडहरूमा मात्र लागू गर्न सकिन्छ।",
   PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE:
     "यो प्रोमो कोड यो राइड प्रकारको लागि लागू हुँदैन।",
+    PROMOCODE_ALREADY_APPLIED: "यस राइडमा पहिले नै प्रोमो कोड लागू गरिएको छ।",
   INVALID_STATUS: "यो अपरेशनको लागि अवैध राइड स्थिति",
   NOT_ASSOCIATED_WITH_DRIVER: "यो राइड तपाईंको मा नभएको छ",
   FAVOURITE_NOT_FOUND: "फेवरिट राइड फेला परेन",
