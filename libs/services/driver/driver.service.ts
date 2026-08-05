@@ -20,6 +20,7 @@ import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input"
 import { DriverCommissionSummary } from "@libs/data-access/dtos/response/driver-commission-summary.response";
 import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
+import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
@@ -147,7 +148,9 @@ export class DriverService {
 
     const documents =
       await this.driverDocumentRepository.getDriverDocuments(driverId);
-
+    const allDocumentsApproved = documents.every(
+      (doc) => doc.status === DriverDocumentBundleStatus.APPROVED,
+    );
     const driverEnrichedWithRideDetails =
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
@@ -174,6 +177,7 @@ export class DriverService {
       totalEarnings: details?.totalEarnings ?? 0,
       emergencyContact: "",
       vehicle: vehicle,
+      allDocumentsApproved,
       ...driverEnrichedWithRideDetails,
     };
   }

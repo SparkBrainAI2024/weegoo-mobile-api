@@ -1056,6 +1056,7 @@ type DriverWDocuments {
   citizenshipNumber: String
   emergencyContact: String
   documents: [DriverDocument!]
+  allDocumentsApproved: Boolean
   vehicle: Vehicle
 }
 

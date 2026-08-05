@@ -228,6 +228,8 @@ export class DriverDocumentService {
   ): Promise<DriverDocumentDocument> {
     const bundle = await this.findBundleByFileId(documentFileId);
     const file = bundle.files.find((f) => f._id?.toString() === documentFileId);
+    console.log(bundle, "bundle");
+    console.log(file, "file");
 
     if (!file)
       throw new NotFoundException(`File ${documentFileId} not found in bundle`);
@@ -284,11 +286,9 @@ export class DriverDocumentService {
       activeFiles.length > 0 &&
       activeFiles.every((f) => f.status === DocumentFileStatus.REJECTED);
 
-    if (allActiveRejected) {
-      bundle.status = DriverDocumentBundleStatus.REJECTED;
-      bundle.reviewedBy = this.toObjectId(adminId, "adminId");
-      bundle.reviewedAt = new Date();
-    }
+    bundle.status = DriverDocumentBundleStatus.REJECTED;
+    bundle.reviewedBy = this.toObjectId(adminId, "adminId");
+    bundle.reviewedAt = new Date();
 
     await bundle.save();
     return bundle;
