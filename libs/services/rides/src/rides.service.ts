@@ -742,6 +742,7 @@ export class RidesService {
     return {
       ...enriched,
       rideCompletedAt: rideDocument.rideCompletedAt,
+      rideEndedAt: rideDocument.rideEndedAt,
       walletAmount,
     };
   }
@@ -902,7 +903,7 @@ export class RidesService {
     if (ride.fare && ride.fare["promoCodeId"]) {
       ErrorException(null, 'RIDES.PROMO_ALREADY_APPLIED', HttpStatus.BAD_REQUEST)
     }
-    if (ride.rideStatus !== RideStatus.COMPLETED) {
+    if (!ride.rideEndedAt ) {
       ErrorException(
         null,
         "RIDES.PROMO_NOT_APPLICABLE_FOR_STATUS",
