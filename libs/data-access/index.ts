@@ -27,6 +27,7 @@ export * from './entities/user-daily-online-status.entity';
 export * from './entities/rating.entity';
 export * from './entities/remark.entity';
 export * from './entities/contact-us.entity';
+export * from './entities/email-template.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -44,6 +45,7 @@ export * from './repositories/user-daily-online-status.repository';
 export * from './repositories/rating.repository';
 export * from './repositories/remark.repository';
 export * from './repositories/contact-us.repository';
+export * from './repositories/email-template.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -122,6 +124,7 @@ export * from './dtos/input/update-notification-settings.input';
 export * from './dtos/input/get-driver-trips.input';
 export * from './dtos/input/save-location.input';
 export * from './dtos/input/delete-location.input';
+export * from './dtos/input/email-template.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';

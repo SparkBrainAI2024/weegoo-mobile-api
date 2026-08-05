@@ -10,6 +10,7 @@ import { RIDES } from "./ride.messages";
 import { ADMIN_USER } from "./admin-user.messages";
 import { PAGE } from "./page.messages";
 import { PROMO_CODE } from "./promocode.messages";
+import { EMAIL_TEMPLATE } from "./email-template.messages";
 
 export const en_messages = {
   COMMON,
@@ -23,5 +24,6 @@ export const en_messages = {
   RIDES,
   ADMIN_USER,
   PAGE,
-  PROMO_CODE
+  PROMO_CODE,
+  EMAIL_TEMPLATE,
 };

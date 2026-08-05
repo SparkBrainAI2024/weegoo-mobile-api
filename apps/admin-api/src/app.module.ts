@@ -17,6 +17,7 @@ import { DriverModule } from "./modules/driver/driver.module";
 import { PassengerModule } from "./modules/passenger/passenger.module";
 import { AdminRidesModule } from "./modules/ride/rides.module";
 import { DriverDocumentModule } from "./modules/driver-document/driver-document.module";
+import { EmailTemplateModule } from "./modules/email-template/email-template.module";
 
 @Module({
   imports: [
@@ -55,6 +56,7 @@ import { DriverDocumentModule } from "./modules/driver-document/driver-document.
     PassengerModule,
     AdminRidesModule,
     DriverDocumentModule,
+    EmailTemplateModule,
   ],
   providers: [HealthResolver],
 })

@@ -216,6 +216,7 @@ type Rides {
   estimatedFare: Float
   isFavourite: Boolean
   rideStartedAt: DateTime
+  rideEndedAt: DateTime
   rideCompletedAt: DateTime
   distanceInKm: Float
   fare: Fare
@@ -606,6 +607,18 @@ enum ContactUsStatus {
   INACTIVE
 }
 
+type EmailTemplate {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  title: String!
+  slug: String!
+  pageContent: String!
+  status: String!
+}
+
 type NotificationSettings {
   earnings: Boolean!
   appUpdates: Boolean!
@@ -830,6 +843,7 @@ type RideWithoutRelations {
   estimatedFare: Float
   isFavourite: Boolean
   rideStartedAt: DateTime
+  rideEndedAt: DateTime
   rideCompletedAt: DateTime
   distanceInKm: Float
   fare: Fare
@@ -961,6 +975,7 @@ type PaymentFareBreakdown {
   distanceCharge: Float!
   discount: Float!
   totalFare: Float!
+  subTotal: Float!
 }
 
 type PaymentTransactionDetail {
@@ -1304,6 +1319,12 @@ type RidesListResponse {
   limit: Int!
 }
 
+type EmailTemplateListWithPaginationResponse {
+  message: String
+  data: [EmailTemplate!]
+  pagination: Pagination!
+}
+
 input NotificationSettingsInput {
   earnings: Boolean! = true
   appUpdates: Boolean! = true
@@ -1339,6 +1360,8 @@ type Query {
   Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
   """
   getTransactionHistory(input: TransactionPaginationInput!): TransactionListWithPaginationResponse!
+  emailTemplate(id: ID!): EmailTemplate!
+  emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
 }
 
 input PaginationInputOnly {
@@ -1458,6 +1481,9 @@ type Mutation {
   unblockPassenger(id: ID!): PassengerListItem!
   approveDriverDocumentFile(input: ApproveDocumentFileInput!): DriverDocument!
   rejectDriverDocumentFile(input: RejectDocumentFileInput!): DriverDocument!
+  createEmailTemplate(input: CreateEmailTemplateInput!): EmailTemplate!
+  updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplate!
+  removeEmailTemplate(id: ID!): Boolean!
 }
 
 input AdminSignUpInput {
@@ -1705,4 +1731,16 @@ input ApproveDocumentFileInput {
 input RejectDocumentFileInput {
   documentFileId: String!
   rejectionReason: String!
+}
+
+input CreateEmailTemplateInput {
+  title: String!
+  pageContent: String!
+  status: String! = "DRAFT"
+}
+
+input UpdateEmailTemplateInput {
+  title: String
+  pageContent: String
+  status: String
 }
