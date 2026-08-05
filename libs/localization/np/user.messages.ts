@@ -9,7 +9,7 @@ export const USER = {
   INVALID_PASSWORD_INPUT:
     "पासवर्डमा एक ठूलो अक्षर र कम्तीमा आठ अक्षर हुनुपर्छ।",
   INVALID_PASSWORD: "अवैध पासवर्ड।",
-  INCORRECT_PASSWORD: "गलत पासवर्ड।",
+  INCORRECT_CREDENTIAL: "दिइएको प्रमाणहरू गलत छन्।",
   SUSPENDED: "प्रयोगकर्ता निलम्बित गरिएको छ।",
   EMAIL_NOT_VERIFIED: "इमेल प्रमाणित गरिएको छैन।",
   NOT_FOUND: "प्रयोगकर्ता फेला परेन।",
