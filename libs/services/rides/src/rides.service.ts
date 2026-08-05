@@ -66,12 +66,12 @@ export class RidesService {
     @InjectModel(PromoCode.name)
     private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name)
-    private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
+    private readonly promoCodeUsedModel: Model<PromoCodeUsed>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Vehicle.name)
     private readonly vehicleModel: Model<VehicleDocument>,
     private readonly walletService: WalletService,
-  ) {}
+  ) { }
 
   /**
    * Fetches rides for the current user based on their role with pagination.
@@ -182,8 +182,8 @@ export class RidesService {
     // Per requirement: Total earnings 0 if verification is required
     const earningsData = !verificationRequired
       ? await this.transactionService.getDriversEarningByDate(
-          user._id.toString(),
-        )
+        user._id.toString(),
+      )
       : { netEarning: 0 };
 
     // 3. Total Trip History (Today only)
@@ -899,7 +899,9 @@ export class RidesService {
     if (!ride || ride.passengerId.toString() !== user._id.toString()) {
       ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
-
+    if (ride.fare && ride.fare["promoCodeId"]) {
+      ErrorException(null, 'RIDES.PROMO_ALREADY_APPLIED', HttpStatus.BAD_REQUEST)
+    }
     if (ride.rideStatus !== RideStatus.COMPLETED) {
       ErrorException(
         null,
@@ -911,6 +913,7 @@ export class RidesService {
     const promo = await this.promoCodeModel
       .findById(toMongoId(promoCodeId))
       .exec();
+
     if (!promo) {
       ErrorException(
         null,
@@ -979,13 +982,16 @@ export class RidesService {
     if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
       discount = Math.round(
         Number(ride.estimatedFare) *
-          ((Number(promo.percentageAmount) || 0) / 100),
+        ((Number(promo.percentageAmount) || 0) / 100),
       );
       if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
         discount = Math.round(Number(promo.maxDiscount));
       }
     } else {
       discount = Math.round(Number(promo.flatAmount) || 0);
+      if (discount > Number(ride.fare.totalAmount)) {
+        discount = Math.round(Number(ride.fare.totalAmount));
+      }
     }
 
     // Calculate subtotal (total amount before discount, rounded)
@@ -1042,7 +1048,7 @@ export class RidesService {
     }
 
     if (!ride.fare || !ride.fare["promoCodeId"]) {
-      return { success: true, message: "RIDES.PROMO_REMOVED" };
+      return { success: true, message: "RIDES.PROMO_REMOVED", ride };
     }
 
     const discountAmount = ride.fare["discountAmount"] || 0;
@@ -1060,11 +1066,11 @@ export class RidesService {
           "fare.discountAmount": 0,
           "fare.promoCodeId": null,
           "fare.promoCodeName": null,
-          "fare.subTotal": 0,
+          "fare.subTotal": ride.fare.totalAmount,
           "paymentDetails.promoCodeId": null,
           "paymentDetails.promoCodeName": null,
           "paymentDetails.discountAmount": 0,
-          "paymentDetails.subTotal": 0,
+          "paymentDetails.subTotal": ride.fare.totalAmount,
         },
       },
       { new: true },
@@ -1076,7 +1082,10 @@ export class RidesService {
       promoCodeId: promoId,
       userId: user._id,
     });
-
+    await this.promoCodeModel.updateOne(
+      { _id: promoId },
+      { $inc: { promoCodeUsedCount: -1 } },
+    );
     const rideObj = updatedRide.toObject() as any;
     transformToEntityNameObjectFromId(rideObj, ["vehicleId", "vehicle"]);
 

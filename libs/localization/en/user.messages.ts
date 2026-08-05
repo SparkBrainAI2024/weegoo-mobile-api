@@ -12,7 +12,7 @@ export const USER = {
   PASSWORD_CONFIRM_PASSWORD_NOT_MATCH:
     "Password and confirm password do not match.",
   INVALID_PASSWORD: "Invalid password.",
-  INCORRECT_PASSWORD: "Incorrect password.",
+  INCORRECT_CREDENTIAL: "The provided credentials are incorrect.",
   SUSPENDED: "User suspended.",
   EMAIL_NOT_VERIFIED: "Email is not verified.",
   NOT_FOUND: "User not found.",

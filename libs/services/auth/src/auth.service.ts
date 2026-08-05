@@ -303,12 +303,12 @@ export class AuthService {
     }
     const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
     if (!userDetails) {
-      ErrorException(null, "USER.INVALID_EMAIL", HttpStatus.NOT_FOUND);
+      ErrorException(null, "USER.INCORRECT_CREDENTIAL", HttpStatus.NOT_FOUND);
     }
     if (password !== undefined) {
       const checkPassword = await comparePassword(password, user.password);
       if (!checkPassword) {
-        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
+        ErrorException(null, "USER.INCORRECT_CREDENTIAL", HttpStatus.NOT_FOUND);
       }
     }
     this.checkUserSuspended(user);
@@ -328,7 +328,7 @@ export class AuthService {
     if (password && user?.password) {
       const checkPassword = await comparePassword(password, user?.password || '');
       if (!checkPassword) {
-        ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.NOT_FOUND);
+        ErrorException(null, "USER.INCORRECT_CREDENTIAL", HttpStatus.NOT_FOUND);
       }
     } else {
       ErrorException(null, "USER.PASSWORD_NOT_SET", HttpStatus.NOT_FOUND);
