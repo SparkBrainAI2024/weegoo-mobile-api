@@ -82,6 +82,9 @@ export class DriverWDocuments {
   @Field(() => [DriverDocument], { nullable: true })
   documents: DriverDocument[];
 
+  @Field(() => Boolean, { nullable: true })
+  allDocumentsApproved: boolean;
+
   @Field(() => Vehicle, { nullable: true })
   vehicle?: Vehicle;
 }

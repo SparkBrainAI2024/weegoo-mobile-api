@@ -1,8 +1,5 @@
 import { Module } from "@nestjs/common";
-import {
-  DriverVehicleFieldResolver,
-  VehicleResolver,
-} from "./resolver/vehicle.resolver";
+import { VehicleResolver } from "./resolver/vehicle.resolver";
 import { MongooseModule } from "@nestjs/mongoose";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
@@ -25,8 +22,12 @@ import { VehicleService } from "./vehicle.service";
     VehicleService,
     VehicleRepository,
     EnvService,
-    DriverVehicleFieldResolver,
+    // DriverVehicleFieldResolver,
   ],
-  exports: [VehicleService, VehicleRepository, DriverVehicleFieldResolver],
+  exports: [
+    VehicleService,
+    VehicleRepository,
+    //  DriverVehicleFieldResolver
+  ],
 })
 export class CommonVehicleModule {}

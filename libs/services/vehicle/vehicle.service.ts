@@ -125,22 +125,6 @@ export class VehicleService {
     };
   }
 
-  async getVehicleByDriver(driverId: string) {
-    try {
-      const vehicles = await this.vehicleRepository.find({
-        driverId: toMongoId(driverId),
-      });
-
-      return vehicles.length > 0 ? vehicles[0] : null;
-    } catch (e) {
-      ErrorException(
-        e,
-        "COMMON.INTERNAL_SERVER_ERROR",
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
   // ─── Active image URL helper ──────────────────────────────────────────────────
   getActiveImageUrl(vehicle: Vehicle): string | null {
     const active = vehicle.images.find(
@@ -182,27 +166,35 @@ export class VehicleService {
       this.logger.error("Failed to delete inactive images", e);
     }
   }
-  async getVehicle( driverId: string, lang: string) {
+  async getVehicle(driverId: string, lang: string) {
     try {
       const vehicle = await this.vehicleRepository.findOne({
         driverId: new Types.ObjectId(driverId),
       });
-       if (!vehicle) {
+      if (!vehicle) {
         ErrorException(null, "VEHICLE.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
       const { images, ...vehicleData } = vehicle.toObject() as any;
 
       if (
-       images &&
-      images.length > 0 &&
-       images.some((img) => img.status === ImageStatus.ACTIVE)
+        images &&
+        images.length > 0 &&
+        images.some((img) => img.status === ImageStatus.ACTIVE)
       ) {
-        const activeImage =images.find(
+        const activeImage = images.find(
           (img) => img.status === ImageStatus.ACTIVE,
         );
-        vehicleData.images = [...activeImage ? [{ ...activeImage, s3Key: this.s3.getPublicUrl(activeImage.s3Key) }] : []];
-
+        vehicleData.images = [
+          ...(activeImage
+            ? [
+                {
+                  ...activeImage,
+                  s3Key: this.s3.getPublicUrl(activeImage.s3Key),
+                },
+              ]
+            : []),
+        ];
       }
       return vehicleData;
     } catch (e) {

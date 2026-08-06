@@ -15,6 +15,9 @@ export class DocumentFile {
   s3Key: string;
 
   @Field(() => String, { nullable: true })
+  rejectionReason?: string;
+
+  @Field(() => String, { nullable: true })
   downloadUrl?: string;
 
   @Field()

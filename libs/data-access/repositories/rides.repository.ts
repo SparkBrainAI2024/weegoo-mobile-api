@@ -401,7 +401,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     const match: Record<string, any> = {
       deleted: { $ne: true },
-      bookingTime: { $gte: new Date(Date.now() - TIME_RANGE_MS[timeRange]) },
+      // ,
+      // bookingTime: { $gte: new Date(Date.now() - TIME_RANGE_MS[timeRange]) },
     };
     if (status) match.rideStatus = status;
 

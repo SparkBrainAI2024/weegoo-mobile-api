@@ -4,6 +4,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument } from "mongoose";
 import { paginateAndSoftDelete } from "../plugins/mongoose.plugin";
+import { Vehicle } from "./vehicle.entity";
 
 @ObjectType()
 @Schema({ timestamps: true })
@@ -95,9 +96,21 @@ export class User extends BaseEntity {
     type: String,
   })
   passengerSlugId?: string;
+
+  vehicle?: Vehicle;
 }
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.set("toJSON", { virtuals: true });
+UserSchema.set("toObject", { virtuals: true });
+
+UserSchema.virtual("vehicle", {
+  ref: "Vehicle",
+  localField: "_id",
+  foreignField: "driverId",
+  justOne: true,
+});
 
 export const userModel = {
   name: User.name,

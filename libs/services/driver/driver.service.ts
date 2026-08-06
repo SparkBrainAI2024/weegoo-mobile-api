@@ -20,11 +20,12 @@ import { DriverListInput } from "@libs/data-access/dtos/input/driver-list.input"
 import { DriverCommissionSummary } from "@libs/data-access/dtos/response/driver-commission-summary.response";
 import { DriverListItem } from "@libs/data-access/dtos/response/driver-list.response";
 import { DriverWDocuments } from "@libs/data-access/dtos/response/driver-w-documents.response";
+import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
 import { DriverDocumentRepository } from "@libs/data-access/repositories/driver-document.repository";
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
 import { Message } from "@libs/localization";
-import { S3Service } from "@libs/s3";
+import { S3Service, VIEW_URL_EXPIRES_ADMIN_SECONDS } from "@libs/s3";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { lang } from "moment-timezone";
@@ -104,7 +105,10 @@ export class DriverService {
   }
 
   async getDriverDetails(driverId: string): Promise<DriverWDocuments> {
-    const userDoc = await this.userRepository.findById(toMongoId(driverId));
+    const userDoc = await this.userRepository.findById(
+      toMongoId(driverId),
+      "vehicle",
+    );
 
     if (!userDoc) {
       throw new NotFoundException("Driver not found");
@@ -129,12 +133,24 @@ export class DriverService {
         amountDueToCompany: 1,
       },
     );
+    const vehicle = userDoc?.vehicle;
+    if (vehicle != null && vehicle?.images?.[0]?.s3Key) {
+      const s3Key = await this.s3.getViewUrl(
+        vehicle.images[0].s3Key,
+        VIEW_URL_EXPIRES_ADMIN_SECONDS,
+      );
+
+      vehicle.images[0].s3Key = s3Key;
+      userDoc.vehicle = vehicle;
+    }
 
     const status = this.getDriverStatus(userDoc);
 
     const documents =
       await this.driverDocumentRepository.getDriverDocuments(driverId);
-
+    const allDocumentsApproved = documents.every(
+      (doc) => doc.status === DriverDocumentBundleStatus.APPROVED,
+    );
     const driverEnrichedWithRideDetails =
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
@@ -160,6 +176,8 @@ export class DriverService {
       citizenshipNumber: details?.citizenshipNumber ?? null,
       totalEarnings: details?.totalEarnings ?? 0,
       emergencyContact: "",
+      vehicle: vehicle,
+      allDocumentsApproved,
       ...driverEnrichedWithRideDetails,
     };
   }

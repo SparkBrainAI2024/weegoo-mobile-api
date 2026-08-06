@@ -40,9 +40,8 @@ export class DriverResolver {
     @CurrentLang() lang: string,
     @Args("driverId") driverId: string,
   ): Promise<DriverWDocuments> {
-    console.log("here", driverId);
-
-    return this.driverService.getDriverDetails(driverId);
+    const res = await this.driverService.getDriverDetails(driverId);
+    return res;
   }
 
   @ResolveField(() => [DriverDocument])
