@@ -91,7 +91,7 @@ export class UserService {
             }
             const checkPassword = await comparePassword(oldPassword, user.password);
             if (!checkPassword) {
-                ErrorException(null, "USER.INCORRECT_PASSWORD", HttpStatus.BAD_REQUEST);
+                ErrorException(null, "USER.INCORRECT_CREDENTIAL", HttpStatus.BAD_REQUEST);
             }
             await this.userRepository.updateOne(
                 { _id: user._id },

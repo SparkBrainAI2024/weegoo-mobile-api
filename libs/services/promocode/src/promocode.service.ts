@@ -101,9 +101,6 @@ export class PromoCodeService {
         { path: "occasion" },
       );
 
-      // Send promocode notification to all users with firebase tokens
-      this.notifyUsersOfNewPromoCode(createdObj, lang);
-
       return {
         message: Message(lang, "PROMO_CODE.CREATED_SUCCESSFULLY"),
         success: true,
@@ -304,7 +301,7 @@ export class PromoCodeService {
   }
 
   // ── STATUS TRANSITIONS ───────────────────────────────────────
-  async activate(id: string): Promise<PromoCodeDocument> {
+  async activate(id: string, lang: string): Promise<PromoCodeDocument> {
     try {
       const promoCode = await this.findOrThrow(id);
       if (
@@ -317,11 +314,16 @@ export class PromoCodeService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      return this.promoCodeRepository.updateById(
+      const updatedObj = await this.promoCodeRepository.updateById(
         new Types.ObjectId(id),
         { $set: { status: PromoCodeStatusEnum.ACTIVE } },
         { path: "occasion" },
       );
+
+      // Send promocode notification to all users with firebase tokens
+      this.notifyUsersOfNewPromoCode(updatedObj, lang);
+
+      return updatedObj;
     } catch (e) {
       ErrorException(e, "PROMO_CODE.ACTIVATE", HttpStatus.BAD_REQUEST);
     }

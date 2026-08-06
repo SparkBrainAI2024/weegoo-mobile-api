@@ -126,7 +126,7 @@ export class DriverRideResolver {
   @Roles(roles.RIDER)
   @Mutation(() => Rides, {
     name: 'completeRide',
-    description: 'Complete a ride - sets status to COMPLETED, publishes ride-completed Ably event with fare breakdown',
+    description: 'Complete a ride - sets status to ONGOING but add to rideEndedAt date, publishes ride-completed Ably event with fare breakdown',
   })
   async completeRide(
     @CurrentUser() user: User,

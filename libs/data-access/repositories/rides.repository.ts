@@ -12,6 +12,12 @@ import {
 import { roles } from "../enums/user.enum";
 import { Types } from "mongoose";
 import { RideStatus } from "../enums/rides.enum";
+import { DriverTripCommissionFilter } from "../dtos/input/get-driver-trips.input";
+import {
+  TransactionDirection,
+  TransactionStatus,
+  TransactionType,
+} from "../enums/transaction.enum";
 import { CategoryAccessedByRole } from "../enums/issue.enum";
 import { Rating, RatingDocument } from "../entities/rating.entity";
 import { RidesListInput, RideTimeRange } from "../dtos/input/rides-list.input";
@@ -199,6 +205,127 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       data: result?.paginatedResults ?? [],
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
       avgFare: Math.round(result?.avgFare?.[0]?.avg ?? 0),
+    };
+  }
+
+  async getDriverTripsWithCommission(
+    driverId: Types.ObjectId,
+    filter: "ALL" | "DUE" | "PAID",
+    page: number,
+    limit: number,
+  ): Promise<{ data: any[]; total: number; totalCommission: number }> {
+    const pipeline: any[] = [
+      // Start from completed rides for this driver
+      {
+        $match: {
+          driverId,
+          rideStatus: RideStatus.COMPLETED,
+        },
+      },
+      // Commission transactions for the ride (matched by tripId = ride._id)
+      {
+        $lookup: {
+          from: "transactions",
+          let: { tripId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$tripId", "$$tripId"] },
+                    { $eq: ["$direction", TransactionDirection.CREDIT] },
+                    { $eq: ["$type", TransactionType.COMMISSION] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "commissionTxns",
+        },
+      },
+      // Determine commission status — completed transaction => PAID, else DUE
+      {
+        $addFields: {
+          commissionStatus: {
+            $cond: [
+              {
+                $gt: [
+                  {
+                    $size: {
+                      $filter: {
+                        input: "$commissionTxns",
+                        as: "ct",
+                        cond: {
+                          $eq: ["$$ct.status", TransactionStatus.COMPLETED],
+                        },
+                      },
+                    },
+                  },
+                  0,
+                ],
+              },
+              DriverTripCommissionFilter.PAID,
+              DriverTripCommissionFilter.DUE,
+            ],
+          },
+          // Per-ride commission: use transaction amount if exists, else fare.totalAmount * 0.2
+          commissionAmount: {
+            $cond: [
+              { $gt: [{ $size: "$commissionTxns" }, 0] },
+              { $arrayElemAt: ["$commissionTxns.amount", 0] },
+              {
+                $multiply: [
+                  { $ifNull: ["$fare.totalAmount", 0] },
+                  0.2,
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ];
+
+    // Apply commission status filter
+    if (filter === "DUE") {
+      pipeline.push({ $match: { commissionStatus: DriverTripCommissionFilter.DUE } });
+    } else if (filter === "PAID") {
+      pipeline.push({ $match: { commissionStatus: DriverTripCommissionFilter.PAID } });
+    }
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $sort: { createdAt: -1 } },
+          { $skip: page * limit },
+          { $limit: limit },
+          {
+            $project: {
+              tripId: "$_id",
+              rideUUId: 1,
+              pickupLocation: 1,
+              dropoffLocation: 1,
+              fare: 1,
+              paymentDetails: 1,
+              createdAt: 1,
+              commission: { $round: ["$commissionAmount", 2] },
+              commissionStatus: 1,
+            },
+          },
+        ],
+        total: [{ $count: "count" }],
+        // Total commission across ALL completed rides (no pagination)
+        totalCommission: [
+          { $group: { _id: null, total: { $sum: "$commissionAmount" } } },
+        ],
+      },
+    });
+
+    const [result] = await this._model.aggregate(pipeline);
+
+    return {
+      data: result?.data || [],
+      total: result?.total?.[0]?.count || 0,
+      totalCommission: Math.round((result?.totalCommission?.[0]?.total || 0) * 100) / 100,
     };
   }
 

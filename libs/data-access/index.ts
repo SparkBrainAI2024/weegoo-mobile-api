@@ -27,6 +27,7 @@ export * from './entities/user-daily-online-status.entity';
 export * from './entities/rating.entity';
 export * from './entities/remark.entity';
 export * from './entities/contact-us.entity';
+export * from './entities/email-template.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -44,6 +45,7 @@ export * from './repositories/user-daily-online-status.repository';
 export * from './repositories/rating.repository';
 export * from './repositories/remark.repository';
 export * from './repositories/contact-us.repository';
+export * from './repositories/email-template.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -70,6 +72,7 @@ export * from './common/payment-details';
 export * from './common/ride-user-snapshot';
 export * from './common/rating-user-snapshot';
 export * from './common/saved-location';
+export * from './common/recent-place';
 export * from './common/notification-settings';
 
 //plugins
@@ -118,6 +121,10 @@ export * from './dtos/input/create-complaint.input';
 export * from './dtos/input/passenger-payment.input';
 export * from './dtos/input/create-contact-us.input';
 export * from './dtos/input/update-notification-settings.input';
+export * from './dtos/input/get-driver-trips.input';
+export * from './dtos/input/save-location.input';
+export * from './dtos/input/delete-location.input';
+export * from './dtos/input/email-template.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -153,6 +160,8 @@ export * from './dtos/response/complete-ride-result.dto';
 export * from './dtos/response/passenger-payment.response';
 export * from './dtos/response/create-contact-us.response';
 export * from './dtos/response/update-notification-settings.response';
+export * from './dtos/response/get-driver-trips.response';
+export * from './dtos/response/saved-locations.response';
 
 //interfaces
 export * from './interfaces/location.interface'

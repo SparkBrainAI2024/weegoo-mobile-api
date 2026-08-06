@@ -388,7 +388,7 @@ export class MatchmakingResolver {
   @Mutation(() => CompleteRideResult, {
     name: "completeRide",
     description:
-      "Complete a ride: validates ride, updates status to COMPLETED, calculates actual duration and fare breakdown, publishes ride-completed Ably event",
+      "Complete a ride: validates ride, updates status to ongoing but rideEndedAt date, calculates actual duration and fare breakdown, publishes ride-completed Ably event",
   })
   async completeRide(
     @Args("rideId") rideId: string,

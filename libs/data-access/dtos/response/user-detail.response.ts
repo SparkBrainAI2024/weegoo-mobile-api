@@ -1,6 +1,7 @@
 import { GenderEnum, ridePreference, ProvinceEnum } from "@libs/data-access/enums/user.enum";
 import { GraphQLJSON } from "graphql-scalars";
 import { Field, ObjectType } from "@nestjs/graphql";
+import { SavedLocation } from "../../common/saved-location";
 
 @ObjectType()
 export class WalletInfoResponse {
@@ -69,4 +70,10 @@ export class UserDetailsResponse {
 
   @Field({ nullable: true })
   createdAt?: string;
+
+  @Field(() => SavedLocation, { nullable: true })
+  homeLocation?: SavedLocation;
+
+  @Field(() => SavedLocation, { nullable: true })
+  workLocation?: SavedLocation;
 }

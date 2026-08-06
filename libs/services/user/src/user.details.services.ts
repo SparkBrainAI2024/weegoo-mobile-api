@@ -13,6 +13,13 @@ import {
   GeoLocationInput,
   UpdateNotificationSettingsInput,
   UpdateNotificationSettingsResponse,
+  SaveLocationInput,
+  DeleteLocationInput,
+  SavedLocationsResponse,
+  SavedLocation,
+  SavedLocationType,
+  RecentPlace,
+  RecentPlaceLocation,
 } from "@libs/data-access";
 import {
   ImageStatus,
@@ -274,6 +281,189 @@ export class UserDetailsService {
         notificationSettings: roleNotificationSettings,
         ...toObjectDetails,
       };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async saveLocation(
+    userId: string,
+    input: SaveLocationInput,
+  ): Promise<SavedLocationsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      const location: SavedLocation = {
+        address: input.address,
+        latitude: input.latitude,
+        longitude: input.longitude,
+      };
+
+      if (input.locationType === SavedLocationType.HOME) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { homeLocation: location } },
+        );
+      } else if (input.locationType === SavedLocationType.WORK) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { workLocation: location } },
+        );
+      }
+
+      return this.getSavedLocations(userId);
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getSavedLocations(userId: string): Promise<SavedLocationsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      return {
+        homeLocation: details.homeLocation || null,
+        workLocation: details.workLocation || null,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async saveRecentPlace(
+    userId: string,
+    pickupLocation: { address?: string; latitude?: number; longitude?: number },
+    dropoffLocation: { address?: string; latitude?: number; longitude?: number },
+  ): Promise<void> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) return;
+
+      const recentPlaces = details.recentPlaces || [];
+
+      const newPlace: RecentPlace = {
+        pickupLocation: {
+          address: pickupLocation.address,
+          latitude: pickupLocation.latitude,
+          longitude: pickupLocation.longitude,
+        } as RecentPlaceLocation,
+        dropoffLocation: {
+          address: dropoffLocation.address,
+          latitude: dropoffLocation.latitude,
+          longitude: dropoffLocation.longitude,
+        } as RecentPlaceLocation,
+        createdAt: new Date(),
+      };
+
+      // Check for duplicate (same pickup and dropoff lat/long)
+      const isDuplicate = recentPlaces.some(
+        (place) =>
+          place.pickupLocation?.latitude === pickupLocation.latitude &&
+          place.pickupLocation?.longitude === pickupLocation.longitude &&
+          place.dropoffLocation?.latitude === dropoffLocation.latitude &&
+          place.dropoffLocation?.longitude === dropoffLocation.longitude,
+      );
+
+      if (isDuplicate) return;
+
+      // Add new place at the beginning
+      recentPlaces.unshift(newPlace);
+
+      // Limit to 5, remove oldest if exceeded
+      if (recentPlaces.length > 5) {
+        recentPlaces.length = 5;
+      }
+
+      await this.userDetailsRepository.updateOne(
+        { userId: toMongoId(userId) },
+        { $set: { recentPlaces } },
+      );
+    } catch (e: any) {
+      // Silent failure - do not throw
+      this.logger.warn(`Failed to save recent place for user ${userId}: ${e?.message || e}`);
+    }
+  }
+
+  async getRecentPlaces(userId: string): Promise<RecentPlace[]> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      const recentPlaces = details.recentPlaces || [];
+
+      // Sort by createdAt descending (-1) - newest first
+      return recentPlaces.sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      );
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async deleteLocation(
+    userId: string,
+    input: DeleteLocationInput,
+  ): Promise<SavedLocationsResponse> {
+    try {
+      const details = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
+
+      if (!details) {
+        ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      if (input.locationType === SavedLocationType.HOME) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { homeLocation: null } },
+        );
+      } else if (input.locationType === SavedLocationType.WORK) {
+        await this.userDetailsRepository.updateOne(
+          { userId: toMongoId(userId) },
+          { $set: { workLocation: null } },
+        );
+      }
+
+      return this.getSavedLocations(userId);
     } catch (e) {
       ErrorException(
         e,
