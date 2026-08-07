@@ -214,6 +214,7 @@ export class MatchmakingService {
         estimatedFare: estimatedFare.total,
         fare: {
           baseAmount: estimatedFare.baseFare,
+          subTotal: estimatedFare.total,
           trafficCongestionAmount: 0,
           distanceAmount: Math.round(estimatedFare.distanceCost),
           totalAmount: Math.round(estimatedFare.total),
@@ -660,6 +661,7 @@ export class MatchmakingService {
               estimatedTimeToReachPassenger: driverToPickupDurationMinutes,
               timeToReachPassengerInMinutes: driverToPickupDurationMinutes,
               fare: {
+                subTotal: totalAmount,
                 baseAmount: baseFare,
                 trafficCongestionAmount: 0,
                 distanceAmount: Math.round(distanceFare),
