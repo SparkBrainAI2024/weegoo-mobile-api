@@ -95,4 +95,21 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
       return [];
     }
   }
+
+  /**
+   * Finds all distinct firebase tokens for the given roles.
+   * Used for broadcasting push notifications to targeted user groups.
+   */
+  async findFirebaseTokensByRoles(roles: string[]): Promise<string[]> {
+    try {
+      const result = await this.model.distinct('firebaseToken', {
+        firebaseToken: { $exists: true, $nin: [null, ''] },
+        role: { $in: roles },
+      });
+      return result.filter((token): token is string => typeof token === 'string');
+    } catch (e) {
+      console.error('Error finding firebase tokens by roles:', e);
+      return [];
+    }
+  }
 }
