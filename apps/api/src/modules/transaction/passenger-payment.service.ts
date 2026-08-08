@@ -477,7 +477,7 @@ export class PassengerPaymentService {
                     paymentDetails,
                     isAcknowledgeByDriver: paymentMethod === PaymentMethodEnum.CASH ? false : true,
                     rideStatus: paymentMethod === PaymentMethodEnum.CASH ? ride.rideStatus : 'COMPLETED', // If cash, keep the ride status as is; if wallet, mark as completed
-                    rideCompletedAt: paymentMethod === PaymentMethodEnum.CASH ? ride.rideCompletedAt : new Date(), // If cash, keep the ride completed time as is; if wallet, set to now
+                    rideCompletedAt: paymentMethod === PaymentMethodEnum.CASH ? ride?.rideCompletedAt||null : new Date(), // If cash, keep the ride completed time as is; if wallet, set to now
                 },
             },
             { session },
