@@ -19,6 +19,10 @@ import { AdminRidesModule } from "./modules/ride/rides.module";
 import { DriverDocumentModule } from "./modules/driver-document/driver-document.module";
 import { EmailTemplateModule } from "./modules/email-template/email-template.module";
 import { AdminIssuesModule } from "./modules/issue/issue.module";
+import { AdminCompanyInfoModule } from "./modules/admin-company-info/admin-company-info.module";
+import { AdminRidePricingModule } from "./modules/admin-ride-pricing/admin-ride-pricing.module";
+import { MaintenanceInfoModule } from "./modules/maintenance-info/maintenance-info.module";
+import { AdminPushNotificationModule } from "./modules/push-notification/push-notification.module";
 
 @Module({
   imports: [
@@ -59,6 +63,10 @@ import { AdminIssuesModule } from "./modules/issue/issue.module";
     DriverDocumentModule,
     EmailTemplateModule,
     AdminIssuesModule,
+    AdminCompanyInfoModule,
+    AdminRidePricingModule,
+    MaintenanceInfoModule,
+    AdminPushNotificationModule,
   ],
   providers: [HealthResolver],
 })

@@ -385,8 +385,6 @@ export class UserDetailsService {
       // Check for duplicate (same pickup and dropoff lat/long)
       const isDuplicate = recentPlaces.some(
         (place) =>
-          place.pickupLocation?.latitude === pickupLocation.latitude &&
-          place.pickupLocation?.longitude === pickupLocation.longitude &&
           place.dropoffLocation?.latitude === dropoffLocation.latitude &&
           place.dropoffLocation?.longitude === dropoffLocation.longitude,
       );
