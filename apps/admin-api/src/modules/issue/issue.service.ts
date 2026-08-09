@@ -29,8 +29,6 @@ export class IssueService {
       totalOpen: result.totalOpen,
       totalInReview: result.totalInReview,
       totalResolved: result.totalResolved,
-      // TODO: avgFirstResponse needs a "first admin reply" timestamp that doesn't
-      // exist on the schema yet — omitted for now, add once that field exists
       avgFirstResponse: undefined,
       avgResolution: formatMinutes(result.avgResolutionMinutes),
     };
