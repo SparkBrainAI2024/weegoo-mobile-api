@@ -303,6 +303,7 @@ export class MatchmakingService {
             title: 'New Ride Request', notificationType: NotificationType.RIDE_REQUEST,
             description: `You have a new ride request from pickup ${ride.pickupLocation?.address || 'your area'}. Estimated fare: Rs. ${estimatedFare.total}`,
             ablyChannelId, rideId, rideType: ride.rideType, rideStatus: ride.rideStatus, waitTimeSeconds,
+            rideUUId: ride.rideUUId,
             pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
             dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
             distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
