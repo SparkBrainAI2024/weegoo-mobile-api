@@ -3,15 +3,32 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
-} from '@nestjs/common';
-import { IssueRepository, IssueFilters, PaginationOptions } from '@libs/data-access/repositories/issue.repository';
-import { Issue } from '@libs/data-access/entities/issue.entity';
-import { CategoryAccessedByRole, IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '@libs/data-access/enums/issue.enum';
-import { CreateIssueResponse, CreateComplaintInput, CreateComplaintResponse, IssueCategoryInput, RidesRepository, CreateIssueInput } from '@libs/data-access';
-import { Types } from 'mongoose';
-import { Message } from '@libs/localization';
-import { IssueCategoryEmbed } from '@libs/data-access/entities/issue-category.embedded';
-import { IssueCategory } from '@libs/data-access/entities/issue-category.entity';
+} from "@nestjs/common";
+import {
+  IssueRepository,
+  IssueFilters,
+  PaginationOptions,
+} from "@libs/data-access/repositories/issue.repository";
+import { Issue } from "@libs/data-access/entities/issue.entity";
+import {
+  CategoryAccessedByRole,
+  IssueCategoryForRole,
+  IssueParentCategory,
+  IssueStatus,
+  ReportedByType,
+} from "@libs/data-access/enums/issue.enum";
+import {
+  CreateIssueResponse,
+  CreateComplaintInput,
+  CreateComplaintResponse,
+  IssueCategoryInput,
+  RidesRepository,
+  CreateIssueInput,
+} from "@libs/data-access";
+import { Types } from "mongoose";
+import { Message } from "@libs/localization";
+import { IssueCategoryEmbed } from "@libs/data-access/entities/issue-category.embedded";
+import { IssueCategory } from "@libs/data-access/entities/issue-category.entity";
 
 // valid status transitions — no backwards movement
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
@@ -20,9 +37,43 @@ const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   [IssueStatus.RESOLVED]: [],
 };
 
-
-export const issueCategorySeed = [{ parentCategory: IssueParentCategory.RIDE, label: 'Driver is too slow', sortOrder: 1, isActive: true, categoryForRole: IssueCategoryForRole.PASSENGER }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver took wrong route', sortOrder: 2, isActive: true, categoryForRole: IssueCategoryForRole.PASSENGER }, { parentCategory: IssueParentCategory.RIDE, label: 'Driver was rude', sortOrder: 3, isActive: true, categoryForRole: IssueCategoryForRole.DRIVER }, { parentCategory: IssueParentCategory.COMPLAINT, label: 'Wallet was not working', sortOrder: 1, isActive: true, categoryForRole: IssueCategoryForRole.BOTH }, { parentCategory: IssueParentCategory.CANCEL, label: 'Wrong cancellation charge', sortOrder: 2, isActive: true, categoryForRole: IssueCategoryForRole.BOTH },]
-
+export const issueCategorySeed = [
+  {
+    parentCategory: IssueParentCategory.RIDE,
+    label: "Driver is too slow",
+    sortOrder: 1,
+    isActive: true,
+    categoryForRole: IssueCategoryForRole.PASSENGER,
+  },
+  {
+    parentCategory: IssueParentCategory.RIDE,
+    label: "Driver took wrong route",
+    sortOrder: 2,
+    isActive: true,
+    categoryForRole: IssueCategoryForRole.PASSENGER,
+  },
+  {
+    parentCategory: IssueParentCategory.RIDE,
+    label: "Driver was rude",
+    sortOrder: 3,
+    isActive: true,
+    categoryForRole: IssueCategoryForRole.DRIVER,
+  },
+  {
+    parentCategory: IssueParentCategory.COMPLAINT,
+    label: "Wallet was not working",
+    sortOrder: 1,
+    isActive: true,
+    categoryForRole: IssueCategoryForRole.BOTH,
+  },
+  {
+    parentCategory: IssueParentCategory.CANCEL,
+    label: "Wrong cancellation charge",
+    sortOrder: 2,
+    isActive: true,
+    categoryForRole: IssueCategoryForRole.BOTH,
+  },
+];
 
 @Injectable()
 export class IssueService {
@@ -31,59 +82,63 @@ export class IssueService {
     private readonly ridesRepo: RidesRepository,
   ) {}
 
- async createIssue(
-  userId: string,
-  reportedByType: ReportedByType,
-  input: CreateIssueInput, // Changed to accept the CreateIssueInput DTO
-  lang: string,
-): Promise<CreateIssueResponse> {
-  const { category, issueContent, rideId, title } = input; // Destructure the input DTO
+  async createIssue(
+    userId: string,
+    reportedByType: ReportedByType,
+    input: CreateIssueInput, // Changed to accept the CreateIssueInput DTO
+    lang: string,
+  ): Promise<CreateIssueResponse> {
+    const { category, issueContent, rideId, title } = input; // Destructure the input DTO
 
-  if (!issueContent || issueContent.trim().length < 10) { // Use issueContent from input
-    throw new BadRequestException('Issue content must be at least 10 characters.');
-  }
+    if (!issueContent || issueContent.trim().length < 10) {
+      // Use issueContent from input
+      throw new BadRequestException(
+        "Issue content must be at least 10 characters.",
+      );
+    }
 
-  if (rideId) { // Use rideId from input
-    const ride = await this.ridesRepo.findById(new Types.ObjectId(rideId)); // Use rideId from input
-    if (!ride) throw new NotFoundException('Ride not found.');
-    const isPassenger = ride.passengerId?.toString() === userId;
-    const isDriver = ride.driverId?.toString() === userId;
-    if (!isPassenger && !isDriver) throw new UnauthorizedException('You are not associated with this ride.');
-  }
+    if (rideId) {
+      // Use rideId from input
+      const ride = await this.ridesRepo.findById(new Types.ObjectId(rideId)); // Use rideId from input
+      if (!ride) throw new NotFoundException("Ride not found.");
+      const isPassenger = ride.passengerId?.toString() === userId;
+      const isDriver = ride.driverId?.toString() === userId;
+      if (!isPassenger && !isDriver)
+        throw new UnauthorizedException(
+          "You are not associated with this ride.",
+        );
+    }
 
-  // fetch IssueCategory and build full embed
-  let categoryEmbed: IssueCategoryEmbed | null = null;
-  if (category) { // Use category from input
-    const group = category.subCategoryId // Use subCategoryId from input.category
-      ? await this.issueRepo.findIssueCategoryById(category.subCategoryId) // Use subCategoryId from input.category
-      : null;
+    // fetch IssueCategory and build full embed
+    let categoryEmbed: IssueCategoryEmbed | null = null;
+    if (category) {
+      // Use category from input
+      const group = category.subCategoryId // Use subCategoryId from input.category
+        ? await this.issueRepo.findIssueCategoryById(category.subCategoryId) // Use subCategoryId from input.category
+        : null;
 
-    categoryEmbed = {
-      parentCategory: category.parentCategory, // Use parentCategory from input.category
-      subCategoryId: group?._id?.toString() ?? null,
-      subCategoryLabel: group?.label ?? null,
+      categoryEmbed = {
+        parentCategory: category.parentCategory, // Use parentCategory from input.category
+        subCategoryId: group?._id?.toString() ?? null,
+        subCategoryLabel: group?.label ?? null,
+      };
+    }
+
+    const issue = await this.issueRepo.create({
+      title: title, // Added the missing title from input
+      reportedBy: userId,
+      reportedByType,
+      category: categoryEmbed as any,
+      issueContent: issueContent.trim(),
+      rideId,
+    });
+
+    return {
+      message: Message(lang, "ISSUE.CREATED"),
+      success: true,
+      issue,
     };
   }
-
-  const issue = await this.issueRepo.create({
-    title: title, // Added the missing title from input
-    reportedBy: userId,
-    reportedByType,
-    category: categoryEmbed as any,
-    issueContent: issueContent.trim(),
-    rideId,
-  });
-
-  return {
-    message: Message(lang, 'ISSUE.CREATED'),
-    success: true,
-    issue,
-  };
-
-  
-}
-
-
 
   // admin views all issues with optional filters
   async getAllIssues(
@@ -99,7 +154,7 @@ export class IssueService {
     newStatus: IssueStatus,
   ): Promise<Issue> {
     const issue = await this.issueRepo.findById(issueId);
-    if (!issue) throw new NotFoundException('Issue not found.');
+    if (!issue) throw new NotFoundException("Issue not found.");
 
     const allowed = VALID_TRANSITIONS[issue.status];
     if (!allowed.includes(newStatus)) {
@@ -114,27 +169,29 @@ export class IssueService {
   // admin resolves issue
   async resolveIssue(issueId: string, adminId: string): Promise<Issue> {
     const issue = await this.issueRepo.findById(issueId);
-    if (!issue) throw new NotFoundException('Issue not found.');
+    if (!issue) throw new NotFoundException("Issue not found.");
 
     if (issue.status === IssueStatus.RESOLVED) {
-      throw new BadRequestException('Issue is already resolved.');
+      throw new BadRequestException("Issue is already resolved.");
     }
 
     return this.issueRepo.resolve(issueId, adminId);
   }
 
+  async seedIssueCategorys(): Promise<string> {
+    await this.issueRepo.seedIssueCategories(issueCategorySeed);
 
-async seedIssueCategorys(): Promise<string> {
-  await this.issueRepo.seedIssueCategories(issueCategorySeed);
-
-  return 'Issue categories seeded successfully';
-}
+    return "Issue categories seeded successfully";
+  }
 
   async getCategoriesByParent(
     parentCategory: IssueParentCategory,
     categoryAccessedByRole: CategoryAccessedByRole,
   ): Promise<IssueCategory[]> {
-    return this.issueRepo.findByParentCategory(parentCategory, categoryAccessedByRole);
+    return this.issueRepo.findByParentCategory(
+      parentCategory,
+      categoryAccessedByRole,
+    );
   }
 
   async createComplaint(
@@ -146,7 +203,9 @@ async seedIssueCategorys(): Promise<string> {
     const { category, complaintContent } = input;
 
     if (!complaintContent || complaintContent.trim().length < 10) {
-      throw new BadRequestException('Complaint content must be at least 10 characters.');
+      throw new BadRequestException(
+        "Complaint content must be at least 10 characters.",
+      );
     }
 
     let categoryEmbed: IssueCategoryEmbed | null = null;
@@ -172,10 +231,9 @@ async seedIssueCategorys(): Promise<string> {
     });
 
     return {
-      message: Message(lang, 'ISSUE.CREATED'),
+      message: Message(lang, "ISSUE.CREATED"),
       success: true,
       complaint,
     };
   }
-
 }
