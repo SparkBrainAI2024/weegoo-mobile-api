@@ -17,6 +17,7 @@ import { CurrentLang } from "@libs/common/decorators/header.decorators";
 import { IssueListInput } from "@libs/data-access/dtos/input/issue.list.input";
 import {
   BulkResolveIssuesResponse,
+  CloseIssueResponse,
   Issue,
   IssueListResponse,
   ResolveIssueResponse,
@@ -47,10 +48,19 @@ export class IssueResolver {
     return this.issueService.resolveIssue(id, resolvedBy);
   }
 
+  @Mutation(() => CloseIssueResponse)
+  async closeIssue(
+    @Args("id", { type: () => ID }) id: string,
+    @Args("closedBy", { type: () => ID }) closedBy: string,
+    @CurrentLang() lang: string,
+  ): Promise<CloseIssueResponse> {
+    return this.issueService.closeIssue(id, closedBy);
+  }
+
   @Mutation(() => BulkResolveIssuesResponse)
   async bulkResolveIssues(
     @Args("ids", { type: () => [ID] }) ids: string[],
-    @Args("resolvedBy", { type: () => ID }) resolvedBy: string, // TODO: same as above
+    @Args("resolvedBy", { type: () => ID }) resolvedBy: string,
     @CurrentLang() lang: string,
   ): Promise<BulkResolveIssuesResponse> {
     return this.issueService.bulkResolveIssues(ids, resolvedBy);

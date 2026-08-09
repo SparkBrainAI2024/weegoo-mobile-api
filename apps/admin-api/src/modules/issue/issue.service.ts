@@ -1,6 +1,7 @@
 // service/issue.service.ts
 import {
   BulkResolveIssuesResponse,
+  CloseIssueResponse,
   IssueListResponse,
   ResolveIssueResponse,
 } from "@libs/data-access";
@@ -31,6 +32,16 @@ export class IssueService {
       totalResolved: result.totalResolved,
       avgFirstResponse: undefined,
       avgResolution: formatMinutes(result.avgResolutionMinutes),
+    };
+  }
+
+  async closeIssue(id: string, closedBy: string): Promise<CloseIssueResponse> {
+    const updated = await this.issueRepository.closeOne(id, closedBy);
+    if (!updated) throw new NotFoundException(`Issue ${id} not found`);
+    return {
+      message: "Issue closed",
+      id: updated._id.toString(),
+      status: updated.status,
     };
   }
 

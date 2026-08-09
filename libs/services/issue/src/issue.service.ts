@@ -24,6 +24,7 @@ import {
   IssueCategoryInput,
   RidesRepository,
   CreateIssueInput,
+  CloseIssueResponse,
 } from "@libs/data-access";
 import { Types } from "mongoose";
 import { Message } from "@libs/localization";
@@ -164,16 +165,6 @@ export class IssueService {
     }
 
     return this.issueRepo.updateStatus(issueId, newStatus);
-  }
-
-  async closeIssue(id: string, closedBy: string): Promise<CloseIssueResponse> {
-    const updated = await this.issueRepo.closeOne(id, closedBy);
-    if (!updated) throw new NotFoundException(`Issue ${id} not found`);
-    return {
-      message: "Issue closed",
-      id: updated._id.toString(),
-      status: updated.status,
-    };
   }
 
   // admin resolves issue
