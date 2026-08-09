@@ -1,6 +1,8 @@
 export enum EmailProvider {
   /** Nodemailer email provider */
   NODEMAILER = 'nodemailer',
+  /** SendGrid email provider */
+  SENDGRID = 'sendgrid',
 }
 
 /**
@@ -107,6 +109,16 @@ export interface EmailConfig {
 
   /** Nodemailer configuration (optional) */
   nodemailer?: NodeMailerConfig;
+
+  /** SendGrid configuration (optional) */
+  sendgrid?: {
+    /** SendGrid API key */
+    apiKey: string;
+    /** From email address */
+    fromEmail: string;
+    /** From name */
+    fromName: string;
+  };
 }
 
 /**
@@ -325,4 +337,13 @@ export interface EnvConfig {
 
   /** Production URL */
   PRODUCTION_URL: string;
+
+  /** SendGrid API key */
+  SENDGRID_API_KEY: string;
+
+  /** SendGrid from email */
+  SENDGRID_FROM_EMAIL: string;
+
+  /** SendGrid from name */
+  SENDGRID_FROM_NAME: string;
 }

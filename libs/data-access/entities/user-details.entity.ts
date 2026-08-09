@@ -146,6 +146,10 @@ export class UserDetails extends BaseEntity {
   @Field(() => GraphQLJSON, { nullable: true })
   @Prop({ required: false, type: Object, default: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } } })
   notificationSettings?: Record<string, Record<string, boolean>>;
+
+  @Field({ defaultValue: false })
+  @Prop({ default: false })
+  emailVerified: boolean;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 

@@ -42,6 +42,11 @@ export interface AppEnv {
   MAIL_PORT: number;
   MAIL_USER: string;
   MAIL_PASS: string;
+
+  // SendGrid
+  SENDGRID_API_KEY: string;
+  SENDGRID_FROM_EMAIL: string;
+  SENDGRID_FROM_NAME: string;
  
   //Baato
   BAATO_API_KEY: string;
@@ -97,6 +102,11 @@ export default (): AppEnv => ({
   MAIL_PORT: parseInt(process.env.MAIL_PORT || '587', 10),
   MAIL_USER: process.env.MAIL_USER || '',
   MAIL_PASS: process.env.MAIL_PASS || '',
+
+  //SendGrid
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY || '',
+  SENDGRID_FROM_EMAIL: process.env.SENDGRID_FROM_EMAIL || '',
+  SENDGRID_FROM_NAME: process.env.SENDGRID_FROM_NAME || 'WeeGoo',
 
   //Ably
   ABLY_API_KEY: process.env.ABLY_API_KEY || '',

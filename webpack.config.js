@@ -2,6 +2,7 @@ const swcDefaultConfig =
   require("@nestjs/cli/lib/compiler/defaults/swc-defaults").swcDefaultsFactory()
     .swcOptions;
 const path = require("path");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 module.exports = function (options) {
   return {
@@ -62,5 +63,48 @@ module.exports = function (options) {
       },
       extensions: [".ts", ".js"],
     },
+    plugins: [
+      new CopyWebpackPlugin({
+        patterns: [
+          {
+            from: path.resolve(
+              __dirname,
+              "libs/services/email-template/src/templates",
+            ),
+            to: path.resolve(
+              __dirname,
+              "dist/libs/services/email-template/src/templates",
+            ),
+          },
+          {
+            from: path.resolve(__dirname, "libs/services/mail/templates"),
+            to: path.resolve(__dirname, "dist/libs/services/mail/templates"),
+          },
+          // Copy base email template to each app's output directory
+          // so EmailTemplateParserService can find it at runtime
+          {
+            from: path.resolve(
+              __dirname,
+              "libs/services/email-template/src/templates/base-email-template.hbs",
+            ),
+            to: path.resolve(__dirname, "dist/apps/api/templates"),
+          },
+          {
+            from: path.resolve(
+              __dirname,
+              "libs/services/email-template/src/templates/base-email-template.hbs",
+            ),
+            to: path.resolve(__dirname, "dist/apps/admin-api/templates"),
+          },
+          {
+            from: path.resolve(
+              __dirname,
+              "libs/services/email-template/src/templates/base-email-template.hbs",
+            ),
+            to: path.resolve(__dirname, "dist/apps/driver-api/templates"),
+          },
+        ],
+      }),
+    ],
   };
 };

@@ -1,11 +1,9 @@
 import { Module, DynamicModule, Provider } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { MailerModule } from '@nestjs-modules/mailer';
 
 import { AuthService } from './auth.service';
 import { SetPasswordGuard } from '@libs/guards/set-password.guard';
-import { MailService } from '@libs/services/mail';
+import { MailService, SendGridMailModule } from '@libs/services/mail';
 import { EnvService } from '@libs/common/config/env.service';
 import { SocialAuthModule } from '@libs/services/social-auth';
 import { AuthGuard } from '@libs/guards/guard';
@@ -60,45 +58,7 @@ export class UserAuthModule {
           { name: Wallet.name, schema: WalletSchema },
         ]),
         S3Module,
-
-        // ✅ Mailer properly configured using global ConfigService
-        MailerModule.forRootAsync({
-          inject: [ConfigService],
-          useFactory: async (config: ConfigService) => {
-            const host = config.get<string>('MAIL_HOST');
-            const port = Number(config.get<string>('MAIL_PORT'));
-            const user = config.get<string>('MAIL_USER');
-            const pass = config.get<string>('MAIL_PASS');
-
-            // Debug: log values
-            console.log('[MailerConfig] MAIL_HOST:', host);
-            console.log('[MailerConfig] MAIL_PORT:', port);
-            console.log('[MailerConfig] MAIL_USER:', user ? '***' : 'NOT SET');
-            console.log('[MailerConfig] MAIL_PASS:', pass ? '***' : 'NOT SET');
-
-            if (!host || !port || !user || !pass) {
-              console.warn('[MailerConfig] Mail configuration incomplete. Mail functionality will be disabled.');
-              // Return a dummy transport to prevent startup errors in dev
-              return {
-                transport: {
-                  host: 'localhost',
-                  port: 1025,
-                  secure: false,
-                  auth: { user: '', pass: '' },
-                },
-              };
-            }
-
-            return {
-              transport: {
-                host,
-                port,
-                secure: false,
-                auth: { user, pass },
-              },
-            };
-          },
-        }),
+        SendGridMailModule,
 
         // ✅ SocialAuthModule with provided config
         socialAuthConfig
