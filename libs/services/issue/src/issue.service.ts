@@ -166,6 +166,16 @@ export class IssueService {
     return this.issueRepo.updateStatus(issueId, newStatus);
   }
 
+  async closeIssue(id: string, closedBy: string): Promise<CloseIssueResponse> {
+    const updated = await this.issueRepo.closeOne(id, closedBy);
+    if (!updated) throw new NotFoundException(`Issue ${id} not found`);
+    return {
+      message: "Issue closed",
+      id: updated._id.toString(),
+      status: updated.status,
+    };
+  }
+
   // admin resolves issue
   async resolveIssue(issueId: string, adminId: string): Promise<Issue> {
     const issue = await this.issueRepo.findById(issueId);

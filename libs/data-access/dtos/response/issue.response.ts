@@ -107,6 +107,18 @@ export class ResolveIssueResponse {
 }
 
 @ObjectType()
+export class CloseIssueResponse {
+  @Field(() => String)
+  message: string;
+
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => IssueStatus)
+  status: IssueStatus;
+}
+
+@ObjectType()
 export class BulkResolveIssuesResponse {
   @Field(() => String)
   message: string;

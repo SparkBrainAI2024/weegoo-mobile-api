@@ -333,6 +333,16 @@ export class IssueRepository {
     );
   }
 
+  async closeOne(id: string, closedBy: string) {
+    // Deliberately doesn't check current status — a ticket can be closed
+    // directly (e.g. duplicate/invalid) without ever passing through RESOLVED
+    return this.model.findByIdAndUpdate(
+      id,
+      { status: IssueStatus.CLOSED, closedAt: new Date(), closedBy },
+      { new: true },
+    );
+  }
+
   async resolveMany(ids: string[], resolvedBy: string): Promise<number> {
     const result = await this.model.updateMany(
       { _id: { $in: ids.map((id) => new Types.ObjectId(id)) } },
