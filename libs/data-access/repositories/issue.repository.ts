@@ -141,10 +141,7 @@ export class IssueRepository {
     // category filter matches either the sub-category label (e.g. "Payment") or,
     // for issues with no sub-category, the parent category enum value directly
     if (input.category) {
-      match.$or = [
-        { "category.subCategoryLabel": input.category },
-        { "category.parentCategory": input.category },
-      ];
+      match.$or = [{ "category.parentCategory": input.category }];
     }
 
     if (input.unassignedOnly) {
@@ -234,12 +231,7 @@ export class IssueRepository {
                 reportedByName: { $ifNull: ["$reporter.fullName", "Unknown"] },
                 reportedByType: 1,
                 rideId: 1,
-                categoryLabel: {
-                  $ifNull: [
-                    "$category.subCategoryLabel",
-                    "$category.parentCategory",
-                  ],
-                },
+                categoryLabel: "$category.parentCategory",
                 status: 1,
                 priority: 1,
                 assigneeName: "$assignee.fullName",
