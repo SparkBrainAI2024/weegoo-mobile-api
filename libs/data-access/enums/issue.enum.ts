@@ -1,81 +1,93 @@
 import { registerEnumType } from "@nestjs/graphql";
 
 export enum ReportedByType {
-  PASSENGER = 'PASSENGER',
-  DRIVER = 'DRIVER',
+  PASSENGER = "PASSENGER",
+  DRIVER = "DRIVER",
 }
 
 export enum CategoryAccessedByRole {
-  PASSENGER = 'PASSENGER',
-  DRIVER = 'DRIVER',
+  PASSENGER = "PASSENGER",
+  DRIVER = "DRIVER",
 }
-
 
 export enum IssueStatus {
-  OPEN = 'OPEN',
-  IN_REVIEW = 'IN_REVIEW',
-  RESOLVED = 'RESOLVED',
+  OPEN = "OPEN",
+  IN_REVIEW = "IN_REVIEW",
+  RESOLVED = "RESOLVED",
 }
-
 
 // Top-level parent categories — these are seeded, not dynamic
 export enum IssueParentCategory {
-  RIDE = 'RIDE',
-  CANCEL = 'CANCEL',
-  COMPLAINT = 'COMPLAINT',
-  CHAT = 'CHAT',
- 
+  RIDE = "RIDE",
+  CANCEL = "CANCEL",
+  COMPLAINT = "COMPLAINT",
+  CHAT = "CHAT",
 }
 
 export enum IssueCategoryForRole {
-  DRIVER = 'DRIVER',
-  PASSENGER = 'PASSENGER',
-  BOTH = 'BOTH',
+  DRIVER = "DRIVER",
+  PASSENGER = "PASSENGER",
+  BOTH = "BOTH",
 }
 
+export enum IssuePriority {
+  HIGH = "HIGH",
+  MEDIUM = "MEDIUM",
+  LOW = "LOW",
+}
+
+registerEnumType(IssuePriority, {
+  name: "IssuePriority",
+  description: "Priority level of a support issue",
+});
+
 registerEnumType(IssueCategoryForRole, {
-  name: 'IssueCategoryForRole',
-  description: 'Indicates whether an issue category is applicable to drivers, passengers, or both',
+  name: "IssueCategoryForRole",
+  description:
+    "Indicates whether an issue category is applicable to drivers, passengers, or both",
   valuesMap: {
-    DRIVER: { description: 'Category is relevant for drivers' },
-    PASSENGER: { description: 'Category is relevant for passengers' },
-    BOTH: { description: 'Category is relevant for both drivers and passengers' },
+    DRIVER: { description: "Category is relevant for drivers" },
+    PASSENGER: { description: "Category is relevant for passengers" },
+    BOTH: {
+      description: "Category is relevant for both drivers and passengers",
+    },
   },
 });
- 
 
 registerEnumType(IssueParentCategory, {
-  name: 'IssueParentCategory',
-  description: 'Top-level grouping for issue templates',
+  name: "IssueParentCategory",
+  description: "Top-level grouping for issue templates",
   valuesMap: {
-    RIDE: { description: 'Problems that occurred during a ride' },
-    CANCEL: { description: 'Issues related to ride cancellations' },
-    COMPLAINT: { description: 'Complaints about drivers, passengers, or service' },
-    CHAT: { description: 'Problems with the in-app chat feature' },
-
+    RIDE: { description: "Problems that occurred during a ride" },
+    CANCEL: { description: "Issues related to ride cancellations" },
+    COMPLAINT: {
+      description: "Complaints about drivers, passengers, or service",
+    },
+    CHAT: { description: "Problems with the in-app chat feature" },
   },
 });
 
-
-registerEnumType(CategoryAccessedByRole,{
-  name: 'CategoryAccessedByRole',
-  description: 'Indicates the role that accessed the category, either driver or passenger',
+registerEnumType(CategoryAccessedByRole, {
+  name: "CategoryAccessedByRole",
+  description:
+    "Indicates the role that accessed the category, either driver or passenger",
   valuesMap: {
-    DRIVER: { description: 'Accessed by a driver' },
-    PASSENGER: { description: 'Accessed by a passenger' },
+    DRIVER: { description: "Accessed by a driver" },
+    PASSENGER: { description: "Accessed by a passenger" },
   },
-})
+});
 
-registerEnumType(IssueStatus, { name: 'IssueStatus' });
+registerEnumType(IssueStatus, { name: "IssueStatus" });
 registerEnumType(ReportedByType, {
-  name: 'ReportedByType',
-  description: 'The type of the user who reported the issue since driver and passenger are allowed to report issues',
+  name: "ReportedByType",
+  description:
+    "The type of the user who reported the issue since driver and passenger are allowed to report issues",
   valuesMap: {
     DRIVER: {
-      description: 'The user is a driver',
+      description: "The user is a driver",
     },
     PASSENGER: {
-      description: 'The user is a passenger',
+      description: "The user is a passenger",
     },
   },
 });

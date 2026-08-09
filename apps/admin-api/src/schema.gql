@@ -67,43 +67,27 @@ type RideLocation {
   fullAddress: String
 }
 
-"""
-The provinces of Nepal
-"""
+"""The provinces of Nepal"""
 enum ProvinceEnum {
-  """
-  Province No. 1 (Koshi)
-  """
+  """Province No. 1 (Koshi)"""
   PROVINCE_1
 
-  """
-  Province No. 2 (Madhesh)
-  """
+  """Province No. 2 (Madhesh)"""
   PROVINCE_2
 
-  """
-  Bagmati Province
-  """
+  """Bagmati Province"""
   BAGMATI
 
-  """
-  Gandaki Province
-  """
+  """Gandaki Province"""
   GANDAKI
 
-  """
-  Lumbini Province
-  """
+  """Lumbini Province"""
   LUMBINI
 
-  """
-  Karnali Province
-  """
+  """Karnali Province"""
   KARNALI
 
-  """
-  Sudurpashchim Province
-  """
+  """Sudurpashchim Province"""
   SUDURPASHCHIM
 }
 
@@ -134,38 +118,24 @@ type PaymentDetails {
   paymentFailedReason: String
 }
 
-"""
-Payment method for the ride
-"""
+"""Payment method for the ride"""
 enum PaymentMethodEnum {
-  """
-  Payment method is cash
-  """
+  """Payment method is cash"""
   CASH
 
-  """
-  Payment via internal wallet
-  """
+  """Payment via internal wallet"""
   WALLET
 }
 
-"""
-Status of the payment transaction
-"""
+"""Status of the payment transaction"""
 enum PaymentStatusEnum {
-  """
-  Payment has been completed
-  """
+  """Payment has been completed"""
   PAID
 
-  """
-  Payment is pending
-  """
+  """Payment is pending"""
   PENDING
 
-  """
-  Payment has failed
-  """
+  """Payment has failed"""
   FAILED
 }
 
@@ -210,14 +180,10 @@ type CancellationDetail {
 Indicates the role that accessed the category, either driver or passenger
 """
 enum CategoryAccessedByRole {
-  """
-  Accessed by a passenger
-  """
+  """Accessed by a passenger"""
   PASSENGER
 
-  """
-  Accessed by a driver
-  """
+  """Accessed by a driver"""
   DRIVER
 }
 
@@ -270,54 +236,34 @@ type Rides {
   passenger: RideUserSnapshot
   driver: RideUserSnapshot
 
-  """
-  Wallet balance of the requesting user at the time of this response
-  """
+  """Wallet balance of the requesting user at the time of this response"""
   walletAmount: Float
 }
 
-"""
-Types of rides
-"""
+"""Types of rides"""
 enum RideTypes {
-  """
-  Instant ride
-  """
+  """Instant ride"""
   INSTANT
 
-  """
-  Scheduled ride
-  """
+  """Scheduled ride"""
   SCHEDULED
 }
 
-"""
-Rides status
-"""
+"""Rides status"""
 enum RideStatus {
-  """
-  Ride is confirmed
-  """
+  """Ride is confirmed"""
   CONFIRMED
 
-  """
-  Ride is ongoing
-  """
+  """Ride is ongoing"""
   ONGOING
 
-  """
-  Driver has picked up the rider
-  """
+  """Driver has picked up the rider"""
   PICKUP
 
-  """
-  Ride is completed
-  """
+  """Ride is completed"""
   COMPLETED
 
-  """
-  Ride is cancelled
-  """
+  """Ride is cancelled"""
   CANCELLED
   PENDING
 }
@@ -463,26 +409,20 @@ type PromoCode {
   promoCodeUsedCount: Float!
 }
 
-"""
-Type of discount (percentage or flat amount)
-"""
+"""Type of discount (percentage or flat amount)"""
 enum DiscountTypeEnum {
   PERCENTAGE
   FLAT
 }
 
-"""
-To which ride types the promo code applies
-"""
+"""To which ride types the promo code applies"""
 enum AppliedToEnum {
   ALL_RIDES
   INSTANT
   SCHEDULED
 }
 
-"""
-Status of the promo code
-"""
+"""Status of the promo code"""
 enum PromoCodeStatusEnum {
   DRAFT
   ACTIVE
@@ -511,75 +451,47 @@ type Transaction {
   transactionUuid: String
 }
 
-"""
-Direction of the wallet transaction
-"""
+"""Direction of the wallet transaction"""
 enum TransactionDirection {
-  """
-  Amount is deducted from wallet
-  """
+  """Amount is deducted from wallet"""
   DEBIT
 
-  """
-  Amount is added to wallet
-  """
+  """Amount is added to wallet"""
   CREDIT
 }
 
-"""
-Type of wallet transaction
-"""
+"""Type of wallet transaction"""
 enum TransactionType {
-  """
-  Payment made for a ride
-  """
+  """Payment made for a ride"""
   RIDE_PAYMENT
 
-  """
-  Wallet balance top-up
-  """
+  """Wallet balance top-up"""
   TOPUP
 
-  """
-  Withdrawal from wallet
-  """
+  """Withdrawal from wallet"""
   WITHDRAWAL
 
-  """
-  Commission transaction
-  """
+  """Commission transaction"""
   COMMISSION
 }
 
-"""
-Payment medium/gateway used for the transaction
-"""
+"""Payment medium/gateway used for the transaction"""
 enum PaymentMediumEnum {
-  """
-  Payment processed through eSewa gateway
-  """
+  """Payment processed through eSewa gateway"""
   ESEWA
 
-  """
-  Payment processed through Khalti gateway
-  """
+  """Payment processed through Khalti gateway"""
   KHALTI
 }
 
-"""
-Status of the wallet transaction
-"""
+"""Status of the wallet transaction"""
 enum TransactionStatus {
   PENDING
 
-  """
-  Transaction completed successfully
-  """
+  """Transaction completed successfully"""
   COMPLETED
 
-  """
-  Transaction failed
-  """
+  """Transaction failed"""
   FAILED
 }
 
@@ -589,28 +501,18 @@ type IssueCategoryEmbed {
   subCategoryLabel: String
 }
 
-"""
-Top-level grouping for issue templates
-"""
+"""Top-level grouping for issue templates"""
 enum IssueParentCategory {
-  """
-  Problems that occurred during a ride
-  """
+  """Problems that occurred during a ride"""
   RIDE
 
-  """
-  Issues related to ride cancellations
-  """
+  """Issues related to ride cancellations"""
   CANCEL
 
-  """
-  Complaints about drivers, passengers, or service
-  """
+  """Complaints about drivers, passengers, or service"""
   COMPLAINT
 
-  """
-  Problems with the in-app chat feature
-  """
+  """Problems with the in-app chat feature"""
   CHAT
 }
 
@@ -619,6 +521,8 @@ type Issue {
   reportedBy: String!
   reportedByType: ReportedByType!
   rideId: String
+  priority: IssuePriority!
+  assignedTo: String
   category: IssueCategoryEmbed
   issueContent: String!
   status: IssueStatus!
@@ -632,15 +536,18 @@ type Issue {
 The type of the user who reported the issue since driver and passenger are allowed to report issues
 """
 enum ReportedByType {
-  """
-  The user is a passenger
-  """
+  """The user is a passenger"""
   PASSENGER
 
-  """
-  The user is a driver
-  """
+  """The user is a driver"""
   DRIVER
+}
+
+"""Priority level of a support issue"""
+enum IssuePriority {
+  HIGH
+  MEDIUM
+  LOW
 }
 
 enum IssueStatus {
@@ -656,9 +563,7 @@ type Remark {
   deletedAt: DateTime
   deleted: Boolean
 
-  """
-  Display name / text of the remark
-  """
+  """Display name / text of the remark"""
   name: String!
 }
 
@@ -670,26 +575,18 @@ type Rating {
   deleted: Boolean
   rating: Float!
 
-  """
-  Snapshot of the rater user details
-  """
+  """Snapshot of the rater user details"""
   ratedByUser: RideUserSnapshot
 
-  """
-  Snapshot of the rated user details
-  """
+  """Snapshot of the rated user details"""
   ratedToUser: RideUserSnapshot
   rideId: String!
   ratingRemarks: String
 
-  """
-  Populated remark (with name and id) for this rating
-  """
+  """Populated remark (with name and id) for this rating"""
   remark: Remark
 
-  """
-  Remark text provided by the user
-  """
+  """Remark text provided by the user"""
   remarkByUser: String
 }
 
@@ -708,23 +605,15 @@ type ContactUs {
   status: ContactUsStatus!
 }
 
-"""
-The status of a contact us message
-"""
+"""The status of a contact us message"""
 enum ContactUsStatus {
-  """
-  The message is active and pending review
-  """
+  """The message is active and pending review"""
   ACTIVE
 
-  """
-  The message has been resolved
-  """
+  """The message has been resolved"""
   RESOLVED
 
-  """
-  The message has been deactivated
-  """
+  """The message has been deactivated"""
   INACTIVE
 }
 
@@ -801,25 +690,58 @@ enum GenderEnum {
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
-scalar JSON
-  @specifiedBy(
-    url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf"
-  )
+scalar JSON @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
 
-"""
-The preference for booking a ride
-"""
+"""The preference for booking a ride"""
 enum RidePreference {
-  """
-  The ride is scheduled for a later time
-  """
+  """The ride is scheduled for a later time"""
   SCHEDULED
 
-  """
-  The ride is requested for immediate pickup
-  """
+  """The ride is requested for immediate pickup"""
   INSTANT
   BOTH
+}
+
+type IssuePagination {
+  total: Int!
+  page: Int!
+  limit: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+}
+
+type IssueSummary {
+  id: ID!
+  ticketCode: String!
+  createdAt: DateTime!
+  reportedByName: String!
+  reportedByType: ReportedByType!
+  rideId: String
+  categoryLabel: String
+  status: IssueStatus!
+  priority: IssuePriority
+  assigneeName: String
+}
+
+type IssueListResponse {
+  items: [IssueSummary!]!
+  pagination: IssuePagination!
+  totalOpen: Int!
+  totalInReview: Int!
+  totalResolved: Int!
+  avgFirstResponse: String
+  avgResolution: String
+}
+
+type ResolveIssueResponse {
+  message: String!
+  id: ID!
+  status: IssueStatus!
+}
+
+type BulkResolveIssuesResponse {
+  message: String!
+  resolvedCount: Int!
 }
 
 type NotificationGroup {
@@ -990,9 +912,7 @@ type RideWithoutRelations {
   actualCompletedDurationInMinutes: Float
   cancellationDetail: CancellationDetail
 
-  """
-  Wallet balance of the requesting user at the time of this response
-  """
+  """Wallet balance of the requesting user at the time of this response"""
   walletAmount: Float
 }
 
@@ -1129,23 +1049,15 @@ type DriverTripItem {
   createdAt: DateTime
 }
 
-"""
-Filter driver trips by commission status
-"""
+"""Filter driver trips by commission status"""
 enum DriverTripCommissionFilter {
-  """
-  All trips regardless of commission status
-  """
+  """All trips regardless of commission status"""
   ALL
 
-  """
-  Only trips where commission is due (pending)
-  """
+  """Only trips where commission is due (pending)"""
   DUE
 
-  """
-  Only trips where commission is paid (completed)
-  """
+  """Only trips where commission is paid (completed)"""
   PAID
 }
 
@@ -1185,17 +1097,13 @@ type Page {
   updatedAt: DateTime!
 }
 
-"""
-Type of the page
-"""
+"""Type of the page"""
 enum PageType {
   LEGAL
   INFO
 }
 
-"""
-Publication status of the page
-"""
+"""Publication status of the page"""
 enum PageStatus {
   DRAFT
   PUBLISHED
@@ -1256,28 +1164,18 @@ type DriverWDocuments {
   vehicle: Vehicle
 }
 
-"""
-The status of the user
-"""
+"""The status of the user"""
 enum UserStatus {
-  """
-  The user is active
-  """
+  """The user is active"""
   ACTIVE
 
-  """
-  The user is pending verification
-  """
+  """The user is pending verification"""
   PENDING
 
-  """
-  The user is blocked
-  """
+  """The user is blocked"""
   BLOCKED
 
-  """
-  The user is disabled
-  """
+  """The user is disabled"""
   INACTIVE
 }
 
@@ -1493,31 +1391,16 @@ type Query {
   pages(paginationInput: PaginationInputOnly!): PageListWithPaginationResponse!
   pageBySlug(slug: String!): Page!
   promoCode(id: ID!): PromoCode!
-  promoCodes(
-    paginationInput: PromoCodeFindAllInput!
-  ): PromocodeListWithPaginationResponse!
+  promoCodes(paginationInput: PromoCodeFindAllInput!): PromocodeListWithPaginationResponse!
   occasion(paginationInput: PaginationInputOnly!): [Occasion!]!
-  getNotifications(
-    options: CursorPaginationInput!
-  ): NotificationListWithCursorPaginationResponse!
+  getNotifications(options: CursorPaginationInput!): NotificationListWithCursorPaginationResponse!
   unreadNotificationCount: Int!
   getDriver(driverId: String!): DriverWDocuments!
   getDrivers(input: DriverListInput): DriverListResponse!
-  driverTrips(
-    driverId: ID!
-    page: Int
-    limit: Int
-    search: String
-    status: String
-    orderBy: String
-    order: String
-  ): DriverTripsPage!
+  driverTrips(driverId: ID!, page: Int, limit: Int, search: String, status: String, orderBy: String, order: String): DriverTripsPage!
   driverCommissionSummary(driverId: ID!): DriverCommissionSummary!
   myDriverDocuments: [DriverDocument!]!
-  driverDocumentFileViewUrl(
-    documentType: DriverDocumentType!
-    side: DriverDocumentSide!
-  ): DocumentViewUrlResponse!
+  driverDocumentFileViewUrl(documentType: DriverDocumentType!, side: DriverDocumentSide!): DocumentViewUrlResponse!
   getVehicle: Vehicle!
   getPassengers(input: PassengerListInput): PassengerListResponse!
   getRiderOverview(riderId: String!): RiderOverviewResponse!
@@ -1529,13 +1412,10 @@ type Query {
   """
   Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
   """
-  getTransactionHistory(
-    input: TransactionPaginationInput!
-  ): TransactionListWithPaginationResponse!
+  getTransactionHistory(input: TransactionPaginationInput!): TransactionListWithPaginationResponse!
   emailTemplate(id: ID!): EmailTemplate!
-  emailTemplates(
-    paginationInput: PaginationInputOnly!
-  ): EmailTemplateListWithPaginationResponse!
+  emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
+  getIssues(input: IssueListInput): IssueListResponse!
 }
 
 input PaginationInputOnly {
@@ -1552,18 +1432,12 @@ input PromoCodeFindAllInput {
   filter: PromoCodeFilterInput
 }
 
-"""
-Order by direction for pagination
-"""
+"""Order by direction for pagination"""
 enum SortBy {
-  """
-  Ascending order
-  """
+  """Ascending order"""
   asc
 
-  """
-  Descending order
-  """
+  """Descending order"""
   desc
 }
 
@@ -1616,9 +1490,7 @@ input RidesListInput {
   limit: Int! = 10
 }
 
-"""
-Fixed time-range filter for the rides list
-"""
+"""Fixed time-range filter for the rides list"""
 enum RideTimeRange {
   LAST_24_HOURS
   LAST_7_DAYS
@@ -1628,6 +1500,20 @@ enum RideTimeRange {
 input TransactionPaginationInput {
   limit: Int! = 10
   page: Int! = 0
+}
+
+input IssueListInput {
+  page: Int! = 0
+  limit: Int! = 5
+  search: String
+  status: String
+  category: String
+  priority: String
+  reportedByType: String
+  assignedTo: String
+  unassignedOnly: Boolean
+  dateFrom: String
+  dateTo: String
 }
 
 type Mutation {
@@ -1643,33 +1529,21 @@ type Mutation {
   removePage(id: ID!): Boolean!
   createPromoCode(input: CreatePromoCodeInput!): PromocodeCreateResponse!
 
-  """
-  Updates a existing promo code
-  """
-  updatePromoCode(
-    id: ID!
-    input: UpdatePromoCodeInput!
-  ): PromocodeUpdateResponse!
+  """Updates a existing promo code"""
+  updatePromoCode(id: ID!, input: UpdatePromoCodeInput!): PromocodeUpdateResponse!
   activatePromoCode(id: ID!): PromoCode!
   deactivatePromoCode(id: ID!): PromoCode!
   removePromoCode(id: ID!): Boolean!
   readNotification(id: String!): Notification!
   openNotifications: Notification!
-  createNotification(
-    notificationPayload: CreateNotificationInput!
-  ): Notification!
+  createNotification(notificationPayload: CreateNotificationInput!): Notification!
   deleteDriver(input: DeleteDriverInput!): DeleteDriverResponse!
   blockDriver(id: ID!): SuspendDriverResponse!
   unblockDriver(id: ID!): SuspendDriverResponse!
-  confirmUpsertDocumentFile(
-    input: UpsertDocumentFileInput!
-  ): DriverDocumentConfirmUploadResponse!
+  confirmUpsertDocumentFile(input: UpsertDocumentFileInput!): DriverDocumentConfirmUploadResponse!
   submitDocumentForReview(input: SubmitDocumentForReviewInput!): DriverDocument!
   registerVehicle(input: RegisterVehicleInput!): VehicleRegistrationResponse!
-  editVehicle(
-    vehicleId: String!
-    input: EditVehicleInput!
-  ): VehicleRegistrationResponse!
+  editVehicle(vehicleId: String!, input: EditVehicleInput!): VehicleRegistrationResponse!
   deletePassenger(input: DeletePassengerInput!): Boolean!
   blockPassenger(id: ID!): PassengerListItem!
   unblockPassenger(id: ID!): PassengerListItem!
@@ -1678,6 +1552,8 @@ type Mutation {
   createEmailTemplate(input: CreateEmailTemplateInput!): EmailTemplate!
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplate!
   removeEmailTemplate(id: ID!): Boolean!
+  resolveIssue(id: ID!, resolvedBy: ID!): ResolveIssueResponse!
+  bulkResolveIssues(ids: [ID!]!, resolvedBy: ID!): BulkResolveIssuesResponse!
 }
 
 input AdminSignUpInput {
@@ -1706,34 +1582,24 @@ input AdminResetPasswordInput {
 }
 
 input CreatePageInput {
-  """
-  Title of the page; slug is auto-generated from this
-  """
+  """Title of the page; slug is auto-generated from this"""
   title: String
   type: PageType!
 
-  """
-  HTML or markdown content of the page
-  """
+  """HTML or markdown content of the page"""
   content: String!
 
-  """
-  Optional:status of the page, by default if not sent will be Draft
-  """
+  """Optional:status of the page, by default if not sent will be Draft"""
   status: PageStatus!
 }
 
 input UpdatePageInput {
-  """
-  Title of the page; slug is regenerated if changed
-  """
+  """Title of the page; slug is regenerated if changed"""
   title: String
   type: PageType
   content: String
 
-  """
-  Optional:status of the page, by default if not sent will be Draft
-  """
+  """Optional:status of the page, by default if not sent will be Draft"""
   status: PageStatus
 }
 
@@ -1743,50 +1609,32 @@ input CreatePromoCodeInput {
   """
   name: String!
 
-  """
-  Whether the discount is a percentage or flat amount
-  """
+  """Whether the discount is a percentage or flat amount"""
   discountType: DiscountTypeEnum!
 
-  """
-  Percentage value (0-100) if discountType is PERCENTAGE
-  """
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
   percentageAmount: Float
 
-  """
-  Fixed currency amount if discountType is FLAT
-  """
+  """Fixed currency amount if discountType is FLAT"""
   flatAmount: Float
 
-  """
-  Cap on the discount amount for percentage-based promos
-  """
+  """Cap on the discount amount for percentage-based promos"""
   maxDiscount: Float
 
-  """
-  Minimum ride fare required to apply this code
-  """
+  """Minimum ride fare required to apply this code"""
   minimumFare: Float
   appliedTo: AppliedToEnum!
 
-  """
-  Maximum number of times this code can be used in total
-  """
+  """Maximum number of times this code can be used in total"""
   totalUsageLimit: Float!
 
-  """
-  Maximum number of times a single user can use this code
-  """
+  """Maximum number of times a single user can use this code"""
   perUserLimit: Float!
 
-  """
-  When the promo code becomes valid
-  """
+  """When the promo code becomes valid"""
   startDateTime: DateTime!
 
-  """
-  When the promo code expires
-  """
+  """When the promo code expires"""
   expiryDateTime: DateTime!
   occasionId: ID!
 }
@@ -1797,50 +1645,32 @@ input UpdatePromoCodeInput {
   """
   name: String
 
-  """
-  Whether the discount is a percentage or flat amount
-  """
+  """Whether the discount is a percentage or flat amount"""
   discountType: DiscountTypeEnum
 
-  """
-  Percentage value (0-100) if discountType is PERCENTAGE
-  """
+  """Percentage value (0-100) if discountType is PERCENTAGE"""
   percentageAmount: Float
 
-  """
-  Fixed currency amount if discountType is FLAT
-  """
+  """Fixed currency amount if discountType is FLAT"""
   flatAmount: Float
 
-  """
-  Cap on the discount amount for percentage-based promos
-  """
+  """Cap on the discount amount for percentage-based promos"""
   maxDiscount: Float
 
-  """
-  Minimum ride fare required to apply this code
-  """
+  """Minimum ride fare required to apply this code"""
   minimumFare: Float
   appliedTo: AppliedToEnum
 
-  """
-  Maximum number of times this code can be used in total
-  """
+  """Maximum number of times this code can be used in total"""
   totalUsageLimit: Float
 
-  """
-  Maximum number of times a single user can use this code
-  """
+  """Maximum number of times a single user can use this code"""
   perUserLimit: Float
 
-  """
-  When the promo code becomes valid
-  """
+  """When the promo code becomes valid"""
   startDateTime: DateTime
 
-  """
-  When the promo code expires
-  """
+  """When the promo code expires"""
   expiryDateTime: DateTime
   occasionId: ID
 }
@@ -1908,39 +1738,25 @@ input SubmitDocumentForReviewInput {
 }
 
 input RegisterVehicleInput {
-  """
-  Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER.
-  """
+  """Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER."""
   vehicleType: VehicleType!
 
-  """
-  Vehicle model name, for example: Honda City.
-  """
+  """Vehicle model name, for example: Honda City."""
   vehicleModel: String!
 
-  """
-  Manufacturing year of the vehicle.
-  """
+  """Manufacturing year of the vehicle."""
   year: Int!
 
-  """
-  Official number plate of the vehicle (must be unique).
-  """
+  """Official number plate of the vehicle (must be unique)."""
   numberPlate: String!
 
-  """
-  Vehicle color, for example: White, Red, Black.
-  """
+  """Vehicle color, for example: White, Red, Black."""
   color: String!
 
-  """
-  S3 key for the vehicle image.
-  """
+  """S3 key for the vehicle image."""
   imageS3Key: String!
 
-  """
-  Vehicle model Type type: EV or PETROL.
-  """
+  """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VechileModelType
   name: String!
 }
@@ -1951,39 +1767,25 @@ enum VechileModelType {
 }
 
 input EditVehicleInput {
-  """
-  S3 key for the new vehicle image.
-  """
+  """S3 key for the new vehicle image."""
   imageS3Key: String
 
-  """
-  Vehicle type: CAR, MOTORBIKE, or SCOOTER.
-  """
+  """Vehicle type: CAR, MOTORBIKE, or SCOOTER."""
   vehicleType: VehicleType
 
-  """
-  Vehicle model name, for example: Honda City.
-  """
+  """Vehicle model name, for example: Honda City."""
   vehicleModel: String
 
-  """
-  Manufacturing year of the vehicle.
-  """
+  """Manufacturing year of the vehicle."""
   year: Int
 
-  """
-  Number plate (must be unique across other vehicles).
-  """
+  """Number plate (must be unique across other vehicles)."""
   numberPlate: String
 
-  """
-  Vehicle color, for example: White, Red, Black.
-  """
+  """Vehicle color, for example: White, Red, Black."""
   color: String
 
-  """
-  Vehicle model Type type: EV or PETROL.
-  """
+  """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VechileModelType
   name: String!
 }
