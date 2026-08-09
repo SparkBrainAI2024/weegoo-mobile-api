@@ -146,7 +146,7 @@ export class WalletService {
       // For Khalti, initiate the payment server-side to get a pidx
       const khaltiReturnUrl = `${baseUrl}/payment/khalti/success?transactionUuid=${transactionUuid}`;
       khaltiPayload = await this.khaltiService.initiatePayment({
-        transactionId: txnId,
+        transactionId: transactionUuid,
         amount: input.amount,
         returnUrl: khaltiReturnUrl,
         websiteUrl: baseUrl,
@@ -162,7 +162,7 @@ export class WalletService {
     }
 
     return {
-      transactionId: txnId,
+      transactionId: transactionUuid,
       amount: input.amount,
       status: TransactionStatus.PENDING,
       esewaPayload,

@@ -101,12 +101,15 @@ export class KhaltiService {
     purchaseOrderName?: string;
   }): Promise<KhaltiSdkPayload> {
     const secretKey = this.envService.getString('KHALTI_SECRET_KEY', 'test_secret_key');
+    console.log('Khalti secret key:', secretKey);
     const publicKey = this.envService.getString('KHALTI_PUBLIC_KEY', 'test_public_key');
+    console.log('Khalti public key:', publicKey);
+    
     const websiteUrl = params.websiteUrl || this.envService.getString('WEBSITE_URL', 'http://localhost:3000');
     const isProduction = this.envService.isProduction();
     const initiateUrl = isProduction
       ? 'https://khalti.com/api/v2/epayment/initiate/'
-      : 'https://a.khalti.com/api/v2/epayment/initiate/';
+      : 'https://dev.khalti.com/api/v2/epayment/initiate/';
 
     const sdkPayload: KhaltiPaymentPayload = {
       return_url: params.returnUrl,
@@ -134,8 +137,9 @@ export class KhaltiService {
       });
 
       const data = await response.json();
-
+  console.log('Khalti initiation successful:', data);
       if (data.pidx && data.payment_url) {
+        console.log('Khalti initiation successful:', data);
         return {
           paymentUrl: data.payment_url,
           pidx: data.pidx,
@@ -147,7 +151,7 @@ export class KhaltiService {
       // Fallback: return SDK payload for Khalti Checkout
       const baseUrl = isProduction
         ? 'https://khalti.com/api/v2/epayment/initiate/'
-        : 'https://a.khalti.com/api/v2/epayment/initiate/';
+        : 'https://dev.khalti.com/api/v2/epayment/initiate/';
 
       return {
         paymentUrl: baseUrl,
@@ -178,7 +182,7 @@ export class KhaltiService {
     const isProduction = this.envService.isProduction();
     const baseUrl = isProduction
       ? 'https://khalti.com/api/v2/epayment/initiate/'
-      : 'https://a.khalti.com/api/v2/epayment/initiate/';
+      : 'https://dev.khalti.com/api/v2/epayment/initiate/';
 
     return baseUrl;
   }
@@ -198,7 +202,7 @@ export class KhaltiService {
     const secretKey = this.envService.getString('KHALTI_SECRET_KEY', 'test_secret_key');
     const baseUrl = this.envService.isProduction()
       ? 'https://khalti.com/api/v2/epayment/lookup/'
-      : 'https://a.khalti.com/api/v2/epayment/lookup/';
+      : 'https://dev.khalti.com/api/v2/epayment/lookup/';
 
     try {
       const response = await fetch(baseUrl, {
