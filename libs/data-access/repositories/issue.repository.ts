@@ -13,6 +13,7 @@ import { IssueCategory } from "../entities/issue-category.entity";
 import { CreateIssueInput } from "../dtos/input/create-issue.input";
 import { IssueCategoryEmbed } from "../entities/issue-category.embedded";
 import { IssueListInput } from "../dtos/input/issue.list.input";
+import { toMongoId } from "@libs/common";
 
 export interface IssueFilters {
   status?: IssueStatus;
@@ -39,7 +40,11 @@ export class IssueRepository {
       reportedByType: ReportedByType;
     },
   ): Promise<Issue> {
-    return this.model.create(data);
+    return this.model.create({
+      data,
+      reportedBy: toMongoId(data.reportedBy),
+      rideId: toMongoId(data.rideId),
+    });
   }
 
   // admin sees all with optional filters
@@ -176,6 +181,18 @@ export class IssueRepository {
 
       {
         $lookup: {
+          from: "userdetails",
+          localField: "reportedBy",
+          foreignField: "userId",
+          as: "reporterDetails",
+        },
+      },
+      {
+        $unwind: { path: "$reporterDetails", preserveNullAndEmptyArrays: true },
+      },
+
+      {
+        $lookup: {
           from: "adminusers",
           localField: "assignedTo",
           foreignField: "_id",
@@ -184,13 +201,23 @@ export class IssueRepository {
       },
       { $unwind: { path: "$assignee", preserveNullAndEmptyArrays: true } },
 
+      {
+        $lookup: {
+          from: "rides",
+          localField: "rideId",
+          foreignField: "_id",
+          as: "rideDetails",
+        },
+      },
+      { $unwind: { path: "$rideDetails", preserveNullAndEmptyArrays: true } },
+
       ...(input.search
         ? [
             {
               $match: {
                 $or: [
                   {
-                    "reporter.fullName": {
+                    "reporterDetails.fullName": {
                       $regex: input.search,
                       $options: "i",
                     },
@@ -228,9 +255,11 @@ export class IssueRepository {
                   ],
                 },
                 createdAt: 1,
-                reportedByName: { $ifNull: ["$reporter.fullName", "Unknown"] },
+                reportedByName: {
+                  $ifNull: ["$reporterDetails.fullName", "Unknown"],
+                },
                 reportedByType: 1,
-                rideId: 1,
+                rideId: "$rideDetails.rideUUId",
                 categoryLabel: "$category.parentCategory",
                 status: 1,
                 priority: 1,
