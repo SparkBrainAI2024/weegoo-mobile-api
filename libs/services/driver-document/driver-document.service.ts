@@ -228,8 +228,6 @@ export class DriverDocumentService {
   ): Promise<DriverDocumentDocument> {
     const bundle = await this.findBundleByFileId(documentFileId);
     const file = bundle.files.find((f) => f._id?.toString() === documentFileId);
-    console.log(bundle, "bundle");
-    console.log(file, "file");
 
     if (!file)
       throw new NotFoundException(`File ${documentFileId} not found in bundle`);

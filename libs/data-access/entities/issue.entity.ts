@@ -1,10 +1,17 @@
-import { Field, ID, ObjectType, registerEnumType } from '@nestjs/graphql';
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose';
-import {  IssueCategoryForRole, IssueParentCategory, IssueStatus, ReportedByType } from '../enums/issue.enum';
-import {  IssueCategoryEmbed, IssueCategoryEmbedSchema } from './issue-category.embedded';
-
-
+import { Field, ID, ObjectType, registerEnumType } from "@nestjs/graphql";
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema, Types } from "mongoose";
+import {
+  IssueCategoryForRole,
+  IssueParentCategory,
+  IssuePriority,
+  IssueStatus,
+  ReportedByType,
+} from "../enums/issue.enum";
+import {
+  IssueCategoryEmbed,
+  IssueCategoryEmbedSchema,
+} from "./issue-category.embedded";
 
 export type IssueDocument = Issue & Document;
 
@@ -16,7 +23,7 @@ export class Issue {
 
   // who submitted — set from JWT token, never from input
   @Field(() => String)
-  @Prop({ required: true, type: Types.ObjectId, ref: 'User' })
+  @Prop({ required: true, type: Types.ObjectId, ref: "User" })
   reportedBy: string;
 
   @Field(() => ReportedByType)
@@ -25,27 +32,44 @@ export class Issue {
 
   // nullable — null means general issue not tied to a ride
   @Field(() => String, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'Rides', default: null })
+  @Prop({ type: Types.ObjectId, ref: "Rides", default: null })
   rideId?: string;
 
-@Field(() => IssueCategoryEmbed, { nullable: true })
-@Prop({ type: IssueCategoryEmbedSchema, default: null })
-category?: IssueCategoryEmbed;
- 
+  @Field(() => IssuePriority)
+  @Prop({
+    required: true,
+    type: String,
+    enum: IssuePriority,
+    default: IssuePriority.MEDIUM,
+  })
+  priority: IssuePriority;
+
+  @Field(() => String, { nullable: true })
+  @Prop({ type: Types.ObjectId, ref: "AdminUser", default: null })
+  assignedTo?: string;
+
+  @Field(() => IssueCategoryEmbed, { nullable: true })
+  @Prop({ type: IssueCategoryEmbedSchema, default: null })
+  category?: IssueCategoryEmbed;
+
   @Field(() => String)
   @Prop({ required: true, type: String, minlength: 10 })
   issueContent: string;
 
   @Field(() => IssueStatus)
-  @Prop({ required: true, type: String, enum: IssueStatus, default: IssueStatus.OPEN })
+  @Prop({
+    required: true,
+    type: String,
+    enum: IssueStatus,
+    default: IssueStatus.OPEN,
+  })
   status: IssueStatus;
 
   // set on resolve
   @Field(() => String, { nullable: true })
-  @Prop({ type: Types.ObjectId, ref: 'AdminUser', default: null })
+  @Prop({ type: Types.ObjectId, ref: "AdminUser", default: null })
   resolvedBy?: string;
 
- 
   @Field(() => Date, { nullable: true })
   @Prop({ type: Date, default: null })
   resolvedAt?: Date;
