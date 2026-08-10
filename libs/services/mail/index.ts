@@ -67,3 +67,4 @@ export class MailService {
 
 export * from "./sendgrid-mail.service";
 export * from "./sendgrid-mail.module";
+export { BASE_EMAIL_TEMPLATE_PATH } from "./sendgrid-mail.module";

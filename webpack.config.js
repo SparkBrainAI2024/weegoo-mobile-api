@@ -80,26 +80,31 @@ module.exports = function (options) {
             from: path.resolve(__dirname, "libs/services/mail/templates"),
             to: path.resolve(__dirname, "dist/libs/services/mail/templates"),
           },
+          // Copy email template assets from mail service
+          {
+            from: path.resolve(__dirname, "libs/services/mail/templates"),
+            to: path.resolve(__dirname, "dist/libs/services/mail/templates"),
+          },
           // Copy base email template to each app's output directory
           // so EmailTemplateParserService can find it at runtime
           {
             from: path.resolve(
               __dirname,
-              "libs/services/email-template/src/templates/base-email-template.hbs",
+              "libs/services/email-template/src/templates",
             ),
             to: path.resolve(__dirname, "dist/apps/api/templates"),
           },
           {
             from: path.resolve(
               __dirname,
-              "libs/services/email-template/src/templates/base-email-template.hbs",
+              "libs/services/email-template/src/templates",
             ),
             to: path.resolve(__dirname, "dist/apps/admin-api/templates"),
           },
           {
             from: path.resolve(
               __dirname,
-              "libs/services/email-template/src/templates/base-email-template.hbs",
+              "libs/services/email-template/src/templates",
             ),
             to: path.resolve(__dirname, "dist/apps/driver-api/templates"),
           },

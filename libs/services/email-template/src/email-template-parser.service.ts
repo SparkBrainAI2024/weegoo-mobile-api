@@ -39,13 +39,17 @@ export class EmailTemplateParserService {
     // Load the base email template from the templates directory.
     // Try multiple paths to support both ts-node (dev) and webpack (prod) builds.
     const possiblePaths = [
+      // Primary: libs/services/mail/templates (main location)
+      path.join(process.cwd(), "libs", "services", "mail", "templates", "base-email-template.hbs"),
       // Dev mode (ts-node): libs/services/email-template/src/templates
       path.join(__dirname, "templates", "base-email-template.hbs"),
       // Webpack build: dist/apps/{app}/templates (copied by CopyWebpackPlugin)
       path.join(process.cwd(), "dist", "apps", "api", "templates", "base-email-template.hbs"),
       path.join(process.cwd(), "dist", "apps", "admin-api", "templates", "base-email-template.hbs"),
       path.join(process.cwd(), "dist", "apps", "driver-api", "templates", "base-email-template.hbs"),
-      // Webpack build: dist/libs/services/email-template/src/templates
+      // Webpack build: dist/libs/services/mail/templates
+      path.join(process.cwd(), "dist", "libs", "services", "mail", "templates", "base-email-template.hbs"),
+      // Fallback: dist/libs/services/email-template/src/templates
       path.join(process.cwd(), "dist", "libs", "services", "email-template", "src", "templates", "base-email-template.hbs"),
       // Source fallback
       path.join(process.cwd(), "libs", "services", "email-template", "src", "templates", "base-email-template.hbs"),
@@ -87,6 +91,7 @@ export class EmailTemplateParserService {
       const context: Record<string, any> = {
         content: parsedContent,
         currentYear: new Date().getFullYear().toString(),
+        carIconUrl: this.getCarIconUrl(),
         ...variables,
       };
 
@@ -98,6 +103,74 @@ export class EmailTemplateParserService {
       // Fallback: return content wrapped in basic HTML if parsing fails
       return this.fallbackRender(content, variables);
     }
+  }
+
+  /**
+   * Get the URL for the car icon image.
+   * Priority: EMAIL_CAR_ICON_URL > API_BASE_URL > S3 > PRODUCTION_URL > relative path
+   */
+  private getCarIconUrl(): string {
+    let carIconUrl: string | undefined;
+
+    // 1. Highest priority: Explicit EMAIL_CAR_ICON_URL env variable
+    const envUrl = process.env.EMAIL_CAR_ICON_URL;
+    if (envUrl && envUrl.trim().length > 0) {
+      carIconUrl = envUrl.trim();
+    }
+
+    // 2. API_BASE_URL (e.g., http://localhost:3000/assets/car-icon.svg)
+    if (!carIconUrl) {
+      const apiBaseUrl = process.env.API_BASE_URL;
+      if (apiBaseUrl && apiBaseUrl.trim().length > 0) {
+        // Remove trailing /api if present since static assets are served at root
+        const baseUrl = apiBaseUrl.trim().replace(/\/$/, '').replace(/\/api$/, '');
+        carIconUrl = `${baseUrl}/assets/car-icon.svg`;
+      }
+    }
+
+    // 3. S3 URL if configured
+    if (!carIconUrl) {
+      const s3Bucket = process.env.S3_BUCKET_NAME;
+      const awsRegion = process.env.AWS_REGION;
+      if (s3Bucket && awsRegion) {
+        carIconUrl = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com/car-icon.svg`;
+      }
+    }
+
+    // 4. PRODUCTION_URL
+    if (!carIconUrl) {
+      const productionUrl = process.env.PRODUCTION_URL;
+      if (productionUrl && productionUrl.trim().length > 0) {
+        carIconUrl = `${productionUrl.trim()}/assets/car-icon.svg`;
+      }
+    }
+
+    // 5. Final fallback: relative path
+    if (!carIconUrl) {
+      carIconUrl = '/assets/car-icon.svg';
+    }
+
+    // Log the car icon URL for debugging
+    this.logger.log(`Car icon URL: ${carIconUrl}`);
+
+    // Ensure URL is absolute for email clients (emails can't use relative paths)
+    // If it's a relative path, prepend with API_BASE_URL or PRODUCTION_URL if available
+    if (carIconUrl.startsWith('/')) {
+      const apiBaseUrl = process.env.API_BASE_URL?.trim().replace(/\/$/, '');
+      const productionUrl = process.env.PRODUCTION_URL?.trim().replace(/\/$/, '');
+
+      if (apiBaseUrl) {
+        carIconUrl = `${apiBaseUrl}${carIconUrl}`;
+      } else if (productionUrl) {
+        carIconUrl = `${productionUrl}${carIconUrl}`;
+      } else {
+        // Last resort: use http://localhost for development
+        const port = process.env.PORT || '3000';
+        carIconUrl = `http://localhost:${port}${carIconUrl}`;
+      }
+    }
+
+    return carIconUrl;
   }
 
   /**
@@ -276,7 +349,8 @@ export class EmailTemplateParserService {
     const year = new Date().getFullYear().toString();
     let html = this.baseTemplate
       .replace("{{{content}}}", content || "")
-      .replace("{{currentYear}}", year);
+      .replace("{{currentYear}}", year)
+      .replace("{{carIconUrl}}", this.getCarIconUrl());
 
     if (variables) {
       for (const [key, value] of Object.entries(variables)) {

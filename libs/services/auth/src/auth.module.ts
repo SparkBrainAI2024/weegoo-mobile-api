@@ -2,6 +2,7 @@ import { Module, DynamicModule, Provider } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 
 import { AuthService } from './auth.service';
+import { AuthController } from './controller/auth.controller';
 import { SetPasswordGuard } from '@libs/guards/set-password.guard';
 import { MailService, SendGridMailModule } from '@libs/services/mail';
 import { EnvService } from '@libs/common/config/env.service';
@@ -32,6 +33,8 @@ import {
   roles,
 } from '@libs/data-access';
 import { S3Module } from '@libs/s3';
+import { EmailTemplatePersistenceModule } from '@libs/services/email-template/src/email-template.persistence.module';
+import { EmailTemplateRepository } from '@libs/data-access/repositories/email-template.repository';
 
 export interface AuthModuleOptions {
   imports?: any[];
@@ -59,6 +62,7 @@ export class UserAuthModule {
         ]),
         S3Module,
         SendGridMailModule,
+        EmailTemplatePersistenceModule,
 
         // ✅ SocialAuthModule with provided config
         socialAuthConfig
@@ -87,6 +91,7 @@ export class UserAuthModule {
         ...imports,
       ],
 
+      controllers: [AuthController],
       providers: [
         AuthService,
         AuthGuard,
@@ -104,6 +109,7 @@ export class UserAuthModule {
         UserDetailsRepository,
         UserTokenMetaRepository,
         WalletRepository,
+        EmailTemplateRepository,
         ...providers,
       ],
 

@@ -5,6 +5,18 @@ import { EmailTemplateParserService } from "@libs/services/email-template/src/em
 import { SendGridMailService } from "./sendgrid-mail.service";
 
 /**
+ * Base email template path for reference
+ */
+export const BASE_EMAIL_TEMPLATE_PATH = require("path").join(
+  __dirname,
+  "..",
+  "email-template",
+  "src",
+  "templates",
+  "base-email-template.hbs",
+);
+
+/**
  * Module that wires together the SendGrid mail service with its dependencies:
  * - EnvService for reading SendGrid configuration from environment
  * - EmailTemplatePersistenceModule for fetching dynamic email templates from DB
