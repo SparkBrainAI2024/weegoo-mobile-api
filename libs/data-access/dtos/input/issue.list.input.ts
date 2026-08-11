@@ -72,3 +72,10 @@ export class BulkResolveIssuesInput {
   @IsMongoId({ each: true })
   ids: string[];
 }
+
+@InputType()
+export class CloseIssueInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
+}
