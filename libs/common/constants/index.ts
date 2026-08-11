@@ -13,6 +13,7 @@ export const tokenTypes = {
   resetPasswordToken: "reset_password_token",
   changeEmailToken: "change_email_token",
   setPasswordToken: "set_password_token",
+  verifyEmailToken: "verify_email_token",
 };
 export const allowedFileExtensions = ["jpg", "jpeg", "png", "webp"];
 export * from "./required-sides.constant";

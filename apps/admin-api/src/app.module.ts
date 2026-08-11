@@ -23,6 +23,7 @@ import { AdminCompanyInfoModule } from "./modules/admin-company-info/admin-compa
 import { AdminRidePricingModule } from "./modules/admin-ride-pricing/admin-ride-pricing.module";
 import { MaintenanceInfoModule } from "./modules/maintenance-info/maintenance-info.module";
 import { AdminPushNotificationModule } from "./modules/push-notification/push-notification.module";
+import { SendGridMailModule } from "@libs/services/mail";
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { AdminPushNotificationModule } from "./modules/push-notification/push-no
     AdminRidePricingModule,
     MaintenanceInfoModule,
     AdminPushNotificationModule,
+    SendGridMailModule,
   ],
   providers: [HealthResolver],
 })

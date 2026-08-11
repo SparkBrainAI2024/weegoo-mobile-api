@@ -259,6 +259,31 @@ export class EnvService {
   getMailPass(): string {
     return this.getString('MAIL_PASS', '');
   }
+
+  // ==========================================
+  // SendGrid helper methods
+  // ==========================================
+
+  /**
+   * Get SendGrid API key
+   */
+  getSendGridApiKey(): string {
+    return this.getString('SENDGRID_API_KEY', '');
+  }
+
+  /**
+   * Get SendGrid from email address
+   */
+  getSendGridFromEmail(): string {
+    return this.getString('SENDGRID_FROM_EMAIL', this.getSupportEmail() || 'no-reply@wegoo.com');
+  }
+
+  /**
+   * Get SendGrid from name
+   */
+  getSendGridFromName(): string {
+    return this.getString('SENDGRID_FROM_NAME', 'WeeGoo');
+  }
   getFirebaseProjectId(): string {
     return this.getString('FIREBASE_PROJECT_ID', '');
   }

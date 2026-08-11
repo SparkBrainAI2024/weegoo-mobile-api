@@ -79,6 +79,12 @@ export const USER = {
   PHONE_VERIFIED_SUCCESS: "Phone number verified successfully.",
   USER_ALREADY_REGISTERED_AS_CUSTOMER: "User already registered.Please login.",
   SIGNUP_SUCCESS: "Signup successful. Please verify your email to continue.",
+  EMAIL_ALREADY_VERIFIED: "Email is already verified.",
+  EMAIL_VERIFICATION_TOKEN_INVALID: "Invalid or expired email verification token.",
+  EMAIL_VERIFICATION_TOKEN_EXPIRED: "Email verification token has expired.",
+  VERIFY_EMAIL_SUBJECT: "Verify Your Email Address",
+  VERIFY_EMAIL_SENT: "Verification email sent successfully.",
+  EMAIL_VERIFIED_SUCCESS: "Email verified successfully.",
 
   BLOCK_SUCCESS: "User suspended successfully.",
   UNBLOCK_SUCCESS: "User unblocked successfully.",

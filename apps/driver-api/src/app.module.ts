@@ -26,6 +26,7 @@ import { WalletApiModule } from "./modules/wallet/wallet.module";
 import { ProfileModule } from "@libs/services/profile";
 import { DriverModule } from "./modules/driver/driver.module";
 import { ContactUsModule } from "./modules/contact-us/contact-us.module";
+import { SendGridMailModule } from "@libs/services/mail";
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { ContactUsModule } from "./modules/contact-us/contact-us.module";
     ProfileModule,
     DriverModule,
     ContactUsModule,
+    SendGridMailModule,
   ],
   providers: [HealthResolver],
 })
