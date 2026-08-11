@@ -85,6 +85,7 @@ export const USER = {
   VERIFY_EMAIL_SUBJECT: "Verify Your Email Address",
   VERIFY_EMAIL_SENT: "Verification email sent successfully.",
   EMAIL_VERIFIED_SUCCESS: "Email verified successfully.",
+  FIREBASE_TOKEN_UPDATED: "Firebase token updated successfully.",
 
   BLOCK_SUCCESS: "User suspended successfully.",
   UNBLOCK_SUCCESS: "User unblocked successfully.",
