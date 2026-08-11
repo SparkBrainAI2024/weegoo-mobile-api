@@ -114,6 +114,7 @@ export class EmailTemplateParserService {
 
     // 1. Highest priority: Explicit EMAIL_CAR_ICON_URL env variable
     const envUrl = process.env.EMAIL_CAR_ICON_URL;
+    console.log(`EMAIL_CAR_ICON_URL from env: ${envUrl}`);
     if (envUrl && envUrl.trim().length > 0) {
       carIconUrl = envUrl.trim();
     }

@@ -82,8 +82,7 @@ export class AuthController {
             <div class="icon">✅</div>
             <h1>Email Verified Successfully!</h1>
             <p>Your email has been verified. You can now close this page and continue using the app.</p>
-            <a class="button" href="/">Go to Home</a>
-          </div>
+            </div>
         </body>
         </html>
       `);
@@ -151,7 +150,6 @@ export class AuthController {
             <div class="icon">❌</div>
             <h1>Verification Failed</h1>
             <p>${errorMessage}</p>
-            <a class="button" href="/">Go to Home</a>
           </div>
         </body>
         </html>

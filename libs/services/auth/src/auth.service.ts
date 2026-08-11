@@ -1092,8 +1092,14 @@ export class AuthService {
       }
       this.checkUserSuspended(user, HttpStatus.LOCKED);
 
+      // Get user details to check emailVerified status
+      const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
       // If email is already verified
-      if (user.verified) {
+      if (userDetails.emailVerified) {
         ErrorException(null, "USER.EMAIL_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
       }
 
@@ -1187,21 +1193,21 @@ export class AuthService {
         this.envService.getJwtSecretKey(),
       );
       if (!verifiedToken) {
-        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
+        ErrorException(null,Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
       }
       if (verifiedToken.type !== tokenTypes.verifyEmailToken) {
-        ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.BAD_REQUEST);
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
       }
 
       // Check if token is expired (JWT verify already handles expiry, but double-check)
       if (verifiedToken.exp && verifiedToken.exp < Math.floor(Date.now() / 1000)) {
-        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_EXPIRED"), HttpStatus.BAD_REQUEST);
       }
 
       // Verify the JTI exists in user-token-meta (server-side check)
       const storedToken = await this.userTokenMetaRepository.findByAccessTokenJti(verifiedToken.jti);
       if (!storedToken) {
-        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
       }
 
       // Find the user
@@ -1209,21 +1215,21 @@ export class AuthService {
         _id: verifiedToken.id,
       });
       if (!user) {
-        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+        ErrorException(null, Message(lang, "USER.NOT_FOUND"), HttpStatus.NOT_FOUND);
       }
 
-      // If already verified
-      if (user.verified) {
-        ErrorException(null, "USER.EMAIL_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
+      // Get user details to check emailVerified status
+      const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, Message(lang, "USER.NOT_FOUND"), HttpStatus.NOT_FOUND);
       }
 
-      // Update user verified status
-      await this.userRepository.updateOne(
-        { _id: user._id },
-        { verified: true },
-      );
+      // If email is already verified
+      if (userDetails.emailVerified) {
+        ErrorException(null, Message(lang, "USER.EMAIL_ALREADY_VERIFIED"), HttpStatus.BAD_REQUEST);
+      }
 
-      // Update userDetails emailVerified to true
+      // Update userDetails emailVerified to true (create key if doesn't exist)
       await this.userDetailsRepository.updateOne(
         { userId: user._id },
         { emailVerified: true },
@@ -1240,7 +1246,7 @@ export class AuthService {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ verifyEmail ~ e:", e)
       ErrorException(
         e,
-        "COMMON.INTERNAL_SERVER_ERROR",
+        Message(lang, "COMMON.INTERNAL_SERVER_ERROR"),
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
