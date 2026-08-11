@@ -32,6 +32,10 @@ export class UserTokenMeta extends BaseEntity {
 
   @Field({ nullable: true })
   @Prop({ type: String, default: null })
+  deviceType: string;
+
+  @Field({ nullable: true })
+  @Prop({ type: String, default: null })
   firebaseToken: string;
 
   @Field(() => TokenGrantType)

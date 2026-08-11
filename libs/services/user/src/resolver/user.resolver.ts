@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args } from "@nestjs/graphql";
+import { Resolver, Mutation, Query, Args, Context } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import {
   ChangeLanguageInput,
@@ -8,10 +8,12 @@ import {
   UserDetailEntity,
   BasicResponse,
   SetPasswordInput,
+  UpdateFirebaseTokenInput,
 } from "@libs/data-access";
 import { AuthGuard } from "@libs/guards/guard";
 import { CurrentLang, CurrentUser } from "@libs/common";
 import { UserService } from "../user.service";
+import { GqlExecutionContext } from "@nestjs/graphql";
 
 
 @Resolver()
@@ -57,6 +59,16 @@ export class UserResolver {
   @Query(() => UserDetailEntity)
   getUser(@CurrentUser() user) {
     return this.userService.getUserById(user._id);
+  }
+
+  @Mutation(() => BasicResponse)
+  updateFirebaseToken(
+    @Args("input") input: UpdateFirebaseTokenInput,
+    @CurrentUser() user,
+    @CurrentLang() lang: string
+  ) {
+
+    return this.userService.updateFirebaseToken(input, user._id, user.email, lang);
   }
 
 }
