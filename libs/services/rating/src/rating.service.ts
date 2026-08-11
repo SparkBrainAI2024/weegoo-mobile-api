@@ -91,7 +91,6 @@ export class RatingService {
       ratedTo: new Types.ObjectId(input.ratedTo),
       rideId: new Types.ObjectId(input.rideId),
       ratingRemarks: input.ratingRemarks,
-      remark: input.remarkId ? new Types.ObjectId(input.remarkId) : undefined,
       ratedByUser: ratedByUserSnapshot,
       ratedToUser: ratedToUserSnapshot,
       remarkByUser: input.remarkByUser,

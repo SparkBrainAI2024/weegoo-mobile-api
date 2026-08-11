@@ -34,13 +34,6 @@ export class Rating extends BaseEntity {
   @Prop({ type: String, required: false })
   ratingRemarks?: string;
 
-  @Field(() => Remark, {
-    nullable: true,
-    description: "Populated remark (with name and id) for this rating",
-  })
-  @Prop({ type: Types.ObjectId, required: false, ref: "Remark", index: true })
-  remark?: Remark | Types.ObjectId;
-
   @Field(() => String, { nullable: true, description: "Remark text provided by the user" })
   @Prop({ type: String, required: false })
   remarkByUser?: string;
