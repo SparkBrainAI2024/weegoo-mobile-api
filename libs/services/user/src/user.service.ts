@@ -1,5 +1,5 @@
 import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes, toMongoId } from "@libs/common";
-import { ChangePasswordInput, DeviceRepository, language, UpdateFirebaseTokenInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserTokenMetaRepository } from "@libs/data-access";
+import { ChangePasswordInput, DeviceRepository, DriverOnlineStatus, language, roles, UpdateFirebaseTokenInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserTokenMetaRepository } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { EnvService } from "@libs/common/config/env.service";
@@ -66,6 +66,16 @@ export class UserService {
         try {
             await this.deviceRepository.logout(userId, deviceId);
             await this.userTokenMetaRepository.deleteByUserAndDevice(userId, deviceId);
+
+            // If the user is a driver (RIDER), set them offline
+            const user = await this.userRepository.findOne({ _id: userId });
+            if (user && user.loginAs === roles.RIDER) {
+                await this.userDetailsRepository.updateOne(
+                    { userId: user._id },
+                    { $set: { driverOnlineStatus: DriverOnlineStatus.OFFLINE } }
+                );
+            }
+
             return { message: Message(lang, "USER.LOGGED_OUT"), success: true };
         } catch (e) {
             ErrorException(
