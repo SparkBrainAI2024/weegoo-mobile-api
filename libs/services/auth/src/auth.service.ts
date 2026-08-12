@@ -33,6 +33,7 @@ import {
   UpdatePhoneInput,
   VerifyEmailInput,
   roles,
+  DriverOnlineStatus,
   BasicResponse,
   TokenGrantType,
 } from "@libs/data-access";
@@ -129,6 +130,25 @@ export class AuthService {
   private async clearAllUserSession(userId: string) {
     await this.userTokenMetaRepository.deleteByUser(userId);
 
+  }
+
+  /**
+   * Set a driver's online status to OFFLINE.
+   * Used when a driver logs out or is auto-logged out (expired token).
+   */
+  private async setDriverOffline(userId: string | Types.ObjectId): Promise<void> {
+    try {
+      const user = await this.userRepository.findOne({ _id: userId });
+      if (user && user.loginAs === roles.RIDER) {
+        await this.userDetailsRepository.updateOne(
+          { userId: user._id },
+          { $set: { driverOnlineStatus: DriverOnlineStatus.OFFLINE } }
+        );
+      }
+    } catch (e) {
+      // Non-critical - don't block the logout flow
+      console.log("Failed to set driver offline:", e);
+    }
   }
 
 
@@ -851,6 +871,8 @@ export class AuthService {
       });
 
       if (!session) {
+        // Session not found - this is an auto-logout scenario (token expired/reused)
+        await this.setDriverOffline(verifiedToken.id);
         ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.UNAUTHORIZED);
       }
 
