@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { User, UserDocument } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
+import { UserDailyOnlineStatus, UserDailyOnlineStatusDocument } from '@libs/data-access/entities/user-daily-online-status.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { VehicleType } from '@libs/data-access/enums/vehicle.enum';
@@ -41,6 +43,7 @@ export class MatchmakingService {
     @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
+    @InjectModel(UserDailyOnlineStatus.name) private readonly userDailyOnlineStatusModel: Model<UserDailyOnlineStatusDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
     private readonly ablyService: AblyService,
     private readonly rideChannelService: RideChannelService,
@@ -1102,10 +1105,12 @@ export class MatchmakingService {
 
         const driverObjectId = new Types.ObjectId(dId);
 
-        // Update geo-location in DB
+        // Update geo-location AND the last-location-update timestamp in DB.
+        // The timestamp is used by the background sweep job to detect drivers
+        // that haven't sent a location update within the configured timeout.
         await this.userDetailsModel.findOneAndUpdate(
           { userId: driverObjectId, deleted: false },
-          { $set: { geoLocation: { type: 'Point', coordinates: [lat, lng] } } },
+          { $set: { geoLocation: { type: 'Point', coordinates: [lat, lng] }, lastLocationUpdateAt: new Date() } },
         ).exec();
 
         // Process active rides for this location update
@@ -1134,6 +1139,142 @@ export class MatchmakingService {
       unsubscribe();
       this.driverLocationSubscriptions.delete(driverId);
       this.logger.log(`Unsubscribed from driver ${driverId} location channel`);
+    }
+  }
+
+  /**
+   * Background sweep (cron) that marks drivers OFFLINE when they have not
+   * published a location update within the configured timeout (default 15 min).
+   *
+   * This is the safety-net for the location listener: if the driver app crashes,
+   * loses network, or otherwise stops publishing location updates, the driver
+   * would remain stuck in the ONLINE state and keep being matched for rides they
+   * can never physically reach.
+   *
+   * Runs on the schedule defined by MATCHMAKING_CONFIG.STALE_DRIVER_CHECK_CRON.
+   */
+  @Cron(MATCHMAKING_CONFIG.STALE_DRIVER_CHECK_CRON)
+  async cleanupStaleOfflineDrivers(): Promise<{ processed: number; markedOffline: number; errors: number }> {
+    const timeoutMinutes = MATCHMAKING_CONFIG.LOCATION_UPDATE_TIMEOUT_MINUTES;
+    const staleThreshold = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+    this.logger.log(`Sweeping stale online drivers (lastLocationUpdateAt before ${staleThreshold.toISOString()})`);
+
+    let processed = 0;
+    let markedOffline = 0;
+    let errors = 0;
+
+    try {
+      // Find ONLINE drivers whose last location update is stale (or was never received).
+      // `lastLocationUpdateAt` is seeded when the driver goes online and refreshed on
+      // every location update the matchmaking service receives via the location listener.
+      const staleDrivers = await this.userDetailsModel
+        .find({
+          driverOnlineStatus: DriverOnlineStatus.ONLINE,
+          deleted: false,
+          $or: [
+            { lastLocationUpdateAt: { $exists: false } },
+            { lastLocationUpdateAt: { $lte: staleThreshold } },
+          ],
+        })
+        .exec();
+
+      this.logger.log(`Found ${staleDrivers.length} online drivers with stale location`);
+
+      for (const driverDetails of staleDrivers) {
+        processed++;
+        const driverId = driverDetails.userId.toString();
+        const driverObjectId = new Types.ObjectId(driverDetails.userId);
+
+        try {
+          // Don't force-offline a driver who is in the middle of an active ride —
+          // that would disrupt pickup/ongoing-ride logic that relies on the driver
+          // remaining online. They will be re-evaluated on the next sweep once
+          // their ride completes or is cancelled.
+          const activeRide = await this.ridesModel
+            .findOne({
+              driverId: driverObjectId,
+              rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+              deleted: false,
+            })
+            .exec();
+
+          if (activeRide) {
+            this.logger.log(`Skipping offline-mark for driver ${driverId}: active ride ${activeRide.rideUUId} in progress`);
+            continue;
+          }
+
+          // Mark the driver offline and clear the location-update timestamp so a
+          // fresh 15-min window starts the next time they go online.
+          await this.userDetailsModel
+            .findOneAndUpdate(
+              { userId: driverObjectId, deleted: false },
+              { $set: { driverOnlineStatus: DriverOnlineStatus.OFFLINE, lastLocationUpdateAt: null } },
+            )
+            .exec();
+
+          // Stop listening to the driver's personal location channel on this service
+          // instance so we don't keep processing phantom location updates.
+          await this.unsubscribeFromDriverLocationChannel(driverId);
+
+          // Reconcile the daily online-status accounting so the driver's
+          // totalOnlineSeconds stays accurate (mirrors the logout flow in the api).
+          await this.finalizeDailyOnlineStatus(driverId);
+
+          markedOffline++;
+          this.logger.log(`Marked driver ${driverId} offline: no location update for ${timeoutMinutes} min`);
+        } catch (err: any) {
+          errors++;
+          this.logger.error(`Failed to mark driver ${driverId} offline: ${err?.message || err}`);
+        }
+      }
+
+      this.logger.log(`Stale driver sweep complete: processed=${processed}, markedOffline=${markedOffline}, errors=${errors}`);
+    } catch (err: any) {
+      this.logger.error(`Fatal error during stale driver sweep: ${err?.message || err}`);
+    }
+
+    return { processed, markedOffline, errors };
+  }
+
+  /**
+   * Manually trigger the stale-driver sweep. Exposed as a GraphQL mutation so
+   * operators can run it on demand (e.g. for testing). Also invoked by the cron.
+   */
+  async markStaleDriversOffline(): Promise<{ processed: number; markedOffline: number; errors: number }> {
+    return this.cleanupStaleOfflineDrivers();
+  }
+
+  /**
+   * When a driver is force-marked offline (no location updates), reconcile the
+   * daily online-status record: fold the elapsed online time into
+   * totalOnlineSeconds and clear lastOnlineAt. This mirrors the logout logic in
+   * the api's UserDetailsService.setOnlineStatus.
+   */
+  private async finalizeDailyOnlineStatus(driverId: string): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const record = await this.userDailyOnlineStatusModel
+        .findOne({ userId: new Types.ObjectId(driverId), date: today })
+        .exec();
+
+      if (record && record.lastOnlineAt) {
+        const elapsedSeconds = Math.floor((Date.now() - record.lastOnlineAt.getTime()) / 1000);
+        if (elapsedSeconds > 0) {
+          await this.userDailyOnlineStatusModel
+            .updateOne(
+              { _id: record._id },
+              { $inc: { totalOnlineSeconds: elapsedSeconds }, $set: { lastOnlineAt: null } },
+            )
+            .exec();
+        } else {
+          await this.userDailyOnlineStatusModel
+            .updateOne({ _id: record._id }, { $set: { lastOnlineAt: null } })
+            .exec();
+        }
+      }
+    } catch (err: any) {
+      // Non-fatal: online-time accounting is best-effort.
+      this.logger.warn(`Failed to reconcile daily online status for driver ${driverId}: ${err?.message || err}`);
     }
   }
 

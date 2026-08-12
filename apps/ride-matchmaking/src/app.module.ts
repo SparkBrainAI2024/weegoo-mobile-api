@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ApolloServerPluginLandingPageProductionDefault } from '@apollo/server/plugin/landingPage/default';
@@ -32,6 +33,7 @@ import { MatchmakingModule } from './modules/matchmaking/matchmaking.module';
                 })],
     }),
     AblyModule,
+    ScheduleModule.forRoot(),
     MatchmakingModule,
   ],
 })
