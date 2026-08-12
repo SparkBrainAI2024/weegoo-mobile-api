@@ -32,6 +32,9 @@ export class UserDetailsResponse {
   @Field({ nullable: true })
   phoneNumber?: string;
 
+  @Field({ nullable: true, defaultValue: false })
+  emailVerified?: boolean;
+
   @Field(() => WalletInfoResponse, { nullable: true })
   walletInfo?: WalletInfoResponse;
 

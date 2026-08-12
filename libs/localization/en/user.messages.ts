@@ -84,6 +84,7 @@ export const USER = {
   EMAIL_VERIFICATION_TOKEN_EXPIRED: "Email verification token has expired.",
   VERIFY_EMAIL_SUBJECT: "Verify Your Email Address",
   VERIFY_EMAIL_SENT: "Verification email sent successfully.",
+  EMAIL_VERIFY_ALREADY_SENT: "Verification email has already been sent. Please check your inbox.",
   EMAIL_VERIFIED_SUCCESS: "Email verified successfully.",
   FIREBASE_TOKEN_UPDATED: "Firebase token updated successfully.",
 

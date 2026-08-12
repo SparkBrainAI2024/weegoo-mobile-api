@@ -68,5 +68,6 @@ export const USER = {
   EMAIL_ALREADY_VERIFIED: "इमेल पहिले नै प्रमाणित भइसकेको छ।",
   VERIFY_EMAIL_SUBJECT: "आफ्नो इमेल ठेगाना प्रमाणित गर्नुहोस्",
   VERIFY_EMAIL_SENT: "प्रमाणिकरण इमेल सफलतापूर्वक पठाइयो।",
+  EMAIL_VERIFY_ALREADY_SENT: "प्रमाणिकरण इमेल पहिले नै पठाइएको छ। कृपया आफ्नो इनबक्स जाँच गर्नुहोस्।",
   EMAIL_VERIFIED_SUCCESS: "इमेल सफलतापूर्वक प्रमाणित भयो।",
 };

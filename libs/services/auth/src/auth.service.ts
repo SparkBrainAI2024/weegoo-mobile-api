@@ -88,6 +88,7 @@ export type UserDetailsResponse = {
   notificationSettings?: Record<string, boolean>;
   email?: string;
   phoneNumber?: string;
+  emailVerified?: boolean;
   totalTrips?: number;
   walletInfo?: { balance: number };
   amountDueToCompany?: number;
@@ -247,6 +248,7 @@ export class AuthService {
       notificationSettings: roleNotificationSettings,
       email: user.email,
       phoneNumber: user.phone,
+      emailVerified: userDetails.emailVerified || false,
       totalTrips,
       walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
       amountDueToCompany: userDetails.amountDueToCompany || 0,
@@ -1101,6 +1103,26 @@ export class AuthService {
       // If email is already verified
       if (userDetails.emailVerified) {
         ErrorException(null, "USER.EMAIL_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
+      }
+
+      // Check if a verification email has already been sent and the link is still valid
+      const existingVerification = await this.userTokenMetaRepository.findOne({
+        userId: user._id,
+        grant: TokenGrantType.VERIFY_EMAIL,
+      });
+      if (existingVerification?.email) {
+        const decoded: any = Jwt.decode(existingVerification.email);
+        if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000)) {
+          return {
+            message: Message(lang, "USER.EMAIL_VERIFY_ALREADY_SENT"),
+            success: true,
+            currentTime: Math.floor(Date.now() / 1000),
+            expiresBy: decoded.exp,
+            verificationToken: existingVerification.email,
+          };
+        }
+        // Token expired, clean up the stale entry
+        await this.userTokenMetaRepository.deleteByAccessTokenJti(existingVerification.accessTokenJti);
       }
 
       // Generate verification token with 2 minutes expiry
