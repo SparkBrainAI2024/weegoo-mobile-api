@@ -518,6 +518,30 @@ export class MatchmakingResolver {
     }
   }
 
+  @Mutation(() => BasicResult, {
+    name: "markStaleDriversOffline",
+    description:
+      "Manually trigger the sweep that marks ONLINE drivers offline when no location update has been received within the configured timeout (default 15 min). The cron job also runs this automatically on schedule.",
+  })
+  async markStaleDriversOffline(): Promise<BasicResult> {
+    this.logger.log("GraphQL: Manually triggering stale-driver offline sweep");
+    try {
+      const result = await this.matchmakingService.markStaleDriversOffline();
+      return {
+        success: true,
+        message: `Sweep complete: processed=${result.processed}, markedOffline=${result.markedOffline}, errors=${result.errors}`,
+      };
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to run stale-driver sweep: ${err?.message || err}`,
+      );
+      return {
+        success: false,
+        message: `Failed to run sweep: ${err?.message || err}`,
+      };
+    }
+  }
+
   @Query(() => [VehicleEstimateGraphQL], {
     name: "getVehicleEstimates",
     description: "Get estimates for different vehicle types",
