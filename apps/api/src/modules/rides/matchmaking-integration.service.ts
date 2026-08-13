@@ -442,17 +442,19 @@ export class MatchmakingIntegrationService {
     pickup: RideLocationInput,
     dropoff: RideLocationInput,
     noOfPassengers: number,
+    promoCodeId?: string,
+    passengerId?: string,
   ): Promise<VehicleEstimateGraphQL[]> {
     try {
       this.logger.log(`Fetching vehicle estimates for route from ${pickup.address} to ${dropoff.address}`);
 
       const data = await this.callMatchmakingGraphql(
-        `query GetVehicleEstimates($pickup: RideLocationInput!, $dropoff: RideLocationInput!, $noOfPassengers: Int!) {
-          getVehicleEstimates(pickupLocation: $pickup, dropoffLocation: $dropoff, noOfPassengers: $noOfPassengers) {
-            vehicleType estimatedFare distanceKm estimatedTimeInMinutes comfortType hasAC noOfPassengers
+        `query GetVehicleEstimates($pickup: RideLocationInput!, $dropoff: RideLocationInput!, $noOfPassengers: Int!, $promoCodeId: ID, $passengerId: String) {
+          getVehicleEstimates(pickupLocation: $pickup, dropoffLocation: $dropoff, noOfPassengers: $noOfPassengers, promoCodeId: $promoCodeId, passengerId: $passengerId) {
+            vehicleType estimatedFare originalFare discountAmount promoCodeName promoCodeId promoCodeMessage distanceKm driverDistanceToPickupKm estimatedTimeInMinutes comfortType hasAC noOfPassengers
           }
         }`,
-        { pickup, dropoff, noOfPassengers },
+        { pickup, dropoff, noOfPassengers, promoCodeId: promoCodeId || null, passengerId: passengerId || null },
       );
 
       return data?.getVehicleEstimates || [];

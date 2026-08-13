@@ -4,7 +4,6 @@ import {
   NestExpressApplication,
   ExpressAdapter,
 } from "@nestjs/platform-express";
-import { join } from "path";
 import compression from "compression";
 import helmet from "helmet";
 import express from "express";
@@ -53,34 +52,6 @@ async function bootstrap() {
   );
 
   app.use(compression());
-
-  app.useStaticAssets(join(__dirname, "..", "files"), {
-    prefix: "/files/",
-  });
-
-  // Serve email template assets (car-icon.svg, etc.)
-  // Try multiple paths to support dev (ts-node) and prod (webpack) builds
-  const fs = require("fs");
-  const possibleTemplatePaths = [
-    // Dev: project root → libs/services/mail/templates
-    join(process.cwd(), "libs", "services", "mail", "templates"),
-    // Dev: project root → libs/services/email-template/src/templates
-    join(process.cwd(), "libs", "services", "email-template", "src", "templates"),
-    // Prod: dist/apps/api/templates
-    join(__dirname, "templates"),
-    // Prod: dist/libs/services/mail/templates
-    join(process.cwd(), "dist", "libs", "services", "mail", "templates"),
-  ];
-
-  const emailTemplatesPath = possibleTemplatePaths.find((p) => fs.existsSync(p));
-  if (emailTemplatesPath) {
-    app.useStaticAssets(emailTemplatesPath, {
-      prefix: "/assets/",
-    });
-    console.log(`Serving email assets from: ${emailTemplatesPath}`);
-  } else {
-    console.warn(`Email template assets not found. Tried: ${possibleTemplatePaths.join(", ")}`);
-  }
 
   await app.init();
 

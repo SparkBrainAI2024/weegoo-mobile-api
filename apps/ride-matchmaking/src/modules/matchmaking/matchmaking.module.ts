@@ -5,6 +5,8 @@ import { User, UserSchema } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsSchema } from '@libs/data-access/entities/user-details.entity';
 import { Vehicle, VehicleSchema } from '@libs/data-access/entities/vehicle.entity';
 import { UserDailyOnlineStatus, UserDailyOnlineStatusSchema } from '@libs/data-access/entities/user-daily-online-status.entity';
+import { PromoCode, PromoCodeSchema } from '@libs/data-access/entities/promo-code.entity';
+import { PromoCodeUsed, PromoCodeUsedSchema } from '@libs/data-access/entities/promo-code-used.entity';
 import { MatchmakingService } from './matchmaking.service';
 import { MatchmakingResolver } from './matchmaking.resolver';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
@@ -27,6 +29,8 @@ import { UserPersistenceModule } from '@libs/services/user/user-persistent.modul
       { name: UserDetails.name, schema: UserDetailsSchema },
       { name: UserDailyOnlineStatus.name, schema: UserDailyOnlineStatusSchema },
       { name: Vehicle.name, schema: VehicleSchema },
+      { name: PromoCode.name, schema: PromoCodeSchema },
+      { name: PromoCodeUsed.name, schema: PromoCodeUsedSchema },
     ]),
     NotificationPersistentModule,
     UserPersistenceModule,
