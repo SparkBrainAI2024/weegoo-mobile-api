@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args, Int } from "@nestjs/graphql";
+import { Resolver, Mutation, Query, Args, Int, ID } from "@nestjs/graphql";
 import { Logger, BadRequestException } from "@nestjs/common";
 import { MatchmakingService } from "./matchmaking.service";
 import {
@@ -550,6 +550,8 @@ export class MatchmakingResolver {
     @Args("pickupLocation") pickup: RideLocationInput,
     @Args("dropoffLocation") dropoff: RideLocationInput,
     @Args("noOfPassengers", { type: () => Int }) noOfPassengers: number,
+    @Args("promoCodeId", { type: () => ID, nullable: true }) promoCodeId?: string,
+    @Args("passengerId", { type: () => String, nullable: true }) passengerId?: string,
   ): Promise<VehicleEstimateGraphQL[]> {
     this.logger.log(
       `GraphQL: Getting vehicle estimates for ${noOfPassengers} passengers`,
@@ -568,6 +570,8 @@ export class MatchmakingResolver {
       dropoffLat: dropoff.latitude,
       dropoffLng: dropoff.longitude,
       noOfPassengers,
+      promoCodeId,
+      passengerId,
     });
   }
 }

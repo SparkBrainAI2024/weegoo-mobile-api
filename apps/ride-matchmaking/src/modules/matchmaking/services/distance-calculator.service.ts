@@ -61,6 +61,7 @@ export class DistanceCalculatorService {
       this.logger.debug(`Baato API response status: ${response.status}`);
       const route = response.data?.data?.[0];
       if (route) {
+        this.logger.log(`Baato API returned route: distance ${route.distanceInMeters} meters, duration ${route.timeInMs} ms`);
         return {
           distanceKm: Number((route.distanceInMeters / 1000).toFixed(2)),
           durationMinutes: Number((route.timeInMs / 1000 / 60).toFixed(2)),
