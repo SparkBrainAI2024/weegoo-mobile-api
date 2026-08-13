@@ -1692,8 +1692,8 @@ export class MatchmakingService {
     // type, so computing it inside the Promise.all would redundantly invoke the
     // Baato API once per vehicle type. The result drives the FARE calculation
     // below for every vehicle type.
-    let routeDistanceKm = 5;
-    let routeDurationMinutes = 15;
+    let routeDistanceKm = 0;
+    let routeDurationMinutes = 0;
     try {
       const route = await this.distanceCalculator.calculateDistance(params.pickupLat, params.pickupLng, params.dropoffLat, params.dropoffLng, VehicleType.CAR.toLowerCase());
       routeDistanceKm = route.distanceKm;
@@ -1746,7 +1746,7 @@ export class MatchmakingService {
           discountAmount: discountInfo?.discountAmount || 0,
           promoCodeName: discountInfo?.promoCodeName || undefined,
           promoCodeId: discountInfo?.promoCodeId ? discountInfo.promoCodeId.toString() : undefined,
-          distanceKm: driverDistanceToPickupKm,
+          distanceKm: routeDistanceKm,
           driverDistanceToPickupKm,
           estimatedTimeInMinutes: effectiveDurationMinutes,
           comfortType,
