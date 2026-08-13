@@ -61,6 +61,8 @@
       "@libs/services/profile/*": ["libs/services/profile/src/*"],
       "@ride-matchmaking": ["apps/ride-matchmaking/src"],
       "@ride-matchmaking/*": ["apps/ride-matchmaking/src/*"],
+      "@cron": ["apps/cron/src"],
+      "@cron/*": ["apps/cron/src/*"],
 
     },
     "types": ["node", "jest"]

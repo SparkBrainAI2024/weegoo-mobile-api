@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
@@ -1152,8 +1151,10 @@ export class MatchmakingService {
    * can never physically reach.
    *
    * Runs on the schedule defined by MATCHMAKING_CONFIG.STALE_DRIVER_CHECK_CRON.
+   * NOTE: The scheduled execution lives in the dedicated `cron` app
+   * (apps/cron/src/modules/cron/cron.service.ts). This method is kept here only
+   * to support the manual `markStaleDriversOffline` GraphQL trigger.
    */
-  @Cron(MATCHMAKING_CONFIG.STALE_DRIVER_CHECK_CRON)
   async cleanupStaleOfflineDrivers(): Promise<{ processed: number; markedOffline: number; errors: number }> {
     const timeoutMinutes = MATCHMAKING_CONFIG.LOCATION_UPDATE_TIMEOUT_MINUTES;
     const staleThreshold = new Date(Date.now() - timeoutMinutes * 60 * 1000);
