@@ -67,7 +67,18 @@ export class IssueRepository {
   }
 
   async findById(issueId: string): Promise<Issue | null> {
-    return this.model.findById(issueId);
+    const issue = await this.model.findById(issueId).populate({
+      path: "reportedBy",
+      select: "name email ",
+      // ,
+      // populate: {
+      //   path: "userdetail",
+      //   select: "fullname",
+      // },
+    });
+    console.log(issue, "issue");
+
+    return issue;
   }
 
   async findIssueCategoryById(id: string): Promise<IssueCategory | null> {

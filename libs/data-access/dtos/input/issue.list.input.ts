@@ -66,6 +66,13 @@ export class ResolveIssueInput {
 }
 
 @InputType()
+export class IssueDetailInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
+}
+
+@InputType()
 export class BulkResolveIssuesInput {
   @Field(() => [ID])
   @ArrayMinSize(1)

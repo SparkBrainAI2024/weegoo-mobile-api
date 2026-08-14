@@ -35,7 +35,8 @@ import { IssueCategory } from "@libs/data-access/entities/issue-category.entity"
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   [IssueStatus.OPEN]: [IssueStatus.IN_REVIEW],
   [IssueStatus.IN_REVIEW]: [IssueStatus.RESOLVED],
-  [IssueStatus.RESOLVED]: [],
+  [IssueStatus.RESOLVED]: [IssueStatus.CLOSED],
+  [IssueStatus.CLOSED]: [],
 };
 
 export const issueCategorySeed = [

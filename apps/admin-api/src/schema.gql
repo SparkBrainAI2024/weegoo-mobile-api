@@ -1460,6 +1460,7 @@ type Query {
   emailTemplate(id: ID!): EmailTemplate!
   emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
   getIssues(input: IssueListInput): IssueListResponse!
+  getIssueDetail(input: IssueDetailInput!): Issue!
   adminCompanyInfo: AdminCompanyInfo!
   adminRidePricings: [AdminRidePricing!]!
   adminRidePricing(vehicleType: VehicleType!): AdminRidePricing!
@@ -1562,6 +1563,10 @@ input IssueListInput {
   unassignedOnly: Boolean
   dateFrom: String
   dateTo: String
+}
+
+input IssueDetailInput {
+  id: ID!
 }
 
 type Mutation {

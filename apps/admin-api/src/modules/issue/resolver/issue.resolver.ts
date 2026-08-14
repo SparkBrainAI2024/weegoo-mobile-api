@@ -14,7 +14,10 @@
 
 import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { CurrentLang } from "@libs/common/decorators/header.decorators";
-import { IssueListInput } from "@libs/data-access/dtos/input/issue.list.input";
+import {
+  IssueDetailInput,
+  IssueListInput,
+} from "@libs/data-access/dtos/input/issue.list.input";
 import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
@@ -37,6 +40,17 @@ export class IssueResolver {
     @CurrentLang() lang?: string,
   ): Promise<IssueListResponse> {
     return this.issueService.getIssueList(input ?? new IssueListInput());
+  }
+
+  @Query(() => Issue)
+  async getIssueDetail(
+    @Args("input", {
+      type: () => IssueDetailInput,
+    })
+    input?: IssueDetailInput,
+    @CurrentLang() lang?: string,
+  ): Promise<Issue> {
+    return this.issueService.getIssueDetail(input.id);
   }
 
   @Mutation(() => ResolveIssueResponse)

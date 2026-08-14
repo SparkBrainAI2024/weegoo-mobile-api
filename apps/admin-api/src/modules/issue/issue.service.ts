@@ -2,6 +2,7 @@
 import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
+  Issue,
   IssueListResponse,
   ResolveIssueResponse,
 } from "@libs/data-access";
@@ -43,6 +44,10 @@ export class IssueService {
       id: updated._id.toString(),
       status: updated.status,
     };
+  }
+
+  async getIssueDetail(id: string): Promise<Issue> {
+    return this.issueRepository.findById(id);
   }
 
   async resolveIssue(
