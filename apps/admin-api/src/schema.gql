@@ -534,6 +534,7 @@ type Issue {
   reportedByType: ReportedByType!
   rideId: String
   priority: IssuePriority!
+  displayId: String!
   assignedTo: String
   category: IssueCategoryEmbed
   issueContent: String!
@@ -566,17 +567,7 @@ enum IssueStatus {
   OPEN
   IN_REVIEW
   RESOLVED
-}
-
-type Remark {
-  _id: String!
-  createdAt: DateTime
-  updatedAt: DateTime
-  deletedAt: DateTime
-  deleted: Boolean
-
-  """Display name / text of the remark"""
-  name: String!
+  CLOSED
 }
 
 type Rating {
@@ -595,11 +586,19 @@ type Rating {
   rideId: String!
   ratingRemarks: String
 
-  """Populated remark (with name and id) for this rating"""
-  remark: Remark
-
   """Remark text provided by the user"""
   remarkByUser: String
+}
+
+type Remark {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+
+  """Display name / text of the remark"""
+  name: String!
 }
 
 type ContactUs {
@@ -695,6 +694,7 @@ type UserDetailsResponse {
   address: String
   email: String
   phoneNumber: String
+  emailVerified: Boolean
   walletInfo: WalletInfoResponse
   totalTrips: Float
   amountDueToCompany: Float
@@ -766,6 +766,41 @@ type IssueListResponse {
 }
 
 type ResolveIssueResponse {
+  message: String!
+  id: ID!
+  status: IssueStatus!
+}
+
+type IssuePerson {
+  role: String!
+  fullName: String
+  phone: String
+  displayId: String
+  userId: ID
+  profileImage: String
+  suspended: Boolean!
+}
+
+type RideInIssue {
+  id: ID!
+  rideUUId: String!
+}
+
+type IssueDetailResponse {
+  id: ID!
+  rideId: RideInIssue!
+  status: IssueStatus!
+  priority: IssuePriority!
+  createdAt: DateTime!
+  issueContent: String!
+  reporter: IssuePerson!
+  reportee: IssuePerson!
+  ticketCode: String!
+  categoryLabel: String
+  issueCategoryType: IssueParentCategory!
+}
+
+type CloseIssueResponse {
   message: String!
   id: ID!
   status: IssueStatus!
@@ -1453,6 +1488,7 @@ type Query {
   emailTemplate(id: ID!): EmailTemplate!
   emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
   getIssues(input: IssueListInput): IssueListResponse!
+  getIssueDetail(input: IssueDetailInput!): IssueDetailResponse!
   adminCompanyInfo: AdminCompanyInfo!
   adminRidePricings: [AdminRidePricing!]!
   adminRidePricing(vehicleType: VehicleType!): AdminRidePricing!
@@ -1557,6 +1593,10 @@ input IssueListInput {
   dateTo: String
 }
 
+input IssueDetailInput {
+  id: ID!
+}
+
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
@@ -1594,6 +1634,7 @@ type Mutation {
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplate!
   removeEmailTemplate(id: ID!): Boolean!
   resolveIssue(id: ID!, resolvedBy: ID!): ResolveIssueResponse!
+  closeIssue(id: ID!, closedBy: ID!): CloseIssueResponse!
   bulkResolveIssues(ids: [ID!]!, resolvedBy: ID!): BulkResolveIssuesResponse!
   upsertAdminCompanyInfo(input: UpsertAdminCompanyInfoInput!): AdminCompanyInfo!
   upsertAdminRidePricing(input: UpsertAdminRidePricingInput!): AdminRidePricing!
