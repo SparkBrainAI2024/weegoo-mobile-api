@@ -124,6 +124,9 @@ export class IssuePerson {
   @Field(() => ID, { nullable: true })
   userId: string | null;
 
+  @Field(() => String, { nullable: true })
+  profileImage?: string | null;
+
   @Field(() => Boolean)
   suspended: boolean;
 }

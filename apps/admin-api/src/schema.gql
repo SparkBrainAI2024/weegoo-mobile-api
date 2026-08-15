@@ -777,6 +777,7 @@ type IssuePerson {
   phone: String
   displayId: String
   userId: ID
+  profileImage: String
   suspended: Boolean!
 }
 

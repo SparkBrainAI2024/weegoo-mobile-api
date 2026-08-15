@@ -11,8 +11,21 @@ import {
 import { IssueListInput } from "@libs/data-access/dtos/input/issue.list.input";
 import { IssueRepository } from "@libs/data-access/repositories/issue.repository";
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { UserProfileImageEntity } from "@libs/data-access/common/user-profile-image";
 
-type PopulatedRide = {
+export type PopulatedReportedBy = {
+  _id: Types.ObjectId;
+  email: string;
+  phone: string;
+  suspended: boolean;
+  userDetails: {
+    fullName: string;
+    displayIdAsPassenger: string;
+    displayIdAsDriver: string;
+    profileImages: UserProfileImageEntity[];
+  };
+};
+export type PopulatedRide = {
   _id: Types.ObjectId;
   rideUUId: string;
   passengerId: {
@@ -24,6 +37,7 @@ type PopulatedRide = {
       fullName: string;
       displayIdAsPassenger: string;
       displayIdAsDriver: string;
+      profileImages: UserProfileImageEntity[];
     };
   };
 
@@ -36,6 +50,7 @@ type PopulatedRide = {
       fullName: string;
       displayIdAsDriver: string;
       displayIdAsPassenger: string;
+      profileImages: UserProfileImageEntity[];
     };
   };
 };
@@ -47,6 +62,7 @@ type IssuePerson = {
   displayId: string | null;
   userId: string | null;
   suspended: boolean;
+  profileImage?: string;
 };
 
 function formatMinutes(minutes: number | null): string | undefined {
@@ -57,21 +73,10 @@ function formatMinutes(minutes: number | null): string | undefined {
   return `${hours}h ${mins}m`;
 }
 
-type PopulatedIssue = Omit<Issue, "rideId"> & {
+export type PopulatedIssue = Omit<Issue, "rideId" | "reportedBy"> & {
   rideId: PopulatedRide;
   displayId: string;
-  reportedBy: {
-    _id: Types.ObjectId;
-    email: string;
-    phone: string;
-    suspended: boolean;
-    displayId?: string;
-    userDetails: {
-      fullName: string;
-      displayIdAsDriver: string;
-      displayIdAsPassenger: string;
-    };
-  };
+  reportedBy: PopulatedReportedBy;
 };
 
 @Injectable()
@@ -117,6 +122,8 @@ export class IssueService {
       ? isDriverReporter
         ? issue.rideId.passengerId
         : issue.rideId.driverId
+          ? issue.rideId.driverId
+          : null
       : null;
 
     const reporter: IssuePerson = {
@@ -125,9 +132,11 @@ export class IssueService {
       phone: reporterUser?.phone ?? null,
       displayId: isDriverReporter
         ? reporterUser?.userDetails?.displayIdAsDriver
-        : (reporteeUser?.userDetails?.displayIdAsPassenger ?? null),
+        : (reporterUser?.userDetails?.displayIdAsPassenger ?? null),
       userId: reporterUser?._id?.toString() ?? null,
       suspended: reporterUser?.suspended ?? false,
+      profileImage:
+        reporterUser?.userDetails?.profileImages?.[0].socialPicture ?? "",
     };
 
     const reportee: IssuePerson = reporteeUser
@@ -140,6 +149,8 @@ export class IssueService {
             : (reporteeUser?.userDetails?.displayIdAsDriver ?? null),
           userId: reporteeUser?._id?.toString() ?? null,
           suspended: reporteeUser?.suspended ?? false,
+          profileImage:
+            reporteeUser?.userDetails?.profileImages?.[0].socialPicture ?? "",
         }
       : {
           role: "ADMIN",
@@ -150,7 +161,7 @@ export class IssueService {
           suspended: false,
         };
 
-    return {
+    const issueResponse = {
       id: issue._id.toString(),
       status: issue.status,
       priority: issue.priority,
@@ -166,6 +177,8 @@ export class IssueService {
       categoryLabel: issue.category?.subCategoryLabel ?? null,
       issueCategoryType: issue.category.parentCategory,
     };
+    console.log(issueResponse, "issueres");
+    return issueResponse;
   }
   async resolveIssue(
     id: string,

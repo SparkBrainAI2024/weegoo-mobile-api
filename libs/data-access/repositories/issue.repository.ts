@@ -15,6 +15,12 @@ import { CreateIssueInput } from "../dtos/input/create-issue.input";
 import { IssueCategoryEmbed } from "../entities/issue-category.embedded";
 import { IssueListInput } from "../dtos/input/issue.list.input";
 import { toMongoId } from "@libs/common";
+import {
+  PopulatedIssue,
+  PopulatedReportedBy,
+  PopulatedRide,
+} from "@admin-api/modules/issue/issue.service";
+import { IssuePerson } from "../dtos/response/issue.response";
 
 export interface IssueFilters {
   status?: IssueStatus;
@@ -25,25 +31,6 @@ export interface PaginationOptions {
   limit: number;
 }
 
-type PopulatedRide = {
-  _id: Types.ObjectId;
-  passengerId: {
-    _id: Types.ObjectId;
-    email: string;
-    phone: string;
-    suspended: boolean;
-  };
-  driverId: {
-    _id: Types.ObjectId;
-    email: string;
-    phone: string;
-    suspended: boolean;
-  };
-};
-
-type PopulatedIssue = Omit<Issue, "rideId"> & {
-  rideId: PopulatedRide;
-};
 @Injectable()
 export class IssueRepository {
   constructor(
@@ -90,15 +77,17 @@ export class IssueRepository {
   async findById(issueId: string): Promise<PopulatedIssue | null> {
     const issue = await this.model.findById(issueId).populate<{
       rideId: PopulatedRide;
+      reportedBy: PopulatedReportedBy;
     }>([
       {
-        path: "reportedBy category",
+        path: "reportedBy",
         select: "name email phone suspended",
         populate: {
           path: "userDetails",
           select: "fullName",
         },
       },
+      { path: "category" },
       {
         path: "rideId",
         select: "passengerId driverId rideUUId",
@@ -108,7 +97,7 @@ export class IssueRepository {
             select: "name email phone suspended userDetails",
             populate: {
               path: "userDetails",
-              select: "fullName displayIdAsPassenger",
+              select: "fullName displayIdAsPassenger profileImages",
             },
           },
           {
@@ -116,7 +105,7 @@ export class IssueRepository {
             select: "name email phone suspended userDetails",
             populate: {
               path: "userDetails",
-              select: "fullName displayIdAsDriver",
+              select: "fullName displayIdAsDriver profileImages",
             },
           },
         ],
