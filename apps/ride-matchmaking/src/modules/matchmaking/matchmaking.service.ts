@@ -1739,13 +1739,23 @@ export class MatchmakingService {
         // Apply promo discount if the promo code is valid for this fare.
         const discountInfo = this.applyPromoDiscountToFare(promo, originalFare);
 
+        // If the promo code is valid but its minimum-fare condition wasn't met,
+        // surface a human-readable message so the client knows why no discount was applied.
+        let effectivePromoCodeMessage = promoCodeMessage;
+        if (!discountInfo && promo && !promoCodeMessage) {
+          if (Number(promo.minimumFare) > 0 && originalFare < Number(promo.minimumFare)) {
+            effectivePromoCodeMessage = `Promo code '${promo.name}' requires a minimum fare of Rs. ${promo.minimumFare}`;
+          }
+        }
+
         return {
           vehicleType: type as VehicleType,
           estimatedFare: Math.round(originalFare - (discountInfo?.discountAmount || 0)),
           originalFare,
           discountAmount: discountInfo?.discountAmount || 0,
-          promoCodeName: discountInfo?.promoCodeName || undefined,
-          promoCodeId: discountInfo?.promoCodeId ? discountInfo.promoCodeId.toString() : undefined,
+          promoCodeName: discountInfo?.promoCodeName || (effectivePromoCodeMessage ? promoCodeName : undefined),
+          promoCodeId: discountInfo?.promoCodeId ? discountInfo.promoCodeId.toString() : (promoCodeIdValue || undefined),
+          promoCodeMessage: effectivePromoCodeMessage,
           distanceKm: routeDistanceKm,
           driverDistanceToPickupKm,
           estimatedTimeInMinutes: effectiveDurationMinutes,
