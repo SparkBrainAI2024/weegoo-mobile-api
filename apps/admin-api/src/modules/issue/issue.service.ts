@@ -14,7 +14,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 
 type PopulatedRide = {
   _id: Types.ObjectId;
-
+  rideUUId: string;
   passengerId: {
     _id: Types.ObjectId;
     email: string;
@@ -143,9 +143,9 @@ export class IssueService {
         }
       : {
           role: "ADMIN",
-          fullName: null,
+          fullName: "System Admin",
           phone: null,
-          displayId: null,
+          displayId: "Admin",
           userId: null,
           suspended: false,
         };
@@ -158,7 +158,11 @@ export class IssueService {
       issueContent: issue.issueContent,
       reporter,
       reportee,
-      ticketCode: issue.displayId,
+      rideId: {
+        id: issue.rideId._id.toString(),
+        rideUUId: issue.rideId.rideUUId,
+      },
+      ticketCode: issue.displayId ?? "",
       categoryLabel:
         issue.category?.subCategoryLabel ??
         issue.category?.parentCategory ??

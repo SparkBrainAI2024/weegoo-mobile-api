@@ -99,7 +99,7 @@ export class IssueRepository {
       },
       {
         path: "rideId",
-        select: "passengerId driverId",
+        select: "passengerId driverId rideUUId",
         populate: [
           {
             path: "passengerId",

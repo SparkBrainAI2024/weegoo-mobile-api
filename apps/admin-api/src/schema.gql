@@ -522,6 +522,7 @@ type Issue {
   reportedByType: ReportedByType!
   rideId: String
   priority: IssuePriority!
+  displayId: String!
   assignedTo: String
   category: IssueCategoryEmbed
   issueContent: String!
@@ -770,6 +771,33 @@ type ResolveIssueResponse {
   message: String!
   id: ID!
   status: IssueStatus!
+}
+
+type IssuePerson {
+  role: String!
+  fullName: String
+  phone: String
+  displayId: String
+  userId: ID
+  suspended: Boolean!
+}
+
+type RideInIssue {
+  id: ID!
+  rideUUId: String!
+}
+
+type IssueDetailResponse {
+  id: ID!
+  rideId: RideInIssue!
+  status: IssueStatus!
+  priority: IssuePriority!
+  createdAt: DateTime!
+  issueContent: String!
+  reporter: IssuePerson!
+  reportee: IssuePerson!
+  ticketCode: String!
+  categoryLabel: String
 }
 
 type CloseIssueResponse {
@@ -1460,7 +1488,7 @@ type Query {
   emailTemplate(id: ID!): EmailTemplate!
   emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
   getIssues(input: IssueListInput): IssueListResponse!
-  getIssueDetail(input: IssueDetailInput!): Issue!
+  getIssueDetail(input: IssueDetailInput!): IssueDetailResponse!
   adminCompanyInfo: AdminCompanyInfo!
   adminRidePricings: [AdminRidePricing!]!
   adminRidePricing(vehicleType: VehicleType!): AdminRidePricing!

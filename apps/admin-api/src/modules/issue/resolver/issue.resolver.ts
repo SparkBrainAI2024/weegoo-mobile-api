@@ -22,6 +22,7 @@ import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
   Issue,
+  IssueDetailResponse,
   IssueListResponse,
   ResolveIssueResponse,
 } from "@libs/data-access";
@@ -42,14 +43,14 @@ export class IssueResolver {
     return this.issueService.getIssueList(input ?? new IssueListInput());
   }
 
-  @Query(() => Issue)
+  @Query(() => IssueDetailResponse)
   async getIssueDetail(
     @Args("input", {
       type: () => IssueDetailInput,
     })
     input?: IssueDetailInput,
     @CurrentLang() lang?: string,
-  ): Promise<Issue> {
+  ): Promise<IssueDetailResponse> {
     return this.issueService.getIssueDetail(input.id);
   }
 

@@ -128,9 +128,21 @@ export class IssuePerson {
 }
 
 @ObjectType()
+export class RideInIssue {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => String)
+  rideUUId: string;
+}
+
+@ObjectType()
 export class IssueDetailResponse {
   @Field(() => ID)
   id: string;
+
+  @Field(() => RideInIssue)
+  rideId: RideInIssue;
 
   @Field(() => IssueStatus)
   status: IssueStatus;
