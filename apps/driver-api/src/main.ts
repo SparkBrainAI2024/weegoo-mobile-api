@@ -3,7 +3,6 @@ import { AppModule } from "./app.module";
 import {
   NestExpressApplication,
 } from "@nestjs/platform-express";
-import { join } from "path";
 import compression from "compression";
 import helmet from "helmet";
 import { HttpExceptionFilter, TrimPipe } from "@libs/common";
@@ -46,10 +45,6 @@ async function bootstrap() {
   );
 
   app.use(compression());
-
-  app.useStaticAssets(join(__dirname, "..", "files"), {
-    prefix: "/files/",
-  });
 
   return app;
 }

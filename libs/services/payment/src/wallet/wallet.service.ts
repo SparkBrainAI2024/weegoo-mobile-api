@@ -305,13 +305,20 @@ export class WalletService {
   async completeTopupWithKhalti(
     pidx: string,
     transactionId?: string,
+    transactionUuid?: string,
   ): Promise<{ success: boolean; message: string }> {
     // First, lookup the pidx on Khalti's server
     const lookupResult = await this.khaltiService.lookupTransaction(pidx);
 
     if (!lookupResult.success) {
       // If lookup failed, try to mark the transaction as failed
-      if (transactionId) {
+      if (transactionUuid) {
+        try {
+          await this.failTopupByUuid(transactionUuid, `Khalti lookup failed: ${lookupResult.status}`);
+        } catch (e) {
+          // ignore
+        }
+      } else if (transactionId) {
         try {
           await this.failTopup(transactionId, `Khalti lookup failed: ${lookupResult.status}`);
         } catch (e) {
@@ -321,9 +328,27 @@ export class WalletService {
       return { success: false, message: `Khalti payment verification failed: ${lookupResult.status}` };
     }
 
-    // Find the transaction. If transactionId was provided, use it.
-    // Otherwise, find the transaction by the gatewayRef (pidx).
-    let txnId = transactionId;
+    // Find the transaction. Priority: transactionUuid (our internal UUID) > transactionId > gatewayRef (pidx).
+    let txnId: string | undefined;
+    if (transactionUuid) {
+      try {
+        const txn = await this.findTransactionByUuid(transactionUuid);
+        txnId = txn._id.toString();
+      } catch (e) {
+        // Transaction not found by UUID, fall through to other lookup methods
+      }
+    }
+    if (!txnId && transactionId) {
+      // transactionId from Khalti is a UUID, not a MongoDB ObjectId.
+      // Try to find the transaction by transactionUuid field first.
+      const txn = await this.transactionRepo['model'].findOne({
+        transactionUuid: transactionId,
+        status: TransactionStatus.PENDING,
+      });
+      if (txn) {
+        txnId = txn._id.toString();
+      }
+    }
     if (!txnId) {
       const txn = await this.transactionRepo['model'].findOne({
         gatewayRef: pidx,

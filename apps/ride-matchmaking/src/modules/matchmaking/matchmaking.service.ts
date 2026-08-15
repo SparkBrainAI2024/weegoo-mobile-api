@@ -4,11 +4,15 @@ import { Model, Types } from 'mongoose';
 import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { User, UserDocument } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
+import { UserDailyOnlineStatus, UserDailyOnlineStatusDocument } from '@libs/data-access/entities/user-daily-online-status.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
+import { PromoCode, PromoCodeDocument } from '@libs/data-access/entities/promo-code.entity';
+import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { VehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { roles, DriverOnlineStatus, ridePreference } from '@libs/data-access/enums/user.enum';
 import { NotificationType } from '@libs/data-access/enums/notification.enum';
+import { PromoCodeStatusEnum, DiscountTypeEnum, AppliedToEnum } from '@libs/data-access/enums/promo-code.enum';
 import { CreateNotificationInput } from '@libs/data-access/dtos/input/create-notification.input';
 import { AblyService, RideChannelService } from '@libs/services/ably';
 import { NotificationService } from '@libs/services/notification';
@@ -41,7 +45,10 @@ export class MatchmakingService {
     @InjectModel(Rides.name) private readonly ridesModel: Model<RidesDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
+    @InjectModel(UserDailyOnlineStatus.name) private readonly userDailyOnlineStatusModel: Model<UserDailyOnlineStatusDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
+    @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
+    @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
     private readonly ablyService: AblyService,
     private readonly rideChannelService: RideChannelService,
     private readonly distanceCalculator: DistanceCalculatorService,
@@ -1102,10 +1109,12 @@ export class MatchmakingService {
 
         const driverObjectId = new Types.ObjectId(dId);
 
-        // Update geo-location in DB
+        // Update geo-location AND the last-location-update timestamp in DB.
+        // The timestamp is used by the background sweep job to detect drivers
+        // that haven't sent a location update within the configured timeout.
         await this.userDetailsModel.findOneAndUpdate(
           { userId: driverObjectId, deleted: false },
-          { $set: { geoLocation: { type: 'Point', coordinates: [lat, lng] } } },
+          { $set: { geoLocation: { type: 'Point', coordinates: [lat, lng] }, lastLocationUpdateAt: new Date() } },
         ).exec();
 
         // Process active rides for this location update
@@ -1134,6 +1143,144 @@ export class MatchmakingService {
       unsubscribe();
       this.driverLocationSubscriptions.delete(driverId);
       this.logger.log(`Unsubscribed from driver ${driverId} location channel`);
+    }
+  }
+
+  /**
+   * Background sweep (cron) that marks drivers OFFLINE when they have not
+   * published a location update within the configured timeout (default 15 min).
+   *
+   * This is the safety-net for the location listener: if the driver app crashes,
+   * loses network, or otherwise stops publishing location updates, the driver
+   * would remain stuck in the ONLINE state and keep being matched for rides they
+   * can never physically reach.
+   *
+   * Runs on the schedule defined by MATCHMAKING_CONFIG.STALE_DRIVER_CHECK_CRON.
+   * NOTE: The scheduled execution lives in the dedicated `cron` app
+   * (apps/cron/src/modules/cron/cron.service.ts). This method is kept here only
+   * to support the manual `markStaleDriversOffline` GraphQL trigger.
+   */
+  async cleanupStaleOfflineDrivers(): Promise<{ processed: number; markedOffline: number; errors: number }> {
+    const timeoutMinutes = MATCHMAKING_CONFIG.LOCATION_UPDATE_TIMEOUT_MINUTES;
+    const staleThreshold = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+    this.logger.log(`Sweeping stale online drivers (lastLocationUpdateAt before ${staleThreshold.toISOString()})`);
+
+    let processed = 0;
+    let markedOffline = 0;
+    let errors = 0;
+
+    try {
+      // Find ONLINE drivers whose last location update is stale (or was never received).
+      // `lastLocationUpdateAt` is seeded when the driver goes online and refreshed on
+      // every location update the matchmaking service receives via the location listener.
+      const staleDrivers = await this.userDetailsModel
+        .find({
+          driverOnlineStatus: DriverOnlineStatus.ONLINE,
+          deleted: false,
+          $or: [
+            { lastLocationUpdateAt: { $exists: false } },
+            { lastLocationUpdateAt: { $lte: staleThreshold } },
+          ],
+        })
+        .exec();
+
+      this.logger.log(`Found ${staleDrivers.length} online drivers with stale location`);
+
+      for (const driverDetails of staleDrivers) {
+        processed++;
+        const driverId = driverDetails.userId.toString();
+        const driverObjectId = new Types.ObjectId(driverDetails.userId);
+
+        try {
+          // Don't force-offline a driver who is in the middle of an active ride —
+          // that would disrupt pickup/ongoing-ride logic that relies on the driver
+          // remaining online. They will be re-evaluated on the next sweep once
+          // their ride completes or is cancelled.
+          const activeRide = await this.ridesModel
+            .findOne({
+              driverId: driverObjectId,
+              rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+              deleted: false,
+            })
+            .exec();
+
+          if (activeRide) {
+            this.logger.log(`Skipping offline-mark for driver ${driverId}: active ride ${activeRide.rideUUId} in progress`);
+            continue;
+          }
+
+          // Mark the driver offline and clear the location-update timestamp so a
+          // fresh 15-min window starts the next time they go online.
+          await this.userDetailsModel
+            .findOneAndUpdate(
+              { userId: driverObjectId, deleted: false },
+              { $set: { driverOnlineStatus: DriverOnlineStatus.OFFLINE, lastLocationUpdateAt: null } },
+            )
+            .exec();
+
+          // Stop listening to the driver's personal location channel on this service
+          // instance so we don't keep processing phantom location updates.
+          await this.unsubscribeFromDriverLocationChannel(driverId);
+
+          // Reconcile the daily online-status accounting so the driver's
+          // totalOnlineSeconds stays accurate (mirrors the logout flow in the api).
+          await this.finalizeDailyOnlineStatus(driverId);
+
+          markedOffline++;
+          this.logger.log(`Marked driver ${driverId} offline: no location update for ${timeoutMinutes} min`);
+        } catch (err: any) {
+          errors++;
+          this.logger.error(`Failed to mark driver ${driverId} offline: ${err?.message || err}`);
+        }
+      }
+
+      this.logger.log(`Stale driver sweep complete: processed=${processed}, markedOffline=${markedOffline}, errors=${errors}`);
+    } catch (err: any) {
+      this.logger.error(`Fatal error during stale driver sweep: ${err?.message || err}`);
+    }
+
+    return { processed, markedOffline, errors };
+  }
+
+  /**
+   * Manually trigger the stale-driver sweep. Exposed as a GraphQL mutation so
+   * operators can run it on demand (e.g. for testing). Also invoked by the cron.
+   */
+  async markStaleDriversOffline(): Promise<{ processed: number; markedOffline: number; errors: number }> {
+    return this.cleanupStaleOfflineDrivers();
+  }
+
+  /**
+   * When a driver is force-marked offline (no location updates), reconcile the
+   * daily online-status record: fold the elapsed online time into
+   * totalOnlineSeconds and clear lastOnlineAt. This mirrors the logout logic in
+   * the api's UserDetailsService.setOnlineStatus.
+   */
+  private async finalizeDailyOnlineStatus(driverId: string): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const record = await this.userDailyOnlineStatusModel
+        .findOne({ userId: new Types.ObjectId(driverId), date: today })
+        .exec();
+
+      if (record && record.lastOnlineAt) {
+        const elapsedSeconds = Math.floor((Date.now() - record.lastOnlineAt.getTime()) / 1000);
+        if (elapsedSeconds > 0) {
+          await this.userDailyOnlineStatusModel
+            .updateOne(
+              { _id: record._id },
+              { $inc: { totalOnlineSeconds: elapsedSeconds }, $set: { lastOnlineAt: null } },
+            )
+            .exec();
+        } else {
+          await this.userDailyOnlineStatusModel
+            .updateOne({ _id: record._id }, { $set: { lastOnlineAt: null } })
+            .exec();
+        }
+      }
+    } catch (err: any) {
+      // Non-fatal: online-time accounting is best-effort.
+      this.logger.warn(`Failed to reconcile daily online status for driver ${driverId}: ${err?.message || err}`);
     }
   }
 
@@ -1509,21 +1656,283 @@ export class MatchmakingService {
     }
   }
 
-  async getVehicleEstimates(params: { pickupLat: number; pickupLng: number; dropoffLat: number; dropoffLng: number; noOfPassengers: number }): Promise<VehicleEstimateGraphQL[]> {
+  async getVehicleEstimates(params: {
+    pickupLat: number;
+    pickupLng: number;
+    dropoffLat: number;
+    dropoffLng: number;
+    noOfPassengers: number;
+    promoCodeId?: string;
+    passengerId?: string;
+  }): Promise<VehicleEstimateGraphQL[]> {
     let vehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
     if (params.noOfPassengers > 1) vehicleTypes = [VehicleType.CAR];
-    return Promise.all(vehicleTypes.map(async (type) => {
+
+    // Resolve the promo code once (shared across all vehicle types) so we can
+    // re-use the same validation result, usage counts, and discount amounts.
+    // When a promo code is provided but invalid, we still capture its actual
+    // id/name and a human-readable message to return to the client.
+    let promo: PromoCodeDocument | null = null;
+    let promoCodeMessage: string | undefined;
+    let promoCodeName: string | undefined;
+    let promoCodeIdValue: string | undefined;
+    if (params.promoCodeId) {
+      const promoResult = await this.loadAndValidatePromoCode(params.promoCodeId, params.passengerId);
+      // A promo only contributes a discount when there's no validation reason.
+      promo = promoResult.reason ? null : promoResult.promo;
+      promoCodeMessage = promoResult.reason;
+      promoCodeIdValue = params.promoCodeId;
+      if (promoResult.promo) {
+        promoCodeName = promoResult.promo.name;
+      }
+    }
+
+    // Calculate the pickup→dropoff route ONCE, before looping over vehicle types.
+    // The route between two fixed coordinates is identical regardless of vehicle
+    // type, so computing it inside the Promise.all would redundantly invoke the
+    // Baato API once per vehicle type. The result drives the FARE calculation
+    // below for every vehicle type.
+    let routeDistanceKm = 0;
+    let routeDurationMinutes = 0;
+    try {
+      const route = await this.distanceCalculator.calculateDistance(params.pickupLat, params.pickupLng, params.dropoffLat, params.dropoffLng, VehicleType.CAR.toLowerCase());
+      routeDistanceKm = route.distanceKm;
+      routeDurationMinutes = route.durationMinutes;
+    } catch (err: any) {
+      this.logger.warn(`getVehicleEstimates: Baato pickup-to-dropoff distance failed, using default fallback (${routeDistanceKm} km): ${err?.message || err}`);
+    }
+
+    const estimates = await Promise.all(vehicleTypes.map(async (type): Promise<VehicleEstimateGraphQL | null> => {
       try {
-        const route = await this.distanceCalculator.calculateDistance(params.pickupLat, params.pickupLng, params.dropoffLat, params.dropoffLng, type.toLowerCase());
-        const fare = this.pricingService.calculateFare({ distanceKm: route.distanceKm, durationMinutes: route.durationMinutes, vehicleType: type as VehicleType });
+        // Find nearest available driver for this vehicle type.
+        // The driver-to-pickup distance and ETA drive the returned distance/time
+        // fields. No pickup→dropoff route calculation is needed here because
+        // the route was already calculated once above (outside the Promise.all).
+        const nearestDriver = await this.findNearestDriverDistance(
+          params.pickupLat,
+          params.pickupLng,
+          type as VehicleType,
+        );
+        // If no active/available driver exists for this vehicle type, skip it
+        // so the client doesn't show an estimate for an unavailable service.
+        if (!nearestDriver) {
+          this.logger.log(`No available driver for vehicle type ${type}; skipping estimate`);
+          return null;
+        }
+        this.logger.log(`Nearest driver for ${type}: distance: ${nearestDriver.distanceKm} km, ETA: ${nearestDriver.durationMinutes} min`);
+        const driverDistanceToPickupKm = nearestDriver.distanceKm;
+        const driverEtaMinutes = nearestDriver.durationMinutes;
+
+        // Fallback defaults so a meaningful fare is produced even when no driver
+        // is currently available (mirrors the pattern used elsewhere in this file).
+        const effectiveDurationMinutes = driverEtaMinutes;
+
+        // Use the pre-calculated pickup→dropoff route for the FARE.
+        // (distanceKm and estimatedTimeInMinutes returned below still reflect the
+        // nearest driver's distance/ETA to the pickup location.)
+        const fare = this.pricingService.calculateFare({ distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes, vehicleType: type as VehicleType });
+        const originalFare = Math.round(fare.total);
+
         let comfortType = ''; let hasAC: boolean | undefined = undefined;
         if (type === VehicleType.CAR) { comfortType = 'Comfortable city ride with fast pickup'; hasAC = true; } else if (type === VehicleType.MOTORBIKE) { comfortType = 'Affordable and quick'; hasAC = false; } else if (type === VehicleType.SCOOTER) { comfortType = 'Short and quick ride'; hasAC = false; }
-        return { vehicleType: type as VehicleType, estimatedFare: Math.round(fare.total), distanceKm: Number(route.distanceKm), estimatedTimeInMinutes: Number(route.durationMinutes), comfortType, hasAC, noOfPassengers: params.noOfPassengers };
+
+        // Apply promo discount if the promo code is valid for this fare.
+        const discountInfo = this.applyPromoDiscountToFare(promo, originalFare);
+
+        return {
+          vehicleType: type as VehicleType,
+          estimatedFare: Math.round(originalFare - (discountInfo?.discountAmount || 0)),
+          originalFare,
+          discountAmount: discountInfo?.discountAmount || 0,
+          promoCodeName: discountInfo?.promoCodeName || undefined,
+          promoCodeId: discountInfo?.promoCodeId ? discountInfo.promoCodeId.toString() : undefined,
+          distanceKm: routeDistanceKm,
+          driverDistanceToPickupKm,
+          estimatedTimeInMinutes: effectiveDurationMinutes,
+          comfortType,
+          hasAC,
+          noOfPassengers: params.noOfPassengers,
+        };
       } catch (err: any) {
         this.logger.error(`Failed to calculate vehicle estimate for type ${type}: ${err?.message || err}${err.response ? `, response: ${JSON.stringify(err.response)}` : ''}`);
-        return { vehicleType: type as VehicleType, estimatedFare: 0, distanceKm: 0, estimatedTimeInMinutes: 0, comfortType: '', hasAC: undefined, noOfPassengers: params.noOfPassengers };
+        return null;
       }
     }));
+    // Exclude vehicle types that have no available driver (or where estimation failed)
+    return estimates.filter((estimate): estimate is VehicleEstimateGraphQL => estimate !== null);
+  }
+
+  /**
+   * Load and validate a promo code against all its conditions.
+   * Returns the promo document (even when invalid) along with a human-readable
+   * reason when validation fails, so the caller can surface the actual promo
+   * code id/name and a message to the client when it is not valid.
+   */
+  private async loadAndValidatePromoCode(
+    promoCodeId: string,
+    passengerId?: string,
+  ): Promise<{ promo: PromoCodeDocument | null; reason?: string }> {
+    try {
+      const promo = await this.promoCodeModel.findById(toMongoId(promoCodeId)).exec();
+      if (!promo) {
+        return { promo: null, reason: `Promo code '${promoCodeId}' not found` };
+      }
+
+      const now = new Date();
+      if (
+        promo.status === PromoCodeStatusEnum.EXPIRED ||
+        promo.expiryDateTime < now ||
+        promo.startDateTime > now ||
+        promo.status !== PromoCodeStatusEnum.ACTIVE
+      ) {
+        this.logger.warn(`Promo code ${promo.name} is not in a valid time/status window for estimates`);
+        return { promo, reason: `Promo code '${promo.name}' is expired or not active` };
+      }
+
+      if (promo.appliedTo !== AppliedToEnum.ALL_RIDES && promo.appliedTo !== AppliedToEnum.INSTANT) {
+        this.logger.warn(`Promo code ${promo.name} is not applicable to INSTANT rides`);
+        return { promo, reason: `Promo code '${promo.name}' is not applicable to instant rides` };
+      }
+
+      if (!passengerId) {
+        // Without a passenger, we can't check usage limits. Allow static conditions only.
+        return { promo };
+      }
+
+      const [totalUsage, userUsage] = await Promise.all([
+        this.promoCodeUsedModel.countDocuments({ promoCodeId: promo._id }).exec(),
+        this.promoCodeUsedModel.countDocuments({ userId: toMongoId(passengerId), promoCodeId: promo._id }).exec(),
+      ]);
+
+      if (totalUsage >= promo.totalUsageLimit) {
+        this.logger.warn(`Promo code ${promo.name} has reached total usage limit`);
+        return { promo, reason: `Promo code '${promo.name}' has reached its usage limit` };
+      }
+      if (userUsage >= promo.perUserLimit) {
+        this.logger.warn(`Promo code ${promo.name} has reached per-user limit for ${passengerId}`);
+        return { promo, reason: `Promo code '${promo.name}' usage limit reached for this user` };
+      }
+
+      return { promo };
+    } catch (err: any) {
+      this.logger.warn(`Failed to validate promo code for estimates: ${err?.message || err}`);
+      return { promo: null, reason: 'Failed to validate promo code' };
+    }
+  }
+
+  /**
+   * Calculate the discount for a given original fare using a validated promo code.
+   * Also enforces the minimum-fare condition per vehicle type.
+   * Returns null when the promo code is invalid or conditions aren't met.
+   */
+  private applyPromoDiscountToFare(
+    promo: PromoCodeDocument | null,
+    originalFare: number,
+  ): { discountAmount: number; promoCodeName?: string; promoCodeId?: Types.ObjectId } | null {
+    if (!promo) return null;
+
+    if (Number(promo.minimumFare) > 0 && originalFare < Number(promo.minimumFare)) {
+      this.logger.warn(`Promo code ${promo.name} minimum fare not met: ${originalFare} < ${promo.minimumFare}`);
+      return null;
+    }
+
+    let discount = 0;
+    if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
+      discount = Math.round(originalFare * ((Number(promo.percentageAmount) || 0) / 100));
+      if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
+        discount = Math.round(Number(promo.maxDiscount));
+      }
+    } else if (promo.discountType === DiscountTypeEnum.FLAT) {
+      discount = Math.round(Number(promo.flatAmount) || 0);
+      if (discount > originalFare) {
+        discount = originalFare;
+      }
+    }
+
+    return {
+      discountAmount: Math.max(0, discount),
+      promoCodeName: promo.name,
+      promoCodeId: promo._id,
+    };
+  }
+
+  /**
+   * Find the nearest available (online, verified, non-busy) driver of the requested
+   * vehicle type and return the distance from pickup (km) plus the ETA (minutes).
+   * Returns null if no driver is found.
+   */
+  private async findNearestDriverDistance(
+    pickupLat: number,
+    pickupLng: number,
+    vehicleType: VehicleType,
+  ): Promise<{ distanceKm: number; durationMinutes: number } | null> {
+    try {
+      const vehicles = await this.vehicleModel
+        .find({ vehicleType: vehicleType as VehicleType, deleted: false })
+        .populate('driverId')
+        .limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING)
+        .exec();
+      this.logger.warn(`Found ${vehicles.length} vehicles of type ${vehicleType} for nearest-driver search`);
+      const validVehicles = vehicles.filter((v) => v.driverId && (v.driverId as any as UserDocument)._id);
+      this.logger.warn(`Filtered to ${validVehicles.length} valid vehicles of type ${vehicleType} with associated drivers`);
+      if (validVehicles.length === 0) return null;
+
+      const driverIds = validVehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+      const userDetailsDocs = await this.userDetailsModel
+        .find({ userId: { $in: driverIds }, driverOnlineStatus: DriverOnlineStatus.ONLINE, deleted: {$ne: true} })
+        .exec();
+      this.logger.warn(`Found ${userDetailsDocs.length} online driver details for vehicle type ${vehicleType}`);
+      const onlineMap = new Map<string, UserDetailsDocument>();
+      for (const ud of userDetailsDocs) onlineMap.set(ud.userId.toString(), ud);
+      if (onlineMap.size === 0) return null;
+
+      const onlineDriverIds = [...onlineMap.keys()].map((id) => new Types.ObjectId(id));
+      this.logger.log(`Found ${onlineDriverIds.length} online drivers for vehicle type ${vehicleType}`);
+      const activeRides = await this.ridesModel.find({
+        driverId: { $in: onlineDriverIds },
+        rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
+      }).exec();
+      const activeRideDriverIdSet = new Set(activeRides.map((r) => r.driverId.toString()));
+
+      let nearest: { distanceKm: number; durationMinutes: number } | null = null;
+      for (const v of validVehicles) {
+        const driver = v.driverId as any as UserDocument;
+        if (!driver?._id) continue;
+        const did = driver._id.toString();
+        const ud = onlineMap.get(did);
+        if (!ud) continue;
+        if (activeRideDriverIdSet.has(did)) continue;
+        if (driver.suspended || !driver.verified) continue;
+        if (driver.loginAs !== roles.RIDER) continue;
+
+        const coords = ud.geoLocation?.coordinates;
+        if (!coords || coords.length < 2) continue;
+        // GeoJSON: [lng, lat]
+        const driverLat = coords[1];
+        const driverLng = coords[0];
+        const dist = await this.distanceCalculator.calculateDriverDistance(
+           driverLat,driverLng,pickupLat, pickupLng,vehicleType.toLowerCase(),
+        );
+        this.logger.log("driver id", driver._id, "distanceKm", dist.distanceKm, "durationMinutes", dist.durationMinutes);
+        if (!nearest || dist.distanceKm < nearest.distanceKm) {
+          this.logger.log("nearest driver id", driver._id, "distanceKm", dist.distanceKm, "durationMinutes", dist.durationMinutes);
+          nearest = {
+            distanceKm: dist.distanceKm,
+            durationMinutes: dist.durationMinutes,
+          };
+        }
+      }
+
+      if (!nearest) return null;
+      this.logger.log(`Nearest driver for ${vehicleType}: distance: ${nearest.distanceKm} km, ETA: ${nearest.durationMinutes} min`);
+      return {
+        distanceKm: Math.round(nearest.distanceKm * 100) / 100,
+        durationMinutes: Math.round(nearest.durationMinutes),
+      };
+    } catch (err: any) {
+      this.logger.warn(`findNearestDriverDistance failed for ${vehicleType}: ${err?.message || err}`);
+      return null;
+    }
   }
 
   async cancelRideNotification(rideId: string, userId: string, userRole: string): Promise<{ success: boolean; message: string }> {

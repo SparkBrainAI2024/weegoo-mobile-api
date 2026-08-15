@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args, Int } from "@nestjs/graphql";
+import { Resolver, Mutation, Query, Args, Int, ID } from "@nestjs/graphql";
 import { Logger, BadRequestException } from "@nestjs/common";
 import { MatchmakingService } from "./matchmaking.service";
 import {
@@ -518,6 +518,30 @@ export class MatchmakingResolver {
     }
   }
 
+  @Mutation(() => BasicResult, {
+    name: "markStaleDriversOffline",
+    description:
+      "Manually trigger the sweep that marks ONLINE drivers offline when no location update has been received within the configured timeout (default 15 min). The cron job also runs this automatically on schedule.",
+  })
+  async markStaleDriversOffline(): Promise<BasicResult> {
+    this.logger.log("GraphQL: Manually triggering stale-driver offline sweep");
+    try {
+      const result = await this.matchmakingService.markStaleDriversOffline();
+      return {
+        success: true,
+        message: `Sweep complete: processed=${result.processed}, markedOffline=${result.markedOffline}, errors=${result.errors}`,
+      };
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to run stale-driver sweep: ${err?.message || err}`,
+      );
+      return {
+        success: false,
+        message: `Failed to run sweep: ${err?.message || err}`,
+      };
+    }
+  }
+
   @Query(() => [VehicleEstimateGraphQL], {
     name: "getVehicleEstimates",
     description: "Get estimates for different vehicle types",
@@ -526,6 +550,8 @@ export class MatchmakingResolver {
     @Args("pickupLocation") pickup: RideLocationInput,
     @Args("dropoffLocation") dropoff: RideLocationInput,
     @Args("noOfPassengers", { type: () => Int }) noOfPassengers: number,
+    @Args("promoCodeId", { type: () => ID, nullable: true }) promoCodeId?: string,
+    @Args("passengerId", { type: () => String, nullable: true }) passengerId?: string,
   ): Promise<VehicleEstimateGraphQL[]> {
     this.logger.log(
       `GraphQL: Getting vehicle estimates for ${noOfPassengers} passengers`,
@@ -544,6 +570,8 @@ export class MatchmakingResolver {
       dropoffLat: dropoff.latitude,
       dropoffLng: dropoff.longitude,
       noOfPassengers,
+      promoCodeId,
+      passengerId,
     });
   }
 }

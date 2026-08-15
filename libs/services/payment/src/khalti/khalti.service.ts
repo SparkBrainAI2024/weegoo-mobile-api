@@ -144,7 +144,7 @@ export class KhaltiService {
           paymentUrl: data.payment_url,
           pidx: data.pidx,
           sdkPayload,
-          useSdk: false, // Prefer redirect to Khalti's hosted page
+          useSdk: true, // Prefer redirect to Khalti's hosted page
         };
       }
 

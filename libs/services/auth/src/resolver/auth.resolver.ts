@@ -18,9 +18,7 @@ import {
   VerifyResetPasswordOtpResponse,
   RefreshTokenInput,
   ResetPasswordInput,
-  // EmailInput,
   PhoneInput,
-  // VerifyEmailInput,
   BasicResponse,
   GoogleSignInInput,
   GoogleSignUpInput,
@@ -39,26 +37,10 @@ export class AuthResolver {
     private readonly userService: UserService
   ) { }
 
-  // @Mutation(() => SignInResponse)
-  // verifyEmail(
-  //   @Args("input") input: VerifyEmailInput,
-  //   @CurrentLang() lang: string,
-  // ) {
-  //   return this.authService.verifyEmail(input, lang);
-  // }
-
   @Mutation(() => SignInResponse)
   loginWithRefreshToken(@Args("input") input: RefreshTokenInput) {
     return this.authService.loginWithRefreshToken(input.refreshToken);
   }
-
-  // @Mutation(() => BasicResponse)
-  // sendVerifyEmailOtp(
-  //   @Args("input") input: EmailInput,
-  //   @CurrentLang() lang: string,
-  // ) {
-  //   return this.authService.sendVerifyEmailOtp(input, lang);
-  // }
 
   @Mutation(() => BasicExpirationResponse)
   sendVerifyPhoneOtp(
@@ -67,14 +49,6 @@ export class AuthResolver {
   ) {
     return this.authService.sendVerifyPhoneOtp(input, lang);
   }
-
-  // @Mutation(() => VerifyResetPasswordOtpResponse)
-  // verifyResetPasswordOtp(
-  //   @Args("input") input: VerifyEmailInput,
-  //   @CurrentLang() lang: string,
-  // ) {
-  //   return this.authService.verifyResetPasswordOTP(input, lang);
-  // }
 
   @Mutation(() => BasicResponse)
   resetPassword(
@@ -151,5 +125,13 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.updatePhone(input, lang);
+  }
+
+  @Mutation(() => BasicExpirationResponse)
+  sendVerifyEmail(
+    @Args("email") email: string,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.sendVerifyEmail(email, lang);
   }
 }

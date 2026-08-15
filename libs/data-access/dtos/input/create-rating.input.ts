@@ -24,14 +24,6 @@ export class CreateRatingInput {
   @IsString()
   ratingRemarks?: string;
 
-  @Field(() => ID, {
-    nullable: true,
-    description: "Optional reference to a Remark entity id to populate the remarks section",
-  })
-  @IsOptional()
-  @IsMongoId()
-  remarkId?: string;
-
   @Field(() => String, {
     nullable: true,
     description: "Optional remark text provided by the user",

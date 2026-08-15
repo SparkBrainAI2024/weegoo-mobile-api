@@ -112,4 +112,42 @@ export class UserTokenMetaRepository extends BaseRepository<UserTokenMetaDocumen
       return [];
     }
   }
+
+  async updateFirebaseToken(userId: Types.ObjectId | string, deviceId: string, firebaseToken: string, deviceType?: string) {
+    try {
+      const userObjectId = typeof userId === 'string' ? toMongoId(userId) : userId;
+      
+      // Find existing token meta for this user and device
+      const existingToken = await this.model.findOne({ userId: userObjectId, deviceId });
+      console.log('Existing token meta:', existingToken);
+      if (existingToken) {
+        // Update existing token meta with new firebase token
+        return await this.model.updateOne(
+          { userId: userObjectId, deviceId },
+          { 
+            firebaseToken,
+            deviceType: deviceType || existingToken.deviceType,
+          }
+        );
+      } else {
+        // Throw error if user token meta doesn't exist
+        console.error('User token meta not found for user ID:', userId);
+        ErrorException(null, 'USER.NOT_FOUND', HttpStatus.NOT_FOUND);
+      }
+    } catch (e) {
+      ErrorException(e, 'COMMON.INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async clearFirebaseToken(userId: Types.ObjectId | string, deviceId: string) {
+    try {
+      const userObjectId = typeof userId === 'string' ? toMongoId(userId) : userId;
+      return await this.model.updateOne(
+        { userId: userObjectId, deviceId },
+        { $unset: { firebaseToken: 1 } }
+      );
+    } catch (e) {
+      ErrorException(e, 'COMMON.INTERNAL_SERVER_ERROR', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

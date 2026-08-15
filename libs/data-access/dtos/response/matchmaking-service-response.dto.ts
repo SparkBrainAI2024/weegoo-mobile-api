@@ -1,4 +1,4 @@
-import { Field, ObjectType, Float, Int } from '@nestjs/graphql';
+import { Field, ObjectType, Float, Int, ID } from '@nestjs/graphql';
 
 @ObjectType()
 export class FareBreakdownGraphQL {
@@ -260,8 +260,23 @@ export class VehicleEstimateGraphQL {
   @Field(() => Float)
   estimatedFare: number;
 
+  @Field(() => Float, { nullable: true })
+  originalFare?: number;
+
+  @Field(() => Float, { nullable: true })
+  discountAmount?: number;
+
+  @Field(() => String, { nullable: true })
+  promoCodeName?: string;
+
+  @Field(() => ID, { nullable: true })
+  promoCodeId?: string;
+
   @Field(() => Float)
   distanceKm: number;
+
+  @Field(() => Float, { nullable: true })
+  driverDistanceToPickupKm?: number;
 
   @Field(() => Float)
   estimatedTimeInMinutes: number;
@@ -274,4 +289,7 @@ export class VehicleEstimateGraphQL {
 
   @Field(() => Int)
   noOfPassengers: number;
+
+  @Field(() => String, { nullable: true })
+  promoCodeMessage?: string;
 }

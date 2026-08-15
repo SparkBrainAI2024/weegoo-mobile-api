@@ -1,5 +1,5 @@
-import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes, toMongoId, toMongoObjectId } from "@libs/common";
-import { ChangePasswordInput, DeviceRepository, language, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserTokenMetaRepository } from "@libs/data-access";
+import { comparePassword, ErrorException, hashPassword, passwordSalt, tokenTypes, toMongoId } from "@libs/common";
+import { ChangePasswordInput, DeviceRepository, DriverOnlineStatus, language, roles, UpdateFirebaseTokenInput, UserDetailsDocument, UserDetailsRepository, UserDocument, UserRepository, UserTokenMetaRepository } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { HttpStatus, Injectable } from "@nestjs/common";
 import { EnvService } from "@libs/common/config/env.service";
@@ -66,6 +66,16 @@ export class UserService {
         try {
             await this.deviceRepository.logout(userId, deviceId);
             await this.userTokenMetaRepository.deleteByUserAndDevice(userId, deviceId);
+
+            // If the user is a driver (RIDER), set them offline
+            const user = await this.userRepository.findOne({ _id: userId });
+            if (user && user.loginAs === roles.RIDER) {
+                await this.userDetailsRepository.updateOne(
+                    { userId: user._id },
+                    { $set: { driverOnlineStatus: DriverOnlineStatus.OFFLINE } }
+                );
+            }
+
             return { message: Message(lang, "USER.LOGGED_OUT"), success: true };
         } catch (e) {
             ErrorException(
@@ -159,40 +169,23 @@ export class UserService {
         }
     }
 
-    // async verifyChangeEmailOTP(
-    //     verifyOTPlInput: VerifyEmailInput,
-    //     lang: string,
-    //     userId
-    // ) {
-    //     try {
-    //         const { email, otp } = verifyOTPlInput;
-    //         const user: UserDocument = await this.userRepository.findOne({
-    //             _id: userId,
-    //         });
-    //         if (!user) {
-    //             ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
-    //         }
-    //         if (user.suspended) {
-    //             ErrorException(null, "USER.SUSPENDED", HttpStatus.UNAUTHORIZED);
-    //         }
-    //         const code = await this.userVerificationRepository.findOne({
-    //             userId: user._id,
-    //             otp: otp,
-    //             type: verificationType.VERIFICATION_EMAIL,
-    //         });
-    //         if (!code) {
-    //             ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
-    //         }
-    //         await this.userVerificationRepository.deleteOtpById(code._id);
-
-    //         await this.userRepository.updateOne({ _id: userId }, { email });
-    //         return { message: Message(lang, "USER.CHANGED_EMAIL"), success: true };
-    //     } catch (e) {
-    //         ErrorException(
-    //             e,
-    //             "COMMON.INTERNAL_SERVER_ERROR",
-    //             HttpStatus.INTERNAL_SERVER_ERROR
-    //         );
-    //     }
-    // }
+    async updateFirebaseToken(input: UpdateFirebaseTokenInput, userId: string, userEmail: string, lang: string) {
+        try {
+            // Use the repository method to update or create
+            await this.userTokenMetaRepository.updateFirebaseToken(
+                userId,
+                input.deviceId,
+                input.firebaseToken,
+                input.deviceType
+            );
+            
+            return { message: Message(lang, "USER.FIREBASE_TOKEN_UPDATED"), success: true };
+        } catch (e) {
+            ErrorException(
+                e,
+                "COMMON.INTERNAL_SERVER_ERROR",
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
 }

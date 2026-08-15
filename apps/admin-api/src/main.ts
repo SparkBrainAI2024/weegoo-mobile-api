@@ -4,7 +4,6 @@ import {
   NestExpressApplication,
   ExpressAdapter,
 } from "@nestjs/platform-express";
-import { join } from "path";
 import compression from "compression";
 import helmet from "helmet";
 import express from "express";
@@ -47,11 +46,6 @@ async function bootstrap() {
   );
 
   app.use(compression());
-
-  app.useStaticAssets(join(__dirname, "..", "files"), {
-    prefix: "/files/",
-  });
-
 
   return app;
 }

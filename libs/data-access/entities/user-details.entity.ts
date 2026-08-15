@@ -56,6 +56,15 @@ export class UserDetails extends BaseEntity {
   @Prop({ required: false, type: Object, default: null })
   geoLocation?: GeoLocation;
 
+  /**
+   * Timestamp of the last location update received from the driver's location channel.
+   * Used by the matchmaking service to detect drivers that have gone stale (no
+   * location update within the configured timeout) and mark them offline.
+   */
+  @Field(() => Date, { nullable: true })
+  @Prop({ required: false, type: Date, default: null })
+  lastLocationUpdateAt?: Date;
+
   @Field(() => GenderEnum, { defaultValue: GenderEnum.UNPUBLISHED })
   @Prop({
     type: String,
@@ -166,6 +175,10 @@ export class UserDetails extends BaseEntity {
     },
   })
   notificationSettings?: Record<string, Record<string, boolean>>;
+
+  @Field({ defaultValue: false })
+  @Prop({ default: false })
+  emailVerified: boolean;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
