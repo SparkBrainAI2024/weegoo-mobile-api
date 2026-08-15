@@ -24,6 +24,25 @@ export interface PaginationOptions {
   limit: number;
 }
 
+type PopulatedRide = {
+  _id: Types.ObjectId;
+  passengerId: {
+    _id: Types.ObjectId;
+    email: string;
+    phone: string;
+    suspended: boolean;
+  };
+  driverId: {
+    _id: Types.ObjectId;
+    email: string;
+    phone: string;
+    suspended: boolean;
+  };
+};
+
+type PopulatedIssue = Omit<Issue, "rideId"> & {
+  rideId: PopulatedRide;
+};
 @Injectable()
 export class IssueRepository {
   constructor(
@@ -66,16 +85,41 @@ export class IssueRepository {
     return { items, total };
   }
 
-  async findById(issueId: string): Promise<Issue | null> {
-    const issue = await this.model.findById(issueId).populate({
-      path: "reportedBy",
-      select: "name email ",
-      // ,
-      // populate: {
-      //   path: "userdetail",
-      //   select: "fullname",
-      // },
-    });
+  async findById(issueId: string): Promise<PopulatedIssue | null> {
+    const issue = await this.model.findById(issueId).populate<{
+      rideId: PopulatedRide;
+    }>([
+      {
+        path: "reportedBy",
+        select: "name email phone suspended",
+        populate: {
+          path: "userDetails",
+          select: "fullName",
+        },
+      },
+      {
+        path: "rideId",
+        select: "passengerId driverId",
+        populate: [
+          {
+            path: "passengerId",
+            select: "name email phone suspended userDetails",
+            populate: {
+              path: "userDetails",
+              select: "fullName displayIdAsPassenger",
+            },
+          },
+          {
+            path: "driverId",
+            select: "name email phone suspended userDetails",
+            populate: {
+              path: "userDetails",
+              select: "fullName displayIdAsDriver",
+            },
+          },
+        ],
+      },
+    ]);
     console.log(issue, "issue");
 
     return issue;

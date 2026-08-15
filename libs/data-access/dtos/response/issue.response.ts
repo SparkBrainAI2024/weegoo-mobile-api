@@ -107,6 +107,57 @@ export class ResolveIssueResponse {
 }
 
 @ObjectType()
+export class IssuePerson {
+  @Field(() => String)
+  role: string;
+
+  @Field(() => String, { nullable: true })
+  fullName: string | null;
+
+  @Field(() => String, { nullable: true })
+  phone: string | null;
+
+  @Field(() => String, { nullable: true })
+  displayId: string | null;
+
+  @Field(() => ID, { nullable: true })
+  userId: string | null;
+
+  @Field(() => Boolean)
+  suspended: boolean;
+}
+
+@ObjectType()
+export class IssueDetailResponse {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => IssueStatus)
+  status: IssueStatus;
+
+  @Field(() => IssuePriority)
+  priority: IssuePriority;
+
+  @Field(() => Date)
+  createdAt: Date;
+
+  @Field(() => String)
+  issueContent: string;
+
+  @Field(() => IssuePerson)
+  reporter: IssuePerson;
+
+  @Field(() => IssuePerson)
+  reportee: IssuePerson;
+
+  @Field(() => String)
+  ticketCode: string;
+
+  @Field(() => String, { nullable: true })
+  categoryLabel: string | null;
+}
+
+@ObjectType()
 export class CloseIssueResponse {
   @Field(() => String)
   message: string;

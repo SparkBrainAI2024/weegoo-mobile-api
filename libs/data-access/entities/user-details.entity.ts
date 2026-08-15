@@ -14,9 +14,14 @@ import {
 } from "../enums/user.enum";
 import { BaseEntity } from "../base/base.entity";
 import { UserProfileImageEntity } from "../common/user-profile-image";
+import { UserSchema } from "./user.entity";
+import { customAlphabet } from "nanoid";
 
 export type UserDetailsDocument = UserDetails & HydratedDocument<UserDetails>;
-
+const generateIssueId = customAlphabet(
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  7,
+);
 @ObjectType()
 @Schema({ timestamps: true })
 export class UserDetails extends BaseEntity {
@@ -139,19 +144,44 @@ export class UserDetails extends BaseEntity {
   @Prop({ required: false, type: String, default: null })
   esewaAccount?: string;
 
+  @Field(() => String)
+  @Prop({ required: true, unique: true, type: String })
+  displayIdAsDriver: string;
+
+  @Field(() => String)
+  @Prop({ required: true, unique: true, type: String })
+  displayIdAsPassenger: string;
+
   @Field({ nullable: true })
   @Prop({ required: false, type: String, default: null })
   khaltiAccount?: string;
 
   @Field(() => GraphQLJSON, { nullable: true })
-  @Prop({ required: false, type: Object, default: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } } })
+  @Prop({
+    required: false,
+    type: Object,
+    default: {
+      RIDER: { earnings: true, appUpdates: true },
+      USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true },
+    },
+  })
   notificationSettings?: Record<string, Record<string, boolean>>;
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
+UserDetailsSchema.pre("save", function (next) {
+  if (!this.displayIdAsDriver) {
+    this.displayIdAsDriver = "DR-" + generateIssueId();
+  }
+
+  if (!this.displayIdAsPassenger) {
+    this.displayIdAsPassenger = "PA-" + generateIssueId();
+  }
+
+  next();
+});
 // Create a 2dsphere index on the geoLocation field for $geoNear queries
 UserDetailsSchema.index({ geoLocation: "2dsphere" });
-
 
 export const userDetailModel = {
   name: UserDetails.name,

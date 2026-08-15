@@ -5,6 +5,7 @@ import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument } from "mongoose";
 import { paginateAndSoftDelete } from "../plugins/mongoose.plugin";
 import { Vehicle } from "./vehicle.entity";
+import { UserDetails } from "./user-details.entity";
 
 @ObjectType()
 @Schema({ timestamps: true })
@@ -98,6 +99,8 @@ export class User extends BaseEntity {
   passengerSlugId?: string;
 
   vehicle?: Vehicle;
+
+  userDetails?: UserDetails;
 }
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
@@ -109,6 +112,13 @@ UserSchema.virtual("vehicle", {
   ref: "Vehicle",
   localField: "_id",
   foreignField: "driverId",
+  justOne: true,
+});
+
+UserSchema.virtual("userDetails", {
+  ref: "UserDetails",
+  localField: "_id",
+  foreignField: "userId",
   justOne: true,
 });
 
