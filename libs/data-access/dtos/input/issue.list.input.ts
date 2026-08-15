@@ -66,9 +66,23 @@ export class ResolveIssueInput {
 }
 
 @InputType()
+export class IssueDetailInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
+}
+
+@InputType()
 export class BulkResolveIssuesInput {
   @Field(() => [ID])
   @ArrayMinSize(1)
   @IsMongoId({ each: true })
   ids: string[];
+}
+
+@InputType()
+export class CloseIssueInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
 }

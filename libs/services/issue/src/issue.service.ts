@@ -14,6 +14,7 @@ import {
   CategoryAccessedByRole,
   IssueCategoryForRole,
   IssueParentCategory,
+  IssuePriority,
   IssueStatus,
   ReportedByType,
 } from "@libs/data-access/enums/issue.enum";
@@ -24,6 +25,7 @@ import {
   IssueCategoryInput,
   RidesRepository,
   CreateIssueInput,
+  CloseIssueResponse,
 } from "@libs/data-access";
 import { Types } from "mongoose";
 import { Message } from "@libs/localization";
@@ -34,7 +36,8 @@ import { IssueCategory } from "@libs/data-access/entities/issue-category.entity"
 const VALID_TRANSITIONS: Record<IssueStatus, IssueStatus[]> = {
   [IssueStatus.OPEN]: [IssueStatus.IN_REVIEW],
   [IssueStatus.IN_REVIEW]: [IssueStatus.RESOLVED],
-  [IssueStatus.RESOLVED]: [],
+  [IssueStatus.RESOLVED]: [IssueStatus.CLOSED],
+  [IssueStatus.CLOSED]: [],
 };
 
 export const issueCategorySeed = [
@@ -131,6 +134,7 @@ export class IssueService {
       category: categoryEmbed as any,
       issueContent: issueContent.trim(),
       rideId,
+      priority: rideId ? IssuePriority.HIGH : IssuePriority.MEDIUM,
     });
 
     return {
@@ -228,6 +232,7 @@ export class IssueService {
       category: categoryEmbed as any,
       issueContent: complaintContent.trim(),
       rideId: undefined,
+      priority: IssuePriority.MEDIUM,
     });
 
     return {
