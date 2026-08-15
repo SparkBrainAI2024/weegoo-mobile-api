@@ -7,6 +7,8 @@ import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 import { RidesListResponse } from "@libs/data-access/dtos/response/rides-list.response";
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 import { Rides } from "@libs/data-access";
+import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
+import { AdminDashboardResponse } from "@libs/data-access/dtos/response/admin-dashboard.response";
 
 @Resolver()
 export class AdminRidesResolver {
@@ -21,5 +23,11 @@ export class AdminRidesResolver {
   @Query(() => Rides, { nullable: true })
   async ride(@Args("id") id: string) {
     return this.ridesService.getRideByIdAdmin(id);
+  }
+
+  @UseGuards(AdminAuthGuard)
+  @Query(() => AdminDashboardResponse)
+  async adminDashboard(@Args("input") input: AdminDashboardInput) {
+    return this.ridesService.getAdminDashboard(input);
   }
 }

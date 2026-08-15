@@ -52,12 +52,15 @@ import axios from "axios";
 import { InjectModel } from "@nestjs/mongoose";
 import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
+import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
+import { TransactionRepository } from "@libs/data-access/repositories/transaction.repository";
 @Injectable()
 export class RidesService {
   constructor(
     private readonly rideRepository: RidesRepository,
     private readonly userRepository: UserRepository,
     private readonly transactionService: TransactionService,
+    private readonly transactionRepository: TransactionRepository,
     private readonly issueRepository: IssueRepository,
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly driverDocumentRepository: DriverDocumentRepository,
@@ -1117,6 +1120,116 @@ export class RidesService {
           (key) => this.s3.getPublicUrl(key),
         ),
       },
+    };
+  }
+
+  /**
+   * Fetches admin dashboard statistics for a given date.
+   *
+   * Computes:
+   *  - totalActiveRides: rides with status CONFIRMED / ONGOING / PICKUP on the given date
+   *  - activeRider: unique drivers involved in active rides on the given date
+   *  - activePassenger: unique passengers involved in active rides on the given date
+   *  - totalRevenue: sum of completed commission transactions on the given date
+   *  - completeCommissionTransactions: count of completed commission transactions on the given date
+   *  - totalCancelledRides: cancelled rides on the given date
+   *  - previousDateTotalCancelledRides: cancelled rides on the previous day
+   *  - cancelledRidesPercentChange: percent change between previous day and given date
+   */
+  async getAdminDashboard(input: AdminDashboardInput) {
+    const { date } = input;
+
+    // Start and end of the selected date
+    const selectedDate = new Date(date);
+    selectedDate.setHours(0, 0, 0, 0);
+    const nextDate = new Date(selectedDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+
+    // Start and end of the previous date
+    const prevDate = new Date(selectedDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevNextDate = new Date(prevDate);
+    prevNextDate.setDate(prevNextDate.getDate() + 1);
+
+    const activeStatuses = [
+      RideStatus.CONFIRMED,
+      RideStatus.ONGOING,
+      RideStatus.PICKUP,
+    ];
+
+    // 1. Total active rides for the selected date
+    const totalActiveRides = await this.rideRepository.count({
+      bookingTime: { $gte: selectedDate, $lte: nextDate },
+      rideStatus: { $in: activeStatuses },
+      deleted: false,
+    });
+
+    // 2 & 3. Active riders (unique drivers) and active passengers (unique passengers)
+    const activeRides = await this.rideRepository.find(
+      {
+        bookingTime: { $gte: selectedDate, $lte: nextDate },
+        rideStatus: { $in: activeStatuses },
+        deleted: false,
+      },
+      null,
+      { driverId: 1, passengerId: 1 },
+    );
+
+    const activeRider = new Set(
+      activeRides
+        .map((ride) => ride.driverId?.toString())
+        .filter((id): id is string => !!id),
+    ).size;
+
+    const activePassenger = new Set(
+      activeRides
+        .map((ride) => ride.passengerId?.toString())
+        .filter((id): id is string => !!id),
+    ).size;
+
+    // 4 & 5. Total revenue and completed commission transactions for the selected date
+    const { totalRevenue, completedTransactionsCount } =
+      await this.transactionRepository.getCommissionTransactionsByDateRange(
+        selectedDate,
+        nextDate,
+      );
+
+    // 6. Total cancelled rides for the selected date
+    const totalCancelledRides = await this.rideRepository.count({
+      bookingTime: { $gte: selectedDate, $lte: nextDate },
+      rideStatus: RideStatus.CANCELLED,
+      deleted: false,
+    });
+
+    // 7. Total cancelled rides for the previous date
+    const previousDateTotalCancelledRides = await this.rideRepository.count({
+      bookingTime: { $gte: prevDate, $lte: prevNextDate },
+      rideStatus: RideStatus.CANCELLED,
+      deleted: false,
+    });
+
+    // 8. Percent change for cancelled rides
+    let cancelledRidesPercentChange = 0;
+    if (previousDateTotalCancelledRides > 0) {
+      cancelledRidesPercentChange =
+        ((totalCancelledRides - previousDateTotalCancelledRides) /
+          previousDateTotalCancelledRides) *
+        100;
+    } else if (totalCancelledRides > 0) {
+      // No cancelled rides previous day but some today → 100% increase
+      cancelledRidesPercentChange = 100;
+    }
+
+    return {
+      totalActiveRides,
+      activeRider,
+      activePassenger,
+      totalRevenue,
+      completeCommissionTransactions: completedTransactionsCount,
+      totalCancelledRides,
+      previousDateTotalCancelledRides,
+      cancelledRidesPercentChange:
+        Math.round(cancelledRidesPercentChange * 100) / 100,
     };
   }
 }

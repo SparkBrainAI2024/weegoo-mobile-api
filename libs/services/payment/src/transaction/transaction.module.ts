@@ -5,6 +5,7 @@ import { UserPersistenceModule } from "@libs/services/user/user-persistent.modul
 import { WalletModule } from "../wallet/wallet.module";
 import { UserTransactionResolver } from "./resolver/transaction.resolver";
 import { EnvService } from "@libs/common/config/env.service";
+import { TransactionRepository } from "@libs/data-access/repositories/transaction.repository";
 
 @Module({
   imports: [
@@ -12,7 +13,7 @@ import { EnvService } from "@libs/common/config/env.service";
     UserPersistenceModule,
     forwardRef(() => WalletModule),
   ],
-  providers: [TransactionService, UserTransactionResolver, EnvService],
-  exports: [TransactionService, UserTransactionResolver],
+  providers: [TransactionService, UserTransactionResolver, EnvService, TransactionRepository],
+  exports: [TransactionService, UserTransactionResolver, TransactionRepository],
 })
 export class TransactionModule {}

@@ -568,17 +568,6 @@ enum IssueStatus {
   RESOLVED
 }
 
-type Remark {
-  _id: String!
-  createdAt: DateTime
-  updatedAt: DateTime
-  deletedAt: DateTime
-  deleted: Boolean
-
-  """Display name / text of the remark"""
-  name: String!
-}
-
 type Rating {
   _id: String!
   createdAt: DateTime
@@ -595,11 +584,19 @@ type Rating {
   rideId: String!
   ratingRemarks: String
 
-  """Populated remark (with name and id) for this rating"""
-  remark: Remark
-
   """Remark text provided by the user"""
   remarkByUser: String
+}
+
+type Remark {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+
+  """Display name / text of the remark"""
+  name: String!
 }
 
 type ContactUs {
@@ -695,6 +692,7 @@ type UserDetailsResponse {
   address: String
   email: String
   phoneNumber: String
+  emailVerified: Boolean
   walletInfo: WalletInfoResponse
   totalTrips: Float
   amountDueToCompany: Float
@@ -1409,6 +1407,46 @@ type RidesListResponse {
   limit: Int!
 }
 
+type AdminDashboardResponse {
+  """
+  Total number of active rides (CONFIRMED / ONGOING / PICKUP) for the given date.
+  """
+  totalActiveRides: Int!
+
+  """
+  Number of unique active riders (drivers) involved in active rides for the given date.
+  """
+  activeRider: Int!
+
+  """
+  Number of unique active passengers involved in active rides for the given date.
+  """
+  activePassenger: Int!
+
+  """
+  Total revenue from completed commission transactions for the given date.
+  """
+  totalRevenue: Float!
+
+  """Total number of completed commission transactions for the given date."""
+  completeCommissionTransactions: Int!
+
+  """
+  Total number of cancelled rides for the given date (based on bookingTime).
+  """
+  totalCancelledRides: Int!
+
+  """
+  Total number of cancelled rides for the previous day (the day before the given date).
+  """
+  previousDateTotalCancelledRides: Int!
+
+  """
+  Percent change in cancelled rides between the previous day and the given date. Positive = increase, negative = decrease.
+  """
+  cancelledRidesPercentChange: Float!
+}
+
 type EmailTemplateListWithPaginationResponse {
   message: String
   data: [EmailTemplate!]
@@ -1445,6 +1483,7 @@ type Query {
   getPassengerRatings(input: RiderRatingsInput!): RiderRatingsResponse!
   rides(input: RidesListInput!): RidesListResponse!
   ride(id: String!): Rides
+  adminDashboard(input: AdminDashboardInput!): AdminDashboardResponse!
 
   """
   Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
@@ -1536,6 +1575,11 @@ enum RideTimeRange {
   LAST_24_HOURS
   LAST_7_DAYS
   LAST_30_DAYS
+}
+
+input AdminDashboardInput {
+  """The date for which to fetch dashboard statistics (calendar date)."""
+  date: DateTime!
 }
 
 input TransactionPaginationInput {
