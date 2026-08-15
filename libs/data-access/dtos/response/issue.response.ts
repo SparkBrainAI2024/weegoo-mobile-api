@@ -3,6 +3,7 @@ import { BasicResponse } from "./basic.response";
 // types/issue-list.response.ts
 import { Field, ID, Int, ObjectType } from "@nestjs/graphql";
 import {
+  IssueParentCategory,
   IssuePriority,
   IssueStatus,
   ReportedByType,
@@ -167,6 +168,9 @@ export class IssueDetailResponse {
 
   @Field(() => String, { nullable: true })
   categoryLabel: string | null;
+
+  @Field(() => IssueParentCategory)
+  issueCategoryType: IssueParentCategory;
 }
 
 @ObjectType()

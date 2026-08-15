@@ -6,6 +6,7 @@ import {
   CategoryAccessedByRole,
   IssueCategoryForRole,
   IssueParentCategory,
+  IssuePriority,
   IssueStatus,
   ReportedByType,
 } from "@libs/data-access/enums/issue.enum";
@@ -57,6 +58,7 @@ export class IssueRepository {
       category: IssueCategoryEmbed;
       reportedBy: string;
       reportedByType: ReportedByType;
+      priority: IssuePriority;
     },
   ): Promise<Issue> {
     return this.model.create({
@@ -90,7 +92,7 @@ export class IssueRepository {
       rideId: PopulatedRide;
     }>([
       {
-        path: "reportedBy",
+        path: "reportedBy category",
         select: "name email phone suspended",
         populate: {
           path: "userDetails",
@@ -120,6 +122,7 @@ export class IssueRepository {
         ],
       },
     ]);
+    console.log(issue, "issue");
 
     return issue;
   }

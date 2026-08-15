@@ -80,7 +80,6 @@ type RideLocation {
 }
 
 """The provinces of Nepal"""
-"""The provinces of Nepal"""
 enum ProvinceEnum {
   """Province No. 1 (Koshi)"""
   PROVINCE_1
@@ -571,17 +570,6 @@ enum IssueStatus {
   CLOSED
 }
 
-type Remark {
-  _id: String!
-  createdAt: DateTime
-  updatedAt: DateTime
-  deletedAt: DateTime
-  deleted: Boolean
-
-  """Display name / text of the remark"""
-  name: String!
-}
-
 type Rating {
   _id: String!
   createdAt: DateTime
@@ -598,11 +586,19 @@ type Rating {
   rideId: String!
   ratingRemarks: String
 
-  """Populated remark (with name and id) for this rating"""
-  remark: Remark
-
   """Remark text provided by the user"""
   remarkByUser: String
+}
+
+type Remark {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+
+  """Display name / text of the remark"""
+  name: String!
 }
 
 type ContactUs {
@@ -698,6 +694,7 @@ type UserDetailsResponse {
   address: String
   email: String
   phoneNumber: String
+  emailVerified: Boolean
   walletInfo: WalletInfoResponse
   totalTrips: Float
   amountDueToCompany: Float
@@ -799,6 +796,7 @@ type IssueDetailResponse {
   reportee: IssuePerson!
   ticketCode: String!
   categoryLabel: String
+  issueCategoryType: IssueParentCategory!
 }
 
 type CloseIssueResponse {

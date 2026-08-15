@@ -163,10 +163,8 @@ export class IssueService {
         rideUUId: issue.rideId.rideUUId,
       },
       ticketCode: issue.displayId ?? "",
-      categoryLabel:
-        issue.category?.subCategoryLabel ??
-        issue.category?.parentCategory ??
-        null,
+      categoryLabel: issue.category?.subCategoryLabel ?? null,
+      issueCategoryType: issue.category.parentCategory,
     };
   }
   async resolveIssue(
