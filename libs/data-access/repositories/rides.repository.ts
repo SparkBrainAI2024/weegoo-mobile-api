@@ -274,10 +274,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
               { $gt: [{ $size: "$commissionTxns" }, 0] },
               { $arrayElemAt: ["$commissionTxns.amount", 0] },
               {
-                $multiply: [
-                  { $ifNull: ["$fare.totalAmount", 0] },
-                  0.2,
-                ],
+                $multiply: [{ $ifNull: ["$fare.totalAmount", 0] }, 0.2],
               },
             ],
           },
@@ -287,9 +284,13 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     // Apply commission status filter
     if (filter === "DUE") {
-      pipeline.push({ $match: { commissionStatus: DriverTripCommissionFilter.DUE } });
+      pipeline.push({
+        $match: { commissionStatus: DriverTripCommissionFilter.DUE },
+      });
     } else if (filter === "PAID") {
-      pipeline.push({ $match: { commissionStatus: DriverTripCommissionFilter.PAID } });
+      pipeline.push({
+        $match: { commissionStatus: DriverTripCommissionFilter.PAID },
+      });
     }
 
     pipeline.push({
@@ -325,7 +326,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return {
       data: result?.data || [],
       total: result?.total?.[0]?.count || 0,
-      totalCommission: Math.round((result?.totalCommission?.[0]?.total || 0) * 100) / 100,
+      totalCommission:
+        Math.round((result?.totalCommission?.[0]?.total || 0) * 100) / 100,
     };
   }
 
@@ -746,6 +748,36 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       },
       { new: true },
     );
+  }
+
+  async findByIdWithFullDetailsForAdmin(
+    rideId: string,
+  ): Promise<RidesDocument | null> {
+    const filter = { _id: rideId };
+
+    const populate: Populate = [
+      { path: "vehicleId" },
+      {
+        path: "driverId",
+        select: "name email phone suspended userDetails",
+        populate: {
+          path: "userDetails",
+          select:
+            "fullName displayIdAsDriver profileImages rating totalRidesAsDriver",
+        },
+      },
+      {
+        path: "passengerId",
+        select: "name email phone suspended userDetails",
+        populate: {
+          path: "userDetails",
+          select:
+            "fullName displayIdAsPassenger profileImages rating totalTripsAsPassenger",
+        },
+      },
+    ];
+
+    return this.findOne(filter, populate);
   }
 
   async findByIdWithAllDetails(rideId: string): Promise<RidesDocument | null> {
