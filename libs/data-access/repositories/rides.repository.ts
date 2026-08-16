@@ -403,8 +403,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     const match: Record<string, any> = {
       deleted: { $ne: true },
-      // ,
-      // bookingTime: { $gte: new Date(Date.now() - TIME_RANGE_MS[timeRange]) },
     };
     if (status) match.rideStatus = status;
 
@@ -428,6 +426,63 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       },
       { $unwind: { path: "$riderUser", preserveNullAndEmptyArrays: true } },
       { $unwind: { path: "$driverUser", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "passengerId",
+          foreignField: "userId",
+          as: "passengerDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "driverId",
+          foreignField: "userId",
+          as: "driverDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$passengerDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      { $unwind: { path: "$driverDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          passenger: {
+            $cond: [
+              { $ifNull: ["$riderUser", false] },
+              {
+                userId: "$riderUser._id",
+                fullName: "$passengerDetails.fullName",
+                phone: "$riderUser.phone",
+                rating: "$passengerDetails.rating",
+                profileImage: {
+                  $arrayElemAt: ["$passengerDetails.profileImages", 0],
+                },
+              },
+              null,
+            ],
+          },
+          driver: {
+            $cond: [
+              { $ifNull: ["$driverUser", false] },
+              {
+                userId: "$driverUser._id",
+                fullName: "$driverDetails.fullName",
+                phone: "$driverUser.phone",
+                rating: "$driverDetails.rating",
+                profileImage: {
+                  $arrayElemAt: ["$driverDetails.profileImages", 0],
+                },
+              },
+              null,
+            ],
+          },
+        },
+      },
     ];
 
     if (search) {
@@ -436,8 +491,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         $match: {
           $or: [
             { rideUUId: regex },
-            { "riderUser.fullName": regex },
-            { "driverUser.fullName": regex },
+            { "passengerDetails.fullName": regex },
+            { "driverDetails.fullName": regex },
           ],
         },
       });
