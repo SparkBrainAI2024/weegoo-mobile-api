@@ -794,7 +794,7 @@ type RideInIssue {
 
 type IssueDetailResponse {
   id: ID!
-  rideId: RideInIssue!
+  rideId: RideInIssue
   status: IssueStatus!
   priority: IssuePriority!
   createdAt: DateTime!

@@ -171,10 +171,12 @@ export class IssueService {
       issueContent: issue.issueContent,
       reporter,
       reportee,
-      rideId: {
-        id: issue.rideId._id.toString(),
-        rideUUId: issue.rideId.rideUUId,
-      },
+      rideId: issue?.rideId
+        ? {
+            id: issue.rideId._id.toString(),
+            rideUUId: issue.rideId.rideUUId,
+          }
+        : null,
       ticketCode: issue.displayId ?? "",
       categoryLabel: issue.category?.subCategoryLabel ?? null,
       issueCategoryType: issue.category.parentCategory,
