@@ -21,9 +21,11 @@ import {
 import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
+  CreateIssueResponse,
   Issue,
   IssueDetailResponse,
   IssueListResponse,
+  IssueStatus,
   ResolveIssueResponse,
 } from "@libs/data-access";
 import { IssueService } from "../issue.service";
@@ -79,5 +81,14 @@ export class IssueResolver {
     @CurrentLang() lang: string,
   ): Promise<BulkResolveIssuesResponse> {
     return this.issueService.bulkResolveIssues(ids, resolvedBy);
+  }
+
+  @Mutation(() => CreateIssueResponse)
+  async updateIssueStatus(
+    @Args("id", { type: () => ID }) id: string,
+    @Args("status", { type: () => IssueStatus }) status: IssueStatus,
+    @CurrentLang() lang: string,
+  ): Promise<CreateIssueResponse> {
+    return this.issueService.updateIssueStatus(id, status, lang);
   }
 }

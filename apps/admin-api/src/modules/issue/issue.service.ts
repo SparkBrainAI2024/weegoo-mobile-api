@@ -6,12 +6,14 @@ import {
   Issue,
   IssueDetailResponse,
   IssueListResponse,
+  IssueStatus,
   ResolveIssueResponse,
 } from "@libs/data-access";
 import { IssueListInput } from "@libs/data-access/dtos/input/issue.list.input";
 import { IssueRepository } from "@libs/data-access/repositories/issue.repository";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { UserProfileImageEntity } from "@libs/data-access/common/user-profile-image";
+import { Message } from "@libs/localization";
 
 export type PopulatedReportedBy = {
   _id: Types.ObjectId;
@@ -177,7 +179,6 @@ export class IssueService {
       categoryLabel: issue.category?.subCategoryLabel ?? null,
       issueCategoryType: issue.category.parentCategory,
     };
-    console.log(issueResponse, "issueres");
     return issueResponse;
   }
   async resolveIssue(
@@ -204,6 +205,15 @@ export class IssueService {
     return {
       message: `${resolvedCount} issue${resolvedCount === 1 ? "" : "s"} resolved`,
       resolvedCount,
+    };
+  }
+
+  async updateIssueStatus(id: string, status: IssueStatus, lang: string) {
+    const issueUpdated = await this.issueRepository.updateStatus(id, status);
+    return {
+      message: Message(lang, "ISSUE.UPDATED"),
+      success: true,
+      issue: issueUpdated,
     };
   }
 }
