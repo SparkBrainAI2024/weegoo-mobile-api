@@ -17,6 +17,7 @@ import { CurrentLang } from "@libs/common/decorators/header.decorators";
 import {
   IssueDetailInput,
   IssueListInput,
+  UpdateIssueStatusInput,
 } from "@libs/data-access/dtos/input/issue.list.input";
 import {
   BulkResolveIssuesResponse,
@@ -85,10 +86,13 @@ export class IssueResolver {
 
   @Mutation(() => CreateIssueResponse)
   async updateIssueStatus(
-    @Args("id", { type: () => ID }) id: string,
-    @Args("status", { type: () => IssueStatus }) status: IssueStatus,
-    @CurrentLang() lang: string,
+    @Args("input", {
+      type: () => UpdateIssueStatusInput,
+    })
+    input: UpdateIssueStatusInput,
+    @CurrentLang()
+    lang: string,
   ): Promise<CreateIssueResponse> {
-    return this.issueService.updateIssueStatus(id, status, lang);
+    return this.issueService.updateIssueStatus(input.id, input.status, lang);
   }
 }
