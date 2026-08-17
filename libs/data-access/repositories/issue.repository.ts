@@ -114,7 +114,6 @@ export class IssueRepository {
         ],
       },
     ]);
-    console.log(issue, "issue");
 
     return issue;
   }

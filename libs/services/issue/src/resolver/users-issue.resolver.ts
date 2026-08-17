@@ -60,7 +60,6 @@ export class UsersIssueResolver {
     @CurrentLang() lang,
     @Args("input") input: CreateComplaintInput,
   ): Promise<CreateComplaintResponse> {
-    console.log(user, "user");
     let reportedByType: ReportedByType;
     let loggedInAs = user.loginAs;
     if (loggedInAs == roles.RIDER) {
