@@ -5,6 +5,7 @@ import {
 } from "@libs/common/utils/entity.utils";
 import {
   BasicResponse,
+  DriverDocument,
   GenderEnum,
   IPaginatedResult,
   RidesRepository,
@@ -148,9 +149,8 @@ export class DriverService {
 
     const documents =
       await this.driverDocumentRepository.getDriverDocuments(driverId);
-    const allDocumentsApproved = documents.every(
-      (doc) => doc.status === DriverDocumentBundleStatus.APPROVED,
-    );
+
+    const allDocumentsApproved = this.getAllDocumentsApprovedStatus(documents);
     const driverEnrichedWithRideDetails =
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
@@ -180,6 +180,13 @@ export class DriverService {
       allDocumentsApproved,
       ...driverEnrichedWithRideDetails,
     };
+  }
+
+  getAllDocumentsApprovedStatus(documents: DriverDocument[]) {
+    const allDocumentsApproved = documents.every(
+      (doc) => doc.status === DriverDocumentBundleStatus.APPROVED,
+    );
+    return allDocumentsApproved;
   }
 
   async listDrivers(input: DriverListInput): Promise<

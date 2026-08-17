@@ -17,13 +17,16 @@ import { CurrentLang } from "@libs/common/decorators/header.decorators";
 import {
   IssueDetailInput,
   IssueListInput,
+  UpdateIssueStatusInput,
 } from "@libs/data-access/dtos/input/issue.list.input";
 import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
+  CreateIssueResponse,
   Issue,
   IssueDetailResponse,
   IssueListResponse,
+  IssueStatus,
   ResolveIssueResponse,
 } from "@libs/data-access";
 import { IssueService } from "../issue.service";
@@ -79,5 +82,17 @@ export class IssueResolver {
     @CurrentLang() lang: string,
   ): Promise<BulkResolveIssuesResponse> {
     return this.issueService.bulkResolveIssues(ids, resolvedBy);
+  }
+
+  @Mutation(() => CreateIssueResponse)
+  async updateIssueStatus(
+    @Args("input", {
+      type: () => UpdateIssueStatusInput,
+    })
+    input: UpdateIssueStatusInput,
+    @CurrentLang()
+    lang: string,
+  ): Promise<CreateIssueResponse> {
+    return this.issueService.updateIssueStatus(input.id, input.status, lang);
   }
 }

@@ -21,6 +21,8 @@ import {
   PopulatedRide,
 } from "@admin-api/modules/issue/issue.service";
 import { IssuePerson } from "../dtos/response/issue.response";
+import { BaseRepository } from "../base/base.repository";
+import { BaseModel } from "../base/base.model";
 
 export interface IssueFilters {
   status?: IssueStatus;
@@ -36,6 +38,7 @@ export class IssueRepository {
   constructor(
     @InjectModel(Issue.name)
     private readonly model: Model<IssueDocument>,
+
     @InjectModel(IssueCategory.name)
     private readonly issueCategoryEmbed: Model<IssueCategory>,
   ) {}
@@ -49,7 +52,7 @@ export class IssueRepository {
     },
   ): Promise<Issue> {
     return this.model.create({
-      data,
+      ...data,
       reportedBy: toMongoId(data.reportedBy),
       rideId: toMongoId(data.rideId),
     });
@@ -111,7 +114,6 @@ export class IssueRepository {
         ],
       },
     ]);
-    console.log(issue, "issue");
 
     return issue;
   }

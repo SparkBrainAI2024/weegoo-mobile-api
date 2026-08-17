@@ -537,7 +537,7 @@ type Issue {
   displayId: String!
   assignedTo: String
   category: IssueCategoryEmbed
-  issueContent: String!
+  issueContent: String
   status: IssueStatus!
   resolvedBy: String
   resolvedAt: DateTime
@@ -732,6 +732,12 @@ enum RidePreference {
   """The ride is requested for immediate pickup"""
   INSTANT
   BOTH
+}
+
+type CreateIssueResponse {
+  message: String!
+  success: Boolean!
+  issue: Issue
 }
 
 type IssuePagination {
@@ -1636,6 +1642,7 @@ type Mutation {
   resolveIssue(id: ID!, resolvedBy: ID!): ResolveIssueResponse!
   closeIssue(id: ID!, closedBy: ID!): CloseIssueResponse!
   bulkResolveIssues(ids: [ID!]!, resolvedBy: ID!): BulkResolveIssuesResponse!
+  updateIssueStatus(input: UpdateIssueStatusInput!): CreateIssueResponse!
   upsertAdminCompanyInfo(input: UpsertAdminCompanyInfoInput!): AdminCompanyInfo!
   upsertAdminRidePricing(input: UpsertAdminRidePricingInput!): AdminRidePricing!
   upsertMaintenanceInfo(input: UpsertMaintenanceInfoInput!): MaintenanceInfo!
@@ -1900,6 +1907,11 @@ input UpdateEmailTemplateInput {
   title: String
   pageContent: String
   status: String
+}
+
+input UpdateIssueStatusInput {
+  id: ID!
+  status: IssueStatus!
 }
 
 input UpsertAdminCompanyInfoInput {

@@ -60,8 +60,8 @@ export class Issue {
   @Prop({ type: IssueCategoryEmbedSchema, default: null })
   category?: IssueCategoryEmbed;
 
-  @Field(() => String)
-  @Prop({ required: true, type: String, minlength: 10 })
+  @Field(() => String, { nullable: true })
+  @Prop({ required: false, type: String, minlength: 10 })
   issueContent: string;
 
   @Field(() => IssueStatus)
