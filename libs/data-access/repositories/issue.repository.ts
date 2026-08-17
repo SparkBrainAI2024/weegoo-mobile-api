@@ -41,7 +41,7 @@ export class IssueRepository {
     },
   ): Promise<Issue> {
     return this.model.create({
-      data,
+      ...data,
       reportedBy: toMongoId(data.reportedBy),
       rideId: toMongoId(data.rideId),
     });

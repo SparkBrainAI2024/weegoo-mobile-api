@@ -1,6 +1,9 @@
-import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsEnum, IsOptional } from 'class-validator';
-import { IssueCategoryForRole, IssueParentCategory } from '../../enums/issue.enum';
+import { Field, InputType } from "@nestjs/graphql";
+import { IsNotEmpty, IsString, IsEnum, IsOptional } from "class-validator";
+import {
+  IssueCategoryForRole,
+  IssueParentCategory,
+} from "../../enums/issue.enum";
 
 @InputType()
 export class IssueCategoryInput {
@@ -8,7 +11,7 @@ export class IssueCategoryInput {
   @IsEnum(IssueParentCategory)
   parentCategory: IssueParentCategory;
 
-  @Field(() => IssueCategoryForRole)
+  @Field(() => IssueCategoryForRole, { nullable: true })
   @IsEnum(IssueCategoryForRole)
   category: IssueCategoryForRole;
 
