@@ -95,6 +95,7 @@ export * from './dtos/input/geo-location.input';
 export * from './dtos/input/reset-password.input';
 export * from './dtos/input/set-password.input';
 export * from './dtos/input/verify-email.input';
+export * from './dtos/input/update-firebase-token.input';
 export * from './dtos/input/refresh-token.input';
 export * from './dtos/input/change-email.input';
 export * from './dtos/input/change-password.input';

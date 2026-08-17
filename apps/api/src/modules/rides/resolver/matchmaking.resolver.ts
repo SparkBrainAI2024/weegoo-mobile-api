@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args, Query, Int } from '@nestjs/graphql';
+import { Resolver, Mutation, Args, Query, Int, ID } from '@nestjs/graphql';
 import { Logger, UseGuards, BadRequestException, SetMetadata } from '@nestjs/common';
 import { AuthGuard, RoleGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
@@ -119,9 +119,11 @@ export class MatchmakingResolver {
     description: 'Calculate estimates for CAR, MOTORBIKE, and SCOOTER between pickup and dropoff',
   })
   async getVehicleEstimates(
+    @CurrentUser() user: User,
     @Args('pickupLocation') pickup: RideLocationInput,
     @Args('dropoffLocation') dropoff: RideLocationInput,
     @Args('noOfPassengers', { type: () => Int }) noOfPassengers: number,
+    @Args('promoCodeId', { type: () => ID, nullable: true }) promoCodeId?: string,
   ): Promise<VehicleEstimateGraphQL[]> {
     if (noOfPassengers < 1) {
       throw new BadRequestException('Minimum number of passengers is 1');
@@ -134,6 +136,8 @@ export class MatchmakingResolver {
       pickup,
       dropoff,
       noOfPassengers,
+      promoCodeId,
+      user._id.toString(),
     );
   }
 }

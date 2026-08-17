@@ -13,6 +13,7 @@ export const tokenTypes = {
   resetPasswordToken: "reset_password_token",
   changeEmailToken: "change_email_token",
   setPasswordToken: "set_password_token",
+  verifyEmailToken: "verify_email_token",
 };
 export const allowedFileExtensions = ["jpg", "jpeg", "png", "webp"];
 export * from "./required-sides.constant";
@@ -84,4 +85,11 @@ export const MATCHMAKING_CONFIG = {
   },
 
   USER_CANCELLATION_LIMIT_PER_MONTH: 3,
+
+  // ─── Driver Location / Offline Config ───
+  // A driver is marked offline if no location update is received within this many minutes.
+  LOCATION_UPDATE_TIMEOUT_MINUTES: 15,
+  // Cron expression for the background job that sweeps stale (offline-timeout) drivers.
+  // Runs every 5 minutes so stale drivers are detected well within the 15-min window.
+  STALE_DRIVER_CHECK_CRON: "*/5 * * * *",
 };

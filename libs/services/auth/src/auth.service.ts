@@ -33,6 +33,7 @@ import {
   UpdatePhoneInput,
   VerifyEmailInput,
   roles,
+  DriverOnlineStatus,
   BasicResponse,
   TokenGrantType,
 } from "@libs/data-access";
@@ -47,6 +48,10 @@ import {
 } from "@libs/common/utils/auth.utils";
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import { S3Service } from "@libs/s3/s3.service";
+import { EmailTemplateRepository } from "@libs/data-access/repositories/email-template.repository";
+import { EmailTemplateParserService } from "@libs/services/email-template/src/email-template-parser.service";
+import { SendGridMailService } from "@libs/services/mail";
+import { VerifyEmailTokenInput } from "@libs/data-access";
 
 export interface SignInResult {
   user: UserResponse;
@@ -84,6 +89,7 @@ export type UserDetailsResponse = {
   notificationSettings?: Record<string, boolean>;
   email?: string;
   phoneNumber?: string;
+  emailVerified?: boolean;
   totalTrips?: number;
   walletInfo?: { balance: number };
   amountDueToCompany?: number;
@@ -105,6 +111,8 @@ export class AuthService {
     private readonly socialAuthService: SocialAuthService,
     private readonly s3: S3Service,
     private readonly walletRepository: WalletRepository,
+    private readonly emailTemplateRepository: EmailTemplateRepository,
+    private readonly sendGridMailService: SendGridMailService,
   ) { }
 
   // Helper method to check if user has valid non-expired OTP
@@ -122,6 +130,25 @@ export class AuthService {
   private async clearAllUserSession(userId: string) {
     await this.userTokenMetaRepository.deleteByUser(userId);
 
+  }
+
+  /**
+   * Set a driver's online status to OFFLINE.
+   * Used when a driver logs out or is auto-logged out (expired token).
+   */
+  private async setDriverOffline(userId: string | Types.ObjectId): Promise<void> {
+    try {
+      const user = await this.userRepository.findOne({ _id: userId });
+      if (user && user.loginAs === roles.RIDER) {
+        await this.userDetailsRepository.updateOne(
+          { userId: user._id },
+          { $set: { driverOnlineStatus: DriverOnlineStatus.OFFLINE } }
+        );
+      }
+    } catch (e) {
+      // Non-critical - don't block the logout flow
+      console.log("Failed to set driver offline:", e);
+    }
   }
 
 
@@ -241,6 +268,7 @@ export class AuthService {
       notificationSettings: roleNotificationSettings,
       email: user.email,
       phoneNumber: user.phone,
+      emailVerified: userDetails.emailVerified || false,
       totalTrips,
       walletInfo: wallet ? { balance: wallet.balance } : { balance: 0 },
       amountDueToCompany: userDetails.amountDueToCompany || 0,
@@ -843,6 +871,8 @@ export class AuthService {
       });
 
       if (!session) {
+        // Session not found - this is an auto-logout scenario (token expired/reused)
+        await this.setDriverOffline(verifiedToken.id);
         ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.UNAUTHORIZED);
       }
 
@@ -1071,6 +1101,198 @@ export class AuthService {
       return result;
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Send a verification email with a link that expires in 2 minutes.
+   * The email template is fetched from the email template API (database) by slug.
+   */
+  async sendVerifyEmail(email: string, lang: string) {
+    try {
+      const user: UserDocument = await this.userRepository.findByEmail(email);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+      this.checkUserSuspended(user, HttpStatus.LOCKED);
+
+      // Get user details to check emailVerified status
+      const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // If email is already verified
+      if (userDetails.emailVerified) {
+        ErrorException(null, "USER.EMAIL_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
+      }
+
+      // Check if a verification email has already been sent and the link is still valid
+      const existingVerification = await this.userTokenMetaRepository.findOne({
+        userId: user._id,
+        grant: TokenGrantType.VERIFY_EMAIL,
+      });
+      if (existingVerification?.email) {
+        const decoded: any = Jwt.decode(existingVerification.email);
+        if (decoded?.exp && decoded.exp > Math.floor(Date.now() / 1000)) {
+          return {
+            message: Message(lang, "USER.EMAIL_VERIFY_ALREADY_SENT"),
+            success: true,
+            currentTime: Math.floor(Date.now() / 1000),
+            expiresBy: decoded.exp,
+            verificationToken: existingVerification.email,
+          };
+        }
+        // Token expired, clean up the stale entry
+        await this.userTokenMetaRepository.deleteByAccessTokenJti(existingVerification.accessTokenJti);
+      }
+
+      // Generate verification token with 2 minutes expiry
+      const verificationTokenJti = generateMongoDbId();
+      const verificationToken = await generateToken(
+        {
+          id: user._id,
+          email: user.email,
+          jti: verificationTokenJti,
+          type: tokenTypes.verifyEmailToken,
+        },
+        this.envService.getJwtSecretKey(),
+        { expiresIn: '2m' }, // 2 minutes expiry
+      );
+
+      // Store the verification token JTI in user-token-meta for server-side validation
+      await this.userTokenMetaRepository.create({
+        userId: user._id,
+        accessTokenJti: verificationTokenJti.toString(),
+        refreshTokenJti: '',
+        deviceId: null,
+        email: verificationToken as string,
+        role: this.defaultRole,
+        grant: TokenGrantType.VERIFY_EMAIL,
+      });
+
+      // Build verification link pointing to the REST API endpoint
+      const apiBaseUrl = this.envService.getApiBaseUrl();
+      const verificationLink = `${apiBaseUrl}/verify-email?token=${verificationToken}`;
+
+      // Fetch email template from database by slug
+      const emailTemplate = await this.emailTemplateRepository.findBySlug('verify-email');
+      if (!emailTemplate) {
+        // Fallback to default content if template not found
+        const content = `
+          <h2>Verify Your Email</h2>
+          <p>Please click the button below to verify your email address.</p>
+          <p>This link will expire in 2 minutes.</p>
+          <a href="${verificationLink}" style="display:inline-block;padding:14px 32px;background-color:#081329;color:#FFD21F;text-decoration:none;border-radius:8px;font-size:16px;font-weight:700;">Verify Email</a>
+        `;
+        await this.sendGridMailService.sendParsedEmail({
+          to: email,
+          subject: Message(lang, "USER.VERIFY_EMAIL_SUBJECT"),
+          content,
+        });
+      } else {
+        // Use template from database
+        const content = emailTemplate.pageContent
+          .replace(/{{verificationLink}}/g, verificationLink)
+          .replace(/{{email}}/g, email);
+
+        await this.sendGridMailService.sendParsedEmail({
+          to: email,
+          subject: Message(lang, "USER.VERIFY_EMAIL_SUBJECT"),
+          content,
+        });
+      }
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const expiresBy = this.getTokenExpiryFromJwt(verificationToken as string);
+
+      return {
+        message: Message(lang, "USER.VERIFY_EMAIL_SENT"),
+        success: true,
+        currentTime,
+        expiresBy,
+        verificationToken,
+      };
+    } catch (e) {
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ sendVerifyEmail ~ e:", e)
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Verify email using the verification token from the email link.
+   * The token expires in 2 minutes.
+   */
+  async verifyEmail(input: VerifyEmailTokenInput, lang: string) {
+    try {
+      const { token } = input;
+
+      // Verify the JWT token
+      const verifiedToken: any = await verifyToken(
+        token,
+        this.envService.getJwtSecretKey(),
+      );
+      if (!verifiedToken) {
+        ErrorException(null,Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
+      }
+      if (verifiedToken.type !== tokenTypes.verifyEmailToken) {
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
+      }
+
+      // Check if token is expired (JWT verify already handles expiry, but double-check)
+      if (verifiedToken.exp && verifiedToken.exp < Math.floor(Date.now() / 1000)) {
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_EXPIRED"), HttpStatus.BAD_REQUEST);
+      }
+
+      // Verify the JTI exists in user-token-meta (server-side check)
+      const storedToken = await this.userTokenMetaRepository.findByAccessTokenJti(verifiedToken.jti);
+      if (!storedToken) {
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
+      }
+
+      // Find the user
+      const user: UserDocument = await this.userRepository.findOne({
+        _id: verifiedToken.id,
+      });
+      if (!user) {
+        ErrorException(null, Message(lang, "USER.NOT_FOUND"), HttpStatus.NOT_FOUND);
+      }
+
+      // Get user details to check emailVerified status
+      const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, Message(lang, "USER.NOT_FOUND"), HttpStatus.NOT_FOUND);
+      }
+
+      // If email is already verified
+      if (userDetails.emailVerified) {
+        ErrorException(null, Message(lang, "USER.EMAIL_ALREADY_VERIFIED"), HttpStatus.BAD_REQUEST);
+      }
+
+      // Update userDetails emailVerified to true (create key if doesn't exist)
+      await this.userDetailsRepository.updateOne(
+        { userId: user._id },
+        { emailVerified: true },
+      );
+
+      // Delete the stored JTI after successful validation (one-time use)
+      await this.userTokenMetaRepository.deleteByAccessTokenJti(verifiedToken.jti);
+
+      return {
+        message: Message(lang, "USER.EMAIL_VERIFIED_SUCCESS"),
+        success: true,
+      };
+    } catch (e) {
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ verifyEmail ~ e:", e)
+      ErrorException(
+        e,
+        Message(lang, "COMMON.INTERNAL_SERVER_ERROR"),
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

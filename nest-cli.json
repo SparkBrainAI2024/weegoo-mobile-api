@@ -99,6 +99,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/ride-matchmaking/tsconfig.app.json"
       }
+    },
+    "cron": {
+      "type": "application",
+      "root": "apps/cron",
+      "sourceRoot": "apps/cron/src",
+      "entryFile": "main",
+      "compilerOptions": {
+        "tsConfigPath": "apps/cron/tsconfig.app.json"
+      }
     }
   }
 }

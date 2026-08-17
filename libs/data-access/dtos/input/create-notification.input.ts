@@ -183,4 +183,9 @@ export class CreateNotificationInput {
   @Field(() => Number, { nullable: true })
   @IsOptional()
   noOfPassengers?: number;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  rideUUId?: string;
 }

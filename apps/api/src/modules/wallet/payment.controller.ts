@@ -106,10 +106,11 @@ export class PaymentController {
     @Query('pidx') pidx: string,
     @Query('status') status: string,
     @Query('transaction_id') transactionId: string,
+    @Query('transactionUuid') transactionUuid: string,
     @Query('total_amount') totalAmount?: string,
     @Res({ passthrough: true }) res?: Response,
   ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
-    this.logger.log(`Khalti success callback: pidx=${pidx}, status=${status}, transactionId=${transactionId}`);
+    this.logger.log(`Khalti success callback: pidx=${pidx}, status=${status}, transactionId=${transactionId}, transactionUuid=${transactionUuid}`);
 
     if (!pidx) {
       return { success: false, message: 'Missing pidx' };
@@ -117,7 +118,7 @@ export class PaymentController {
 
     try {
       // Use pidx to look up / verify the transaction on Khalti's server
-      const lookupResult = await this.walletService.completeTopupWithKhalti(pidx, transactionId);
+      const lookupResult = await this.walletService.completeTopupWithKhalti(pidx, transactionId, transactionUuid);
       if (lookupResult.success) {
         return {
           success: true,
@@ -146,18 +147,23 @@ export class PaymentController {
     @Query('pidx') pidx: string,
     @Query('status') status?: string,
     @Query('transaction_id') transactionId?: string,
+    @Query('transactionUuid') transactionUuid?: string,
     @Res({ passthrough: true }) res?: Response,
   ): Promise<{ success: boolean; message: string; redirectUrl?: string }> {
-    this.logger.log(`Khalti failure callback: pidx=${pidx}, status=${status}, transactionId=${transactionId}`);
+    this.logger.log(`Khalti failure callback: pidx=${pidx}, status=${status}, transactionId=${transactionId}, transactionUuid=${transactionUuid}`);
 
-    if (!pidx && !transactionId) {
-      return { success: false, message: 'Missing pidx or transactionId' };
+    if (!pidx && !transactionId && !transactionUuid) {
+      return { success: false, message: 'Missing pidx, transactionId, or transactionUuid' };
     }
 
-    // Try to fail by transactionId first, then pidx
-    const txnId = transactionId || pidx;
+    // Try to fail by transactionUuid first (our internal UUID), then transactionId, then pidx
     try {
-      await this.walletService.failTopup(txnId, `Khalti payment failed with status: ${status || 'unknown'}`);
+      if (transactionUuid) {
+        await this.walletService.failTopupByUuid(transactionUuid, `Khalti payment failed with status: ${status || 'unknown'}`);
+      } else {
+        const txnId = transactionId || pidx;
+        await this.walletService.failTopup(txnId, `Khalti payment failed with status: ${status || 'unknown'}`);
+      }
       return {
         success: true,
         message: 'Transaction marked as failed',
@@ -174,14 +180,14 @@ export class PaymentController {
   }
 
   /**
-   * Get the frontend redirect URL for success/failure.
-   * Reads from env or defaults to localhost.
-   * User payments redirect to the user-facing frontend.
+   * Get the redirect URL for success/failure.
+   * Reads from API_BASE_URL env or defaults to localhost.
+   * User payments redirect to the API base URL.
    */
   private getRedirectUrl(type: 'success' | 'failure'): string {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+    const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
     return type === 'success'
-      ? `${frontendUrl}/payment/success`
-      : `${frontendUrl}/payment/failure`;
+      ? `${baseUrl}/payment/success`
+      : `${baseUrl}/payment/failure`;
   }
 }

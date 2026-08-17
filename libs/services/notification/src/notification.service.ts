@@ -246,6 +246,9 @@ export class NotificationService {
              if (payload.cancelled) {
                 firebaseData.cancelled =String(payload.cancelled);
             }
+              if (payload.rideUUId) {
+                firebaseData.rideUUId = String(payload.rideUUId);
+            }
             console.log("payload", payload)
             try {
                 await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {

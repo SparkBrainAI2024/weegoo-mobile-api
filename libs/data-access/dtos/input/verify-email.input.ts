@@ -12,3 +12,9 @@ export class VerifyEmailInput {
   @Matches(/^\d+$/)
   otp: string;
 }
+
+@InputType()
+export class VerifyEmailTokenInput {
+  @Field()
+  token: string;
+}
