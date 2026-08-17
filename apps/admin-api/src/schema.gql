@@ -1450,6 +1450,41 @@ type RidesListResponse {
   limit: Int!
 }
 
+type AdminRideUserSnapshot {
+  userId: String!
+  fullName: String
+  displayId: String
+  email: String
+  phone: String
+  profileImage: String
+  rating: Float!
+  suspended: Boolean!
+  totalTripsAsPassenger: Float
+  totalRidesAsDriver: Float
+}
+
+type RideDetailResponse {
+  id: String!
+  rideUUId: String
+  rideType: RideTypes!
+  rideStatus: RideStatus!
+  bookingTime: DateTime!
+  rideStartedAt: DateTime
+  rideCompletedAt: DateTime
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  distanceInKm: Float
+  durationInMinutes: Float
+  waitTimeInMinutes: Float
+  fare: Fare
+  paymentDetails: PaymentDetails
+  platformCommissionAmount: Float
+  driverEarningsAmount: Float
+  vehicle: Vehicle
+  driver: AdminRideUserSnapshot
+  passenger: AdminRideUserSnapshot
+}
+
 type EmailTemplateListWithPaginationResponse {
   message: String
   data: [EmailTemplate!]
@@ -1486,6 +1521,7 @@ type Query {
   getPassengerRatings(input: RiderRatingsInput!): RiderRatingsResponse!
   rides(input: RidesListInput!): RidesListResponse!
   ride(id: String!): Rides
+  rideDetail(input: RideDetailInput!): RideDetailResponse!
 
   """
   Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
@@ -1578,6 +1614,10 @@ enum RideTimeRange {
   LAST_24_HOURS
   LAST_7_DAYS
   LAST_30_DAYS
+}
+
+input RideDetailInput {
+  id: String!
 }
 
 input TransactionPaginationInput {
