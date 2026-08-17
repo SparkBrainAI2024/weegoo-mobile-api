@@ -145,8 +145,8 @@ export class IssueDetailResponse {
   @Field(() => ID)
   id: string;
 
-  @Field(() => RideInIssue)
-  rideId: RideInIssue;
+  @Field(() => RideInIssue, { nullable: true })
+  rideId?: RideInIssue;
 
   @Field(() => IssueStatus)
   status: IssueStatus;

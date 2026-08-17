@@ -127,6 +127,7 @@ export class IssueService {
           ? issue.rideId.driverId
           : null
       : null;
+    console.log(reporteeUser, "reporteeuser", reporterUser);
 
     const reporter: IssuePerson = {
       role: isDriverReporter ? "DRIVER" : "PASSENGER",
@@ -162,6 +163,7 @@ export class IssueService {
           userId: null,
           suspended: false,
         };
+    console.log("reporteeuser assigned", reportee);
 
     const issueResponse = {
       id: issue._id.toString(),
@@ -171,10 +173,12 @@ export class IssueService {
       issueContent: issue.issueContent,
       reporter,
       reportee,
-      rideId: {
-        id: issue.rideId._id.toString(),
-        rideUUId: issue.rideId.rideUUId,
-      },
+      rideId: issue?.rideId
+        ? {
+            id: issue.rideId._id.toString(),
+            rideUUId: issue.rideId.rideUUId,
+          }
+        : null,
       ticketCode: issue.displayId ?? "",
       categoryLabel: issue.category?.subCategoryLabel ?? null,
       issueCategoryType: issue.category.parentCategory,
