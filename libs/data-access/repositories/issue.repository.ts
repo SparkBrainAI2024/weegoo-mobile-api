@@ -6,6 +6,7 @@ import {
   CategoryAccessedByRole,
   IssueCategoryForRole,
   IssueParentCategory,
+  IssuePriority,
   IssueStatus,
   ReportedByType,
 } from "@libs/data-access/enums/issue.enum";
@@ -14,6 +15,14 @@ import { CreateIssueInput } from "../dtos/input/create-issue.input";
 import { IssueCategoryEmbed } from "../entities/issue-category.embedded";
 import { IssueListInput } from "../dtos/input/issue.list.input";
 import { toMongoId } from "@libs/common";
+import {
+  PopulatedIssue,
+  PopulatedReportedBy,
+  PopulatedRide,
+} from "@admin-api/modules/issue/issue.service";
+import { IssuePerson } from "../dtos/response/issue.response";
+import { BaseRepository } from "../base/base.repository";
+import { BaseModel } from "../base/base.model";
 
 export interface IssueFilters {
   status?: IssueStatus;
@@ -29,6 +38,7 @@ export class IssueRepository {
   constructor(
     @InjectModel(Issue.name)
     private readonly model: Model<IssueDocument>,
+
     @InjectModel(IssueCategory.name)
     private readonly issueCategoryEmbed: Model<IssueCategory>,
   ) {}
@@ -38,10 +48,11 @@ export class IssueRepository {
       category: IssueCategoryEmbed;
       reportedBy: string;
       reportedByType: ReportedByType;
+      priority: IssuePriority;
     },
   ): Promise<Issue> {
     return this.model.create({
-      data,
+      ...data,
       reportedBy: toMongoId(data.reportedBy),
       rideId: toMongoId(data.rideId),
     });
@@ -66,8 +77,45 @@ export class IssueRepository {
     return { items, total };
   }
 
-  async findById(issueId: string): Promise<Issue | null> {
-    return this.model.findById(issueId);
+  async findById(issueId: string): Promise<PopulatedIssue | null> {
+    const issue = await this.model.findById(issueId).populate<{
+      rideId: PopulatedRide;
+      reportedBy: PopulatedReportedBy;
+    }>([
+      {
+        path: "reportedBy",
+        select: "name email phone suspended",
+        populate: {
+          path: "userDetails",
+          select: "fullName",
+        },
+      },
+      { path: "category" },
+      {
+        path: "rideId",
+        select: "passengerId driverId rideUUId",
+        populate: [
+          {
+            path: "passengerId",
+            select: "name email phone suspended userDetails",
+            populate: {
+              path: "userDetails",
+              select: "fullName displayIdAsPassenger profileImages",
+            },
+          },
+          {
+            path: "driverId",
+            select: "name email phone suspended userDetails",
+            populate: {
+              path: "userDetails",
+              select: "fullName displayIdAsDriver profileImages",
+            },
+          },
+        ],
+      },
+    ]);
+
+    return issue;
   }
 
   async findIssueCategoryById(id: string): Promise<IssueCategory | null> {
@@ -329,6 +377,16 @@ export class IssueRepository {
     return this.model.findByIdAndUpdate(
       id,
       { status: IssueStatus.RESOLVED, resolvedAt: new Date(), resolvedBy },
+      { new: true },
+    );
+  }
+
+  async closeOne(id: string, closedBy: string) {
+    // Deliberately doesn't check current status — a ticket can be closed
+    // directly (e.g. duplicate/invalid) without ever passing through RESOLVED
+    return this.model.findByIdAndUpdate(
+      id,
+      { status: IssueStatus.CLOSED, closedAt: new Date(), closedBy },
       { new: true },
     );
   }

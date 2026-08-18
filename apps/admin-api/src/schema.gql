@@ -534,9 +534,10 @@ type Issue {
   reportedByType: ReportedByType!
   rideId: String
   priority: IssuePriority!
+  displayId: String!
   assignedTo: String
   category: IssueCategoryEmbed
-  issueContent: String!
+  issueContent: String
   status: IssueStatus!
   resolvedBy: String
   resolvedAt: DateTime
@@ -566,6 +567,7 @@ enum IssueStatus {
   OPEN
   IN_REVIEW
   RESOLVED
+  CLOSED
 }
 
 type Rating {
@@ -732,6 +734,12 @@ enum RidePreference {
   BOTH
 }
 
+type CreateIssueResponse {
+  message: String!
+  success: Boolean!
+  issue: Issue
+}
+
 type IssuePagination {
   total: Int!
   page: Int!
@@ -764,6 +772,41 @@ type IssueListResponse {
 }
 
 type ResolveIssueResponse {
+  message: String!
+  id: ID!
+  status: IssueStatus!
+}
+
+type IssuePerson {
+  role: String!
+  fullName: String
+  phone: String
+  displayId: String
+  userId: ID
+  profileImage: String
+  suspended: Boolean!
+}
+
+type RideInIssue {
+  id: ID!
+  rideUUId: String!
+}
+
+type IssueDetailResponse {
+  id: ID!
+  rideId: RideInIssue
+  status: IssueStatus!
+  priority: IssuePriority!
+  createdAt: DateTime!
+  issueContent: String!
+  reporter: IssuePerson!
+  reportee: IssuePerson!
+  ticketCode: String!
+  categoryLabel: String
+  issueCategoryType: IssueParentCategory!
+}
+
+type CloseIssueResponse {
   message: String!
   id: ID!
   status: IssueStatus!
@@ -1407,6 +1450,41 @@ type RidesListResponse {
   limit: Int!
 }
 
+type AdminRideUserSnapshot {
+  userId: String!
+  fullName: String
+  displayId: String
+  email: String
+  phone: String
+  profileImage: String
+  rating: Float!
+  suspended: Boolean!
+  totalTripsAsPassenger: Float
+  totalRidesAsDriver: Float
+}
+
+type RideDetailResponse {
+  id: String!
+  rideUUId: String
+  rideType: RideTypes!
+  rideStatus: RideStatus!
+  bookingTime: DateTime!
+  rideStartedAt: DateTime
+  rideCompletedAt: DateTime
+  pickupLocation: RideLocation
+  dropoffLocation: RideLocation
+  distanceInKm: Float
+  durationInMinutes: Float
+  waitTimeInMinutes: Float
+  fare: Fare
+  paymentDetails: PaymentDetails
+  platformCommissionAmount: Float
+  driverEarningsAmount: Float
+  vehicle: Vehicle
+  driver: AdminRideUserSnapshot
+  passenger: AdminRideUserSnapshot
+}
+
 type AdminDashboardResponse {
   """
   Total number of active rides (CONFIRMED / ONGOING / PICKUP) for the given date.
@@ -1484,6 +1562,7 @@ type Query {
   rides(input: RidesListInput!): RidesListResponse!
   ride(id: String!): Rides
   adminDashboard(input: AdminDashboardInput!): AdminDashboardResponse!
+  rideDetail(input: RideDetailInput!): RideDetailResponse!
 
   """
   Returns paginated transaction history for the logged-in user. If logged in as USER (rider), queries by riderId. If logged in as RIDER (driver), queries by driverId.
@@ -1492,6 +1571,7 @@ type Query {
   emailTemplate(id: ID!): EmailTemplate!
   emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
   getIssues(input: IssueListInput): IssueListResponse!
+  getIssueDetail(input: IssueDetailInput!): IssueDetailResponse!
   adminCompanyInfo: AdminCompanyInfo!
   adminRidePricings: [AdminRidePricing!]!
   adminRidePricing(vehicleType: VehicleType!): AdminRidePricing!
@@ -1582,6 +1662,10 @@ input AdminDashboardInput {
   date: DateTime!
 }
 
+input RideDetailInput {
+  id: String!
+}
+
 input TransactionPaginationInput {
   limit: Int! = 10
   page: Int! = 0
@@ -1599,6 +1683,10 @@ input IssueListInput {
   unassignedOnly: Boolean
   dateFrom: String
   dateTo: String
+}
+
+input IssueDetailInput {
+  id: ID!
 }
 
 type Mutation {
@@ -1638,7 +1726,9 @@ type Mutation {
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplate!
   removeEmailTemplate(id: ID!): Boolean!
   resolveIssue(id: ID!, resolvedBy: ID!): ResolveIssueResponse!
+  closeIssue(id: ID!, closedBy: ID!): CloseIssueResponse!
   bulkResolveIssues(ids: [ID!]!, resolvedBy: ID!): BulkResolveIssuesResponse!
+  updateIssueStatus(input: UpdateIssueStatusInput!): CreateIssueResponse!
   upsertAdminCompanyInfo(input: UpsertAdminCompanyInfoInput!): AdminCompanyInfo!
   upsertAdminRidePricing(input: UpsertAdminRidePricingInput!): AdminRidePricing!
   upsertMaintenanceInfo(input: UpsertMaintenanceInfoInput!): MaintenanceInfo!
@@ -1903,6 +1993,11 @@ input UpdateEmailTemplateInput {
   title: String
   pageContent: String
   status: String
+}
+
+input UpdateIssueStatusInput {
+  id: ID!
+  status: IssueStatus!
 }
 
 input UpsertAdminCompanyInfoInput {

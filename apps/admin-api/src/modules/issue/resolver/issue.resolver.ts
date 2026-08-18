@@ -14,11 +14,19 @@
 
 import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { CurrentLang } from "@libs/common/decorators/header.decorators";
-import { IssueListInput } from "@libs/data-access/dtos/input/issue.list.input";
+import {
+  IssueDetailInput,
+  IssueListInput,
+  UpdateIssueStatusInput,
+} from "@libs/data-access/dtos/input/issue.list.input";
 import {
   BulkResolveIssuesResponse,
+  CloseIssueResponse,
+  CreateIssueResponse,
   Issue,
+  IssueDetailResponse,
   IssueListResponse,
+  IssueStatus,
   ResolveIssueResponse,
 } from "@libs/data-access";
 import { IssueService } from "../issue.service";
@@ -38,6 +46,17 @@ export class IssueResolver {
     return this.issueService.getIssueList(input ?? new IssueListInput());
   }
 
+  @Query(() => IssueDetailResponse)
+  async getIssueDetail(
+    @Args("input", {
+      type: () => IssueDetailInput,
+    })
+    input?: IssueDetailInput,
+    @CurrentLang() lang?: string,
+  ): Promise<IssueDetailResponse> {
+    return this.issueService.getIssueDetail(input.id);
+  }
+
   @Mutation(() => ResolveIssueResponse)
   async resolveIssue(
     @Args("id", { type: () => ID }) id: string,
@@ -47,12 +66,33 @@ export class IssueResolver {
     return this.issueService.resolveIssue(id, resolvedBy);
   }
 
+  @Mutation(() => CloseIssueResponse)
+  async closeIssue(
+    @Args("id", { type: () => ID }) id: string,
+    @Args("closedBy", { type: () => ID }) closedBy: string,
+    @CurrentLang() lang: string,
+  ): Promise<CloseIssueResponse> {
+    return this.issueService.closeIssue(id, closedBy);
+  }
+
   @Mutation(() => BulkResolveIssuesResponse)
   async bulkResolveIssues(
     @Args("ids", { type: () => [ID] }) ids: string[],
-    @Args("resolvedBy", { type: () => ID }) resolvedBy: string, // TODO: same as above
+    @Args("resolvedBy", { type: () => ID }) resolvedBy: string,
     @CurrentLang() lang: string,
   ): Promise<BulkResolveIssuesResponse> {
     return this.issueService.bulkResolveIssues(ids, resolvedBy);
+  }
+
+  @Mutation(() => CreateIssueResponse)
+  async updateIssueStatus(
+    @Args("input", {
+      type: () => UpdateIssueStatusInput,
+    })
+    input: UpdateIssueStatusInput,
+    @CurrentLang()
+    lang: string,
+  ): Promise<CreateIssueResponse> {
+    return this.issueService.updateIssueStatus(input.id, input.status, lang);
   }
 }

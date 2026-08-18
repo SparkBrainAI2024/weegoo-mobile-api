@@ -54,6 +54,11 @@ import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-docum
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
 import { TransactionRepository } from "@libs/data-access/repositories/transaction.repository";
+import {
+  AdminRideUserSnapshot,
+  RideDetailResponse,
+} from "@libs/data-access/dtos/response/rides-list.response";
+import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
 @Injectable()
 export class RidesService {
   constructor(
@@ -74,7 +79,7 @@ export class RidesService {
     @InjectModel(Vehicle.name)
     private readonly vehicleModel: Model<VehicleDocument>,
     private readonly walletService: WalletService,
-  ) { }
+  ) {}
 
   /**
    * Fetches rides for the current user based on their role with pagination.
@@ -185,8 +190,8 @@ export class RidesService {
     // Per requirement: Total earnings 0 if verification is required
     const earningsData = !verificationRequired
       ? await this.transactionService.getDriversEarningByDate(
-        user._id.toString(),
-      )
+          user._id.toString(),
+        )
       : { netEarning: 0 };
 
     // 3. Total Trip History (Today only)
@@ -582,6 +587,81 @@ export class RidesService {
     };
   }
 
+  private enrichRideDetailsForAdmin(
+    rideDocument: RidesDocument,
+  ): RideDetailResponse {
+    const ride = rideDocument.toObject() as any;
+
+    const formatAdminSnapshot = (
+      userDoc: any,
+      role: "driver" | "passenger",
+    ): AdminRideUserSnapshot | null => {
+      if (!userDoc) return null;
+
+      const details = userDoc.userDetails || {};
+      const displayId =
+        role === "driver"
+          ? details.displayIdAsDriver
+          : details.displayIdAsPassenger;
+
+      return {
+        userId: userDoc._id.toString(),
+        fullName: details.fullName || userDoc.name || "",
+        displayId: displayId || "—",
+        email: userDoc.email || "",
+        phone: userDoc.phone || "",
+        profileImage: getActiveProfileImageUrl(details.profileImages, (key) =>
+          this.s3.getPublicUrl(key),
+        ),
+        rating: details.rating ?? 0,
+        suspended: userDoc.suspended ?? false,
+        totalTripsAsPassenger: details.totalTripsAsPassenger,
+        totalRidesAsDriver: details.totalRidesAsDriver,
+      };
+    };
+
+    const driver = formatAdminSnapshot(ride.driverId, "driver");
+    const passenger = formatAdminSnapshot(ride.passengerId, "passenger");
+
+    const totalAmount = ride.paymentDetails?.totalAmount ?? 0;
+    const commissionRate = ride.paymentDetails?.driverCommission ?? 0.2;
+    const platformCommissionAmount = totalAmount * commissionRate;
+
+    return {
+      id: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      rideType: ride.rideType,
+      rideStatus: ride.rideStatus,
+      bookingTime: ride.bookingTime,
+      rideStartedAt: ride.rideStartedAt,
+      rideCompletedAt: ride.rideCompletedAt,
+      pickupLocation: ride.pickupLocation,
+      dropoffLocation: ride.dropoffLocation,
+      distanceInKm: ride.distanceInKm,
+      durationInMinutes:
+        ride.actualCompletedDurationInMinutes || ride.estimatedTimeInMinutes,
+      waitTimeInMinutes: ride.timeToReachPassengerInMinutes,
+      fare: ride.fare,
+      paymentDetails: ride.paymentDetails,
+      platformCommissionAmount,
+      driverEarningsAmount: totalAmount - platformCommissionAmount,
+      vehicle: typeof ride.vehicleId === "object" ? ride.vehicleId : undefined,
+      driver,
+      passenger,
+    };
+  }
+
+  async getRideDetail(input: RideDetailInput): Promise<RideDetailResponse> {
+    const rideDocument =
+      await this.rideRepository.findByIdWithFullDetailsForAdmin(input.id);
+
+    if (!rideDocument) {
+      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
+    }
+
+    return this.enrichRideDetailsForAdmin(rideDocument);
+  }
+
   async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
     const userLoginAs = user.loginAs === roles.RIDER ? "DRIVER" : "PASSENGER";
     const ride = await this.rideRepository.findById(
@@ -904,9 +984,13 @@ export class RidesService {
       ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
     if (ride.fare && ride.fare["promoCodeId"]) {
-      ErrorException(null, 'RIDES.PROMO_ALREADY_APPLIED', HttpStatus.BAD_REQUEST)
+      ErrorException(
+        null,
+        "RIDES.PROMO_ALREADY_APPLIED",
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    if (!ride.rideEndedAt ) {
+    if (!ride.rideEndedAt) {
       ErrorException(
         null,
         "RIDES.PROMO_NOT_APPLICABLE_FOR_STATUS",
@@ -986,7 +1070,7 @@ export class RidesService {
     if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
       discount = Math.round(
         Number(ride.estimatedFare) *
-        ((Number(promo.percentageAmount) || 0) / 100),
+          ((Number(promo.percentageAmount) || 0) / 100),
       );
       if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
         discount = Math.round(Number(promo.maxDiscount));

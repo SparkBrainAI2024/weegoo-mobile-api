@@ -12,9 +12,13 @@ import {
   IssueCategoryEmbed,
   IssueCategoryEmbedSchema,
 } from "./issue-category.embedded";
+import { customAlphabet } from "nanoid";
 
 export type IssueDocument = Issue & Document;
-
+const generateIssueId = customAlphabet(
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+  7,
+);
 @ObjectType()
 @Schema({ timestamps: true })
 export class Issue {
@@ -44,6 +48,10 @@ export class Issue {
   })
   priority: IssuePriority;
 
+  @Field(() => String)
+  @Prop({ required: true, unique: true, type: String })
+  displayId: string;
+
   @Field(() => String, { nullable: true })
   @Prop({ type: Types.ObjectId, ref: "AdminUser", default: null })
   assignedTo?: string;
@@ -52,8 +60,8 @@ export class Issue {
   @Prop({ type: IssueCategoryEmbedSchema, default: null })
   category?: IssueCategoryEmbed;
 
-  @Field(() => String)
-  @Prop({ required: true, type: String, minlength: 10 })
+  @Field(() => String, { nullable: true })
+  @Prop({ required: false, type: String, minlength: 10 })
   issueContent: string;
 
   @Field(() => IssueStatus)
@@ -82,6 +90,14 @@ export class Issue {
 }
 
 export const IssueSchema = SchemaFactory.createForClass(Issue);
+
+IssueSchema.pre("save", function (next) {
+  if (!this.displayId) {
+    this.displayId = generateIssueId();
+  }
+
+  next();
+});
 
 // indexes for frequent queries
 IssueSchema.index({ reportedBy: 1 });

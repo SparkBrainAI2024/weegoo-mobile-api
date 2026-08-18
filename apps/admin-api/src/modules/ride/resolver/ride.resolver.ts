@@ -4,11 +4,15 @@ import { Args, Query, Resolver } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { RidesService } from "@libs/services/rides/rides.service";
 import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
-import { RidesListResponse } from "@libs/data-access/dtos/response/rides-list.response";
+import {
+  RideDetailResponse,
+  RidesListResponse,
+} from "@libs/data-access/dtos/response/rides-list.response";
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 import { Rides } from "@libs/data-access";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
 import { AdminDashboardResponse } from "@libs/data-access/dtos/response/admin-dashboard.response";
+import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
 
 @Resolver()
 export class AdminRidesResolver {
@@ -29,5 +33,12 @@ export class AdminRidesResolver {
   @Query(() => AdminDashboardResponse)
   async adminDashboard(@Args("input") input: AdminDashboardInput) {
     return this.ridesService.getAdminDashboard(input);
+  }
+
+  @Query(() => RideDetailResponse)
+  async rideDetail(
+    @Args("input") input: RideDetailInput,
+  ): Promise<RideDetailResponse> {
+    return this.ridesService.getRideDetail(input);
   }
 }

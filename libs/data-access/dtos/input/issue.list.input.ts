@@ -3,12 +3,14 @@ import { Field, ID, InputType } from "@nestjs/graphql";
 import {
   ArrayMinSize,
   IsDateString,
+  IsEnum,
   IsIn,
   IsMongoId,
   IsOptional,
   IsString,
 } from "class-validator";
 import { PaginationInputOnly } from "@libs/data-access/base/base.input";
+import { IssueStatus } from "@libs/data-access/enums/issue.enum";
 
 @InputType()
 export class IssueListInput extends PaginationInputOnly {
@@ -66,9 +68,34 @@ export class ResolveIssueInput {
 }
 
 @InputType()
+export class IssueDetailInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
+}
+
+@InputType()
+export class UpdateIssueStatusInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
+
+  @Field(() => IssueStatus)
+  @IsEnum(IssueStatus, { message: "Invalid issue status" })
+  status: IssueStatus;
+}
+
+@InputType()
 export class BulkResolveIssuesInput {
   @Field(() => [ID])
   @ArrayMinSize(1)
   @IsMongoId({ each: true })
   ids: string[];
+}
+
+@InputType()
+export class CloseIssueInput {
+  @Field(() => ID)
+  @IsMongoId()
+  id: string;
 }

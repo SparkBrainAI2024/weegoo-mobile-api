@@ -3,6 +3,7 @@ import { BasicResponse } from "./basic.response";
 // types/issue-list.response.ts
 import { Field, ID, Int, ObjectType } from "@nestjs/graphql";
 import {
+  IssueParentCategory,
   IssuePriority,
   IssueStatus,
   ReportedByType,
@@ -96,6 +97,87 @@ export class IssueListResponse {
 
 @ObjectType()
 export class ResolveIssueResponse {
+  @Field(() => String)
+  message: string;
+
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => IssueStatus)
+  status: IssueStatus;
+}
+
+@ObjectType()
+export class IssuePerson {
+  @Field(() => String)
+  role: string;
+
+  @Field(() => String, { nullable: true })
+  fullName: string | null;
+
+  @Field(() => String, { nullable: true })
+  phone: string | null;
+
+  @Field(() => String, { nullable: true })
+  displayId: string | null;
+
+  @Field(() => ID, { nullable: true })
+  userId: string | null;
+
+  @Field(() => String, { nullable: true })
+  profileImage?: string | null;
+
+  @Field(() => Boolean)
+  suspended: boolean;
+}
+
+@ObjectType()
+export class RideInIssue {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => String)
+  rideUUId: string;
+}
+
+@ObjectType()
+export class IssueDetailResponse {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => RideInIssue, { nullable: true })
+  rideId?: RideInIssue;
+
+  @Field(() => IssueStatus)
+  status: IssueStatus;
+
+  @Field(() => IssuePriority)
+  priority: IssuePriority;
+
+  @Field(() => Date)
+  createdAt: Date;
+
+  @Field(() => String)
+  issueContent: string;
+
+  @Field(() => IssuePerson)
+  reporter: IssuePerson;
+
+  @Field(() => IssuePerson)
+  reportee: IssuePerson;
+
+  @Field(() => String)
+  ticketCode: string;
+
+  @Field(() => String, { nullable: true })
+  categoryLabel: string | null;
+
+  @Field(() => IssueParentCategory)
+  issueCategoryType: IssueParentCategory;
+}
+
+@ObjectType()
+export class CloseIssueResponse {
   @Field(() => String)
   message: string;
 
