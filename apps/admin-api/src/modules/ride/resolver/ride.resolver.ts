@@ -11,8 +11,9 @@ import {
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 import { Rides } from "@libs/data-access";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
-import { AdminDashboardResponse } from "@libs/data-access/dtos/response/admin-dashboard.response";
+import { AdminDashboardResponse, CompletedRidesResponse, DashboardChartResponse } from "@libs/data-access/dtos/response/admin-dashboard.response";
 import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
+import { CompletedRidesInput } from "@libs/data-access/dtos/input/completed-rides.input";
 
 @Resolver()
 export class AdminRidesResolver {
@@ -33,6 +34,18 @@ export class AdminRidesResolver {
   @Query(() => AdminDashboardResponse)
   async adminDashboard(@Args("input") input: AdminDashboardInput) {
     return this.ridesService.getAdminDashboard(input);
+  }
+
+  @UseGuards(AdminAuthGuard)
+  @Query(() => CompletedRidesResponse)
+  async completedRides(@Args("input") input: CompletedRidesInput) {
+    return this.ridesService.getCompletedRides(input);
+  }
+
+  @UseGuards(AdminAuthGuard)
+  @Query(() => DashboardChartResponse)
+  async dashboardChart(@Args("input") input: AdminDashboardInput) {
+    return this.ridesService.getDashboardChart(input);
   }
 
   @Query(() => RideDetailResponse)

@@ -53,12 +53,18 @@ import { InjectModel } from "@nestjs/mongoose";
 import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
+import { CompletedRidesInput } from "@libs/data-access/dtos/input/completed-rides.input";
 import { TransactionRepository } from "@libs/data-access/repositories/transaction.repository";
 import {
   AdminRideUserSnapshot,
   RideDetailResponse,
 } from "@libs/data-access/dtos/response/rides-list.response";
 import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
+import {
+  ChartDataPoint,
+  CompletedRidesResponse,
+  DashboardChartResponse,
+} from "@libs/data-access/dtos/response/admin-dashboard.response";
 @Injectable()
 export class RidesService {
   constructor(
@@ -1234,49 +1240,23 @@ export class RidesService {
       RideStatus.PICKUP,
     ];
 
-    // 1. Total active rides for the date range
-    const totalActiveRides = await this.rideRepository.count({
-      bookingTime: { $gte: startDate, $lte: endDateTime },
-      rideStatus: { $in: activeStatuses },
-      deleted: false,
-    });
-
-    // 2 & 3. Active riders (unique drivers) and active passengers (unique passengers)
-    const activeRides = await this.rideRepository.find(
-      {
-        bookingTime: { $gte: startDate, $lte: endDateTime },
-        rideStatus: { $in: activeStatuses },
-        deleted: false,
-      },
-      null,
-      { driverId: 1, passengerId: 1 },
-    );
-
-    const activeRider = new Set(
-      activeRides
-        .map((ride) => ride.driverId?.toString())
-        .filter((id): id is string => !!id),
-    ).size;
-
-    const activePassenger = new Set(
-      activeRides
-        .map((ride) => ride.passengerId?.toString())
-        .filter((id): id is string => !!id),
-    ).size;
-
-    // 4 & 5. Total revenue and completed commission transactions for the date range
-    const { totalRevenue, completedTransactionsCount } =
-      await this.transactionRepository.getCommissionTransactionsByDateRange(
+    // Run both queries in parallel:
+    // 1. Ride stats (active rides, unique drivers/passengers, cancelled) in a single $facet query
+    // 2. Commission revenue stats
+    const [
+      { totalActiveRides, activeRider, activePassenger, totalCancelledRides },
+      { totalRevenue, completedTransactionsCount },
+    ] = await Promise.all([
+      this.rideRepository.getAdminDashboardStats(
         startDate,
         endDateTime,
-      );
-
-    // 6. Total cancelled rides for the date range
-    const totalCancelledRides = await this.rideRepository.count({
-      bookingTime: { $gte: startDate, $lte: endDateTime },
-      rideStatus: RideStatus.CANCELLED,
-      deleted: false,
-    });
+        activeStatuses,
+      ),
+      this.transactionRepository.getCommissionTransactionsByDateRange(
+        startDate,
+        endDateTime,
+      ),
+    ]);
 
     return {
       totalActiveRides,
@@ -1287,4 +1267,150 @@ export class RidesService {
       totalCancelledRides,
     };
   }
+
+  /**
+   * Fetches all completed rides within a date range for the admin dashboard.
+   * Filters by `rideCompletedAt` falling within [fromDate, endDate] (inclusive).
+   * Returns paginated results with enriched passenger, driver, and vehicle details.
+   */
+  async getCompletedRides(
+    input: CompletedRidesInput,
+  ): Promise<CompletedRidesResponse> {
+    const { fromDate, endDate } = input;
+
+    // Start of fromDate (inclusive) and end of endDate (inclusive, end of day)
+    const startDate = new Date(fromDate);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(23, 59, 59, 999);
+
+    const [{ rides, total }, chart, breakdown] = await Promise.all([
+      this.rideRepository.findCompletedRidesByDateRange(
+        startDate,
+        endDateTime,
+      ),
+      this.buildChartData(startDate, endDateTime),
+      this.rideRepository.getRideStatusBreakdown(startDate, endDateTime),
+    ]);
+
+    return {
+      rides,
+      total,
+      chartData: chart.data,
+      chartGroupBy: chart.groupBy,
+      breakdown,
+    };
+  }
+
+  /**
+   * Fetches the completed-rides chart data for the admin dashboard.
+   *
+   * Given `fromDate` and `toDate`, this builds a time-series of ride counts.
+   * Grouping rules:
+   *  - If the range spans 2 months or fewer → group by **day**
+   *    (labels like "Feb 1", "Feb 2")
+   *  - If the range spans more than 2 months → group by **month**
+   *    (labels like "Jan", "Feb")
+   *
+   * Days / months with no completed rides are included with value 0 so the
+   * chart always shows a continuous period with no gaps.
+   */
+  async getDashboardChart(input: AdminDashboardInput): Promise<DashboardChartResponse> {
+    const { fromDate, endDate } = input;
+
+    const start = new Date(fromDate);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    return this.buildChartData(start, end);
+  }
+
+  /**
+   * Builds the chart time-series data for completed rides between `start` and `end`.
+   *
+   * Grouping rules:
+   *  - If the range spans 2 months or fewer → group by **day**
+   *    (labels like "Feb 1", "Feb 2")
+   *  - If the range spans more than 2 months → group by **month**
+   *    (labels like "Jan", "Feb")
+   *
+   * Days / months with no completed rides are included with value 0 so the
+   * chart always shows a continuous period with no gaps.
+   */
+  private async buildChartData(
+    start: Date,
+    end: Date,
+  ): Promise<DashboardChartResponse> {
+    const startYear = start.getFullYear();
+    const startMonth = start.getMonth();
+    const endYear = end.getFullYear();
+    const endMonth = end.getMonth();
+
+    // Count distinct months spanned: (endYear*12+endMonth) - (startYear*12+startMonth) + 1
+    const monthSpan =
+      endYear * 12 + endMonth - (startYear * 12 + startMonth) + 1;
+
+    // Group by month when the range spans more than 2 months
+    const groupBy: "day" | "month" = monthSpan > 2 ? "month" : "day";
+
+    const aggregated = await this.rideRepository.getCompletedRidesChart(
+      start,
+      end,
+      groupBy,
+    );
+
+    const valueByKey = new Map<string, number>();
+    for (const item of aggregated) {
+      valueByKey.set(item.key, item.value);
+    }
+
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+
+    const data: ChartDataPoint[] = [];
+
+    if (groupBy === "day") {
+      // Iterate every day from start to end (inclusive)
+      // Pre-compute the date key and label incrementally to avoid
+      // repeated Date object creation and formatDateKey method calls.
+      const current = new Date(start);
+      const endTime = end.getTime();
+      while (current.getTime() <= endTime) {
+        const key = `${current.getFullYear()}-${String(
+          current.getMonth() + 1,
+        ).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
+        data.push({
+          label: `${monthNames[current.getMonth()]} ${current.getDate()}`,
+          value: valueByKey.get(key) ?? 0,
+        });
+        current.setDate(current.getDate() + 1);
+      }
+    } else {
+      // Iterate every month from start to end (inclusive)
+      let year = startYear;
+      let month = startMonth;
+      while (year * 12 + month <= endYear * 12 + endMonth) {
+        const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+        data.push({
+          label: monthNames[month],
+          value: valueByKey.get(key) ?? 0,
+        });
+        month++;
+        if (month > 11) {
+          month = 0;
+          year++;
+        }
+      }
+    }
+
+    const total = data.reduce((sum, point) => sum + point.value, 0);
+
+    return { data, groupBy, total };
+  }
+
 }
