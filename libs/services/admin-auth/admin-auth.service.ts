@@ -124,7 +124,7 @@ export class AdminAuthService {
       accessToken,
       refreshToken,
       admin: {
-        id: admin._id.toString(),
+        _id: admin._id.toString(),
         fullName: admin.fullName,
         email: admin.email,
       },
