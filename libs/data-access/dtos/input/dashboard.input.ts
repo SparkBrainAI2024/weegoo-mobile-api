@@ -4,21 +4,19 @@ import { IsDateString, IsNotEmpty } from "class-validator";
 
 /**
  * Input for the admin dashboard statistics query.
- * The `date` represents a calendar date. All statistics are computed
- * for that single calendar day, compared against the previous day
- * for the cancelled-rides percent-change metric.
+ * `fromDate` and `endDate` define an inclusive date range. All statistics
+ * (active rides, revenue, cancelled rides, etc.) are computed for rides
+ * whose `bookingTime` falls within [fromDate, endDate].
  *
  * @example
  * query {
- *   adminDashboard(input: { date: "2024-08-14" }) {
+ *   adminDashboard(input: { fromDate: "2024-08-14", endDate: "2024-08-16" }) {
  *     totalActiveRides
  *     activeRider
  *     activePassenger
  *     totalRevenue
  *     completeCommissionTransactions
  *     totalCancelledRides
- *     previousDateTotalCancelledRides
- *     cancelledRidesPercentChange
  *   }
  * }
  */
@@ -26,9 +24,17 @@ import { IsDateString, IsNotEmpty } from "class-validator";
 export class AdminDashboardInput {
   @Field(() => Date, {
     description:
-      "The date for which to fetch dashboard statistics (calendar date).",
+      "The start date (inclusive) of the date range for which to fetch dashboard statistics.",
   })
   @IsNotEmpty()
   @IsDateString()
-  date: Date;
+  fromDate: Date;
+
+  @Field(() => Date, {
+    description:
+      "The end date (inclusive) of the date range for which to fetch dashboard statistics.",
+  })
+  @IsNotEmpty()
+  @IsDateString()
+  endDate: Date;
 }

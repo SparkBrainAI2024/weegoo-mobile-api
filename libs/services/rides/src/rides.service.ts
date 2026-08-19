@@ -1208,32 +1208,25 @@ export class RidesService {
   }
 
   /**
-   * Fetches admin dashboard statistics for a given date.
+   * Fetches admin dashboard statistics for a date range.
    *
    * Computes:
-   *  - totalActiveRides: rides with status CONFIRMED / ONGOING / PICKUP on the given date
-   *  - activeRider: unique drivers involved in active rides on the given date
-   *  - activePassenger: unique passengers involved in active rides on the given date
-   *  - totalRevenue: sum of completed commission transactions on the given date
-   *  - completeCommissionTransactions: count of completed commission transactions on the given date
-   *  - totalCancelledRides: cancelled rides on the given date
-   *  - previousDateTotalCancelledRides: cancelled rides on the previous day
-   *  - cancelledRidesPercentChange: percent change between previous day and given date
+   *  - totalActiveRides: rides with status CONFIRMED / ONGOING / PICKUP within the date range
+   *  - activeRider: unique drivers involved in active rides within the date range
+   *  - activePassenger: unique passengers involved in active rides within the date range
+   *  - totalRevenue: sum of completed commission transactions within the date range
+   *  - completeCommissionTransactions: count of completed commission transactions within the date range
+   *  - totalCancelledRides: cancelled rides within the date range
    */
   async getAdminDashboard(input: AdminDashboardInput) {
-    const { date } = input;
+    const { fromDate, endDate } = input;
 
-    // Start and end of the selected date
-    const selectedDate = new Date(date);
-    selectedDate.setHours(0, 0, 0, 0);
-    const nextDate = new Date(selectedDate);
-    nextDate.setDate(nextDate.getDate() + 1);
+    // Start of fromDate (inclusive) and end of endDate (inclusive, end of day)
+    const startDate = new Date(fromDate);
+    startDate.setHours(0, 0, 0, 0);
 
-    // Start and end of the previous date
-    const prevDate = new Date(selectedDate);
-    prevDate.setDate(prevDate.getDate() - 1);
-    const prevNextDate = new Date(prevDate);
-    prevNextDate.setDate(prevNextDate.getDate() + 1);
+    const endDateTime = new Date(endDate);
+    endDateTime.setHours(23, 59, 59, 999);
 
     const activeStatuses = [
       RideStatus.CONFIRMED,
@@ -1241,9 +1234,9 @@ export class RidesService {
       RideStatus.PICKUP,
     ];
 
-    // 1. Total active rides for the selected date
+    // 1. Total active rides for the date range
     const totalActiveRides = await this.rideRepository.count({
-      bookingTime: { $gte: selectedDate, $lte: nextDate },
+      bookingTime: { $gte: startDate, $lte: endDateTime },
       rideStatus: { $in: activeStatuses },
       deleted: false,
     });
@@ -1251,7 +1244,7 @@ export class RidesService {
     // 2 & 3. Active riders (unique drivers) and active passengers (unique passengers)
     const activeRides = await this.rideRepository.find(
       {
-        bookingTime: { $gte: selectedDate, $lte: nextDate },
+        bookingTime: { $gte: startDate, $lte: endDateTime },
         rideStatus: { $in: activeStatuses },
         deleted: false,
       },
@@ -1271,38 +1264,19 @@ export class RidesService {
         .filter((id): id is string => !!id),
     ).size;
 
-    // 4 & 5. Total revenue and completed commission transactions for the selected date
+    // 4 & 5. Total revenue and completed commission transactions for the date range
     const { totalRevenue, completedTransactionsCount } =
       await this.transactionRepository.getCommissionTransactionsByDateRange(
-        selectedDate,
-        nextDate,
+        startDate,
+        endDateTime,
       );
 
-    // 6. Total cancelled rides for the selected date
+    // 6. Total cancelled rides for the date range
     const totalCancelledRides = await this.rideRepository.count({
-      bookingTime: { $gte: selectedDate, $lte: nextDate },
+      bookingTime: { $gte: startDate, $lte: endDateTime },
       rideStatus: RideStatus.CANCELLED,
       deleted: false,
     });
-
-    // 7. Total cancelled rides for the previous date
-    const previousDateTotalCancelledRides = await this.rideRepository.count({
-      bookingTime: { $gte: prevDate, $lte: prevNextDate },
-      rideStatus: RideStatus.CANCELLED,
-      deleted: false,
-    });
-
-    // 8. Percent change for cancelled rides
-    let cancelledRidesPercentChange = 0;
-    if (previousDateTotalCancelledRides > 0) {
-      cancelledRidesPercentChange =
-        ((totalCancelledRides - previousDateTotalCancelledRides) /
-          previousDateTotalCancelledRides) *
-        100;
-    } else if (totalCancelledRides > 0) {
-      // No cancelled rides previous day but some today → 100% increase
-      cancelledRidesPercentChange = 100;
-    }
 
     return {
       totalActiveRides,
@@ -1311,9 +1285,6 @@ export class RidesService {
       totalRevenue,
       completeCommissionTransactions: completedTransactionsCount,
       totalCancelledRides,
-      previousDateTotalCancelledRides,
-      cancelledRidesPercentChange:
-        Math.round(cancelledRidesPercentChange * 100) / 100,
     };
   }
 }

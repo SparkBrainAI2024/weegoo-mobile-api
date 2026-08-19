@@ -1487,42 +1487,39 @@ type RideDetailResponse {
 
 type AdminDashboardResponse {
   """
-  Total number of active rides (CONFIRMED / ONGOING / PICKUP) for the given date.
+  Total number of active rides (CONFIRMED / ONGOING / PICKUP) for the given date range.
   """
   totalActiveRides: Int!
 
   """
-  Number of unique active riders (drivers) involved in active rides for the given date.
+  Number of unique active riders (drivers) involved in active rides for the given date range.
   """
   activeRider: Int!
 
   """
-  Number of unique active passengers involved in active rides for the given date.
+  Number of unique active passengers involved in active rides for the given date range.
   """
   activePassenger: Int!
 
   """
-  Total revenue from completed commission transactions for the given date.
+  Total revenue from completed commission transactions for the given date range.
   """
   totalRevenue: Float!
 
-  """Total number of completed commission transactions for the given date."""
+  """
+  Total number of completed commission transactions for the given date range.
+  """
   completeCommissionTransactions: Int!
 
   """
-  Total number of cancelled rides for the given date (based on bookingTime).
+  Total number of cancelled rides for the given date range (based on bookingTime).
   """
   totalCancelledRides: Int!
 
   """
-  Total number of cancelled rides for the previous day (the day before the given date).
+  List of completed rides within the given date range (based on bookingTime).
   """
-  previousDateTotalCancelledRides: Int!
-
-  """
-  Percent change in cancelled rides between the previous day and the given date. Positive = increase, negative = decrease.
-  """
-  cancelledRidesPercentChange: Float!
+  rides: [RideDetailResponse!]!
 }
 
 type EmailTemplateListWithPaginationResponse {
@@ -1658,8 +1655,15 @@ enum RideTimeRange {
 }
 
 input AdminDashboardInput {
-  """The date for which to fetch dashboard statistics (calendar date)."""
-  date: DateTime!
+  """
+  The start date (inclusive) of the date range for which to fetch dashboard statistics.
+  """
+  fromDate: DateTime!
+
+  """
+  The end date (inclusive) of the date range for which to fetch dashboard statistics.
+  """
+  endDate: DateTime!
 }
 
 input RideDetailInput {
