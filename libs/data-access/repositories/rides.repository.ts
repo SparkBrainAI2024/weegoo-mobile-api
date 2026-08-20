@@ -527,6 +527,79 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
    * Used for the admin dashboard chart.
    */
   /**
+   * Counts rides by status (ongoing, cancelled, completed) within a date range.
+   * "ongoing" = CONFIRMED, ONGOING, PICKUP, PENDING
+   * "completed" = COMPLETED
+   * "cancelled" = CANCELLED
+   */
+  async getRideStatusCounts(
+    fromDate: Date,
+    toDate: Date,
+  ): Promise<{ ongoing: number; cancelled: number; completed: number }> {
+    const start = new Date(fromDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(toDate);
+    end.setHours(23, 59, 59, 999);
+
+    const [result] = await this._model.aggregate([
+      {
+        $match: {
+          bookingTime: { $gte: start, $lte: end },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          ongoing: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    "$rideStatus",
+                    [
+                      RideStatus.CONFIRMED,
+                      RideStatus.ONGOING,
+                      RideStatus.PICKUP,
+                      RideStatus.PENDING,
+                    ],
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          cancelled: {
+            $sum: {
+              $cond: [
+                { $eq: ["$rideStatus", RideStatus.CANCELLED] },
+                1,
+                0,
+              ],
+            },
+          },
+          completed: {
+            $sum: {
+              $cond: [
+                { $eq: ["$rideStatus", RideStatus.COMPLETED] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    return {
+      ongoing: result?.ongoing ?? 0,
+      cancelled: result?.cancelled ?? 0,
+      completed: result?.completed ?? 0,
+    };
+  }
+
+  /**
    * Aggregates admin dashboard stats in a single query using $facet.
    * Returns total active rides, unique active drivers/passengers, and cancelled rides.
    */
@@ -577,59 +650,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     };
   }
 
-  /**
-   * Counts rides by status (ONGOING / COMPLETED / CANCELLED) within a date range.
-   * Used for the admin dashboard ride status breakdown.
-   */
-  async getRideStatusBreakdown(
-    fromDate: Date,
-    endDate: Date,
-  ): Promise<{ ongoing: number; completed: number; cancelled: number }> {
-    const pipeline: any[] = [
-      {
-        $match: {
-          bookingTime: { $gte: fromDate, $lte: endDate },
-          deleted: { $ne: true },
-        },
-      },
-      {
-        $group: {
-          _id: "$rideStatus",
-          count: { $sum: 1 },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          status: "$_id",
-          count: 1,
-        },
-      },
-    ];
-
-    const result = await this._model.aggregate(pipeline);
-
-    let ongoing = 0;
-    let completed = 0;
-    let cancelled = 0;
-
-    for (const item of result) {
-      switch (item.status) {
-        case RideStatus.ONGOING:
-          ongoing = item.count;
-          break;
-        case RideStatus.COMPLETED:
-          completed = item.count;
-          break;
-        case RideStatus.CANCELLED:
-          cancelled = item.count;
-          break;
-      }
-    }
-
-    return { ongoing, completed, cancelled };
-  }
-
   async getCompletedRidesChart(
     fromDate: Date,
     endDate: Date,
@@ -675,135 +695,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     ];
 
     return this._model.aggregate(pipeline);
-  }
-
-  async findCompletedRidesByDateRange(fromDate: Date, endDate: Date) {
-    const match: Record<string, any> = {
-      rideStatus: RideStatus.COMPLETED,
-      rideCompletedAt: { $gte: fromDate, $lte: endDate },
-      deleted: { $ne: true },
-    };
-
-    const [result] = await this._model.aggregate([
-      { $match: match },
-      {
-        $facet: {
-          rides: [
-            {
-              $lookup: {
-                from: "users",
-                localField: "passengerId",
-                foreignField: "_id",
-                as: "riderUser",
-              },
-            },
-            {
-              $lookup: {
-                from: "users",
-                localField: "driverId",
-                foreignField: "_id",
-                as: "driverUser",
-              },
-            },
-            {
-              $unwind: {
-                path: "$riderUser",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            {
-              $unwind: {
-                path: "$driverUser",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            {
-              $lookup: {
-                from: "userdetails",
-                localField: "passengerId",
-                foreignField: "userId",
-                as: "passengerDetails",
-              },
-            },
-            {
-              $lookup: {
-                from: "userdetails",
-                localField: "driverId",
-                foreignField: "userId",
-                as: "driverDetails",
-              },
-            },
-            {
-              $unwind: {
-                path: "$passengerDetails",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            {
-              $unwind: {
-                path: "$driverDetails",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            {
-              $lookup: {
-                from: "vehicles",
-                localField: "vehicleId",
-                foreignField: "_id",
-                as: "vehicle",
-              },
-            },
-            {
-              $unwind: {
-                path: "$vehicle",
-                preserveNullAndEmptyArrays: true,
-              },
-            },
-            {
-              $addFields: {
-                passenger: {
-                  $cond: [
-                    { $ifNull: ["$riderUser", false] },
-                    {
-                      userId: "$riderUser._id",
-                      fullName: "$passengerDetails.fullName",
-                      phone: "$riderUser.phone",
-                      rating: "$passengerDetails.rating",
-                      profileImage: {
-                        $arrayElemAt: ["$passengerDetails.profileImages", 0],
-                      },
-                    },
-                    null,
-                  ],
-                },
-                driver: {
-                  $cond: [
-                    { $ifNull: ["$driverUser", false] },
-                    {
-                      userId: "$driverUser._id",
-                      fullName: "$driverDetails.fullName",
-                      phone: "$driverUser.phone",
-                      rating: "$driverDetails.rating",
-                      profileImage: {
-                        $arrayElemAt: ["$driverDetails.profileImages", 0],
-                      },
-                    },
-                    null,
-                  ],
-                },
-              },
-            },
-            { $sort: { rideCompletedAt: -1 } },
-          ],
-          total: [{ $count: "count" }],
-        },
-      },
-    ]);
-
-    return {
-      rides: result?.rides ?? [],
-      total: result?.total?.[0]?.count ?? 0,
-    };
   }
 
   /**

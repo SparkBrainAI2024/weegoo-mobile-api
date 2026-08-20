@@ -6,6 +6,10 @@ import { TransactionService } from '@libs/services/payment/src/transaction/trans
 import { IssuePersistenceModule } from '@libs/services/issue/src/issue-persistence.module';
 import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
 import { TransactionPersistenceModule } from '@libs/services/payment/src/transaction/transaction-persistence.module';
+import { RideAdminDashboardService } from './services/ride-admin-dashboard.service';
+import { RideQueryService } from './services/ride-query.service';
+import { RideLifecycleService } from './services/ride-lifecycle.service';
+import { RidePromoService } from './services/ride-promo-code.service';
 
 @Module({
   imports: [
@@ -14,6 +18,14 @@ import { TransactionPersistenceModule } from '@libs/services/payment/src/transac
     WalletModule,
     TransactionPersistenceModule,
   ],
-  providers: [RidesResolver,RidesService,TransactionService],
+  providers: [
+    RidesResolver,
+    RidesService,
+    TransactionService,
+    RideAdminDashboardService,
+    RideQueryService,
+    RideLifecycleService,
+    RidePromoService,
+  ],
 })
 export class UserRidesModule {}

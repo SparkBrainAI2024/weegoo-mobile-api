@@ -2,6 +2,10 @@ import {
   RidePersistentModule,
   RidesService,
   RidesResolver,
+  RideAdminDashboardService,
+  RideQueryService,
+  RideLifecycleService,
+  RidePromoService,
 } from "@libs/services/rides";
 import { Module } from "@nestjs/common";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
@@ -61,6 +65,10 @@ import { NotificationModule } from "@libs/services/notification";
     RidesService,
     RidesResolver,
     EnvService,
+    RideAdminDashboardService,
+    RideQueryService,
+    RideLifecycleService,
+    RidePromoService,
     MatchmakingIntegrationService,
     MatchmakingResolver,
     PassengerRidesResolver,

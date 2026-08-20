@@ -1,7 +1,6 @@
 // dtos/response/admin-dashboard.response.ts
 import { Field, Float, Int, ObjectType } from "@nestjs/graphql";
 import { RideDetailResponse } from "./rides-list.response";
-import { Rides } from "../../entities/rides.entity";
 
 /**
  * Single data point in the dashboard chart.
@@ -47,46 +46,37 @@ export class DashboardChartResponse {
 }
 
 /**
- * Response object for the admin dashboard statistics query.
- *
- * All monetary values are returned as numbers (no currency prefix — the
- * admin-panel is expected to format for display). Percent-change is rounded
- * to two decimal places.
- */
-/**
- * Response object for the completed rides query in the admin dashboard.
- * Combines the paginated rides list with the chart time-series data
- * (grouped by day or by month depending on the date range).
- */
-/**
- * Status breakdown for a given date range.
- * Counts of rides grouped by their status: ONGOING / COMPLETED / CANCELLED.
+ * Response object for the passenger registration chart query in the admin dashboard.
+ * Returns a time-series of the number of passenger users (role USER) who joined
+ * (createdAt) between fromDate and toDate, grouped by day or by month depending
+ * on the date range.
  */
 @ObjectType()
-export class RideStatusBreakdown {
-  @Field(() => Int, {
-    description: "Number of ongoing rides (status ONGOING) in the date range.",
+export class PassengerRegistrationChartResponse {
+  @Field(() => [ChartDataPoint], {
+    description:
+      "Time-series data points of passenger registrations, grouped by day or month.",
   })
-  ongoing: number;
+  data: ChartDataPoint[];
+
+  @Field(() => String, {
+    description: "The grouping mode used: 'day' or 'month'.",
+  })
+  groupBy: "day" | "month";
 
   @Field(() => Int, {
-    description: "Number of completed rides (status COMPLETED) in the date range.",
+    description: "Total number of passengers who joined in the date range.",
   })
-  completed: number;
-
-  @Field(() => Int, {
-    description: "Number of cancelled rides (status CANCELLED) in the date range.",
-  })
-  cancelled: number;
+  total: number;
 }
 
+/**
+ * Response object for the completed rides query in the admin dashboard.
+ * Returns chart time-series data of completed ride counts and the total
+ * count, grouped by day or by month depending on the date range.
+ */
 @ObjectType()
 export class CompletedRidesResponse {
-  @Field(() => [Rides], {
-    description: "All completed rides for the given date range.",
-  })
-  rides: Rides[];
-
   @Field(() => Int, {
     description: "Total number of completed rides in the date range.",
   })
@@ -97,17 +87,49 @@ export class CompletedRidesResponse {
       "Time-series chart data — labels are 'Feb 1', 'Feb 2' (day) or 'Jan', 'Feb' (month) depending on range length.",
   })
   chartData: ChartDataPoint[];
+}
 
-  @Field(() => String, {
-    description: "Chart grouping mode: 'day' or 'month'.",
-  })
-  chartGroupBy: "day" | "month";
+@ObjectType()
+export class DriverStatusCounts {
+  @Field(() => Int, { description: "Total number of drivers in the system." })
+  totalDrivers: number;
+  @Field(() => Int, { description: "Number of drivers currently online." })
+  onlineDrivers: number;
+  @Field(() => Int, { description: "Number of drivers currently offline." })
+  offlineDrivers: number;
+}
 
-  @Field(() => RideStatusBreakdown, {
-    description:
-      "Breakdown of ride statuses (ONGOING / COMPLETED / CANCELLED) for the given date range.",
+@ObjectType()
+export class UserStatsResponse {
+  @Field(() => Int, { description: "Total number of users in the system." })
+  totalUsers: number;
+  @Field(() => Int, { description: "Number of users who joined today." })
+  usersJoinedToday: number;
+  @Field(() => Int, { description: "Total number of suspended users." })
+  suspendedUsers: number;
+}
+
+/**
+ * Response object for the ride status pie chart query in the admin dashboard.
+ * Returns counts of rides grouped by status (ongoing, cancelled, completed)
+ * for a given date range based on bookingTime.
+ */
+@ObjectType()
+export class RideStatusChartResponse {
+  @Field(() => Int, {
+    description: "Number of ongoing rides (CONFIRMED, ONGOING, PICKUP, PENDING) in the date range.",
   })
-  breakdown: RideStatusBreakdown;
+  ongoing: number;
+
+  @Field(() => Int, {
+    description: "Number of cancelled rides in the date range.",
+  })
+  cancelled: number;
+
+  @Field(() => Int, {
+    description: "Number of completed rides in the date range.",
+  })
+  completed: number;
 }
 
 /**
@@ -154,4 +176,15 @@ export class AdminDashboardResponse {
   })
   totalCancelledRides: number;
 
+  @Field(() => DriverStatusCounts, {
+   description:
+    "Counts of drivers by online status (total, online, offline).",
+  })
+  driverStatus: DriverStatusCounts;
+
+  @Field(() => UserStatsResponse, {
+   description:
+    "Counts of users by total, joined today, and suspended.",
+  })
+  userStatus: UserStatsResponse;
 }

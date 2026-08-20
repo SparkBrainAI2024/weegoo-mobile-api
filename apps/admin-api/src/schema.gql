@@ -1485,6 +1485,83 @@ type RideDetailResponse {
   passenger: AdminRideUserSnapshot
 }
 
+type ChartDataPoint {
+  """Label for the chart data point (e.g. 'Feb 1' or 'Jan')."""
+  label: String!
+
+  """Number of completed rides for the given period."""
+  value: Int!
+}
+
+type DashboardChartResponse {
+  """Time-series data points of completed rides, grouped by day or month."""
+  data: [ChartDataPoint!]!
+
+  """The grouping mode used: 'day' or 'month'."""
+  groupBy: String!
+
+  """Total number of completed rides in the date range."""
+  total: Int!
+}
+
+type PassengerRegistrationChartResponse {
+  """
+  Time-series data points of passenger registrations, grouped by day or month.
+  """
+  data: [ChartDataPoint!]!
+
+  """The grouping mode used: 'day' or 'month'."""
+  groupBy: String!
+
+  """Total number of passengers who joined in the date range."""
+  total: Int!
+}
+
+type CompletedRidesResponse {
+  """Total number of completed rides in the date range."""
+  total: Int!
+
+  """
+  Time-series chart data — labels are 'Feb 1', 'Feb 2' (day) or 'Jan', 'Feb' (month) depending on range length.
+  """
+  chartData: [ChartDataPoint!]!
+}
+
+type DriverStatusCounts {
+  """Total number of drivers in the system."""
+  totalDrivers: Int!
+
+  """Number of drivers currently online."""
+  onlineDrivers: Int!
+
+  """Number of drivers currently offline."""
+  offlineDrivers: Int!
+}
+
+type UserStatsResponse {
+  """Total number of users in the system."""
+  totalUsers: Int!
+
+  """Number of users who joined today."""
+  usersJoinedToday: Int!
+
+  """Total number of suspended users."""
+  suspendedUsers: Int!
+}
+
+type RideStatusChartResponse {
+  """
+  Number of ongoing rides (CONFIRMED, ONGOING, PICKUP, PENDING) in the date range.
+  """
+  ongoing: Int!
+
+  """Number of cancelled rides in the date range."""
+  cancelled: Int!
+
+  """Number of completed rides in the date range."""
+  completed: Int!
+}
+
 type AdminDashboardResponse {
   """
   Total number of active rides (CONFIRMED / ONGOING / PICKUP) for the given date range.
@@ -1516,10 +1593,11 @@ type AdminDashboardResponse {
   """
   totalCancelledRides: Int!
 
-  """
-  List of completed rides within the given date range (based on bookingTime).
-  """
-  rides: [RideDetailResponse!]!
+  """Counts of drivers by online status (total, online, offline)."""
+  driverStatus: DriverStatusCounts!
+
+  """Counts of users by total, joined today, and suspended."""
+  userStatus: UserStatsResponse!
 }
 
 type EmailTemplateListWithPaginationResponse {
@@ -1559,6 +1637,23 @@ type Query {
   rides(input: RidesListInput!): RidesListResponse!
   ride(id: String!): Rides
   adminDashboard(input: AdminDashboardInput!): AdminDashboardResponse!
+  completedRides(input: CompletedRidesInput!): CompletedRidesResponse!
+  dashboardChart(input: AdminDashboardInput!): DashboardChartResponse!
+
+  """
+  Admin-only. Returns passenger (role USER) registrations joined between fromDate and endDate, grouped by day or month for the admin dashboard chart.
+  """
+  passengerRegistrationChart(input: AdminDashboardInput!): PassengerRegistrationChartResponse!
+
+  """
+  Returns total / online / offline driver counts. When `input` is provided with fromDate and endDate, counts are filtered by the driver's createdAt date range. When no input is provided, counts ALL drivers.
+  """
+  driverStatusCounts(input: AdminDashboardInput): DriverStatusCounts!
+
+  """
+  Admin-only. Returns ride counts by status (ongoing, cancelled, completed) for rides whose bookingTime falls within the given date range, suitable for a pie chart.
+  """
+  rideStatusChart(input: AdminDashboardInput!): RideStatusChartResponse!
   rideDetail(input: RideDetailInput!): RideDetailResponse!
 
   """
@@ -1662,6 +1757,18 @@ input AdminDashboardInput {
 
   """
   The end date (inclusive) of the date range for which to fetch dashboard statistics.
+  """
+  endDate: DateTime!
+}
+
+input CompletedRidesInput {
+  """
+  The start date (inclusive) of the date range for which to fetch completed rides.
+  """
+  fromDate: DateTime!
+
+  """
+  The end date (inclusive) of the date range for which to fetch completed rides.
   """
   endDate: DateTime!
 }
