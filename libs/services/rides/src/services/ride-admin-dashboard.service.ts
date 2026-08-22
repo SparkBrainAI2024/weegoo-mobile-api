@@ -4,31 +4,30 @@ import { Model } from "mongoose";
 import {
   RidesRepository,
   RideStatus,
-  roles,
   User,
   UserDocument,
   TransactionRepository,
+  roles,
   DriverOnlineStatus,
 } from "@libs/data-access";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
-import { CompletedRidesInput } from "@libs/data-access/dtos/input/completed-rides.input";
 import {
   ChartDataPoint,
-  CompletedRidesResponse,
   DashboardChartResponse,
-  DriverStatusCounts,
-  PassengerRegistrationChartResponse,
   UserStatsResponse,
   RideStatusChartResponse,
+  PassengerRegistrationChartResponse,
+  DriverStatusCounts,
+  PercentageChange,
 } from "@libs/data-access/dtos/response/admin-dashboard.response";
 
 /**
  * Admin dashboard & analytics queries for the ride domain.
  *
  * Owns the aggregation pipelines that power the admin-panel charts:
- * active-ride stats, driver online/offline counts, user statistics,
- * completed-rides chart, and the passenger-registration chart.
+ * active-ride stats, user statistics, completed-rides chart, and the
+ * ride status pie chart.
  */
 @Injectable()
 export class RideAdminDashboardService {
@@ -53,11 +52,13 @@ export class RideAdminDashboardService {
    *
    * Computes:
    *  - totalActiveRides: rides with status CONFIRMED / ONGOING / PICKUP within the date range
-   *  - activeRider: unique drivers involved in active rides within the date range
-   *  - activePassenger: unique passengers involved in active rides within the date range
+   *  - activeRider: unique drivers who were online within the date range
+   *  - activePassenger: verified, non-suspended passengers registered within the date range
    *  - totalRevenue: sum of completed commission transactions within the date range
    *  - completeCommissionTransactions: count of completed commission transactions within the date range
    *  - totalCancelledRides: cancelled rides within the date range
+   *  - percentageChange: percentage change of each metric compared to the previous
+   *    period of equal duration immediately before the requested date range
    */
   async getAdminDashboard(input: AdminDashboardInput) {
     const { fromDate, endDate } = input;
@@ -69,6 +70,11 @@ export class RideAdminDashboardService {
     const endDateTime = new Date(endDate);
     endDateTime.setHours(23, 59, 59, 999);
 
+    // Previous period of equal duration immediately before the requested range
+    const rangeDurationMs = endDateTime.getTime() - startDate.getTime();
+    const prevEndDateTime = new Date(startDate.getTime() - 1);
+    const prevStartDate = new Date(prevEndDateTime.getTime() - rangeDurationMs);
+
     const activeStatuses = [
       RideStatus.CONFIRMED,
       RideStatus.ONGOING,
@@ -76,8 +82,14 @@ export class RideAdminDashboardService {
     ];
 
     const [
-      { totalActiveRides, activeRider, activePassenger, totalCancelledRides },
+      { totalActiveRides, totalCancelledRides },
       { totalRevenue, completedTransactionsCount },
+      prevRideStats,
+      prevTransactionStats,
+      activeRider,
+      activePassenger,
+      prevActiveRider,
+      prevActivePassenger,
     ] = await Promise.all([
       this.rideRepository.getAdminDashboardStats(
         startDate,
@@ -88,7 +100,47 @@ export class RideAdminDashboardService {
         startDate,
         endDateTime,
       ),
+      this.rideRepository.getAdminDashboardStats(
+        prevStartDate,
+        prevEndDateTime,
+        activeStatuses,
+      ),
+      this.transactionRepository.getCommissionTransactionsByDateRange(
+        prevStartDate,
+        prevEndDateTime,
+      ),
+      this.getActiveRiderCount(startDate, endDateTime),
+      this.getActivePassengerCount(startDate, endDateTime),
+      this.getActiveRiderCount(prevStartDate, prevEndDateTime),
+      this.getActivePassengerCount(prevStartDate, prevEndDateTime),
     ]);
+
+    const percentageChange: PercentageChange = {
+      totalActiveRides: this.calculatePercentageChange(
+        totalActiveRides,
+        prevRideStats.totalActiveRides,
+      ),
+      activeRider: this.calculatePercentageChange(
+        activeRider,
+        prevActiveRider,
+      ),
+      activePassenger: this.calculatePercentageChange(
+        activePassenger,
+        prevActivePassenger,
+      ),
+      totalRevenue: this.calculatePercentageChange(
+        totalRevenue,
+        prevTransactionStats.totalRevenue,
+      ),
+      completeCommissionTransactions: this.calculatePercentageChange(
+        completedTransactionsCount,
+        prevTransactionStats.completedTransactionsCount,
+      ),
+      totalCancelledRides: this.calculatePercentageChange(
+        totalCancelledRides,
+        prevRideStats.totalCancelledRides,
+      ),
+    };
 
     return {
       totalActiveRides,
@@ -97,34 +149,22 @@ export class RideAdminDashboardService {
       totalRevenue,
       completeCommissionTransactions: completedTransactionsCount,
       totalCancelledRides,
+      percentageChange,
     };
   }
 
   /**
-   * Fetches driver online/offline status counts.
+   * Counts unique drivers (role RIDER) who were online within the given date range.
    *
-   * When `fromDate` and `endDate` are provided, counts are filtered by the
-   * driver's `createdAt` date range (users with `loginAs: RIDER`).
-   * When no dates are provided, counts ALL drivers in the system.
+   * A driver is considered "online" if their `UserDetails.driverOnlineStatus` is
+   * ONLINE and their `lastLocationUpdateAt` falls within [startDate, endDate].
    */
-  async getDriverStatusCounts(
-    fromDate?: Date,
-    endDate?: Date,
-  ): Promise<DriverStatusCounts> {
-    const match: Record<string, any> = {
-      loginAs: roles.RIDER,
-    };
-
-    if (fromDate && endDate) {
-      const startDate = new Date(fromDate);
-      startDate.setHours(0, 0, 0, 0);
-      const endDateTime = new Date(endDate);
-      endDateTime.setHours(23, 59, 59, 999);
-      match.createdAt = { $gte: startDate, $lte: endDateTime };
-    }
-
+  private async getActiveRiderCount(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
     const [result] = await this.userModel.aggregate([
-      { $match: match },
+      { $match: { loginAs: roles.RIDER, deleted: false } },
       {
         $lookup: {
           from: "userdetails",
@@ -133,53 +173,59 @@ export class RideAdminDashboardService {
           as: "details",
         },
       },
+      { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
       {
-        $unwind: {
-          path: "$details",
-          preserveNullAndEmptyArrays: true,
+        $match: {
+          "details.driverOnlineStatus": DriverOnlineStatus.ONLINE,
+          "details.lastLocationUpdateAt": { $gte: startDate, $lte: endDate },
         },
       },
-      {
-        $group: {
-          _id: null,
-          totalDrivers: { $sum: 1 },
-          onlineDrivers: {
-            $sum: {
-              $cond: [
-                {
-                  $eq: [
-                    "$details.driverOnlineStatus",
-                    DriverOnlineStatus.ONLINE,
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-          offlineDrivers: {
-            $sum: {
-              $cond: [
-                {
-                  $ne: [
-                    "$details.driverOnlineStatus",
-                    DriverOnlineStatus.ONLINE,
-                  ],
-                },
-                1,
-                0,
-              ],
-            },
-          },
-        },
-      },
+      { $count: "count" },
     ]);
 
-    return {
-      totalDrivers: result?.totalDrivers ?? 0,
-      onlineDrivers: result?.onlineDrivers ?? 0,
-      offlineDrivers: result?.offlineDrivers ?? 0,
-    };
+    return result?.count ?? 0;
+  }
+
+  /**
+   * Counts passengers (role USER) who are verified, not suspended, and
+   * registered (createdAt) within the given date range.
+   */
+  private async getActivePassengerCount(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    const [result] = await this.userModel.aggregate([
+      {
+        $match: {
+          loginAs: roles.USER,
+          verified: true,
+          suspended: false,
+          deleted: false,
+          createdAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+      { $count: "count" },
+    ]);
+
+    return result?.count ?? 0;
+  }
+
+  /**
+   * Calculates the percentage change between a current value and a previous value.
+   *
+   * Formula: ((current - previous) / previous) * 100
+   *
+   * Returns `null` when the previous value is 0 to avoid division-by-zero.
+   * The result is rounded to two decimal places.
+   */
+  private calculatePercentageChange(
+    current: number,
+    previous: number,
+  ): number | null {
+    if (previous === 0) {
+      return null;
+    }
+    return Math.round(((current - previous) / previous) * 10000) / 100;
   }
 
   /**
@@ -250,31 +296,9 @@ export class RideAdminDashboardService {
   }
 
   /**
-   * Fetches all completed rides within a date range for the admin dashboard.
-   */
-  async getCompletedRides(
-    input: CompletedRidesInput,
-  ): Promise<CompletedRidesResponse> {
-    const { fromDate, endDate } = input;
-
-    const startDate = new Date(fromDate);
-    startDate.setHours(0, 0, 0, 0);
-
-    const endDateTime = new Date(endDate);
-    endDateTime.setHours(23, 59, 59, 999);
-
-    const chart = await this.buildChartData(startDate, endDateTime);
-
-    return {
-      total: chart.total,
-      chartData: chart.data,
-    };
-  }
-
-  /**
    * Fetches the completed-rides chart data for the admin dashboard.
    */
-  async getDashboardChart(
+  async getCompletedRideDashboardChart(
     input: AdminDashboardInput,
   ): Promise<DashboardChartResponse> {
     const { fromDate, endDate } = input;
@@ -289,54 +313,22 @@ export class RideAdminDashboardService {
   }
 
   /**
-   * Fetches the passenger-registration chart data for the admin dashboard.
-   *
-   * Passengers are users whose roles array contains USER. For each day/month
-   * between fromDate and toDate, the number of passenger users whose createdAt
-   * falls within that period is returned so the admin panel can plot the
-   * passenger joined over time.
+   * Fetches passenger (role USER) registrations, grouped by month,
+   * for the admin dashboard chart.
    */
-  async getPassengerRegistrationChart(
-    input: AdminDashboardInput,
-  ): Promise<PassengerRegistrationChartResponse> {
-    const { fromDate, endDate } = input;
-
-    const start = new Date(fromDate);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    const startYear = start.getFullYear();
-    const startMonth = start.getMonth();
-    const endYear = end.getFullYear();
-    const endMonth = end.getMonth();
-
-    const monthSpan =
-      endYear * 12 + endMonth - (startYear * 12 + startMonth) + 1;
-
-    const groupBy: "day" | "month" = monthSpan > 2 ? "month" : "day";
-
-    const dateProjection =
-      groupBy === "day"
-        ? {
-            $dateToString: { date: "$createdAt", format: "%Y-%m-%d" },
-          }
-        : {
-            $dateToString: { date: "$createdAt", format: "%Y-%m" },
-          };
-
+  async getPassengerRegistrationChart(): Promise<PassengerRegistrationChartResponse> {
     const aggregated = await this.userModel.aggregate([
       {
         $match: {
           roles: { $in: [roles.USER] },
           deleted: false,
-          createdAt: { $gte: start, $lte: end },
         },
       },
       {
         $group: {
-          _id: dateProjection,
+          _id: {
+            $dateToString: { date: "$createdAt", format: "%Y-%m" },
+          },
           value: { $sum: 1 },
         },
       },
@@ -350,51 +342,86 @@ export class RideAdminDashboardService {
       { $sort: { key: 1 } },
     ]);
 
-    const valueByKey = new Map<string, number>();
-    for (const item of aggregated) {
-      valueByKey.set(item.key, item.value);
-    }
-
     const monthNames = [
       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
 
-    const data: ChartDataPoint[] = [];
-
-    if (groupBy === "day") {
-      const current = new Date(start);
-      const endTime = end.getTime();
-      while (current.getTime() <= endTime) {
-        const key = `${current.getFullYear()}-${String(
-          current.getMonth() + 1,
-        ).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
-        data.push({
-          label: `${monthNames[current.getMonth()]} ${current.getDate()}`,
-          value: valueByKey.get(key) ?? 0,
-        });
-        current.setDate(current.getDate() + 1);
-      }
-    } else {
-      let year = startYear;
-      let month = startMonth;
-      while (year * 12 + month <= endYear * 12 + endMonth) {
-        const key = `${year}-${String(month + 1).padStart(2, "0")}`;
-        data.push({
-          label: monthNames[month],
-          value: valueByKey.get(key) ?? 0,
-        });
-        month++;
-        if (month > 11) {
-          month = 0;
-          year++;
-        }
-      }
-    }
+    const data: ChartDataPoint[] = aggregated.map((item: any) => {
+      const [year, month] = item.key.split("-");
+      const monthIndex = parseInt(month) - 1;
+      return {
+        label: `${monthNames[monthIndex]} ${year}`,
+        value: item.value,
+      };
+    });
 
     const total = data.reduce((sum, point) => sum + point.value, 0);
 
-    return { data, groupBy, total };
+    return { data, groupBy: "month", total };
+  }
+
+  /**
+   * Fetches total / online / offline driver counts for all drivers in the system.
+   */
+  async getDriverStatusCounts(): Promise<DriverStatusCounts> {
+    const [result] = await this.userModel.aggregate([
+      { $match: { loginAs: roles.RIDER } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "_id",
+          foreignField: "userId",
+          as: "details",
+        },
+      },
+      {
+        $unwind: {
+          path: "$details",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalDrivers: { $sum: 1 },
+          onlineDrivers: {
+            $sum: {
+              $cond: [
+                {
+                  $eq: [
+                    "$details.driverOnlineStatus",
+                    DriverOnlineStatus.ONLINE,
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          offlineDrivers: {
+            $sum: {
+              $cond: [
+                {
+                  $ne: [
+                    "$details.driverOnlineStatus",
+                    DriverOnlineStatus.ONLINE,
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    return {
+      totalDrivers: result?.totalDrivers ?? 0,
+      onlineDrivers: result?.onlineDrivers ?? 0,
+      offlineDrivers: result?.offlineDrivers ?? 0,
+    };
   }
 
   /**

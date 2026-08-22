@@ -10,17 +10,15 @@ import {
 } from "@libs/data-access";
 import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
-import { CompletedRidesInput } from "@libs/data-access/dtos/input/completed-rides.input";
 import { CancelRideInput } from "@libs/data-access/dtos/input/cancel-ride.input";
 import { UpdateRideInput } from "@libs/data-access/dtos/input/update-ride.input";
 import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
 import {
-  CompletedRidesResponse,
   DashboardChartResponse,
-  DriverStatusCounts,
-  PassengerRegistrationChartResponse,
   UserStatsResponse,
   RideStatusChartResponse,
+  PassengerRegistrationChartResponse,
+  DriverStatusCounts,
 } from "@libs/data-access/dtos/response/admin-dashboard.response";
 import { RideDetailResponse } from "@libs/data-access/dtos/response/rides-list.response";
 import { RideAdminDashboardService } from "./services/ride-admin-dashboard.service";
@@ -187,13 +185,6 @@ export class RidesService {
     return this.adminDashboardService.getRideStatusChart(input);
   }
 
-  async getDriverStatusCounts(
-    fromDate?: Date,
-    endDate?: Date,
-  ): Promise<DriverStatusCounts> {
-    return this.adminDashboardService.getDriverStatusCounts(fromDate, endDate);
-  }
-
   async getUserStats(
     fromDate?: Date,
     endDate?: Date,
@@ -201,21 +192,17 @@ export class RidesService {
     return this.adminDashboardService.getUserStats(fromDate, endDate);
   }
 
-  async getCompletedRides(
-    input: CompletedRidesInput,
-  ): Promise<CompletedRidesResponse> {
-    return this.adminDashboardService.getCompletedRides(input);
-  }
-
-  async getDashboardChart(
+  async getCompletedRideDashboardChart(
     input: AdminDashboardInput,
   ): Promise<DashboardChartResponse> {
-    return this.adminDashboardService.getDashboardChart(input);
+    return this.adminDashboardService.getCompletedRideDashboardChart(input);
   }
 
-  async getPassengerRegistrationChart(
-    input: AdminDashboardInput,
-  ): Promise<PassengerRegistrationChartResponse> {
-    return this.adminDashboardService.getPassengerRegistrationChart(input);
+  async getPassengerRegistrationChart(): Promise<PassengerRegistrationChartResponse> {
+    return this.adminDashboardService.getPassengerRegistrationChart();
+  }
+
+  async getDriverStatusCounts(): Promise<DriverStatusCounts> {
+    return this.adminDashboardService.getDriverStatusCounts();
   }
 }

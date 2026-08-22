@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
+  HighPriorityIssuesResponse,
   Issue,
   IssueDetailResponse,
   IssueListResponse,
@@ -96,6 +97,18 @@ export class IssueService {
       totalResolved: result.totalResolved,
       avgFirstResponse: undefined,
       avgResolution: formatMinutes(result.avgResolutionMinutes),
+    };
+  }
+
+  /**
+   * Fetches the top N high-priority issues for the admin dashboard.
+   * Defaults to 5 issues, sorted by oldest first (longest-waiting first).
+   */
+  async getHighPriorityIssues(limit = 5): Promise<HighPriorityIssuesResponse> {
+    const items = await this.issueRepository.getHighPriorityIssues(limit);
+    return {
+      items,
+      total: items.length,
     };
   }
 

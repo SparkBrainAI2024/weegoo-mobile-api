@@ -373,6 +373,77 @@ export class IssueRepository {
     };
   }
 
+  /**
+   * Fetches the top N high-priority issues for the admin dashboard.
+   *
+   * Returns issues with `priority = HIGH` that are still open or in review
+   * (i.e. not yet resolved/closed), sorted by oldest first so the most
+   * urgent (longest-waiting) issues appear at the top.
+   */
+  async getHighPriorityIssues(limit = 5): Promise<any[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          priority: IssuePriority.HIGH,
+          status: { $in: [IssueStatus.OPEN, IssueStatus.IN_REVIEW] },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "reportedBy",
+          foreignField: "_id",
+          as: "reporter",
+        },
+      },
+      { $unwind: { path: "$reporter", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "reportedBy",
+          foreignField: "userId",
+          as: "reporterDetails",
+        },
+      },
+      {
+        $unwind: { path: "$reporterDetails", preserveNullAndEmptyArrays: true },
+      },
+      {
+        $lookup: {
+          from: "rides",
+          localField: "rideId",
+          foreignField: "_id",
+          as: "rideDetails",
+        },
+      },
+      { $unwind: { path: "$rideDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          id: "$_id",
+          ticketCode: {
+            $concat: [
+              "REP-",
+              { $substrCP: [{ $toString: "$_id" }, 18, 6] },
+            ],
+          },
+          createdAt: 1,
+          reportedByName: {
+            $ifNull: ["$reporterDetails.fullName", "Unknown"],
+          },
+          reportedByType: 1,
+          rideId: "$rideDetails.rideUUId",
+          categoryLabel: "$category.parentCategory",
+          status: 1,
+          priority: 1,
+          issueContent: 1,
+        },
+      },
+      { $sort: { createdAt: 1 } },
+      { $limit: limit },
+    ]);
+  }
+
   async resolveOne(id: string, resolvedBy: string) {
     return this.model.findByIdAndUpdate(
       id,

@@ -70,25 +70,6 @@ export class PassengerRegistrationChartResponse {
   total: number;
 }
 
-/**
- * Response object for the completed rides query in the admin dashboard.
- * Returns chart time-series data of completed ride counts and the total
- * count, grouped by day or by month depending on the date range.
- */
-@ObjectType()
-export class CompletedRidesResponse {
-  @Field(() => Int, {
-    description: "Total number of completed rides in the date range.",
-  })
-  total: number;
-
-  @Field(() => [ChartDataPoint], {
-    description:
-      "Time-series chart data — labels are 'Feb 1', 'Feb 2' (day) or 'Jan', 'Feb' (month) depending on range length.",
-  })
-  chartData: ChartDataPoint[];
-}
-
 @ObjectType()
 export class DriverStatusCounts {
   @Field(() => Int, { description: "Total number of drivers in the system." })
@@ -133,6 +114,59 @@ export class RideStatusChartResponse {
 }
 
 /**
+ * Percentage change of each dashboard metric compared to the previous
+ * period of equal duration immediately before the requested date range.
+ *
+ * A positive value indicates growth, a negative value indicates decline.
+ * When the previous period value is 0, the change is returned as `null`
+ * to avoid division-by-zero.
+ */
+@ObjectType()
+export class PercentageChange {
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      "Percentage change in total active rides vs the previous period. Null when previous value is 0.",
+  })
+  totalActiveRides: number | null;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      "Percentage change in active riders vs the previous period. Null when previous value is 0.",
+  })
+  activeRider: number | null;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      "Percentage change in active passengers vs the previous period. Null when previous value is 0.",
+  })
+  activePassenger: number | null;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      "Percentage change in total revenue vs the previous period. Null when previous value is 0.",
+  })
+  totalRevenue: number | null;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      "Percentage change in completed commission transactions vs the previous period. Null when previous value is 0.",
+  })
+  completeCommissionTransactions: number | null;
+
+  @Field(() => Float, {
+    nullable: true,
+    description:
+      "Percentage change in cancelled rides vs the previous period. Null when previous value is 0.",
+  })
+  totalCancelledRides: number | null;
+}
+
+/**
  * Response object for the admin dashboard statistics query.
  *
  * All monetary values are returned as numbers (no currency prefix — the
@@ -148,13 +182,13 @@ export class AdminDashboardResponse {
 
   @Field(() => Int, {
     description:
-      "Number of unique active riders (drivers) involved in active rides for the given date range.",
+      "Number of unique drivers who were online within the given date range.",
   })
   activeRider: number;
 
   @Field(() => Int, {
     description:
-      "Number of unique active passengers involved in active rides for the given date range.",
+      "Number of verified, non-suspended passengers registered within the given date range.",
   })
   activePassenger: number;
 
@@ -187,4 +221,10 @@ export class AdminDashboardResponse {
     "Counts of users by total, joined today, and suspended.",
   })
   userStatus: UserStatsResponse;
+
+  @Field(() => PercentageChange, {
+    description:
+      "Percentage change of each metric compared to the previous period of equal duration.",
+  })
+  percentageChange: PercentageChange;
 }

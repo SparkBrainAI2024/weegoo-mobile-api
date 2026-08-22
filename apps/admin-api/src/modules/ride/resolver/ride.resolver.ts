@@ -2,7 +2,9 @@
 import { Args, Query, Resolver } from "@nestjs/graphql";
 
 import { UseGuards } from "@nestjs/common";
-import { RidesService } from "@libs/services/rides/rides.service";
+import {
+  RidesService,
+} from "@libs/services/rides/rides.service";
 import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 import {
   RideDetailResponse,
@@ -13,18 +15,18 @@ import { Rides } from "@libs/data-access";
 import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
 import {
   AdminDashboardResponse,
-  CompletedRidesResponse,
   DashboardChartResponse,
   DriverStatusCounts,
   PassengerRegistrationChartResponse,
   RideStatusChartResponse,
 } from "@libs/data-access/dtos/response/admin-dashboard.response";
 import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
-import { CompletedRidesInput } from "@libs/data-access/dtos/input/completed-rides.input";
 
 @Resolver()
 export class AdminRidesResolver {
-  constructor(private readonly ridesService: RidesService) {}
+  constructor(
+    private readonly ridesService: RidesService,
+  ) {}
 
   @UseGuards(AdminAuthGuard)
   @Query(() => RidesListResponse)
@@ -44,46 +46,30 @@ export class AdminRidesResolver {
   }
 
   @UseGuards(AdminAuthGuard)
-  @Query(() => CompletedRidesResponse)
-  async completedRides(@Args("input") input: CompletedRidesInput) {
-    return this.ridesService.getCompletedRides(input);
+  @Query(() => DashboardChartResponse, {
+    description:
+      "Admin-only. Returns the completed-rides dashboard chart — a time-series of completed ride counts, grouped by day or month, for the admin dashboard.",
+  })
+  async getCompletedRideDashboardChart(
+    @Args("input") input: AdminDashboardInput,
+  ) {
+    return this.ridesService.getCompletedRideDashboardChart(input);
   }
 
-  @UseGuards(AdminAuthGuard)
-  @Query(() => DashboardChartResponse)
-  async dashboardChart(@Args("input") input: AdminDashboardInput) {
-    return this.ridesService.getDashboardChart(input);
-  }
-
-  @UseGuards(AdminAuthGuard)
   @Query(() => PassengerRegistrationChartResponse, {
     description:
-      "Admin-only. Returns passenger (role USER) registrations joined between " +
-      "fromDate and endDate, grouped by day or month for the admin dashboard chart.",
+      "Returns passenger (role USER) registrations, grouped by month, for the admin dashboard chart.",
   })
-  async passengerRegistrationChart(@Args("input") input: AdminDashboardInput) {
-    return this.ridesService.getPassengerRegistrationChart(input);
+  async passengerRegistrationChart(): Promise<PassengerRegistrationChartResponse> {
+    return this.ridesService.getPassengerRegistrationChart();
   }
 
-  @UseGuards(AdminAuthGuard)
   @Query(() => DriverStatusCounts, {
     description:
-      "Returns total / online / offline driver counts. When `input` is " +
-      "provided with fromDate and endDate, counts are filtered by the " +
-      "driver's createdAt date range. When no input is provided, counts ALL drivers.",
+      "Returns total / online / offline driver counts for all drivers in the system.",
   })
-  async driverStatusCounts(
-    @Args({
-      name: "input",
-      type: () => AdminDashboardInput,
-      nullable: true,
-    })
-    input?: AdminDashboardInput,
-  ): Promise<DriverStatusCounts> {
-    return this.ridesService.getDriverStatusCounts(
-      input?.fromDate,
-      input?.endDate,
-    );
+  async driverStatusCounts(): Promise<DriverStatusCounts> {
+    return this.ridesService.getDriverStatusCounts();
   }
 
   @UseGuards(AdminAuthGuard)
