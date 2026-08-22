@@ -2,8 +2,11 @@ import { Resolver, Query } from '@nestjs/graphql';
 import { UseGuards, SetMetadata } from '@nestjs/common';
 import { AuthGuard, RoleGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { User, roles } from '@libs/data-access';
-import { PassengerHomeResponse } from '@libs/data-access/dtos/response/passenger-home.response';
+import { User, roles, ScheduledVehicleType } from '@libs/data-access';
+import {
+  PassengerHomeResponse,
+  ScheduleVehicleTypeResponse,
+} from '@libs/data-access/dtos/response/passenger-home.response';
 import { PassengerHomeService } from '../passenger-home.service';
 
 @Resolver()
@@ -21,5 +24,18 @@ export class PassengerHomeResolver {
     @CurrentUser() user: User,
   ): Promise<PassengerHomeResponse> {
     return this.passengerHomeService.getPassengerHomeData(user._id.toString());
+  }
+
+  @Query(() => [ScheduleVehicleTypeResponse], {
+    name: 'getQueryForScheduleVehicleType',
+    description:
+      'Returns the vehicle types available for scheduled rides (JEEP, MICRO, CAR only).',
+  })
+  async getQueryForScheduleVehicleType(): Promise<ScheduleVehicleTypeResponse[]> {
+    return [
+      { vehicleType: ScheduledVehicleType.JEEP, label: 'Jeep' },
+      { vehicleType: ScheduledVehicleType.MICRO, label: 'Micro' },
+      { vehicleType: ScheduledVehicleType.CAR, label: 'Car' },
+    ];
   }
 }

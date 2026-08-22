@@ -112,6 +112,7 @@ export class RideQueryService {
         },
         onlineStatus: null,
         vehicleStatus: null,
+        ridePreference: null,
       };
     }
 
@@ -198,6 +199,7 @@ export class RideQueryService {
       },
       onlineStatus: details?.driverOnlineStatus || DriverOnlineStatus.OFFLINE,
       vehicleStatus: hasVehicle,
+      ridePreference: details?.ridePreference || null,
     };
   }
 
