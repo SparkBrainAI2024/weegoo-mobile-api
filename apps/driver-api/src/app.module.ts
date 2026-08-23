@@ -27,6 +27,7 @@ import { ProfileModule } from "@libs/services/profile";
 import { DriverModule } from "./modules/driver/driver.module";
 import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 import { SendGridMailModule } from "@libs/services/mail";
+import { AvailabilityModule } from "@libs/services/availability";
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { SendGridMailModule } from "@libs/services/mail";
     DriverModule,
     ContactUsModule,
     SendGridMailModule,
+    AvailabilityModule,
   ],
   providers: [HealthResolver],
 })
