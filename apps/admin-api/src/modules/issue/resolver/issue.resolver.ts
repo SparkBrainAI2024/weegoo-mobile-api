@@ -23,6 +23,7 @@ import {
   BulkResolveIssuesResponse,
   CloseIssueResponse,
   CreateIssueResponse,
+  HighPriorityIssuesResponse,
   Issue,
   IssueDetailResponse,
   IssueListResponse,
@@ -44,6 +45,16 @@ export class IssueResolver {
     @CurrentLang() lang?: string,
   ): Promise<IssueListResponse> {
     return this.issueService.getIssueList(input ?? new IssueListInput());
+  }
+
+  @Query(() => HighPriorityIssuesResponse, {
+    description:
+      "Returns up to 5 open/in-review issues for the admin dashboard using cascading priority fill: " +
+      "HIGH-priority issues first; if fewer than 5 exist, the remainder is filled with MEDIUM, " +
+      "then LOW. Oldest first within each priority tier.",
+  })
+  async getHighPriorityIssues(): Promise<HighPriorityIssuesResponse> {
+    return this.issueService.getHighPriorityIssues(5);
   }
 
   @Query(() => IssueDetailResponse)

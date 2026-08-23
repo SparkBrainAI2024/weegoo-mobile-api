@@ -1,4 +1,4 @@
-import { RidePersistentModule, RidesService, RidesResolver } from "@libs/services/rides";
+import { RidePersistentModule, RidesService, RidesResolver, RideAdminDashboardService, RideQueryService, RideLifecycleService, RidePromoService } from "@libs/services/rides";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
@@ -28,6 +28,10 @@ import { Transaction, TransactionSchema } from "@libs/data-access/entities/trans
         RidesService,
         RidesResolver,
         EnvService,
+        RideAdminDashboardService,
+        RideQueryService,
+        RideLifecycleService,
+        RidePromoService,
         DriverRideAcceptanceService,
         DriverRideResolver,
         DriverTripsResolver,

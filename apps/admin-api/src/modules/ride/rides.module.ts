@@ -7,7 +7,7 @@ import { CommonVehicleModule } from "@libs/services/vehicle/vehicle.module";
 
 import { UserAuthModule } from "@libs/services/auth/auth.module";
 import { EnvService } from "@libs/common/config/env.service";
-import { RidesService } from "@libs/services/rides/rides.service";
+import { RidesService, RideAdminDashboardService, RideQueryService, RideLifecycleService, RidePromoService } from "@libs/services/rides";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { S3Module } from "@libs/s3";
@@ -27,7 +27,15 @@ import { AdminAuthModule } from "../auth/auth.module";
     WalletModule,
     AdminAuthModule,
   ],
-  providers: [AdminRidesResolver, RidesService, EnvService],
+  providers: [
+    AdminRidesResolver,
+    RidesService,
+    EnvService,
+    RideAdminDashboardService,
+    RideQueryService,
+    RideLifecycleService,
+    RidePromoService,
+  ],
   exports: [AdminRidesResolver],
 })
 export class AdminRidesModule {}

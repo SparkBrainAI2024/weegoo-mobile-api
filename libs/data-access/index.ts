@@ -136,6 +136,7 @@ export * from './dtos/input/upsert-admin-company-info.input';
 export * from './dtos/input/upsert-admin-ride-pricing.input';
 export * from './dtos/input/upsert-maintenance-info.input';
 export * from './dtos/input/send-push-notification.input';
+export * from './dtos/input/get-vehicle-type.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -174,6 +175,7 @@ export * from './dtos/response/update-notification-settings.response';
 export * from './dtos/response/get-driver-trips.response';
 export * from './dtos/response/saved-locations.response';
 export * from './dtos/response/send-push-notification.response';
+export * from './dtos/response/get-vehicle-type.response';
 
 //interfaces
 export * from './interfaces/location.interface'

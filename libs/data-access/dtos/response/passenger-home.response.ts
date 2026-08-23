@@ -1,4 +1,5 @@
 import { DiscountTypeEnum } from '@libs/data-access/enums/promo-code.enum';
+import { ScheduledVehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { Field, ObjectType, Float, Int } from '@nestjs/graphql';
 
 @ObjectType()
@@ -67,4 +68,22 @@ export class PassengerHomeResponse {
 
   @Field(() => [BasicVehicleEstimateResponse])
   vehicleEstimates: BasicVehicleEstimateResponse[];
+}
+
+/**
+ * A single vehicle type available for scheduled rides.
+ * Returns only the scheduled vehicle types (JEEP, MICRO, CAR) using the
+ * separate ScheduledVehicleType enum.
+ */
+@ObjectType()
+export class ScheduleVehicleTypeResponse {
+  @Field(() => ScheduledVehicleType, {
+    description: "The scheduled vehicle type enum value (JEEP, MICRO, or CAR).",
+  })
+  vehicleType: ScheduledVehicleType;
+
+  @Field(() => String, {
+    description: "Human-readable label for the vehicle type.",
+  })
+  label: string;
 }

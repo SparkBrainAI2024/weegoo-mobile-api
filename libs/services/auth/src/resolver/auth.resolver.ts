@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Args } from "@nestjs/graphql";
+import { Resolver, Mutation, Query, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { LangGuard } from "@libs/guards/guard";
 import { SetPasswordGuard } from "@libs/guards/set-password.guard";
@@ -27,6 +27,8 @@ import {
   VerifyPhoneInput,
   UpdatePhoneInput,
   BasicExpirationResponse,
+  GetVehicleTypeInput,
+  GetVehicleTypeResponse,
 } from "@libs/data-access";
 
 @Resolver()
@@ -133,5 +135,23 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.sendVerifyEmail(email, lang);
+  }
+
+  /**
+   * Returns vehicle types based on the requested ride preference.
+   *
+   * - INSTANT   -> instant vehicle types: CAR, MOTORBIKE, SCOOTER
+   * - SCHEDULED -> scheduled vehicle types: JEEP, CAR, MICRO
+   * - BOTH      -> both sets of vehicle types
+   */
+  @Query(() => GetVehicleTypeResponse, {
+    name: "getVehicleType",
+    description:
+      "Returns vehicle types based on the ride preference. INSTANT returns car, motorbike, scooter. SCHEDULED returns jeep, car, micro. BOTH returns both sets.",
+  })
+  async getVehicleType(
+    @Args("input") input: GetVehicleTypeInput,
+  ): Promise<GetVehicleTypeResponse> {
+    return this.authService.getVehicleTypes(input);
   }
 }

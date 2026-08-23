@@ -36,6 +36,11 @@ import {
   DriverOnlineStatus,
   BasicResponse,
   TokenGrantType,
+  ridePreference,
+  VehicleType,
+  ScheduledVehicleType,
+  GetVehicleTypeInput,
+  GetVehicleTypeResponse,
 } from "@libs/data-access";
 import { Message } from "@libs/localization";
 import { EnvService } from "@libs/common/config/env.service";
@@ -1101,6 +1106,41 @@ export class AuthService {
       return result;
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  /**
+   * Returns the vehicle types available for the given ride preference.
+   *
+   * - INSTANT   -> instant vehicle types: CAR, MOTORBIKE, SCOOTER
+   * - SCHEDULED -> scheduled vehicle types: JEEP, CAR, MICRO
+   * - BOTH      -> both sets of vehicle types
+   */
+  async getVehicleTypes(input: GetVehicleTypeInput): Promise<GetVehicleTypeResponse> {
+    try {
+      const { ridePreference: preference } = input;
+
+      let instantVehicleTypes: VehicleType[] = [];
+      let scheduledVehicleTypes: ScheduledVehicleType[] = [];
+
+      if (preference === ridePreference.INSTANT || preference === ridePreference.BOTH) {
+        instantVehicleTypes = [VehicleType.CAR, VehicleType.MOTORBIKE, VehicleType.SCOOTER];
+      }
+
+      if (preference === ridePreference.SCHEDULED || preference === ridePreference.BOTH) {
+        scheduledVehicleTypes = [ScheduledVehicleType.JEEP, ScheduledVehicleType.CAR, ScheduledVehicleType.MICRO];
+      }
+
+      return {
+        instantVehicleTypes,
+        scheduledVehicleTypes,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

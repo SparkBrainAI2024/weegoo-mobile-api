@@ -426,4 +426,43 @@ export class TransactionRepository {
   async findOne (filter: Partial<Transaction>): Promise<Transaction | null> {
     return this.model.findOne(filter).exec();
   }
+
+  /**
+   * Returns the total revenue and count of completed commission transactions
+   * within a given date range.
+   *
+   * This is used by the admin dashboard to show the total commission revenue
+   * and the number of completed commission transactions for a given date.
+   *
+   * @param from  Start of the date range (inclusive)
+   * @param to    End of the date range (inclusive)
+   * @returns     `{ totalRevenue, completedTransactionsCount }`
+   */
+  async getCommissionTransactionsByDateRange(
+    from: Date,
+    to: Date,
+  ): Promise<{ totalRevenue: number; completedTransactionsCount: number }> {
+    const [result] = await this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.COMMISSION,
+          status: TransactionStatus.COMPLETED,
+          createdAt: { $gte: from, $lte: to },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$amount" },
+          completedTransactionsCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    return {
+      totalRevenue: result?.totalRevenue || 0,
+      completedTransactionsCount: result?.completedTransactionsCount || 0,
+    };
+  }
 }

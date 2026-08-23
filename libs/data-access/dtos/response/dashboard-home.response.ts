@@ -1,6 +1,6 @@
 import { Field, ObjectType, Int, Float } from '@nestjs/graphql';
 import { Rides } from '../../entities/rides.entity';
-import { DriverOnlineStatus } from '../../enums/user.enum';
+import { DriverOnlineStatus, ridePreference } from '../../enums/user.enum';
 import { DriverDocumentBundleStatus, DriverDocumentType } from '../../enums/driver-document.enum';
 
 @ObjectType()
@@ -52,4 +52,7 @@ export class DashboardHomeResponse {
 
   @Field(() => Boolean, { nullable: true })
   vehicleStatus?: boolean;
+
+  @Field(() => ridePreference, { nullable: true })
+  ridePreference?: ridePreference;
 }
