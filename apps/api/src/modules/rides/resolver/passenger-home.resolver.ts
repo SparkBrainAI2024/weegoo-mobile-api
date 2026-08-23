@@ -25,17 +25,4 @@ export class PassengerHomeResolver {
   ): Promise<PassengerHomeResponse> {
     return this.passengerHomeService.getPassengerHomeData(user._id.toString());
   }
-
-  @Query(() => [ScheduleVehicleTypeResponse], {
-    name: 'getQueryForScheduleVehicleType',
-    description:
-      'Returns the vehicle types available for scheduled rides (JEEP, MICRO, CAR only).',
-  })
-  async getQueryForScheduleVehicleType(): Promise<ScheduleVehicleTypeResponse[]> {
-    return [
-      { vehicleType: ScheduledVehicleType.JEEP, label: 'Jeep' },
-      { vehicleType: ScheduledVehicleType.MICRO, label: 'Micro' },
-      { vehicleType: ScheduledVehicleType.CAR, label: 'Car' },
-    ];
-  }
 }

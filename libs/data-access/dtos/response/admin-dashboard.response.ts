@@ -91,6 +91,32 @@ export class UserStatsResponse {
 }
 
 /**
+ * Response object for the getTotalRidersChart query in the admin dashboard.
+ * Returns aggregate passenger user counts (loginAs = USER only, soft-deleted excluded):
+ *  - totalNoOfUsers: all passenger users registered in the app
+ *  - usersJoinedToday: passenger users whose createdAt falls within today
+ *  - blockedUsers: passenger users currently blocked (suspended = true)
+ */
+@ObjectType()
+export class TotalRidersChartResponse {
+  @Field(() => Int, {
+    description:
+      "Total number of passenger users (loginAs = USER) registered in the app (soft-deleted users excluded).",
+  })
+  totalNoOfUsers: number;
+
+  @Field(() => Int, {
+    description: "Number of users who joined today.",
+  })
+  usersJoinedToday: number;
+
+  @Field(() => Int, {
+    description: "Total number of blocked (suspended) users.",
+  })
+  blockedUsers: number;
+}
+
+/**
  * Response object for the ride status pie chart query in the admin dashboard.
  * Returns counts of rides grouped by status (ongoing, cancelled, completed)
  * for a given date range based on bookingTime.
@@ -118,52 +144,46 @@ export class RideStatusChartResponse {
  * period of equal duration immediately before the requested date range.
  *
  * A positive value indicates growth, a negative value indicates decline.
- * When the previous period value is 0, the change is returned as `null`
- * to avoid division-by-zero.
+ * Never returns `null`: when the previous period value is 0, the change is
+ * returned as 100 (if the current value grew from zero) or 0 (no change).
  */
 @ObjectType()
 export class PercentageChange {
   @Field(() => Float, {
-    nullable: true,
     description:
-      "Percentage change in total active rides vs the previous period. Null when previous value is 0.",
+      "Percentage change in total active rides vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.",
   })
-  totalActiveRides: number | null;
+  totalActiveRides: number;
 
   @Field(() => Float, {
-    nullable: true,
     description:
-      "Percentage change in active riders vs the previous period. Null when previous value is 0.",
+      "Percentage change in active riders vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.",
   })
-  activeRider: number | null;
+  activeRider: number;
 
   @Field(() => Float, {
-    nullable: true,
     description:
-      "Percentage change in active passengers vs the previous period. Null when previous value is 0.",
+      "Percentage change in active passengers vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.",
   })
-  activePassenger: number | null;
+  activePassenger: number;
 
   @Field(() => Float, {
-    nullable: true,
     description:
-      "Percentage change in total revenue vs the previous period. Null when previous value is 0.",
+      "Percentage change in total revenue vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.",
   })
-  totalRevenue: number | null;
+  totalRevenue: number;
 
   @Field(() => Float, {
-    nullable: true,
     description:
-      "Percentage change in completed commission transactions vs the previous period. Null when previous value is 0.",
+      "Percentage change in completed commission transactions vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.",
   })
-  completeCommissionTransactions: number | null;
+  completeCommissionTransactions: number;
 
   @Field(() => Float, {
-    nullable: true,
     description:
-      "Percentage change in cancelled rides vs the previous period. Null when previous value is 0.",
+      "Percentage change in cancelled rides vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.",
   })
-  totalCancelledRides: number | null;
+  totalCancelledRides: number;
 }
 
 /**
@@ -209,18 +229,6 @@ export class AdminDashboardResponse {
       "Total number of cancelled rides for the given date range (based on bookingTime).",
   })
   totalCancelledRides: number;
-
-  @Field(() => DriverStatusCounts, {
-   description:
-    "Counts of drivers by online status (total, online, offline).",
-  })
-  driverStatus: DriverStatusCounts;
-
-  @Field(() => UserStatsResponse, {
-   description:
-    "Counts of users by total, joined today, and suspended.",
-  })
-  userStatus: UserStatsResponse;
 
   @Field(() => PercentageChange, {
     description:

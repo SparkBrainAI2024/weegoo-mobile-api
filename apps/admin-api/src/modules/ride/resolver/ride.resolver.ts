@@ -19,6 +19,7 @@ import {
   DriverStatusCounts,
   PassengerRegistrationChartResponse,
   RideStatusChartResponse,
+  TotalRidersChartResponse,
 } from "@libs/data-access/dtos/response/admin-dashboard.response";
 import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
 
@@ -58,10 +59,15 @@ export class AdminRidesResolver {
 
   @Query(() => PassengerRegistrationChartResponse, {
     description:
-      "Returns passenger (role USER) registrations, grouped by month, for the admin dashboard chart.",
+      "Returns passenger (role USER) registrations for the admin dashboard chart. " +
+      "Optionally pass input (fromDate / endDate) to filter by a date range — " +
+      "grouped by day when the range spans 2 months or less, otherwise by month. " +
+      "Without input, returns all-time data grouped by month.",
   })
-  async passengerRegistrationChart(): Promise<PassengerRegistrationChartResponse> {
-    return this.ridesService.getPassengerRegistrationChart();
+  async passengerRegistrationChart(
+    @Args("input", { nullable: true }) input?: AdminDashboardInput,
+  ): Promise<PassengerRegistrationChartResponse> {
+    return this.ridesService.getPassengerRegistrationChart(input);
   }
 
   @Query(() => DriverStatusCounts, {
@@ -70,6 +76,16 @@ export class AdminRidesResolver {
   })
   async driverStatusCounts(): Promise<DriverStatusCounts> {
     return this.ridesService.getDriverStatusCounts();
+  }
+
+  @Query(() => TotalRidersChartResponse, {
+    description:
+      "Returns aggregate rider/user counts for the admin dashboard: " +
+      "totalNoOfUsers (all registered users, soft-deleted excluded), " +
+      "usersJoinedToday, and blockedUsers (suspended users).",
+  })
+  async getTotalRidersChart(): Promise<TotalRidersChartResponse> {
+    return this.ridesService.getTotalRidersChart();
   }
 
   @UseGuards(AdminAuthGuard)

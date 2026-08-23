@@ -20,6 +20,7 @@ import {
   PassengerRegistrationChartResponse,
   DriverStatusCounts,
   PercentageChange,
+  TotalRidersChartResponse,
 } from "@libs/data-access/dtos/response/admin-dashboard.response";
 
 /**
@@ -215,17 +216,54 @@ export class RideAdminDashboardService {
    *
    * Formula: ((current - previous) / previous) * 100
    *
-   * Returns `null` when the previous value is 0 to avoid division-by-zero.
+   * Never returns `null`. When the previous value is 0 (division-by-zero case):
+   *  - returns 100 if the current value is greater than 0 (full growth from a zero baseline)
+   *  - returns 0 if the current value is also 0 (no change)
    * The result is rounded to two decimal places.
    */
   private calculatePercentageChange(
     current: number,
     previous: number,
-  ): number | null {
+  ): number {
     if (previous === 0) {
-      return null;
+      return current > 0 ? 100 : 0;
     }
     return Math.round(((current - previous) / previous) * 10000) / 100;
+  }
+
+  /**
+   * Fetches aggregate rider/user counts for the admin dashboard:
+   * Only counts passengers (loginAs = USER, soft-deleted excluded).
+   *  - totalNoOfUsers: all passenger users registered in the app
+   *  - usersJoinedToday: passenger users whose createdAt falls within today
+   *  - blockedUsers: passenger users currently blocked (suspended = true)
+   */
+  async getTotalRidersChart(): Promise<TotalRidersChartResponse> {
+    // Compute start of today for "joined today" count
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [result] = await this.userModel.aggregate([
+      { $match: {  roles: { $in: [roles.USER] }, deleted: {$ne: true} } },
+      {
+        $group: {
+          _id: null,
+          totalNoOfUsers: { $sum: 1 },
+          usersJoinedToday: {
+            $sum: { $cond: [{ $gte: ["$createdAt", startOfToday] }, 1, 0] },
+          },
+          blockedUsers: {
+            $sum: { $cond: [{ $eq: ["$suspended", true] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    return {
+      totalNoOfUsers: result?.totalNoOfUsers ?? 0,
+      usersJoinedToday: result?.usersJoinedToday ?? 0,
+      blockedUsers: result?.blockedUsers ?? 0,
+    };
   }
 
   /**
@@ -313,21 +351,55 @@ export class RideAdminDashboardService {
   }
 
   /**
-   * Fetches passenger (role USER) registrations, grouped by month,
-   * for the admin dashboard chart.
+   * Fetches passenger (role USER) registrations for the admin dashboard chart.
+   *
+   * When `input` (fromDate / endDate) is provided, only passengers whose
+   * `createdAt` falls within the inclusive date range are included, and the
+   * result is a continuous time-series with no gaps (days/months with zero
+   * registrations are included with value 0).
+   *
+   * Grouping rules (same as the completed-rides chart):
+   *  - Range spans 2 months or fewer → group by **day** (labels like "Feb 1")
+   *  - Range spans more than 2 months → group by **month** (labels like "Jan")
+   *  - No input → group by **month** across all time (backward compatible)
    */
-  async getPassengerRegistrationChart(): Promise<PassengerRegistrationChartResponse> {
+  async getPassengerRegistrationChart(
+    input?: AdminDashboardInput,
+  ): Promise<PassengerRegistrationChartResponse> {
+    const match: Record<string, any> = {
+      roles: { $in: [roles.USER] },
+      deleted: false,
+    };
+
+    let start: Date | null = null;
+    let end: Date | null = null;
+    let groupBy: "day" | "month" = "month";
+
+    if (input?.fromDate && input?.endDate) {
+      start = new Date(input.fromDate);
+      start.setHours(0, 0, 0, 0);
+
+      end = new Date(input.endDate);
+      end.setHours(23, 59, 59, 999);
+
+      match.createdAt = { $gte: start, $lte: end };
+
+      const monthSpan =
+        end.getFullYear() * 12 +
+        end.getMonth() -
+        (start.getFullYear() * 12 + start.getMonth()) +
+        1;
+      groupBy = monthSpan > 2 ? "month" : "day";
+    }
+
+    const dateFormat = groupBy === "day" ? "%Y-%m-%d" : "%Y-%m";
+
     const aggregated = await this.userModel.aggregate([
-      {
-        $match: {
-          roles: { $in: [roles.USER] },
-          deleted: false,
-        },
-      },
+      { $match: match },
       {
         $group: {
           _id: {
-            $dateToString: { date: "$createdAt", format: "%Y-%m" },
+            $dateToString: { date: "$createdAt", format: dateFormat },
           },
           value: { $sum: 1 },
         },
@@ -342,23 +414,65 @@ export class RideAdminDashboardService {
       { $sort: { key: 1 } },
     ]);
 
+    const valueByKey = new Map<string, number>();
+    for (const item of aggregated) {
+      valueByKey.set(item.key, item.value);
+    }
+
     const monthNames = [
       "Jan", "Feb", "Mar", "Apr", "May", "Jun",
       "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
 
-    const data: ChartDataPoint[] = aggregated.map((item: any) => {
-      const [year, month] = item.key.split("-");
-      const monthIndex = parseInt(month) - 1;
-      return {
-        label: `${monthNames[monthIndex]} ${year}`,
-        value: item.value,
-      };
-    });
+    const data: ChartDataPoint[] = [];
+
+    if (start && end && groupBy === "day") {
+      // Fill every day in the range so the chart has no gaps
+      const current = new Date(start);
+      const endTime = end.getTime();
+      while (current.getTime() <= endTime) {
+        const key = `${current.getFullYear()}-${String(
+          current.getMonth() + 1,
+        ).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
+        data.push({
+          label: `${monthNames[current.getMonth()]} ${current.getDate()}`,
+          value: valueByKey.get(key) ?? 0,
+        });
+        current.setDate(current.getDate() + 1);
+      }
+    } else if (start && end && groupBy === "month") {
+      // Fill every month in the range so the chart has no gaps
+      let year = start.getFullYear();
+      let month = start.getMonth();
+      const endYear = end.getFullYear();
+      const endMonth = end.getMonth();
+      while (year * 12 + month <= endYear * 12 + endMonth) {
+        const key = `${year}-${String(month + 1).padStart(2, "0")}`;
+        data.push({
+          label: monthNames[month],
+          value: valueByKey.get(key) ?? 0,
+        });
+        month++;
+        if (month > 11) {
+          month = 0;
+          year++;
+        }
+      }
+    } else {
+      // No date range provided — all-time monthly data (backward compatible)
+      for (const item of aggregated) {
+        const [year, month] = item.key.split("-");
+        const monthIndex = parseInt(month) - 1;
+        data.push({
+          label: `${monthNames[monthIndex]} ${year}`,
+          value: item.value,
+        });
+      }
+    }
 
     const total = data.reduce((sum, point) => sum + point.value, 0);
 
-    return { data, groupBy: "month", total };
+    return { data, groupBy, total };
   }
 
   /**

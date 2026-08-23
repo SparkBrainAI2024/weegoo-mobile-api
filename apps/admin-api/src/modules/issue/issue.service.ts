@@ -101,8 +101,16 @@ export class IssueService {
   }
 
   /**
-   * Fetches the top N high-priority issues for the admin dashboard.
-   * Defaults to 5 issues, sorted by oldest first (longest-waiting first).
+   * Fetches the top N issues for the admin dashboard using cascading
+   * priority fill. Defaults to 5 issues:
+   *
+   *  1. HIGH-priority issues first (oldest first)
+   *  2. If fewer than `limit` HIGH issues exist, the remainder is filled
+   *     with MEDIUM-priority issues (oldest first)
+   *  3. If still fewer than `limit`, the remainder is filled with
+   *     LOW-priority issues (oldest first)
+   *
+   * Only open / in-review issues are considered (not resolved/closed).
    */
   async getHighPriorityIssues(limit = 5): Promise<HighPriorityIssuesResponse> {
     const items = await this.issueRepository.getHighPriorityIssues(limit);

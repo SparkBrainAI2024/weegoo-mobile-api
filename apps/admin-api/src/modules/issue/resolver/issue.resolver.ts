@@ -49,9 +49,11 @@ export class IssueResolver {
 
   @Query(() => HighPriorityIssuesResponse, {
     description:
-      "Returns the top 5 high-priority (HIGH) open/in-review issues for the admin dashboard, sorted by oldest first.",
+      "Returns up to 5 open/in-review issues for the admin dashboard using cascading priority fill: " +
+      "HIGH-priority issues first; if fewer than 5 exist, the remainder is filled with MEDIUM, " +
+      "then LOW. Oldest first within each priority tier.",
   })
-  async getHighPriorityIssues( ): Promise<HighPriorityIssuesResponse> {
+  async getHighPriorityIssues(): Promise<HighPriorityIssuesResponse> {
     return this.issueService.getHighPriorityIssues(5);
   }
 

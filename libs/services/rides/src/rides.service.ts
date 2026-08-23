@@ -19,6 +19,7 @@ import {
   RideStatusChartResponse,
   PassengerRegistrationChartResponse,
   DriverStatusCounts,
+  TotalRidersChartResponse,
 } from "@libs/data-access/dtos/response/admin-dashboard.response";
 import { RideDetailResponse } from "@libs/data-access/dtos/response/rides-list.response";
 import { RideAdminDashboardService } from "./services/ride-admin-dashboard.service";
@@ -198,11 +199,17 @@ export class RidesService {
     return this.adminDashboardService.getCompletedRideDashboardChart(input);
   }
 
-  async getPassengerRegistrationChart(): Promise<PassengerRegistrationChartResponse> {
-    return this.adminDashboardService.getPassengerRegistrationChart();
+  async getPassengerRegistrationChart(
+    input?: AdminDashboardInput,
+  ): Promise<PassengerRegistrationChartResponse> {
+    return this.adminDashboardService.getPassengerRegistrationChart(input);
   }
 
   async getDriverStatusCounts(): Promise<DriverStatusCounts> {
     return this.adminDashboardService.getDriverStatusCounts();
+  }
+
+  async getTotalRidersChart(): Promise<TotalRidersChartResponse> {
+    return this.adminDashboardService.getTotalRidersChart();
   }
 }

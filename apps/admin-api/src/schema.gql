@@ -817,6 +817,24 @@ type BulkResolveIssuesResponse {
   resolvedCount: Int!
 }
 
+type HighPriorityIssue {
+  id: ID!
+  ticketCode: String!
+  createdAt: DateTime!
+  reportedByName: String!
+  reportedByType: ReportedByType!
+  rideId: String
+  categoryLabel: String
+  status: IssueStatus!
+  priority: IssuePriority!
+  issueContent: String
+}
+
+type HighPriorityIssuesResponse {
+  items: [HighPriorityIssue!]!
+  total: Int!
+}
+
 type NotificationGroup {
   title: String!
   notifications: [Notification!]!
@@ -1517,16 +1535,6 @@ type PassengerRegistrationChartResponse {
   total: Int!
 }
 
-type CompletedRidesResponse {
-  """Total number of completed rides in the date range."""
-  total: Int!
-
-  """
-  Time-series chart data — labels are 'Feb 1', 'Feb 2' (day) or 'Jan', 'Feb' (month) depending on range length.
-  """
-  chartData: [ChartDataPoint!]!
-}
-
 type DriverStatusCounts {
   """Total number of drivers in the system."""
   totalDrivers: Int!
@@ -1538,15 +1546,17 @@ type DriverStatusCounts {
   offlineDrivers: Int!
 }
 
-type UserStatsResponse {
-  """Total number of users in the system."""
-  totalUsers: Int!
+type TotalRidersChartResponse {
+  """
+  Total number of passenger users (loginAs = USER) registered in the app (soft-deleted users excluded).
+  """
+  totalNoOfUsers: Int!
 
   """Number of users who joined today."""
   usersJoinedToday: Int!
 
-  """Total number of suspended users."""
-  suspendedUsers: Int!
+  """Total number of blocked (suspended) users."""
+  blockedUsers: Int!
 }
 
 type RideStatusChartResponse {
@@ -1562,19 +1572,49 @@ type RideStatusChartResponse {
   completed: Int!
 }
 
+type PercentageChange {
+  """
+  Percentage change in total active rides vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.
+  """
+  totalActiveRides: Float!
+
+  """
+  Percentage change in active riders vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.
+  """
+  activeRider: Float!
+
+  """
+  Percentage change in active passengers vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.
+  """
+  activePassenger: Float!
+
+  """
+  Percentage change in total revenue vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.
+  """
+  totalRevenue: Float!
+
+  """
+  Percentage change in completed commission transactions vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.
+  """
+  completeCommissionTransactions: Float!
+
+  """
+  Percentage change in cancelled rides vs the previous period. Returns 100 if growth from a zero baseline, 0 if no change.
+  """
+  totalCancelledRides: Float!
+}
+
 type AdminDashboardResponse {
   """
   Total number of active rides (CONFIRMED / ONGOING / PICKUP) for the given date range.
   """
   totalActiveRides: Int!
 
-  """
-  Number of unique active riders (drivers) involved in active rides for the given date range.
-  """
+  """Number of unique drivers who were online within the given date range."""
   activeRider: Int!
 
   """
-  Number of unique active passengers involved in active rides for the given date range.
+  Number of verified, non-suspended passengers registered within the given date range.
   """
   activePassenger: Int!
 
@@ -1593,11 +1633,10 @@ type AdminDashboardResponse {
   """
   totalCancelledRides: Int!
 
-  """Counts of drivers by online status (total, online, offline)."""
-  driverStatus: DriverStatusCounts!
-
-  """Counts of users by total, joined today, and suspended."""
-  userStatus: UserStatsResponse!
+  """
+  Percentage change of each metric compared to the previous period of equal duration.
+  """
+  percentageChange: PercentageChange!
 }
 
 type EmailTemplateListWithPaginationResponse {
@@ -1637,18 +1676,26 @@ type Query {
   rides(input: RidesListInput!): RidesListResponse!
   ride(id: String!): Rides
   adminDashboard(input: AdminDashboardInput!): AdminDashboardResponse!
-  completedRides(input: CompletedRidesInput!): CompletedRidesResponse!
-  dashboardChart(input: AdminDashboardInput!): DashboardChartResponse!
 
   """
-  Admin-only. Returns passenger (role USER) registrations joined between fromDate and endDate, grouped by day or month for the admin dashboard chart.
+  Admin-only. Returns the completed-rides dashboard chart — a time-series of completed ride counts, grouped by day or month, for the admin dashboard.
   """
-  passengerRegistrationChart(input: AdminDashboardInput!): PassengerRegistrationChartResponse!
+  getCompletedRideDashboardChart(input: AdminDashboardInput!): DashboardChartResponse!
 
   """
-  Returns total / online / offline driver counts. When `input` is provided with fromDate and endDate, counts are filtered by the driver's createdAt date range. When no input is provided, counts ALL drivers.
+  Returns passenger (role USER) registrations for the admin dashboard chart. Optionally pass input (fromDate / endDate) to filter by a date range — grouped by day when the range spans 2 months or less, otherwise by month. Without input, returns all-time data grouped by month.
   """
-  driverStatusCounts(input: AdminDashboardInput): DriverStatusCounts!
+  passengerRegistrationChart(input: AdminDashboardInput): PassengerRegistrationChartResponse!
+
+  """
+  Returns total / online / offline driver counts for all drivers in the system.
+  """
+  driverStatusCounts: DriverStatusCounts!
+
+  """
+  Returns aggregate rider/user counts for the admin dashboard: totalNoOfUsers (all registered users, soft-deleted excluded), usersJoinedToday, and blockedUsers (suspended users).
+  """
+  getTotalRidersChart: TotalRidersChartResponse!
 
   """
   Admin-only. Returns ride counts by status (ongoing, cancelled, completed) for rides whose bookingTime falls within the given date range, suitable for a pie chart.
@@ -1663,6 +1710,11 @@ type Query {
   emailTemplate(id: ID!): EmailTemplate!
   emailTemplates(paginationInput: PaginationInputOnly!): EmailTemplateListWithPaginationResponse!
   getIssues(input: IssueListInput): IssueListResponse!
+
+  """
+  Returns up to 5 open/in-review issues for the admin dashboard using cascading priority fill: HIGH-priority issues first; if fewer than 5 exist, the remainder is filled with MEDIUM, then LOW. Oldest first within each priority tier.
+  """
+  getHighPriorityIssues: HighPriorityIssuesResponse!
   getIssueDetail(input: IssueDetailInput!): IssueDetailResponse!
   adminCompanyInfo: AdminCompanyInfo!
   adminRidePricings: [AdminRidePricing!]!
@@ -1757,18 +1809,6 @@ input AdminDashboardInput {
 
   """
   The end date (inclusive) of the date range for which to fetch dashboard statistics.
-  """
-  endDate: DateTime!
-}
-
-input CompletedRidesInput {
-  """
-  The start date (inclusive) of the date range for which to fetch completed rides.
-  """
-  fromDate: DateTime!
-
-  """
-  The end date (inclusive) of the date range for which to fetch completed rides.
   """
   endDate: DateTime!
 }

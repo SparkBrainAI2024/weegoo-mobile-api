@@ -374,17 +374,25 @@ export class IssueRepository {
   }
 
   /**
-   * Fetches the top N high-priority issues for the admin dashboard.
+   * Fetches the top N issues for the admin dashboard using cascading
+   * priority fill:
    *
-   * Returns issues with `priority = HIGH` that are still open or in review
-   * (i.e. not yet resolved/closed), sorted by oldest first so the most
-   * urgent (longest-waiting) issues appear at the top.
+   *  1. HIGH-priority issues first (oldest first)
+   *  2. If fewer than `limit` HIGH issues exist, the remainder is filled
+   *     with MEDIUM-priority issues (oldest first)
+   *  3. If still fewer than `limit`, the remainder is filled with
+   *     LOW-priority issues (oldest first)
+   *
+   * Only open / in-review issues are considered (not resolved/closed).
+   *
+   * Implemented as a single aggregation that sorts by a computed priority
+   * weight (HIGH=1, MEDIUM=2, LOW=3) and then takes the first `limit`
+   * documents — which yields exactly the cascade described above.
    */
   async getHighPriorityIssues(limit = 5): Promise<any[]> {
     return this.model.aggregate([
       {
         $match: {
-          priority: IssuePriority.HIGH,
           status: { $in: [IssueStatus.OPEN, IssueStatus.IN_REVIEW] },
           deleted: { $ne: true },
         },
@@ -419,6 +427,23 @@ export class IssueRepository {
       },
       { $unwind: { path: "$rideDetails", preserveNullAndEmptyArrays: true } },
       {
+        $addFields: {
+          // lower weight = higher priority; used for the cascading sort
+          priorityWeight: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$priority", IssuePriority.HIGH] }, then: 1 },
+                {
+                  case: { $eq: ["$priority", IssuePriority.MEDIUM] },
+                  then: 2,
+                },
+              ],
+              default: 3, // LOW and anything unexpected
+            },
+          },
+        },
+      },
+      {
         $project: {
           id: "$_id",
           ticketCode: {
@@ -435,11 +460,16 @@ export class IssueRepository {
           rideId: "$rideDetails.rideUUId",
           categoryLabel: "$category.parentCategory",
           status: 1,
-          priority: 1,
+          // legacy documents may have no priority set — default to the
+          // schema default (MEDIUM) so the non-nullable GraphQL field
+          // never receives null
+          priority: { $ifNull: ["$priority", IssuePriority.MEDIUM] },
           issueContent: 1,
         },
       },
-      { $sort: { createdAt: 1 } },
+      // cascade: all HIGH first, then MEDIUM to fill, then LOW to fill;
+      // oldest-first within each priority tier
+      { $sort: { priorityWeight: 1, createdAt: 1 } },
       { $limit: limit },
     ]);
   }
