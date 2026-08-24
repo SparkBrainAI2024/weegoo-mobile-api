@@ -16,6 +16,9 @@ import {
   VehicleRepository,
   RatingSchema,
   Rating,
+  Availability,
+  AvailabilitySchema,
+  AvailabilityRepository,
 } from "@libs/data-access";
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
@@ -30,13 +33,15 @@ import { MongooseModule } from "@nestjs/mongoose";
       { name: PromoCodeUsed.name, schema: PromoCodeUsedSchema },
       { name: DriverDocument.name, schema: DriverDocumentSchema },
       { name: Rating.name, schema: RatingSchema },
+      { name: Availability.name, schema: AvailabilitySchema },
     ]),
   ],
-  providers: [RidesRepository, DriverDocumentRepository, VehicleRepository],
+  providers: [RidesRepository, DriverDocumentRepository, VehicleRepository, AvailabilityRepository],
   exports: [
     RidesRepository,
     DriverDocumentRepository,
     VehicleRepository,
+    AvailabilityRepository,
     MongooseModule,
   ],
 })

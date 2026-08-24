@@ -1,10 +1,9 @@
 import { Field, ObjectType } from "@nestjs/graphql";
-import { GeoLocation } from "../../common/geo.location";
+import { SavedLocation } from "../../common/saved-location";
 import { ScheduledVehicleType } from "../../enums/vehicle.enum";
 import {
   AvailabilityTimeSlot,
   DayOfWeek,
-  MajorStop,
 } from "../../entities/availability.entity";
 
 /**
@@ -39,17 +38,17 @@ export class AvailabilityDayDetail {
   @Field(() => [AvailabilityTimeSlot])
   timeSlots: AvailabilityTimeSlot[];
 
-  @Field(() => [MajorStop])
-  majorStops: MajorStop[];
+  @Field(() => [String])
+  majorStops: string[];
 
   @Field(() => Number)
   pickupBufferTimeMinutes: number;
 
-  @Field(() => GeoLocation, { nullable: true })
-  pickupLocation?: GeoLocation;
+    @Field(() => SavedLocation, { nullable: true })
+  pickupLocation?: SavedLocation;
 
-  @Field(() => GeoLocation, { nullable: true })
-  dropOffLocation?: GeoLocation;
+  @Field(() => SavedLocation, { nullable: true })
+  dropOffLocation?: SavedLocation;
 
   @Field({ nullable: true })
   notes?: string;

@@ -19,6 +19,7 @@ import {
   VehicleDocument,
   UserDocument,
   UserDailyOnlineStatusRepository,
+  AvailabilityRepository,
   GetAllRidesPaginationInput,
 } from "@libs/data-access";
 import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
@@ -41,6 +42,7 @@ export class RideQueryService {
     private readonly userDetailsRepository: UserDetailsRepository,
     private readonly driverDocumentRepository: DriverDocumentRepository,
     private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
+    private readonly availabilityRepository: AvailabilityRepository,
     private readonly transactionService: TransactionService,
     private readonly s3: S3Service,
     private readonly walletService: WalletService,
@@ -113,10 +115,24 @@ export class RideQueryService {
         onlineStatus: null,
         vehicleStatus: null,
         ridePreference: null,
+        isWeekAvailability: false,
       };
     }
 
     const userId = toMongoId(user._id.toString());
+
+    // Week availability: has the driver set availability for THIS week?
+    // Week runs SUNDAY → SATURDAY in NEPAL time (UTC+5:45).
+    const NPT_OFFSET_MIN = 345;
+    const nowNpt = new Date(Date.now() + NPT_OFFSET_MIN * 60000);
+    nowNpt.setUTCDate(nowNpt.getUTCDate() - nowNpt.getUTCDay()); // back to Sunday
+    nowNpt.setUTCHours(0, 0, 0, 0);
+    const currentWeekStart = new Date(nowNpt.getTime() - NPT_OFFSET_MIN * 60000);
+    const weekAvailability = await this.availabilityRepository.findByDriverAndWeek(
+      userId,
+      currentWeekStart,
+    );
+    const isWeekAvailability = !!weekAvailability && (weekAvailability.days?.length ?? 0) > 0;
 
     // Fetch Driver Data: Details (Rating, Online Status), Documents, and Vehicle
     const [details, docs, vehicle] = await Promise.all([
@@ -200,6 +216,7 @@ export class RideQueryService {
       onlineStatus: details?.driverOnlineStatus || DriverOnlineStatus.OFFLINE,
       vehicleStatus: hasVehicle,
       ridePreference: details?.ridePreference || null,
+      isWeekAvailability,
     };
   }
 

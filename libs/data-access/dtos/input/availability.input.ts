@@ -1,5 +1,6 @@
 import { Field, InputType } from "@nestjs/graphql";
 import {
+  ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
@@ -11,10 +12,11 @@ import {
   Min,
   ValidateIf,
   ValidateNested,
+  IsDate
 } from "class-validator";
 import { Type } from "class-transformer";
 import { DayOfWeek } from "../../entities/availability.entity";
-import { GeoLocationInput } from "./geo-location.input";
+import { SavedLocationInput } from "./saved-location.input";
 import { ScheduledVehicleType } from "../../enums/vehicle.enum";
 
 @InputType()
@@ -23,25 +25,6 @@ export class AvailabilityTimeSlotInput {
   @IsNotEmpty({ message: "AVAILABILITY.TIME_SLOT_START_REQUIRED" })
   @IsString({ message: "AVAILABILITY.TIME_SLOT_START_REQUIRED" })
   startTime: string;
-
-  @Field()
-  @IsNotEmpty({ message: "AVAILABILITY.TIME_SLOT_END_REQUIRED" })
-  @IsString({ message: "AVAILABILITY.TIME_SLOT_END_REQUIRED" })
-  endTime: string;
-}
-
-@InputType()
-export class MajorStopInput {
-  @Field()
-  @IsString({ message: "AVAILABILITY.MAJOR_STOP_LABEL_REQUIRED" })
-  @IsNotEmpty({ message: "AVAILABILITY.MAJOR_STOP_LABEL_REQUIRED" })
-  label: string;
-
-  @Field(() => GeoLocationInput, { nullable: true })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => GeoLocationInput)
-  location?: GeoLocationInput;
 }
 
 @InputType()
@@ -87,29 +70,28 @@ export class AvailabilityDayInput {
   @Type(() => AvailabilityTimeSlotInput)
   timeSlots?: AvailabilityTimeSlotInput[];
 
-  @Field(() => [MajorStopInput], { defaultValue: [] })
+  @Field(() => [String], { defaultValue: [] })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MajorStopInput)
-  majorStops?: MajorStopInput[];
+  @IsString({ each: true, message: "AVAILABILITY.MAJOR_STOP_LABEL_REQUIRED" })
+  majorStops?: string[];
 
   @Field(() => Number, { defaultValue: 0 })
   @IsOptional()
   @IsNumber()
   pickupBufferTimeMinutes?: number;
 
-  @Field(() => GeoLocationInput, { nullable: true })
+    @Field(() => SavedLocationInput, { nullable: true })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GeoLocationInput)
-  pickupLocation?: GeoLocationInput;
+  @Type(() => SavedLocationInput)
+  pickupLocation?: SavedLocationInput;
 
-  @Field(() => GeoLocationInput, { nullable: true })
+  @Field(() => SavedLocationInput, { nullable: true })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GeoLocationInput)
-  dropOffLocation?: GeoLocationInput;
+  @Type(() => SavedLocationInput)
+  dropOffLocation?: SavedLocationInput;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -126,6 +108,7 @@ export class AddAvailabilityInput {
   @Field(() => [AvailabilityDayInput])
   @IsArray({ message: "AVAILABILITY.DAYS_REQUIRED" })
   @ArrayNotEmpty({ message: "AVAILABILITY.DAYS_REQUIRED" })
+  @ArrayMaxSize(1, { message: "AVAILABILITY.ONE_DAY_AT_A_TIME" })
   @ValidateNested({ each: true })
   @Type(() => AvailabilityDayInput)
   days: AvailabilityDayInput[];
@@ -138,6 +121,7 @@ export class AddAvailabilityInput {
 @InputType()
 export class UpdateAvailabilityInput {
   @Field(() => Date)
+  @IsDate({ message: "AVAILABILITY.INVALID_DAY" })
   date: Date;
 
   @Field(() => [AvailabilityTimeSlotInput], { nullable: true })
@@ -147,29 +131,28 @@ export class UpdateAvailabilityInput {
   @Type(() => AvailabilityTimeSlotInput)
   timeSlots?: AvailabilityTimeSlotInput[];
 
-  @Field(() => [MajorStopInput], { nullable: true })
+  @Field(() => [String], { nullable: true })
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => MajorStopInput)
-  majorStops?: MajorStopInput[];
+  @IsString({ each: true, message: "AVAILABILITY.MAJOR_STOP_LABEL_REQUIRED" })
+  majorStops?: string[];
 
   @Field(() => Number, { nullable: true })
   @IsOptional()
   @IsNumber()
   pickupBufferTimeMinutes?: number;
 
-  @Field(() => GeoLocationInput, { nullable: true })
+    @Field(() => SavedLocationInput, { nullable: true })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GeoLocationInput)
-  pickupLocation?: GeoLocationInput;
+  @Type(() => SavedLocationInput)
+  pickupLocation?: SavedLocationInput;
 
-  @Field(() => GeoLocationInput, { nullable: true })
+  @Field(() => SavedLocationInput, { nullable: true })
   @IsOptional()
   @ValidateNested()
-  @Type(() => GeoLocationInput)
-  dropOffLocation?: GeoLocationInput;
+  @Type(() => SavedLocationInput)
+  dropOffLocation?: SavedLocationInput;
 
   @Field({ nullable: true })
   @IsOptional()

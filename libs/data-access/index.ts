@@ -140,6 +140,7 @@ export * from './dtos/input/upsert-maintenance-info.input';
 export * from './dtos/input/send-push-notification.input';
 export * from './dtos/input/get-vehicle-type.input';
 export * from './dtos/input/availability.input';
+export * from './dtos/input/saved-location.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';

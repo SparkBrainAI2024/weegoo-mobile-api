@@ -2,7 +2,7 @@ import { Field, ID, ObjectType, registerEnumType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "../base/base.entity";
-import { GeoLocation } from "../common/geo.location";
+import { SavedLocation } from "../common/saved-location";
 import { ScheduledVehicleType } from "../enums/vehicle.enum";
 
 export type AvailabilityDocument = Availability & HydratedDocument<Availability>;
@@ -24,7 +24,7 @@ export enum DayOfWeek {
 registerEnumType(DayOfWeek, {
   name: "DayOfWeek",
   description:
-    "Days of the week a driver can set availability for (Monday to Saturday)",
+    "Days of the week a driver can set availability for (Sunday to Saturday)",
 });
 
 /**
@@ -48,30 +48,9 @@ export class AvailabilityTimeSlot {
   @Field(() => String)
   @Prop({ required: true, type: String })
   startTime: string;
-
-  @Field(() => String)
-  @Prop({ required: true, type: String })
-  endTime: string;
 }
 export const AvailabilityTimeSlotSchema =
   SchemaFactory.createForClass(AvailabilityTimeSlot);
-
-/**
- * A major stop along the driver's route for the week.
- */
-@ObjectType()
-@Schema({ _id: false })
-export class MajorStop {
-  @Field(() => String)
-  @Prop({ required: true, type: String })
-  label: string;
-
-  /** GeoJSON point [longitude, latitude] — optional. */
-  @Field(() => GeoLocation, { nullable: true })
-  @Prop({ type: Object, default: null })
-  location?: GeoLocation;
-}
-export const MajorStopSchema = SchemaFactory.createForClass(MajorStop);
 
 /**
  * One day of the week with its list of time slots.
@@ -125,25 +104,25 @@ export class AvailabilityDay {
   @Prop({ type: [AvailabilityTimeSlotSchema], default: [] })
   timeSlots: AvailabilityTimeSlot[];
 
-  /** Array of major stops along the driver's route for this day. */
-  @Field(() => [MajorStop])
-  @Prop({ type: [MajorStopSchema], default: [] })
-  majorStops: MajorStop[];
+  /** Array of major stops (names) along the driver's route for this day. */
+  @Field(() => [String])
+  @Prop({ type: [String], default: [] })
+  majorStops: string[];
 
   /** Buffer time (minutes) needed to travel to the pickup location. */
   @Field(() => Number, { defaultValue: 0 })
   @Prop({ type: Number, default: 0 })
   pickupBufferTimeMinutes: number;
 
-  /** Pickup location as a GeoJSON point [longitude, latitude]. */
-  @Field(() => GeoLocation, { nullable: true })
-  @Prop({ type: Object, default: null })
-  pickupLocation?: GeoLocation;
+    /** Pickup location — same shape as the driver's `workLocation`. */
+  @Field(() => SavedLocation, { nullable: true })
+  @Prop({ type: SavedLocation, default: null })
+  pickupLocation?: SavedLocation;
 
-  /** Drop-off location as a GeoJSON point [longitude, latitude]. */
-  @Field(() => GeoLocation, { nullable: true })
-  @Prop({ type: Object, default: null })
-  dropOffLocation?: GeoLocation;
+  /** Drop-off location — same shape as the driver's `workLocation`. */
+  @Field(() => SavedLocation, { nullable: true })
+  @Prop({ type: SavedLocation, default: null })
+  dropOffLocation?: SavedLocation;
 
   /** Additional notes from the driver for this day. */
   @Field({ nullable: true })
@@ -156,9 +135,10 @@ export const AvailabilityDaySchema =
 /**
  * Weekly availability for a driver.
  *
+/**
  * Business rules (enforced in AvailabilityService):
  *  - One availability document per driver per week (startDate → endDate).
- *  - The week always runs Monday (startDate) → Saturday (endDate).
+ *  - The week always runs Sunday (startDate) → Saturday (endDate).
  *  - A driver cannot set NEXT week's availability until the current
  *    week has fully passed (i.e. now > latest existing endDate).
  *
@@ -175,7 +155,7 @@ export class Availability extends BaseEntity {
   @Prop({ type: Types.ObjectId, index: true, ref: "User", required: true })
   driverId: Types.ObjectId;
 
-  /** Week start date — always a Monday at 00:00. */
+  /** Week start date — always a Sunday at 00:00. */
   @Field(() => Date)
   @Prop({ required: true, type: Date })
   startDate: Date;
