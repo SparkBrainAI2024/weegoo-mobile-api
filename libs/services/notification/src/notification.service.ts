@@ -250,6 +250,39 @@ export class NotificationService {
                 firebaseData.rideUUId = String(payload.rideUUId);
             }
             console.log("payload", payload)
+            // Silent push: data-only message with no `notification` block and no sound,
+            // so the OS does not display anything and the app handles the payload
+            // in the background. Used for instant ride requests to drivers.
+            if ((payload as any).silent === true) {
+                try {
+                    await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
+                        token: token.firebaseToken,
+
+                        // NOTE: no `notification` block — data-only = silent delivery
+                        data: firebaseData,
+
+                        android: {
+                            priority: 'high',
+                        },
+
+                        apns: {
+                            headers: {
+                                'apns-priority': '5',
+                            },
+                            payload: {
+                                aps: {
+                                    // content-available triggers background wake-up on iOS
+                                    // without showing a banner or playing a sound.
+                                    'content-available': 1,
+                                },
+                            },
+                        },
+                    });
+                } catch (e) {
+                    console.log("============NOTIFIICATION ERROR", e)
+                }
+                return notification;
+            }
             try {
                 await this.firebaseMessagingService.sendSingleMessage(token.firebaseToken, {
                     token: token.firebaseToken,

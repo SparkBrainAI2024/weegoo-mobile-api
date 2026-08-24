@@ -316,7 +316,10 @@ export class MatchmakingService {
             distanceInKm: routeDistanceKm, estimatedFare: estimatedFare.total, estimatedTimeInMinutes: routeDurationMinutes,
             passengerId: ride.passengerId.toString(), driverScore: driver.score, distanceToPickupKm: driver.distanceToPickupKm,
             passengerSnapshot, noOfPassengers: ride.noOfPassengers,
-            vehicleType: driver.vehicleType
+            vehicleType: driver.vehicleType,
+            // Silent FCM push: the driver app shows its own ride-request UI from
+            // the Ably/data payload instead of a system notification.
+            silent: true
           };
           try {
             await this.notificationService.createNotification(notificationInput, driverUser);
