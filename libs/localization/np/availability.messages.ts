@@ -13,4 +13,7 @@ export const AVAILABILITY = {
   AVAILABILITY_UPDATED: "उपलब्धता सफलतापूर्वक अपडेट भयो।",
   AVAILABILITY_REMOVED: "उपलब्धता सफलतापूर्वक हटाइयो।",
   END_BEFORE_START: "समय स्लिटको अन्त्य सुरु समयपछि हुनुपर्छ।",
+  INVALID_VEHICLE_TYPE: "अवैध अनुसूचित सवारी प्रकार। अनुमति प्राप्त मानहरू JEEP, MICRO र CAR हुन्।",
+  AMOUNT_REQUIRED: "सिस्टम भाडा प्रयोग नगर्दा amount उपलब्ध गराउनु पर्छ।",
+  AMOUNT_MUST_BE_POSITIVE: "सिस्टम भाडा प्रयोग नगर्दा amount शून्यभन्दा बढी हुनुपर्छ।",
 };

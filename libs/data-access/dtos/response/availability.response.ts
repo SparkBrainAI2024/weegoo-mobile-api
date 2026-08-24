@@ -1,5 +1,6 @@
 import { Field, ObjectType } from "@nestjs/graphql";
 import { GeoLocation } from "../../common/geo.location";
+import { ScheduledVehicleType } from "../../enums/vehicle.enum";
 import {
   AvailabilityTimeSlot,
   DayOfWeek,
@@ -16,6 +17,24 @@ export class AvailabilityDayDetail {
 
   @Field(() => DayOfWeek, {})
   day: DayOfWeek;
+
+  @Field(() => ScheduledVehicleType)
+  vehicleType: ScheduledVehicleType;
+
+  @Field(() => Boolean)
+  isAvailableForBookings: boolean;
+
+  @Field(() => Boolean)
+  isOneWay: boolean;
+
+  @Field(() => Number)
+  availableSeats: number;
+
+  @Field(() => Boolean)
+  useSystemFare: boolean;
+
+  @Field(() => Number)
+  amount: number;
 
   @Field(() => [AvailabilityTimeSlot])
   timeSlots: AvailabilityTimeSlot[];

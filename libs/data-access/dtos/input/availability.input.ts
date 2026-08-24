@@ -2,16 +2,20 @@ import { Field, InputType } from "@nestjs/graphql";
 import {
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  Min,
+  ValidateIf,
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { DayOfWeek } from "../../entities/availability.entity";
 import { GeoLocationInput } from "./geo-location.input";
+import { ScheduledVehicleType } from "../../enums/vehicle.enum";
 
 @InputType()
 export class AvailabilityTimeSlotInput {
@@ -45,6 +49,36 @@ export class AvailabilityDayInput {
   @Field(() => DayOfWeek)
   @IsEnum(DayOfWeek, { message: "AVAILABILITY.INVALID_DAY" })
   day: DayOfWeek;
+
+  @Field(() => ScheduledVehicleType)
+  @IsEnum(ScheduledVehicleType, { message: "AVAILABILITY.INVALID_VEHICLE_TYPE" })
+  vehicleType: ScheduledVehicleType;
+
+  @Field(() => Boolean, { defaultValue: true })
+  @IsOptional()
+  @IsBoolean()
+  isAvailableForBookings?: boolean;
+
+  @Field(() => Boolean, { defaultValue: false })
+  @IsOptional()
+  @IsBoolean()
+  isOneWay?: boolean;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  availableSeats?: number;
+
+  @Field(() => Boolean, { defaultValue: true })
+  @IsOptional()
+  @IsBoolean()
+  useSystemFare?: boolean;
+
+  @Field(() => Number, { nullable: true })
+  @ValidateIf((o: AvailabilityDayInput) => o.useSystemFare === false)
+  @IsNumber({}, { message: "AVAILABILITY.AMOUNT_REQUIRED" })
+  @Min(0.01, { message: "AVAILABILITY.AMOUNT_MUST_BE_POSITIVE" })
+  amount?: number;
 
   @Field(() => [AvailabilityTimeSlotInput], { defaultValue: [] })
   @IsOptional()
@@ -140,5 +174,36 @@ export class UpdateAvailabilityInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
-  notes?: string;
+    notes?: string;
+
+  @Field(() => ScheduledVehicleType, { nullable: true })
+  @IsOptional()
+  @IsEnum(ScheduledVehicleType, { message: "AVAILABILITY.INVALID_VEHICLE_TYPE" })
+  vehicleType?: ScheduledVehicleType;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isAvailableForBookings?: boolean;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  isOneWay?: boolean;
+
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  availableSeats?: number;
+
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  useSystemFare?: boolean;
+
+  @Field(() => Number, { nullable: true })
+  @ValidateIf((o: UpdateAvailabilityInput) => o.useSystemFare === false)
+  @IsNumber({}, { message: "AVAILABILITY.AMOUNT_REQUIRED" })
+  @Min(0.01, { message: "AVAILABILITY.AMOUNT_MUST_BE_POSITIVE" })
+  amount?: number;
 }

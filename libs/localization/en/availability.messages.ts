@@ -13,4 +13,8 @@ export const AVAILABILITY = {
   AVAILABILITY_UPDATED: "Availability updated successfully.",
   AVAILABILITY_REMOVED: "Availability removed successfully.",
   END_BEFORE_START: "Time slot end time must be after the start time.",
+  INVALID_VEHICLE_TYPE: "Invalid scheduled vehicle type. Allowed values are JEEP, MICRO, and CAR.",
+  AMOUNT_REQUIRED: "An amount must be provided when the system fare is not used.",
+  AMOUNT_MUST_BE_POSITIVE:
+    "Amount must be greater than zero when the system fare is not used.",
 };

@@ -3,6 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { GeoLocation } from "../common/geo.location";
+import { ScheduledVehicleType } from "../enums/vehicle.enum";
 
 export type AvailabilityDocument = Availability & HydratedDocument<Availability>;
 
@@ -25,6 +26,16 @@ registerEnumType(DayOfWeek, {
   description:
     "Days of the week a driver can set availability for (Monday to Saturday)",
 });
+
+/**
+ * Seat capacity for each scheduled vehicle type.
+ * Used as the default available seat count when a driver has not set a custom value.
+ */
+export const VEHICLE_SEAT_CAPACITY: Record<ScheduledVehicleType, number> = {
+  [ScheduledVehicleType.CAR]: 5,
+  [ScheduledVehicleType.JEEP]: 8,
+  [ScheduledVehicleType.MICRO]: 15,
+};
 
 /**
  * A single time slot within one day of a driver's weekly availability.
@@ -74,6 +85,41 @@ export class AvailabilityDay {
   @Field(() => DayOfWeek)
   @Prop({ required: true, type: String, enum: DayOfWeek })
   day: DayOfWeek;
+
+  /** Scheduled vehicle type (JEEP, MICRO, CAR) used on this day.
+   *  The day's bookable seat capacity is derived from this type. */
+  @Field(() => ScheduledVehicleType)
+  @Prop({ required: true, type: String, enum: ["JEEP", "MICRO", "CAR"] })
+  vehicleType: ScheduledVehicleType;
+
+  /** Whether the driver accepts bookings on this day. */
+  @Field(() => Boolean, { defaultValue: true })
+  @Prop({ type: Boolean, default: true })
+  isAvailableForBookings: boolean;
+
+  /** True when the trip is one-way only (no return/service booking). */
+  @Field(() => Boolean, { defaultValue: false })
+  @Prop({ type: Boolean, default: false })
+  isOneWay: boolean;
+
+  /** Number of seats available for booking. Defaults to the capacity of the
+   *  selected vehicle type (CAR = 5, JEEP = 8, MICRO = 15). */
+  @Field(() => Number, { defaultValue: 0 })
+  @Prop({ type: Number, default: 0 })
+  availableSeats: number;
+
+  /** True when the fare is set by the platform (system fare).
+   *  When false the driver supplies a custom amount for the day. */
+  @Field(() => Boolean, { defaultValue: true })
+  @Prop({ type: Boolean, default: true })
+  useSystemFare: boolean;
+
+  /** The fare amount applied for this day.
+   *  Calculated from the matchmaking config when useSystemFare is true;
+   *  taken from the driver's input when useSystemFare is false. */
+  @Field(() => Number, { defaultValue: 0 })
+  @Prop({ type: Number, default: 0 })
+  amount: number;
 
   @Field(() => [AvailabilityTimeSlot])
   @Prop({ type: [AvailabilityTimeSlotSchema], default: [] })

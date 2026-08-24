@@ -4,15 +4,18 @@ import {
   Availability,
   AvailabilitySchema,
   AvailabilityRepository,
+  VehicleRepository,
 } from "@libs/data-access";
+import { Vehicle, VehicleSchema } from "@libs/data-access/entities/vehicle.entity";
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: Availability.name, schema: AvailabilitySchema },
+      { name: Vehicle.name, schema: VehicleSchema },
     ]),
   ],
-  providers: [AvailabilityRepository],
-  exports: [AvailabilityRepository, MongooseModule],
+  providers: [AvailabilityRepository, VehicleRepository],
+  exports: [AvailabilityRepository, VehicleRepository, MongooseModule],
 })
 export class AvailabilityPersistentModule {}
