@@ -33,6 +33,12 @@ export class AvailabilityDayInput {
   @IsEnum(DayOfWeek, { message: "AVAILABILITY.INVALID_DAY" })
   day: DayOfWeek;
 
+  /** The concrete calendar date this availability is for (must be today
+   *  up to 6 days from now). Duplicate dates are rejected. */
+  @Field(() => Date)
+  @IsDate({ message: "AVAILABILITY.INVALID_DAY" })
+  date: Date;
+
   @Field(() => ScheduledVehicleType)
   @IsEnum(ScheduledVehicleType, { message: "AVAILABILITY.INVALID_VEHICLE_TYPE" })
   vehicleType: ScheduledVehicleType;

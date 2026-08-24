@@ -20,7 +20,7 @@ export class AvailabilityResolver {
   @Mutation(() => Availability, {
     name: "addAvailability",
     description:
-      "Adds/replaces the driver's availability for the upcoming week. Can only be done on a Sunday, and days may only be set from Monday to Saturday.",
+      "Adds the driver's availability for one day. The day must be today up to 6 days from today and must not already exist (duplicate dates are rejected).",
   })
   addAvailability(
     @CurrentUser() user: User,

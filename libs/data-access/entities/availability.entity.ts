@@ -57,6 +57,8 @@ export const AvailabilityTimeSlotSchema =
  *
  * Each day carries its own route details so the driver can set
  * different major stops, notes, pickup and drop-off per day.
+ * Each day also carries its concrete calendar `date` so the same
+ * weekday cannot be duplicated for different dates.
  */
 @ObjectType()
 @Schema({ _id: false })
@@ -64,6 +66,12 @@ export class AvailabilityDay {
   @Field(() => DayOfWeek)
   @Prop({ required: true, type: String, enum: DayOfWeek })
   day: DayOfWeek;
+
+  /** The concrete calendar date this availability belongs to
+   *  (start of day). Prevents duplicate entries for the same date. */
+  @Field(() => Date)
+  @Prop({ required: true, type: Date })
+  date: Date;
 
   /** Scheduled vehicle type (JEEP, MICRO, CAR) used on this day.
    *  The day's bookable seat capacity is derived from this type. */
@@ -133,14 +141,15 @@ export const AvailabilityDaySchema =
   SchemaFactory.createForClass(AvailabilityDay);
 
 /**
- * Weekly availability for a driver.
+ * Rolling availability for a driver.
  *
 /**
  * Business rules (enforced in AvailabilityService):
- *  - One availability document per driver per week (startDate → endDate).
- *  - The week always runs Sunday (startDate) → Saturday (endDate).
- *  - A driver cannot set NEXT week's availability until the current
- *    week has fully passed (i.e. now > latest existing endDate).
+ *  - One availability document per driver (days are appended over time).
+ *  - Days can be added/edited for TODAY up to 6 days ahead — there is no
+ *    fixed weekly startDate/endDate window anymore.
+ *  - Each AvailabilityDay carries its own concrete `date`; the same date
+ *    cannot be added twice (duplicates are rejected).
  *
  * Each day holds an array of time slots so a single day can have
  * multiple availability windows.
@@ -155,18 +164,9 @@ export class Availability extends BaseEntity {
   @Prop({ type: Types.ObjectId, index: true, ref: "User", required: true })
   driverId: Types.ObjectId;
 
-  /** Week start date — always a Sunday at 00:00. */
-  @Field(() => Date)
-  @Prop({ required: true, type: Date })
-  startDate: Date;
-
-  /** Week end date — always the Saturday of the same week, end of day. */
-  @Field(() => Date)
-  @Prop({ required: true, type: Date })
-  endDate: Date;
-
-  /** Per-day availability; each day can contain multiple time slots and its
-   *  own major stops, notes, pickup and drop-off details. */
+  /** Per-day availability; each day carries its own concrete date and
+   *  can contain multiple time slots plus its own major stops, notes,
+   *  pickup and drop-off details. */
   @Field(() => [AvailabilityDay])
   @Prop({ type: [AvailabilityDaySchema], default: [] })
   days: AvailabilityDay[];
@@ -174,8 +174,5 @@ export class Availability extends BaseEntity {
 
 export const AvailabilitySchema = SchemaFactory.createForClass(Availability);
 
-// One availability document per driver per week start date
-AvailabilitySchema.index(
-  { driverId: 1, startDate: 1 },
-  { unique: true },
-);
+// Fast lookup of a driver's availability document(s)
+AvailabilitySchema.index({ driverId: 1 });

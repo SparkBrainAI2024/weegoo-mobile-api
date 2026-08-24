@@ -19,19 +19,18 @@ export class AvailabilityRepository extends BaseRepository<AvailabilityDocument>
   }
 
   /**
-   * Finds the weekly availability document for a driver in the week that starts
-   * on the given startDate (the Monday of that week).
+   * Finds the rolling availability document for a driver.
+   * There are no week boundaries anymore — one document holds all
+   * of the driver's upcoming availability days.
    */
-  async findByDriverAndWeek(
+  async findByDriver(
     driverId: string | Types.ObjectId,
-    startDate: Date,
   ): Promise<AvailabilityDocument | null> {
     try {
       const driverObjId =
         driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId);
       return await this.findOne({
         driverId: driverObjId,
-        startDate,
         deleted: false,
       });
     } catch (e) {
