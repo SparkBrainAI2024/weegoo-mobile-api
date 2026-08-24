@@ -55,4 +55,8 @@ export class DashboardHomeResponse {
 
   @Field(() => ridePreference, { nullable: true })
   ridePreference?: ridePreference;
+
+  /** True when the driver has set weekly availability for the current week. */
+  @Field(() => Boolean, { defaultValue: false })
+  isWeekAvailability?: boolean;
 }

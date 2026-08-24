@@ -58,6 +58,10 @@ module.exports = function (options) {
           __dirname,
           "libs/services/profile/src",
         ),
+        "@libs/services/availability": path.resolve(
+          __dirname,
+          "libs/services/availability/src",
+        ),
         "@libs/services": path.resolve(__dirname, "libs/services"),
         "@libs": path.resolve(__dirname, "libs"),
       },

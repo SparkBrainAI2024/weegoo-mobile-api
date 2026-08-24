@@ -59,6 +59,8 @@
       "@libs/services/ably/*": ["libs/services/ably/src/*"],
       "@libs/services/profile": ["libs/services/profile/src"],
       "@libs/services/profile/*": ["libs/services/profile/src/*"],
+      "@libs/services/availability": ["libs/services/availability/src"],
+      "@libs/services/availability/*": ["libs/services/availability/src/*"],
       "@ride-matchmaking": ["apps/ride-matchmaking/src"],
       "@ride-matchmaking/*": ["apps/ride-matchmaking/src/*"],
       "@cron": ["apps/cron/src"],

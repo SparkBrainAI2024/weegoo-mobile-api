@@ -31,6 +31,7 @@ export * from './entities/email-template.entity';
 export * from './entities/admin-company-info.entity';
 export * from './entities/admin-ride-pricing.entity';
 export * from './entities/maintenance-info.entity';
+export * from './entities/availability.entity';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -52,6 +53,7 @@ export * from './repositories/email-template.repository';
 export * from './repositories/admin-company-info.repository';
 export * from './repositories/admin-ride-pricing.repository';
 export * from './repositories/maintenance-info.repository';
+export * from './repositories/availability.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -137,6 +139,8 @@ export * from './dtos/input/upsert-admin-ride-pricing.input';
 export * from './dtos/input/upsert-maintenance-info.input';
 export * from './dtos/input/send-push-notification.input';
 export * from './dtos/input/get-vehicle-type.input';
+export * from './dtos/input/availability.input';
+export * from './dtos/input/saved-location.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -176,6 +180,7 @@ export * from './dtos/response/get-driver-trips.response';
 export * from './dtos/response/saved-locations.response';
 export * from './dtos/response/send-push-notification.response';
 export * from './dtos/response/get-vehicle-type.response';
+export * from './dtos/response/availability.response';
 
 //interfaces
 export * from './interfaces/location.interface'

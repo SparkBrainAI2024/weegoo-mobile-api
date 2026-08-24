@@ -6,6 +6,7 @@ import { UPLOAD } from "./upload.messages";
 import { DRIVER_DOCUMENT } from "./driver-document.messages";
 import { ISSUE } from "./issue.messages";
 import { RIDES } from "./ride.messages";
+import { AVAILABILITY } from "./availability.messages";
 
 export const np_messages = {
   COMMON,
@@ -15,5 +16,6 @@ export const np_messages = {
   UPLOAD,
   DRIVER_DOCUMENT,
   ISSUE,
-  RIDES
+  RIDES,
+  AVAILABILITY,
 };
