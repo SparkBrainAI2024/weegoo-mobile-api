@@ -44,37 +44,18 @@ const toNepalWallClock = (d: Date): Date =>
 const fromNepalWallClock = (d: Date): Date =>
   new Date(d.getTime() - NEPAL_TZ_OFFSET_MINUTES * 60000);
 
-/** Returns the start of the given date's day in Nepal time. */
-const startOfDay = (d: Date): Date => {
-  const x = toNepalWallClock(d);
-  x.setUTCHours(0, 0, 0, 0);
-  return fromNepalWallClock(x);
-};
-
-const startOfWeekSunday = (d: Date): Date => {
-  const x = toNepalWallClock(startOfDay(d));
-  x.setUTCDate(x.getUTCDate() - x.getUTCDay()); // Sunday=0 starts the week
-  return fromNepalWallClock(x);
-};
-
-const addDays = (d: Date, days: number): Date => {
+/**
+ * Returns the given date truncated to UTC midnight. Availability day dates
+ * are stored and compared in UTC-midnight form so that a client-sent
+ * "2026-08-30" and the stored value always represent the same calendar day,
+ * regardless of the server's timezone.
+ */
+const utcStartOfDay = (d: Date): Date => {
   const x = new Date(d);
-  x.setDate(x.getDate() + days);
+  x.setUTCHours(0, 0, 0, 0);
   return x;
 };
 
-/**
- * Returns the END of Saturday (23:59:59.999 Nepal time) of the week starting
- * at the given Sunday. In UTC this is Saturday 18:14:59.999 — which is
- * Saturday end-of-day in Nepal, never spilling into a Nepali Sunday.
- */
-const endOfWeekSaturday = (weekStart: Date): Date => {
-  const x = toNepalWallClock(addDays(startOfDay(weekStart), 6)); // Saturday NPT
-  x.setUTCHours(23, 59, 59, 999);
-  return fromNepalWallClock(x);
-};
-
-/** Maps a date's NEPAL-time weekday to the DayOfWeek enum. */
 const dayOfWeekFromDate = (d: Date): DayOfWeek => {
   const map: Record<number, DayOfWeek> = {
     0: DayOfWeek.SUNDAY,
@@ -89,33 +70,61 @@ const dayOfWeekFromDate = (d: Date): DayOfWeek => {
 };
 
 /**
- * Returns true when `d` is a past date (its day-start is before today's
- * day-start). Used to reject any availability operation for a day that has
- * already passed — this covers both a past Sunday and a past weekday.
+ * Maximum number of days ahead (including today) that availability can be
+ * set for: today, today+1 ... today+6.
  */
-const isPastDate = (d: Date, now: Date): boolean =>
-  startOfDay(d).getTime() < startOfDay(now).getTime();
+export const MAX_AVAILABILITY_DAYS_AHEAD = 6;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Whole-day difference between `d` and today (negative when in the past). */
+const dayOffsetFromToday = (d: Date): number =>
+  Math.round((utcStartOfDay(d).getTime() - utcStartOfDay(new Date()).getTime()) / MS_PER_DAY);
 
 /**
- * Returns true when `d` falls within the current Monday → Saturday week.
- * Availability add/edit is restricted to the ongoing week only (no future weeks).
+ * Calendar-day key ("YYYY-MM-DD") of an instant in UTC.
  */
-const isInCurrentWeek = (d: Date): boolean => {
-  const now = new Date();
-  return startOfWeekSunday(d).getTime() === startOfWeekSunday(now).getTime();
+const utcDateKey = (d: Date): string => utcStartOfDay(d).toISOString().slice(0, 10);
+
+/**
+ * Calendar-day key ("YYYY-MM-DD") of an instant in NEPAL time.
+ * Used alongside the UTC key so that availability days stored with the
+ * older Nepal-midnight convention (legacy rows) still match the same
+ * calendar date and cannot slip through duplicate checks.
+ */
+const nepalDateKey = (d: Date): string => toNepalWallClock(d).toISOString().slice(0, 10);
+
+/**
+ * Returns true when a stored day's date refers to ANY of the given
+ * calendar-day keys (UTC or Nepal interpretation).
+ */
+const dayMatchesAnyKey = (dayDate: Date, keys: Set<string>): boolean =>
+  keys.has(utcDateKey(dayDate)) || keys.has(nepalDateKey(dayDate));
+
+/** Both calendar keys (UTC + Nepal) of a requested date. */
+const dateKeysOf = (d: Date): Set<string> => {
+  const x = new Date(d);
+  return new Set([utcDateKey(x), nepalDateKey(x)]);
+};
+
+/**
+ * Returns true when `d` is within the editable window:
+ * today ... today + MAX_AVAILABILITY_DAYS_AHEAD (e.g. Monday + 6 = Sunday).
+ * Past dates and dates further out are not editable.
+ */
+const isInEditableWindow = (d: Date): boolean => {
+  const offset = dayOffsetFromToday(d);
+  return offset >= 0 && offset <= MAX_AVAILABILITY_DAYS_AHEAD;
 };
 
 /**
  * Validates that a date can receive availability changes:
- * - must be inside the current (Mon-Sun) week, and
+ * - must be today or up to 6 days from today, and
  * - must not have already passed.
  */
 const assertEditableDate = (d: Date): void => {
-  if (!isInCurrentWeek(d)) {
+  if (!isInEditableWindow(d)) {
     ErrorException(null, "AVAILABILITY.ONLY_CURRENT_WEEK_ALLOWED", HttpStatus.BAD_REQUEST);
-  }
-  if (isPastDate(d, new Date())) {
-    ErrorException(null, "AVAILABILITY.PAST_DATE_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
   }
 };
 
@@ -138,6 +147,26 @@ interface AvailabilityDayLike {
   pickupBufferTimeMinutes?: number | null;
 }
 
+/**
+ * Parses a time-slot start value ("HH:mm" or any parseable date string)
+ * into a comparable millisecond value. NaN when unparseable.
+ */
+const parseSlotStartMs = (startTime: string): number => {
+  const s = String(startTime ?? "").trim();
+  const hm = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+  if (hm) {
+    const h = parseInt(hm[1], 10);
+    const m = parseInt(hm[2], 10);
+    if (h > 23 || m > 59) return NaN;
+    return (h * 60 + m) * 60000;
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? NaN : d.getTime();
+};
+
+/** Minimum gap between two time-slot start times: 3 hours. */
+const TIME_SLOT_MIN_GAP_MS = 3 * 60 * 60 * 1000;
+
 @Injectable()
 export class AvailabilityService {
   private readonly logger = new Logger(AvailabilityService.name);
@@ -148,73 +177,122 @@ export class AvailabilityService {
     private readonly envService: EnvService,
   ) {}
 
+  /**
+   * Validates the time-slot rules for an availability day:
+   * - one-way trip  → exactly ONE time slot;
+   * - round trip    → exactly TWO time slots;
+   * - no two slots may share the same start time;
+   * - every pair of start times must be at least 3 hours apart.
+   */
+  private assertTimeSlotRules(
+    isOneWay: boolean,
+    slots?: { startTime: string }[] | null,
+  ): void {
+    const list = slots || [];
+    const required = isOneWay ? 1 : 2;
+    if (list.length !== required) {
+      ErrorException(
+        null,
+        isOneWay
+          ? "AVAILABILITY.ONE_WAY_ONE_SLOT"
+          : "AVAILABILITY.ROUND_TRIP_TWO_SLOTS",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const times = list.map((s) => parseSlotStartMs(s.startTime));
+    if (times.some((t) => isNaN(t))) {
+      ErrorException(null, "AVAILABILITY.TIME_SLOT_INVALID", HttpStatus.BAD_REQUEST);
+    }
+
+    for (let i = 0; i < times.length; i++) {
+      for (let j = i + 1; j < times.length; j++) {
+        if (times[i] === times[j]) {
+          ErrorException(null, "AVAILABILITY.TIME_SLOT_DUPLICATE", HttpStatus.CONFLICT);
+        }
+        if (Math.abs(times[i] - times[j]) < TIME_SLOT_MIN_GAP_MS) {
+          ErrorException(null, "AVAILABILITY.TIME_SLOT_MIN_GAP", HttpStatus.BAD_REQUEST);
+        }
+      }
+    }
+  }
+
   async addWeeklyAvailability(
     driverId: string | Types.ObjectId,
     input: AddAvailabilityInput,
   ): Promise<AvailabilityDocument> {
-    const today = startOfDay(new Date());
-    const weekStart = startOfWeekSunday(today);
-
     // Availability can only be added for ONE day per request.
     if (input.days.length !== 1) {
       ErrorException(null, "AVAILABILITY.ONE_DAY_AT_A_TIME", HttpStatus.BAD_REQUEST);
     }
 
-    // Every requested day must belong to THIS week and must not have passed
-    // (this week's days run Sunday → Saturday; a day is blocked once passed).
-    const offsets: Record<string, number> = {
-      [DayOfWeek.SUNDAY]: 0,
-      [DayOfWeek.MONDAY]: 1,
-      [DayOfWeek.TUESDAY]: 2,
-      [DayOfWeek.WEDNESDAY]: 3,
-      [DayOfWeek.THURSDAY]: 4,
-      [DayOfWeek.FRIDAY]: 5,
-      [DayOfWeek.SATURDAY]: 6,
-    };
+    const driverVehicleType = await this.getDriverVehicleType(driverId);
+
+    // Validate each requested date: must be today up to 6 days from today,
+    // and the weekday enum must match the supplied date's weekday.
     for (const d of input.days) {
-      assertEditableDate(addDays(weekStart, offsets[d.day]));
+      if (!d.date || isNaN(new Date(d.date).getTime())) {
+        ErrorException(null, "AVAILABILITY.INVALID_DAY", HttpStatus.BAD_REQUEST);
+      }
+      const dayDate = utcStartOfDay(new Date(d.date));
+      assertEditableDate(dayDate);
+      const derivedDay = dayOfWeekFromDate(dayDate);
+      if (d.day !== derivedDay) {
+        ErrorException(null, "AVAILABILITY.INVALID_DAY", HttpStatus.BAD_REQUEST);
+      }
     }
 
-    // Week always ends at end of Saturday.
-    const endDate = endOfWeekSaturday(weekStart);
-    const driverVehicleType = await this.getDriverVehicleType(driverId);
+    // Normalize stored days — each day carries its concrete date.
     const days = await this.toStoredDays(input.days, driverVehicleType);
-    const existing = await this.availabilityRepository.findByDriverAndWeek(driverId, weekStart);
-    if (existing) {
-      // Duplicate check: the same day cannot be added twice in a week.
-      const newDay = days[0];
-      const existingDays = (existing.days || []).map((d: any) =>
-        typeof d.toObject === "function" ? d.toObject() : d,
-      );
-      if (existingDays.some((d) => d.day === newDay.day)) {
-        ErrorException(null, "AVAILABILITY.DUPLICATE_DAY", HttpStatus.CONFLICT);
-      }
-      const mergedDays = [...existingDays, newDay];
-      const mergedEndDate = endOfWeekSaturday(weekStart);
-      return (
-        (await this.availabilityRepository.updateById(existing._id, {
-          days: mergedDays,
-          endDate: mergedEndDate,
-        })) || existing
-      );
+
+    let existing = await this.availabilityRepository.findByDriver(driverId);
+    if (!existing) {
+      return this.availabilityRepository.createAvailability({
+        driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
+        days,
+      });
     }
-    return this.availabilityRepository.createAvailability({
-      driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
-      startDate: weekStart,
-      endDate,
-      days,
-    });
+
+    const existingDays = (existing.days || []).map((d: any) =>
+      typeof d.toObject === "function" ? d.toObject() : d,
+    );
+
+    // Duplicate check: the same calendar DATE cannot be added twice.
+    // Compares both UTC and Nepal calendar-day keys so legacy rows stored
+    // with the Nepal-midnight convention are still detected as duplicates.
+    const newDay = days[0];
+    const newDayKeys = dateKeysOf(new Date(newDay.date));
+    if (existingDays.some((d) => d.date && dayMatchesAnyKey(new Date(d.date), newDayKeys))) {
+      ErrorException(null, "AVAILABILITY.DUPLICATE_DAY", HttpStatus.CONFLICT);
+    }
+
+    // A driver can have at most 7 days of availability at any time
+    // (today ... today+6; expired days are pruned below).
+    const upcomingDays = existingDays.filter(
+      (d) => d.date && utcStartOfDay(new Date(d.date)).getTime() >= utcStartOfDay(new Date()).getTime(),
+    );
+    if (upcomingDays.length + 1 > MAX_AVAILABILITY_DAYS_AHEAD + 1) {
+      ErrorException(null, "AVAILABILITY.MAX_DAYS_REACHED", HttpStatus.BAD_REQUEST);
+    }
+
+    // Prune past days so the document keeps rolling forward with time.
+    const mergedDays = [...upcomingDays, newDay];
+    return (
+      (await this.availabilityRepository.updateById(existing._id, {
+        days: mergedDays,
+      })) || existing
+    );
   }
 
   async getAvailabilityByDate(driverId: string | Types.ObjectId, date: Date): Promise<AvailabilityDayDetail> {
-    const dayDate = startOfDay(new Date(date));
-    const day = dayOfWeekFromDate(dayDate);
-    const weekStart = startOfWeekSunday(dayDate);
-    const doc = await this.availabilityRepository.findByDriverAndWeek(driverId, weekStart);
+    const dayDate = utcStartOfDay(new Date(date));
+    const doc = await this.availabilityRepository.findByDriver(driverId);
     if (!doc) {
       ErrorException(null, "AVAILABILITY.WEEK_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
-    const found = (doc.days || []).find((d) => d.day === day);
+    const found = (doc.days || []).find(
+      (d) => d.date && dayMatchesAnyKey(new Date(d.date), dateKeysOf(date)),
+    );
     if (!found) {
       ErrorException(null, "AVAILABILITY.DAY_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
@@ -237,24 +315,35 @@ export class AvailabilityService {
   }
 
   async getAvailabilityWeek(driverId: string | Types.ObjectId, date?: Date): Promise<AvailabilityDocument | null> {
-    const refDate = date ? startOfDay(new Date(date)) : startOfDay(new Date());
-    const weekStart = startOfWeekSunday(refDate);
-    return this.availabilityRepository.findByDriverAndWeek(driverId, weekStart);
+    // No week boundaries anymore — return the driver's rolling availability
+    // document with past days filtered out and the remaining days sorted
+    // by date: latest coming (soonest upcoming) first.
+    const doc = await this.availabilityRepository.findByDriver(driverId);
+    if (!doc) return null;
+    const todayStart = utcStartOfDay(new Date());
+    const upcomingDays = (doc.days || [])
+      .filter((d) => d.date && utcStartOfDay(new Date(d.date)).getTime() >= todayStart.getTime())
+      .sort(
+        (a, b) => utcStartOfDay(new Date(a.date)).getTime() - utcStartOfDay(new Date(b.date)).getTime(),
+      );
+    doc.days = upcomingDays;
+    return doc;
   }
 
   async updateAvailability(driverId: string | Types.ObjectId, input: UpdateAvailabilityInput): Promise<AvailabilityDocument | null> {
     this.logger.log(
       `updateAvailability called: date=${input.date} useSystemFare=${input.useSystemFare} amount=${input.amount}`,
     );
-    const dayDate = startOfDay(new Date(input.date));
+    const dayDate = utcStartOfDay(new Date(input.date));
     assertEditableDate(dayDate);
     const day = dayOfWeekFromDate(dayDate);
-    const weekStart = startOfWeekSunday(dayDate);
-    const doc = await this.availabilityRepository.findByDriverAndWeek(driverId, weekStart);
+    const doc = await this.availabilityRepository.findByDriver(driverId);
     if (!doc) {
       ErrorException(null, "AVAILABILITY.WEEK_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
-    const existing = (doc.days || []).find((d) => d.day === day);
+    const existing = (doc.days || []).find(
+      (d) => d.date && utcStartOfDay(new Date(d.date)).getTime() === dayDate.getTime(),
+    );
     this.logger.log(
       `updateAvailability: day=${day} existing=${JSON.stringify(existing)}`,
     );
@@ -268,7 +357,12 @@ export class AvailabilityService {
       typeof (existing as any).toObject === "function"
         ? (existing as any).toObject()
         : { ...existing };
-    const updatedDay: Partial<AvailabilityDay> = { ...existingPlain, day };
+    const updatedDay: Partial<AvailabilityDay> = {
+      ...existingPlain,
+      day,
+      // Always store the normalized UTC-midnight form of the requested date.
+      date: dayDate,
+    };
     this.logger.log(`updateAvailability: day=${day} before update=${JSON.stringify(updatedDay)}`);
     if (input.timeSlots !== undefined) updatedDay.timeSlots = input.timeSlots;
     if (input.majorStops !== undefined) updatedDay.majorStops = input.majorStops;
@@ -289,8 +383,11 @@ export class AvailabilityService {
     if (input.useSystemFare === true) {
       updatedDay.amount = undefined;
     }
-    // Validate slots: valid date, current week, not passed, matching weekday.
+    // Validate slots: valid date, within window, not passed, matching weekday.
     this.assertValidTimeSlots(day, updatedDay.timeSlots || []);
+    // One-way → exactly 1 slot; round trip → exactly 2 slots,
+    // no duplicates and at least 3 hours between start times.
+    this.assertTimeSlotRules(updatedDay.isOneWay ?? false, updatedDay.timeSlots);
     if (
       updatedDay.useSystemFare === false &&
       (updatedDay.amount === undefined ||
@@ -306,23 +403,37 @@ export class AvailabilityService {
     this.logger.log(
       `updateAvailability: day=${day} useSystemFare=${updatedDay.useSystemFare} -> amount=${updatedDay.amount}`,
     );
-    const newDays = (doc.days || []).map((d) =>
-      d.day === day ? updatedDay : (typeof (d as any).toObject === "function" ? (d as any).toObject() : d),
-    );
+    // Replace the day matching the requested date AND drop any other legacy
+    // rows that refer to the same calendar date (UTC or Nepal interpretation),
+    // so duplicates can never accumulate for one date.
+    const targetKeys = dateKeysOf(new Date(input.date));
+    let replaced = false;
+    const newDays = (doc.days || []).flatMap((d) => {
+      const plain = typeof (d as any).toObject === "function" ? (d as any).toObject() : d;
+      if (!plain.date || !dayMatchesAnyKey(new Date(plain.date), targetKeys)) {
+        return [plain];
+      }
+      if (replaced) {
+        // Duplicate legacy row for the same date — remove it.
+        return [];
+      }
+      replaced = true;
+      return [updatedDay];
+    });
     await this.availabilityRepository.updateById(doc._id, { days: newDays });
-    return this.availabilityRepository.findByDriverAndWeek(driverId, weekStart);
+    return this.availabilityRepository.findByDriver(driverId);
   }
 
   async removeAvailability(driverId: string | Types.ObjectId, date: Date): Promise<BasicResponse> {
-    const dayDate = startOfDay(new Date(date));
+    const dayDate = utcStartOfDay(new Date(date));
     assertEditableDate(dayDate);
-    const day = dayOfWeekFromDate(dayDate);
-    const weekStart = startOfWeekSunday(dayDate);
-    const doc = await this.availabilityRepository.findByDriverAndWeek(driverId, weekStart);
+    const doc = await this.availabilityRepository.findByDriver(driverId);
     if (!doc) {
       ErrorException(null, "AVAILABILITY.WEEK_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
-    const days = (doc.days || []).filter((d) => d.day !== day);
+    const days = (doc.days || []).filter(
+      (d) => !(d.date && dayMatchesAnyKey(new Date(d.date), dateKeysOf(date))),
+    );
     if (days.length === (doc.days || []).length) {
       ErrorException(null, "AVAILABILITY.DAY_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
@@ -337,6 +448,9 @@ export class AvailabilityService {
     const stored: AvailabilityDay[] = [];
     for (const day of days) {
       this.assertValidTimeSlots(day.day, day.timeSlots || []);
+      // One-way → exactly 1 slot; round trip → exactly 2 slots,
+      // no duplicates and at least 3 hours between start times.
+      this.assertTimeSlotRules(day.isOneWay ?? false, day.timeSlots);
       if (
         day.useSystemFare === false &&
         (day.amount === undefined || day.amount === null || day.amount <= 0)
@@ -345,6 +459,7 @@ export class AvailabilityService {
       }
       stored.push({
         day: day.day,
+        date: utcStartOfDay(new Date(day.date)),
         timeSlots: day.timeSlots || [],
         majorStops: day.majorStops || [],
         pickupBufferTimeMinutes: day.pickupBufferTimeMinutes ?? 0,
@@ -374,7 +489,7 @@ export class AvailabilityService {
       if (isNaN(slotDate.getTime())) {
         ErrorException(null, "AVAILABILITY.TIME_SLOT_INVALID", HttpStatus.BAD_REQUEST);
       }
-      assertEditableDate(startOfDay(slotDate));
+      assertEditableDate(utcStartOfDay(slotDate));
       if (dayOfWeekFromDate(slotDate) !== day) {
         ErrorException(null, "AVAILABILITY.TIME_SLOT_DAY_MISMATCH", HttpStatus.BAD_REQUEST);
       }

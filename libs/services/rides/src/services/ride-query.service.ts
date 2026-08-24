@@ -121,18 +121,16 @@ export class RideQueryService {
 
     const userId = toMongoId(user._id.toString());
 
-    // Week availability: has the driver set availability for THIS week?
-    // Week runs SUNDAY → SATURDAY in NEPAL time (UTC+5:45).
-    const NPT_OFFSET_MIN = 345;
-    const nowNpt = new Date(Date.now() + NPT_OFFSET_MIN * 60000);
-    nowNpt.setUTCDate(nowNpt.getUTCDate() - nowNpt.getUTCDay()); // back to Sunday
-    nowNpt.setUTCHours(0, 0, 0, 0);
-    const currentWeekStart = new Date(nowNpt.getTime() - NPT_OFFSET_MIN * 60000);
-    const weekAvailability = await this.availabilityRepository.findByDriverAndWeek(
-      userId,
-      currentWeekStart,
-    );
-    const isWeekAvailability = !!weekAvailability && (weekAvailability.days?.length ?? 0) > 0;
+    // Availability: has the driver set any upcoming availability days?
+    // (Rolling window — days are stored with their concrete date.)
+    const todayStart = new Date();
+    todayStart.setUTCHours(0, 0, 0, 0);
+    const availability = await this.availabilityRepository.findByDriver(userId);
+    const isWeekAvailability =
+      !!availability &&
+      (availability.days || []).some(
+        (d) => d.date && new Date(d.date).getTime() >= todayStart.getTime(),
+      );
 
     // Fetch Driver Data: Details (Rating, Online Status), Documents, and Vehicle
     const [details, docs, vehicle] = await Promise.all([
