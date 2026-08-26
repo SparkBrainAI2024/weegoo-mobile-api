@@ -14,10 +14,14 @@ import {
   DriverDocumentSchema,
   VehicleRepository,
   DriverDocumentRepository,
+  Availability,
+  AvailabilitySchema,
+  AvailabilityRepository,
 } from '@libs/data-access';
 import { EnvService } from '@libs/common/config/env.service';
 import { VehicleService } from '@libs/services/vehicle/vehicle.service';
 import { DriverDocumentService } from '@libs/services/driver-document/driver-document.service';
+import { AvailabilityService } from '@libs/services/availability/availability.service';
 import { CronService } from './cron.service';
 import { HealthController } from './health.controller';
 
@@ -32,6 +36,7 @@ import { HealthController } from './health.controller';
  * Schemas registered here:
  *  - Rides, UserDetails, UserDailyOnlineStatus  -> stale-driver sweep
  *  - Vehicle, DriverDocument                  -> midnight image/document cleanup
+ *  - Availability                           -> midnight past-day cleanup
  */
 @Module({
   imports: [
@@ -42,6 +47,7 @@ import { HealthController } from './health.controller';
       { name: UserDailyOnlineStatus.name, schema: UserDailyOnlineStatusSchema },
       { name: Vehicle.name, schema: VehicleSchema },
       { name: DriverDocument.name, schema: DriverDocumentSchema },
+      { name: Availability.name, schema: AvailabilitySchema },
     ]),
   ],
   providers: [
@@ -50,6 +56,8 @@ import { HealthController } from './health.controller';
     VehicleService,
     DriverDocumentRepository,
     DriverDocumentService,
+    AvailabilityRepository,
+    AvailabilityService,
     CronService,
   ],
   controllers: [HealthController],

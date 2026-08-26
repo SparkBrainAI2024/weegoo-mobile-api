@@ -441,6 +441,54 @@ export class AvailabilityService {
     return { success: true, message: "AVAILABILITY.AVAILABILITY_REMOVED" };
   }
 
+  /**
+   * Deletes all PAST availability days (date strictly before today, UTC)
+   * across every driver's availability document.
+   *
+   * Called by the cron app's midnight job (`0 0 * * *`) so expired days never
+   * accumulate, but also exposed as an instant-delete mutation so operators /
+   * QA can trigger the same cleanup on demand without waiting for midnight.
+   *
+   * Today's days are kept — only fully elapsed calendar dates are removed.
+   */
+  async deletePastAvailabilityDays(): Promise<{
+    processed: number;
+    documentsCleaned: number;
+    removedDays: number;
+  }> {
+    const todayStart = utcStartOfDay(new Date()).getTime();
+    const docs = await this.availabilityRepository.find({ deleted: false });
+
+    let documentsCleaned = 0;
+    let removedDays = 0;
+
+    for (const doc of docs || []) {
+      const allDays = doc.days || [];
+      const kept = allDays.filter(
+        (d) =>
+          d.date &&
+          utcStartOfDay(new Date(d.date)).getTime() >= todayStart,
+      );
+      if (kept.length === allDays.length) continue;
+
+      await this.availabilityRepository.updateById(doc._id, { days: kept });
+      removedDays += allDays.length - kept.length;
+      documentsCleaned++;
+      this.logger.log(
+        `Pruned ${allDays.length - kept.length} past day(s) from driver ${doc.driverId}`,
+      );
+    }
+
+    this.logger.log(
+      `Availability past-day sweep complete: processed=${docs?.length || 0}, documentsCleaned=${documentsCleaned}, removedDays=${removedDays}`,
+    );
+    return {
+      processed: docs?.length || 0,
+      documentsCleaned,
+      removedDays,
+    };
+  }
+
   private async toStoredDays(
     days: AvailabilityDayInput[],
     driverVehicleType: VehicleType,

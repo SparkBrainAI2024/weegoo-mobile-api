@@ -15,6 +15,7 @@ import { DriverOnlineStatus } from '@libs/data-access/enums/user.enum';
 import { RideStatus } from '@libs/data-access/enums/rides.enum';
 import { VehicleService } from '@libs/services/vehicle/vehicle.service';
 import { DriverDocumentService } from '@libs/services/driver-document/driver-document.service';
+import { AvailabilityService } from '@libs/services/availability/availability.service';
 
 /**
  * CronService
@@ -47,6 +48,7 @@ export class CronService {
     private readonly userDailyOnlineStatusModel: Model<UserDailyOnlineStatusDocument>,
     private readonly vehicleService: VehicleService,
     private readonly driverDocService: DriverDocumentService,
+    private readonly availabilityService: AvailabilityService,
   ) {}
 
   // ─── Stale-driver sweep (runs every 5 minutes) ──────────────────────────────────
@@ -183,6 +185,34 @@ export class CronService {
     }
 
     this.logger.log('Midnight image cleanup completed');
+  }
+
+  /**
+   * Midnight cleanup of EXPIRED availability days for every driver.
+   * Runs daily at 00:00 UTC, the same slot as the S3 image/document cleanup.
+   *
+   * Availability days whose calendar date has already passed are pruned from
+   * each driver's rolling availability document so they never accumulate.
+   * Today's days are kept — only fully elapsed dates are removed.
+   */
+  @Cron('0 0 * * *')
+  async handleExpiredAvailabilityCleanup(): Promise<{
+    processed: number;
+    documentsCleaned: number;
+    removedDays: number;
+  }> {
+    this.logger.log('Availability past-day cleanup started');
+
+    try {
+      const result = await this.availabilityService.deletePastAvailabilityDays();
+      this.logger.log(
+        `Availability past-day cleanup completed: processed=${result.processed}, documentsCleaned=${result.documentsCleaned}, removedDays=${result.removedDays}`,
+      );
+      return result;
+    } catch (e: any) {
+      this.logger.error('Availability past-day cleanup failed', e?.message || e);
+      return { processed: 0, documentsCleaned: 0, removedDays: 0 };
+    }
   }
 
   /**

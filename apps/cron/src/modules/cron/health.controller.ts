@@ -41,6 +41,7 @@ export class HealthController {
    * Supported job names:
    *  - "cleanupStaleOfflineDrivers" -> stale-driver sweep
    *  - "handleMidnightCleanup"      -> S3 image/document cleanup
+   *  - "handleExpiredAvailabilityCleanup" -> past availability-day cleanup
    */
   @Get('cron/run/:jobName')
   async runCronJob(
@@ -56,9 +57,15 @@ export class HealthController {
       case 'handleMidnightCleanup':
         await this.cronService.handleMidnightCleanup();
         return { success: true, job: jobName };
+      case 'handleExpiredAvailabilityCleanup':
+        return {
+          success: true,
+          job: jobName,
+          result: await this.cronService.handleExpiredAvailabilityCleanup(),
+        };
       default:
         throw new BadRequestException(
-          `Unknown cron job "${jobName}". Supported jobs: cleanupStaleOfflineDrivers, handleMidnightCleanup`,
+          `Unknown cron job "${jobName}". Supported jobs: cleanupStaleOfflineDrivers, handleMidnightCleanup, handleExpiredAvailabilityCleanup`,
         );
     }
   }
