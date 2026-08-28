@@ -5,12 +5,19 @@ export interface DriverScore {
   driverId: string;
   fullName: string;
   phone: string;
+  email?: string;
   profileImage?: string;
   vehicleId: string;
+  /** Vehicle commercial name (e.g. "Hiace", "Quick Rider"). */
+  vehicleName?: string;
   vehicleModel: string;
   vehicleType: string;
   color: string;
   numberPlate: string;
+  /** AC mode of the vehicle. */
+  isAcType?: boolean;
+  /** Fuel/mode of the vehicle: EV or PETROL. */
+  vehicleModelType?: string | null;
   distanceToPickupKm: number;
   rating: number;
   completedTripsCount: number;
@@ -24,8 +31,11 @@ export interface DriverScore {
     day: string;
     date: string;
     vehicleType: string;
+    /** Fare amount configured on the availability day (system or driver-set). */
+    amount: number;
     isAvailableForBookings: boolean;
     availableSeats: number;
+    remainingSeats?: number;
     timeSlots: string[];
     pickupLocation?: { address: string; latitude?: number | null; longitude?: number | null } | null;
     dropOffLocation?: { address: string; latitude?: number | null; longitude?: number | null } | null;

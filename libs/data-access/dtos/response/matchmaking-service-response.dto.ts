@@ -89,11 +89,17 @@ export class ScheduledDriverAvailabilityGraphQL {
   @Field(() => String)
   vehicleType: string;
 
+  @Field(() => Float)
+  amount: number;
+
   @Field(() => Boolean)
   isAvailableForBookings: boolean;
 
   @Field(() => Int)
   availableSeats: number;
+
+  @Field(() => Int, { nullable: true })
+  remainingSeats?: number;
 
   @Field(() => [String])
   timeSlots: string[];
@@ -245,6 +251,9 @@ export class ScheduledAvailableDriverGraphQL {
   driverImage?: string | null;
 
   @Field(() => String, { nullable: true })
+  driverEmail?: string | null;
+
+  @Field(() => String, { nullable: true })
   phone?: string;
 
   @Field(() => Float, { nullable: true })
@@ -269,9 +278,25 @@ export class ScheduledAvailableDriverGraphQL {
   @Field(() => String, { nullable: true })
   numberPlate?: string;
 
+  /** Vehicle commercial name (e.g. "Hiace"). */
+  @Field(() => String, { nullable: true })
+  vehicleName?: string | null;
+
+  /** AC mode of the vehicle. */
+  @Field(() => Boolean, { nullable: true })
+  isAcType?: boolean | null;
+
+  /** Fuel/mode of the vehicle: EV or PETROL. */
+  @Field(() => String, { nullable: true })
+  vehicleModelType?: string | null;
+
   // Availability information of the driver on the requested day
   @Field(() => ScheduledDriverAvailabilityGraphQL, { nullable: true })
   availability?: ScheduledDriverAvailabilityGraphQL | null;
+
+  /** Estimated fare = the amount configured on the driver's availability day. */
+  @Field(() => Float, { nullable: true })
+  estimatedFare?: number;
 }
 
 @ObjectType()

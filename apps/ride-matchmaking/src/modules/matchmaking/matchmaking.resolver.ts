@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args, Int, ID } from "@nestjs/graphql";
+﻿import { Resolver, Mutation, Query, Args, Int, ID } from "@nestjs/graphql";
 import { Logger, BadRequestException } from "@nestjs/common";
 import { MatchmakingService } from "./matchmaking.service";
 import {
@@ -208,12 +208,6 @@ export class MatchmakingResolver {
       passengerId: result.passengerId,
       driverId: result.driverId,
       driverName: result.driverName,
-      estimatedFare: result.estimatedFare
-        ? {
-            baseFare: result.estimatedFare.baseFare,
-            total: result.estimatedFare.total,
-          }
-        : undefined,
       attempts: result.attempts.map((a) => ({
         attemptNumber: a.attemptNumber,
         radiusKm: a.radiusKm,
@@ -268,10 +262,14 @@ export class MatchmakingResolver {
                   day: result.acceptedDetails.availability.day,
                   date: result.acceptedDetails.availability.date,
                   vehicleType: result.acceptedDetails.availability.vehicleType,
+                  amount:
+                    (result.acceptedDetails.availability as any).amount ?? 0,
                   isAvailableForBookings:
                     result.acceptedDetails.availability.isAvailableForBookings,
                   availableSeats:
                     result.acceptedDetails.availability.availableSeats,
+                  remainingSeats: (result.acceptedDetails.availability as any)
+                    .remainingSeats,
                   timeSlots: result.acceptedDetails.availability.timeSlots || [],
                   pickupLocation:
                     result.acceptedDetails.availability.pickupLocation || null,
@@ -289,6 +287,7 @@ export class MatchmakingResolver {
             driverId: d.driverId,
             driverName: d.driverName,
             driverImage: d.driverImage || null,
+            driverEmail: (d as any).driverEmail || null,
             phone: d.phone,
             rating: d.rating,
             distanceToPickupKm: d.distanceToPickupKm,
@@ -297,14 +296,20 @@ export class MatchmakingResolver {
             vehicleModel: d.vehicle.vehicleModel,
             color: d.vehicle.color,
             numberPlate: d.vehicle.numberPlate,
+            vehicleName: d.vehicle.vehicleName || null,
+            isAcType: d.vehicle.isAcType ?? null,
+            vehicleModelType: d.vehicle.modelType || null,
+            estimatedFare: (d as any).estimatedFare ?? null,
             availability: d.availability
               ? {
                   day: d.availability.day,
                   date: d.availability.date,
                   vehicleType: d.availability.vehicleType,
+                  amount: (d.availability as any).amount ?? 0,
                   isAvailableForBookings:
                     d.availability.isAvailableForBookings,
                   availableSeats: d.availability.availableSeats,
+                  remainingSeats: (d.availability as any).remainingSeats,
                   timeSlots: d.availability.timeSlots || [],
                   pickupLocation: d.availability.pickupLocation || null,
                   dropOffLocation: d.availability.dropOffLocation || null,

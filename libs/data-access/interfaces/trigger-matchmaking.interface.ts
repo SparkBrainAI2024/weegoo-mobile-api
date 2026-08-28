@@ -69,11 +69,15 @@ export interface AvailableScheduledDriverInterface {
   driverId?: string;
   driverName?: string;
   driverImage?: string | null;
+  driverEmail?: string | null;
   phone?: string;
   rating?: number;
   vehicleId?: string;
+  vehicleName?: string | null;
   vehicleType?: string;
   vehicleModel?: string;
+  isAcType?: boolean | null;
+  vehicleModelType?: string | null;
   color?: string;
   numberPlate?: string;
   distanceToPickupKm?: number;

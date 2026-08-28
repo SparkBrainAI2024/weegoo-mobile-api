@@ -59,7 +59,7 @@ export class MatchmakingIntegrationService {
           vehicleType vehicleModel color numberPlate
           distanceToPickupKm estimatedTimeToReachMinutes
           availability {
-            day date vehicleType isAvailableForBookings availableSeats timeSlots matchesTimeSlot
+                        day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
             pickupLocation { address latitude longitude }
             dropOffLocation { address latitude longitude }
           }

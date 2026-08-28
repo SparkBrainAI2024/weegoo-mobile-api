@@ -36,7 +36,8 @@
         "test:cov": "jest --config jest.config.js --coverage",
         "test:api": "jest --config apps/api/jest.config.js",
         "test:admin-api": "jest --config apps/admin-api/jest.config.js",
-        "test:driver-api": "jest --config apps/driver-api/jest.config.js"
+        "test:driver-api": "jest --config apps/driver-api/jest.config.js",
+        "test:matchmaking": "jest --config apps/ride-matchmaking/jest.config.js"
     },
     "dependencies": {
         "@apollo/server": "^5.5.0",
