@@ -8,8 +8,9 @@ import { UserDailyOnlineStatus, UserDailyOnlineStatusDocument } from '@libs/data
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { PromoCode, PromoCodeDocument } from '@libs/data-access/entities/promo-code.entity';
 import { PromoCodeUsed, PromoCodeUsedDocument } from '@libs/data-access/entities/promo-code-used.entity';
+import { Availability, AvailabilityDay, AvailabilityDocument, VEHICLE_SEAT_CAPACITY } from '@libs/data-access/entities/availability.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
-import { VehicleType } from '@libs/data-access/enums/vehicle.enum';
+import { ScheduledVehicleType, VehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { roles, DriverOnlineStatus, ridePreference } from '@libs/data-access/enums/user.enum';
 import { NotificationType } from '@libs/data-access/enums/notification.enum';
 import { PromoCodeStatusEnum, DiscountTypeEnum, AppliedToEnum } from '@libs/data-access/enums/promo-code.enum';
@@ -34,6 +35,60 @@ import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 
+// ─── Scheduled availability helpers ─────────────────────────────────────────
+/** Nepal standard time offset is UTC+5:45 (no DST). */
+const NEPAL_TZ_OFFSET_MINUTES = 345;
+
+/** Truncate a date to UTC midnight so day comparisons use concrete calendar days. */
+const utcStartOfDay = (d: Date): Date => {
+  const x = new Date(d);
+  x.setUTCHours(0, 0, 0, 0);
+  return x;
+};
+
+/** Booking time expressed as minutes-since-Nepal-midnight (for slot comparison). */
+const bookingTimeMinutesSinceMidnight = (bookingTime: Date): number => {
+  const wall = new Date((bookingTime || new Date()).getTime() + NEPAL_TZ_OFFSET_MINUTES * 60000);
+  return wall.getUTCHours() * 60 + wall.getUTCMinutes();
+};
+
+/** Parse an "HH:mm" (optionally "HH:mm:ss") slot start into minutes-since-midnight. */
+const slotStartMinutes = (startTime: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(startTime || '').trim());
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+};
+
+/** Month/day/name helpers used when exposing the resolved availability day. */
+const formatSlot = (startTime: string): string => String(startTime || '').trim();
+
+/**
+ * Booking (not instant) semantics: drivers can accept up to the buffer before
+ * the ride, so scheduled matching only LISTENS the drivers/vehicles whose route
+ * matches the passenger's. We do NOT filter by a search radius — instead we
+ * match on the driver's availability destination (dropoff) and prioritise the
+ * driver whose availability PICKUP is nearest to the passenger's pickup.
+ *
+ * Tolerance (km) used to decide whether the driver's availability dropoff and
+ * the passenger's requested dropoff are "the same destination".
+ */
+const SCHEDULED_DESTINATION_MATCH_RADIUS_KM = 3;
+
+/** Haversine great-circle distance (km) between two coordinate pairs. */
+const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+  const toRad = (deg: number): number => (deg * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 @Injectable()
 export class MatchmakingService {
   private readonly logger = new Logger(MatchmakingService.name);
@@ -47,6 +102,7 @@ export class MatchmakingService {
     @InjectModel(UserDetails.name) private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(UserDailyOnlineStatus.name) private readonly userDailyOnlineStatusModel: Model<UserDailyOnlineStatusDocument>,
     @InjectModel(Vehicle.name) private readonly vehicleModel: Model<VehicleDocument>,
+    @InjectModel(Availability.name) private readonly availabilityModel: Model<AvailabilityDocument>,
     @InjectModel(PromoCode.name) private readonly promoCodeModel: Model<PromoCodeDocument>,
     @InjectModel(PromoCodeUsed.name) private readonly promoCodeUsedModel: Model<PromoCodeUsedDocument>,
     private readonly ablyService: AblyService,
@@ -69,7 +125,7 @@ export class MatchmakingService {
     return { ...result, ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details` };
   }
 
-  async matchScheduledDrivers(params: { rideId: string }): Promise<{ matched: boolean; rideId: string; rideUUId: string; passengerId: string; driverId?: string; driverName?: string; estimatedFare?: ScheduledFareBreakdown; attempts: MatchAttemptResult[]; message: string; ablyChannelId?: string; acceptedDetails?: any }> {
+  async matchScheduledDrivers(params: { rideId: string }): Promise<{ matched: boolean; rideId: string; rideUUId: string; passengerId: string; driverId?: string; driverName?: string; estimatedFare?: ScheduledFareBreakdown; attempts: MatchAttemptResult[]; message: string; ablyChannelId?: string; acceptedDetails?: any; availableDrivers?: any[]; rideStatus?: string }> {
     const { rideId } = params;
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).populate('vehicleId').exec();
     if (!ride) return { matched: false, rideId, rideUUId: '', passengerId: '', attempts: [], message: 'Ride not found' };
@@ -114,76 +170,67 @@ export class MatchmakingService {
       },
     }).exec();
 
-    const passengerUser = await this.userModel.findById(ride.passengerId).exec();
-    const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
-    const passengerName = passengerUser?.fullName || passengerDetails?.fullName || 'Passenger';
-    const passengerPhone = passengerUser?.phone || '';
-    const passengerProfileImages = passengerDetails?.profileImages?.map(img => getActiveProfileImageUrl([img], (key) => this.s3.getPublicUrl(key))).filter(Boolean) || [];
-    const passengerSnapshot = { fullName: passengerName, profileImage: passengerProfileImages?.[0] || '', rating: (passengerDetails?.rating ?? 0), phone: passengerPhone };
-    const radii = MATCHMAKING_CONFIG.SCHEDULED_FALLBACK_RADII_KM;
-    const attempts: MatchAttemptResult[] = [];
-    let matched = false;
-    let acceptedDriverId: string | undefined;
-    let acceptedDriverName: string | undefined;
-    const respondedDriverIds: Set<string> = new Set();
+    // ─── BOOKING FLOW (not real-time instant matchmaking) ───────────────────
+    // A scheduled ride is a booking: the driver may accept any time up to the
+    // buffer before the ride. At request time we therefore do NOT push requests
+    // and wait for a driver. Instead we gather the information of ALL the
+    // drivers/vehicles whose route matches the requested destination that day
+    // (vehicle types JEEP/CAR/MICRO, driver ride-preference SCHEDULED/BOTH,
+    // availability day + time + destination), prioritising the nearest pickup
+    // location first. The ride stays PENDING for the passenger.
+    const dropoffCoords2 = ride.dropoffLocation?.coordinates;
+    const dropoffLat = dropoffCoords2?.[1];
+    const dropoffLng = dropoffCoords2?.[0];
 
-    for (let attemptIdx = 0; attemptIdx < radii.length && !matched; attemptIdx++) {
-      const currentRide = await this.ridesModel.findById(ride._id).exec();
-      if (!currentRide || currentRide.rideStatus !== RideStatus.PENDING) break;
-      const radiusKm = radii[attemptIdx];
-      const waitTimeSeconds = MATCHMAKING_CONFIG.SCHEDULED_ATTEMPT_WAIT_SECONDS;
-      this.logger.log(`[SCHEDULED] Attempt ${attemptIdx + 1}: Searching drivers within ${radiusKm} km radius`);
-      const drivers = await this.findAvailableScheduledDrivers(pickupLat, pickupLng, radiusKm, requestedType, attemptIdx, ride.bookingTime, ride.passengerId.toString());
-      const filteredDrivers = drivers.filter((d) => !respondedDriverIds.has(d.driverId));
-      if (filteredDrivers.length === 0) {
-        attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: 0, driversRequested: 0, driverAccepted: false, timeoutExpired: false, status: 'no_drivers_found' });
-        continue;
-      }
-      const scoredDrivers = this.scoreDrivers(filteredDrivers);
-      const batchSize = Math.min(MATCHMAKING_CONFIG.REQUEST_BATCH_SIZE, scoredDrivers.length);
-      const requestBatch = scoredDrivers.slice(0, batchSize);
-      const driverIds = requestBatch.map((d) => d.driverId);
-      const { promise: driverResponsePromise, unsubscribe } = this.subscribeForDriverResponse(ride.rideUUId, driverIds, waitTimeSeconds * 1000);
+    const drivers = await this.findAvailableScheduledDrivers(
+      pickupLat,
+      pickupLng,
+      dropoffLat,
+      dropoffLng,
+      requestedType,
+      ride.bookingTime,
+      ride.passengerId.toString(),
+      ride.noOfPassengers || 1,
+    );
 
-      // Batch-fetch all driver users for this batch in a single query
-      const driverObjectIds = driverIds.map((id) => new Types.ObjectId(id));
-      const driverUsersMap = new Map<string, UserDocument>();
-      const driverUsers = await this.userModel.find({ _id: { $in: driverObjectIds } }).exec();
-      for (const du of driverUsers) {
-        driverUsersMap.set(du._id.toString(), du);
-      }
+    const availableDrivers = drivers.map((d) => ({
+      driverId: d.driverId,
+      driverName: d.fullName,
+      driverImage: d.profileImage || null,
+      phone: d.phone,
+      rating: d.rating,
+      distanceToPickupKm: d.distanceToPickupKm,
+      estimatedTimeToReachMinutes: d.estimatedTimeToReachMinutes,
+      // Vehicle information
+      vehicle: {
+        vehicleId: d.vehicleId,
+        vehicleType: d.vehicleType,
+        vehicleModel: d.vehicleModel,
+        color: d.color,
+        numberPlate: d.numberPlate,
+      },
+      // Availability information of the driver on the requested day
+      availability: d.scheduledAvailability || null,
+    }));
 
-      for (const driver of requestBatch) {
-        if (respondedDriverIds.has(driver.driverId)) continue;
-        const driverUser = driverUsersMap.get(driver.driverId);
-        if (driverUser) {
-          const ablyChannelId = ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`;
-          this.notificationService.createNotification({
-            title: 'New Scheduled Ride Request', notificationType: NotificationType.RIDE_REQUEST,
-            description: `You have a scheduled ride request from pickup ${ride.pickupLocation?.address || 'your area'} for ${ride.bookingTime ? new Date(ride.bookingTime).toLocaleString() : ''}. Estimated fare: Rs. ${scheduledFare.total}`,
-            ablyChannelId, pickupLocation: { address: ride.pickupLocation?.address, coordinates: ride.pickupLocation?.coordinates, city: ride.pickupLocation?.city },
-            dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : null,
-            distanceInKm: routeDistanceKm, estimatedFare: scheduledFare.total, estimatedTimeInMinutes: routeDurationMinutes, passengerId: ride.passengerId.toString(), passengerSnapshot,
-          }, driverUser);
-        }
-      }
-      const driverResponse = await driverResponsePromise;
-      unsubscribe();
-      requestBatch.forEach((d) => respondedDriverIds.add(d.driverId));
-      if (driverResponse.accepted) {
-        matched = true;
-        acceptedDriverId = driverResponse.driverId;
-        acceptedDriverName = requestBatch.find((d) => d.driverId === driverResponse.driverId)?.fullName || 'Driver';
-        await this.ridesModel.findByIdAndUpdate(ride._id, { driverId: new Types.ObjectId(acceptedDriverId), rideStatus: RideStatus.CONFIRMED, isFavourite: 0 });
-      }
-      attempts.push({ attemptNumber: attemptIdx + 1, radiusKm, waitTimeSeconds, driversFound: scoredDrivers.length, driversRequested: requestBatch.length, driverAccepted: driverResponse.accepted, acceptedDriverId: driverResponse.driverId, timeoutExpired: !driverResponse.accepted, status: driverResponse.accepted ? 'accepted' : 'timeout' });
-    }
-    if (!matched) {
-      const failMessage = 'No available drivers found within 15 km radius for your scheduled time. Please try a different time.';
-      return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), estimatedFare: scheduledFare, attempts, message: failMessage };
-    }
-    const scheduledAcceptDetails = await this.buildScheduledAcceptDetails(ride, acceptedDriverId!, scheduledFare);
-    return { matched: true, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), driverId: acceptedDriverId, driverName: acceptedDriverName, estimatedFare: scheduledFare, attempts, message: 'Scheduled driver matched successfully', ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`, acceptedDetails: scheduledAcceptDetails };
+    const bookingDateLabel = ride.bookingTime
+      ? new Date(ride.bookingTime).toLocaleDateString()
+      : 'the requested day';
+    return {
+      matched: availableDrivers.length > 0,
+      rideId,
+      rideUUId: ride.rideUUId,
+      passengerId: ride.passengerId.toString(),
+      estimatedFare: scheduledFare,
+      attempts: [],
+      message:
+        availableDrivers.length > 0
+          ? `${availableDrivers.length} available scheduled ride(s) on ${bookingDateLabel}. Ride booked and kept PENDING; a driver may accept before the pickup buffer.`
+          : 'No drivers available for the requested day/time. Please try a different schedule.',
+      availableDrivers,
+      rideStatus: RideStatus.PENDING,
+      ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+    };
   }
 
   private async executeExpandingRingMatch(ride: RidesDocument): Promise<MatchResult> {
@@ -462,13 +509,98 @@ export class MatchmakingService {
     return drivers;
   }
 
-  private async findAvailableScheduledDrivers(pickupLat: number, pickupLng: number, radiusKm: number, vehicleType: string, attemptIndex: number, bookingTime: Date, passengerId?: string): Promise<DriverScore[]> {
-    const vehicles = await this.vehicleModel.find({ vehicleType: vehicleType as VehicleType, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
+  /**
+   * Resolve a single driver's availability day for the requested scheduled
+   * booking. Returns null when the driver is NOT available for the day/time.
+   *
+   * Business rules:
+   *  - The availability doc must contain a day matching the requested calendar
+   *    date (stored as UTC midnight) and requested scheduled vehicle type.
+   *  - `isAvailableForBookings` must be true.
+   *  - The day's `availableSeats` must be >= the requested passenger count.
+   *  - The booking time must fall within (at/after) one of the day's time slots.
+   */
+  private resolveAvailabilityDay(
+    availability: AvailabilityDocument | null | undefined,
+    bookingTime: Date,
+    requestedType: string,
+    noOfPassengers: number,
+  ): { day: AvailabilityDay; effectiveSeats: number } | null {
+    if (!availability || !availability.days || availability.days.length === 0) return null;
+    const computedType = (requestedType || 'CAR').toUpperCase();
+    const targetDate = utcStartOfDay(bookingTime);
+    const bookingMinutes = bookingTimeMinutesSinceMidnight(bookingTime);
+
+    const day = availability.days.find((d) => {
+      if (!d) return false;
+      const dayDate = utcStartOfDay(new Date(d.date));
+      if (dayDate.getTime() !== targetDate.getTime()) return false;
+      if (d.isAvailableForBookings === false) return false;
+      if ((d.vehicleType as string)?.toUpperCase() !== computedType) return false;
+      return true;
+    });
+    if (!day) return null;
+
+    const effectiveSeats =
+      day.availableSeats && day.availableSeats > 0
+        ? day.availableSeats
+        : VEHICLE_SEAT_CAPACITY[day.vehicleType as ScheduledVehicleType] || 1;
+    if (noOfPassengers > effectiveSeats) return null;
+
+    // The booking must fall within (at or after) one of the driver's time slots.
+    const matchesSlot = (day.timeSlots || []).some((s) => {
+      const start = slotStartMinutes(s?.startTime);
+      return start !== null && bookingMinutes >= start;
+    });
+    if (!matchesSlot) return null;
+    return { day, effectiveSeats };
+  }
+
+  /** Build the compact availability payload returned in matchmaking responses. */
+  private buildScheduledAvailabilityInfo(
+    day: AvailabilityDay,
+  ): NonNullable<DriverScore['scheduledAvailability']> {
+    return {
+      day: day.day,
+      date: utcStartOfDay(new Date(day.date)).toISOString().slice(0, 10),
+      vehicleType: day.vehicleType,
+      isAvailableForBookings: day.isAvailableForBookings ?? true,
+      availableSeats:
+        day.availableSeats && day.availableSeats > 0 ? day.availableSeats : 0,
+      timeSlots: (day.timeSlots || []).map((s) => formatSlot(s.startTime)).filter(Boolean),
+      pickupLocation: day.pickupLocation
+        ? { address: day.pickupLocation.address || '', latitude: day.pickupLocation.latitude, longitude: day.pickupLocation.longitude }
+        : null,
+      dropOffLocation: day.dropOffLocation
+        ? { address: day.dropOffLocation.address || '', latitude: day.dropOffLocation.latitude, longitude: day.dropOffLocation.longitude }
+        : null,
+      matchesTimeSlot: true,
+    };
+  }
+
+  private async findAvailableScheduledDrivers(
+    pickupLat: number,
+    pickupLng: number,
+    dropoffLat?: number,
+    dropoffLng?: number,
+    vehicleType: string = 'CAR',
+    bookingTime?: Date,
+    passengerId?: string,
+    noOfPassengers: number = 1,
+  ): Promise<DriverScore[]> {
+    // Search across ALL scheduled vehicle types (JEEP, CAR, MICRO), then narrow
+    // down to drivers whose availability route matches the requested destination.
+    const scheduledVehicleTypes = [
+      ScheduledVehicleType.JEEP,
+      ScheduledVehicleType.CAR,
+      ScheduledVehicleType.MICRO,
+    ];
+    const vehicles = await this.vehicleModel.find({ vehicleType: { $in: scheduledVehicleTypes as string[] }, deleted: false }).populate('driverId').limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING).exec();
     if (vehicles.length === 0) return [];
 
     // Batch-fetch all userDetails for the drivers in one query
     const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
-    this.logger.log(`Found ${driverIds.length} drivers for vehicle type ${vehicleType} in attempt ${attemptIndex + 1}`);
+    this.logger.log(`Found ${driverIds.length} drivers of scheduled vehicle types for booking search`);
     const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds }, deleted: false }).exec();
     const userDetailsMap = new Map<string, UserDetailsDocument>();
     for (const ud of userDetailsDocs) {
@@ -476,13 +608,23 @@ export class MatchmakingService {
     }
 
     this.logger.log(`Checking conflicting rides for ${driverIds.length} drivers`);
+    // Batch-fetch all availability documents for the candidate drivers so we can
+    // filter to drivers actually available on the requested day & time.
+    const availabilityDocs = await this.availabilityModel.find({ driverId: { $in: driverIds }, deleted: false }).exec();
+    const availabilityMap = new Map<string, AvailabilityDocument>();
+    for (const a of availabilityDocs) {
+      if (a.driverId) availabilityMap.set(a.driverId.toString(), a);
+    }
+
+    this.logger.log(`Checking conflicting rides for ${driverIds.length} drivers`);
     // Batch-fetch conflicting rides for these drivers in one query
+    const bookingReference = bookingTime || new Date();
     const conflictingRides = await this.ridesModel.find({
       driverId: { $in: driverIds },
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING] },
       bookingTime: {
-        $gte: new Date(bookingTime.getTime() - 30 * 60 * 1000),
-        $lte: new Date(bookingTime.getTime() + 30 * 60 * 1000),
+        $gte: new Date(bookingReference.getTime() - 30 * 60 * 1000),
+        $lte: new Date(bookingReference.getTime() + 30 * 60 * 1000),
       },
       deleted: false,
     }).exec();
@@ -499,7 +641,6 @@ export class MatchmakingService {
     }
 
     const drivers: DriverScore[] = [];
-    const minRating = attemptIndex < MATCHMAKING_CONFIG.BYPASS_RATING_AFTER_ATTEMPTS ? MATCHMAKING_CONFIG.MIN_ACCEPT_RATING : 0;
 
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
@@ -513,19 +654,40 @@ export class MatchmakingService {
       if (conflictingRideDriverIdSet.has(driver._id.toString())) continue;
       const driverRating = userDetails.rating ?? 0;
 
-      let driverLat: number; let driverLng: number;
-      if (userDetails.geoLocation?.coordinates && userDetails.geoLocation.coordinates.length >= 2) {
-        driverLng = userDetails.geoLocation.coordinates[1]; driverLat = userDetails.geoLocation.coordinates[0];
-      } else {
-        driverLat = pickupLat + (Math.random() - 0.5) * (radiusKm / 55.5); driverLng = pickupLng + (Math.random() - 0.5) * (radiusKm / 55.5);
+      // Driver must be AVAILABLE on the requested day (date + scheduled vehicle
+      // type + seats + time slot).
+      const availabilityDoc = availabilityMap.get(driver._id.toString());
+      const resolvedDay = this.resolveAvailabilityDay(availabilityDoc, bookingReference, vehicleType, noOfPassengers);
+      if (!resolvedDay) continue;
+      const day = resolvedDay.day;
+
+      // SAME DESTINATION: the driver's availability route must end at the same
+      // destination as the passenger's requested dropoff.
+      const dayDrop = day.dropOffLocation;
+      if (!dayDrop || dayDrop.latitude == null || dayDrop.longitude == null) continue;
+      if (dropoffLat != null && dropoffLng != null) {
+        const destDistanceKm = haversineKm(dropoffLat, dropoffLng, dayDrop.latitude, dayDrop.longitude);
+        if (destDistanceKm > SCHEDULED_DESTINATION_MATCH_RADIUS_KM) continue;
       }
-      const distResult = await this.distanceCalculator.calculateDriverDistance(pickupLat, pickupLng, driverLat, driverLng, vehicleType.toLowerCase());
-      if (distResult.distanceKm <= radiusKm) {
+
+      // PRIORITY: the driver whose availability PICKUP for that day is nearest
+      // to the passenger's provided pickup location.
+      const dayPickup = day.pickupLocation;
+      if (!dayPickup || dayPickup.latitude == null || dayPickup.longitude == null) continue;
+      try {
+        const pickupDist = await this.distanceCalculator.calculateDriverDistance(
+          pickupLat, pickupLng, dayPickup.latitude, dayPickup.longitude, vehicleType.toLowerCase(),
+        );
         const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
-        drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes });
+        drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day) });
+      } catch (err) {
+        this.logger.warn(`Failed to compute pickup distance for driver ${driver._id}: ${err}`);
       }
     }
-    this.logger.log(`Found ${drivers.length} available scheduled drivers within ${radiusKm} km radius`);
+    // Prioritize the nearest available pickup first (nearest → farthest). No
+    // radius is applied — all same-destination drivers are returned.
+    drivers.sort((a, b) => a.distanceToPickupKm - b.distanceToPickupKm);
+    this.logger.log(`Found ${drivers.length} available scheduled drivers for the requested destination`);
     return drivers;
   }
 
@@ -687,6 +849,38 @@ export class MatchmakingService {
         ).exec();
 
         if (!updatedRide) return { success: false, message: 'Ride was already accepted by another driver' };
+
+        // For SCHEDULED rides, enrich the ride's schedule with the driver's
+        // concrete availability window (time slots, pickup buffer) so the
+        // persisted schedule reflects the matched day.
+        if (updatedRide.rideType === RideTypes.SCHEDULED && updatedRide.bookingTime) {
+          try {
+            const availabilityDoc = await this.availabilityModel.findOne({ driverId: new Types.ObjectId(driverId), deleted: false }).exec();
+            const noOfPassengers = updatedRide.noOfPassengers || 1;
+            const resolved = this.resolveAvailabilityDay(availabilityDoc, updatedRide.bookingTime, updatedRide.vehicle?.vehicleType as string || 'CAR', noOfPassengers);
+            if (resolved) {
+              const currentSchedule = updatedRide.schedule || {};
+              await this.ridesModel.findByIdAndUpdate(updatedRide._id, {
+                $set: {
+                  schedule: {
+                    ...currentSchedule,
+                    bookingType: currentSchedule.bookingType || 'SCHEDULED',
+                    bookingTime: updatedRide.bookingTime,
+                    noOfPassengers,
+                    vehicleType: resolved.day.vehicleType,
+                    bookingDate: utcStartOfDay(updatedRide.bookingTime),
+                    day: resolved.day.day,
+                    isFlexible: resolved.day.timeSlots?.length === 0,
+                    pickupBufferTimeMinutes: resolved.day.pickupBufferTimeMinutes || 0,
+                    timeSlots: (resolved.day.timeSlots || []).map((s) => ({ startTime: s.startTime })),
+                  },
+                },
+              }).exec();
+            }
+          } catch (err) {
+            this.logger.warn(`Failed to enrich schedule for ride ${updatedRide.rideUUId}: ${err}`);
+          }
+        }
 
         // Build a fare object compatible with buildAcceptDetailsFromCache
         const rideFare: FareBreakdown = {
@@ -2017,14 +2211,42 @@ export class MatchmakingService {
   }
 
   private async buildScheduledAcceptDetails(ride: RidesDocument, driverId: string, estimatedFare: ScheduledFareBreakdown): Promise<any> {
-    const [driverUser, driverDetails, vehicle, passengerUser] = await Promise.all([
+    const [driverUser, driverDetails, vehicle, passengerUser, availabilityDoc] = await Promise.all([
       this.userModel.findById(new Types.ObjectId(driverId)).exec(),
       this.userDetailsModel.findOne({ userId: new Types.ObjectId(driverId) }).exec(),
       this.vehicleModel.findOne({ driverId: new Types.ObjectId(driverId) }).exec(),
       this.userModel.findById(ride.passengerId).exec(),
+      this.availabilityModel.findOne({ driverId: new Types.ObjectId(driverId), deleted: false }).exec(),
     ]);
     const passengerDetails = await this.userDetailsModel.findOne({ userId: ride.passengerId }).exec();
-    return { rideId: ride._id.toString(), rideUUId: ride.rideUUId, driver: { driverId, fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver', phone: driverUser?.phone || '', profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), rating: driverDetails?.rating ?? 0 }, vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 }, passenger: { passengerId: ride.passengerId.toString(), fullName: passengerDetails?.fullName || passengerUser?.fullName || 'Passenger', phone: passengerUser?.phone || '', profileImage: getActiveProfileImageUrl(passengerDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), gender: passengerDetails?.gender }, pickupLocation: { address: ride.pickupLocation?.address || '', coordinates: ride.pickupLocation?.coordinates || [0, 0], city: ride.pickupLocation?.city }, dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined, estimatedFare: estimatedFare?.total || 0, estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0, distanceInKm: ride.distanceInKm || 0, bookingTime: ride.bookingTime, acceptedAt: new Date().toISOString() };
+    const requestedType = (vehicle?.vehicleType as string) || 'CAR';
+    const noOfPassengers = ride.noOfPassengers || 1;
+    const resolvedAvailability =
+      ride.bookingTime
+        ? this.resolveAvailabilityDay(availabilityDoc, ride.bookingTime, requestedType, noOfPassengers)
+        : null;
+    const availability = resolvedAvailability ? this.buildScheduledAvailabilityInfo(resolvedAvailability.day) : null;
+    return {
+      rideId: ride._id.toString(),
+      rideUUId: ride.rideUUId,
+      driver: { driverId, fullName: driverDetails?.fullName || driverUser?.fullName || 'Driver', phone: driverUser?.phone || '', profileImage: getActiveProfileImageUrl(driverDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), rating: driverDetails?.rating ?? 0 },
+      vehicle: { vehicleId: vehicle?._id?.toString() || '', vehicleModel: vehicle?.vehicleModel || '', vehicleType: vehicle?.vehicleType || '', color: vehicle?.color || '', numberPlate: vehicle?.numberPlate || '', year: vehicle?.year || 0 },
+      passenger: { passengerId: ride.passengerId.toString(), fullName: passengerDetails?.fullName || passengerUser?.fullName || 'Passenger', phone: passengerUser?.phone || '', profileImage: getActiveProfileImageUrl(passengerDetails?.profileImages, (key) => this.s3.getPublicUrl(key)), gender: passengerDetails?.gender },
+      pickupLocation: { address: ride.pickupLocation?.address || '', coordinates: ride.pickupLocation?.coordinates || [0, 0], city: ride.pickupLocation?.city },
+      dropoffLocation: ride.dropoffLocation ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city } : undefined,
+      estimatedFare: estimatedFare?.total || 0,
+      estimatedTimeInMinutes: ride.estimatedTimeInMinutes || 0,
+      distanceInKm: ride.distanceInKm || 0,
+      bookingTime: ride.bookingTime,
+      noOfPassengers,
+      schedule: {
+        bookingTime: ride.bookingTime,
+        noOfPassengers,
+        vehicleType: requestedType,
+      },
+      availability,
+      acceptedAt: new Date().toISOString(),
+    };
   }
 
   private async buildFullRideDetailsPayload(ride: RidesDocument, overrides: Partial<import('@libs/services/ably').RideDetailsPayload> = {}): Promise<import('@libs/services/ably').RideDetailsPayload> {

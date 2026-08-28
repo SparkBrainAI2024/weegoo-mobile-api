@@ -189,7 +189,7 @@ export class MatchmakingResolver {
   @Mutation(() => ScheduledMatchResultGraphQL, {
     name: "matchScheduledDrivers",
     description:
-      "Find and notify drivers for a SCHEDULED ride using expanding-ring algorithm (1→3→5→10→15 km)",
+      "BOOKING flow for a SCHEDULED ride. Returns the drivers/vehicles available for the requested day (JEEP/CAR/MICRO), prioritised nearest-first, with vehicle + availability + driver info. The ride is kept PENDING; a driver may accept any time before the pickup buffer.",
   })
   async matchScheduledDrivers(
     @Args("input") input: MatchScheduledDriversInput,
@@ -259,8 +259,60 @@ export class MatchmakingResolver {
               result.acceptedDetails.estimatedTimeInMinutes,
             distanceInKm: result.acceptedDetails.distanceInKm,
             acceptedAt: result.acceptedDetails.acceptedAt,
+            bookingTime: result.acceptedDetails.bookingTime
+              ? new Date(result.acceptedDetails.bookingTime).toISOString()
+              : undefined,
+            noOfPassengers: result.acceptedDetails.noOfPassengers,
+            availability: result.acceptedDetails.availability
+              ? {
+                  day: result.acceptedDetails.availability.day,
+                  date: result.acceptedDetails.availability.date,
+                  vehicleType: result.acceptedDetails.availability.vehicleType,
+                  isAvailableForBookings:
+                    result.acceptedDetails.availability.isAvailableForBookings,
+                  availableSeats:
+                    result.acceptedDetails.availability.availableSeats,
+                  timeSlots: result.acceptedDetails.availability.timeSlots || [],
+                  pickupLocation:
+                    result.acceptedDetails.availability.pickupLocation || null,
+                  dropOffLocation:
+                    result.acceptedDetails.availability.dropOffLocation || null,
+                  matchesTimeSlot:
+                    result.acceptedDetails.availability.matchesTimeSlot,
+                }
+              : null,
           }
         : undefined,
+      rideStatus: result.rideStatus,
+      availableDrivers: result.availableDrivers
+        ? result.availableDrivers.map((d) => ({
+            driverId: d.driverId,
+            driverName: d.driverName,
+            driverImage: d.driverImage || null,
+            phone: d.phone,
+            rating: d.rating,
+            distanceToPickupKm: d.distanceToPickupKm,
+            estimatedTimeToReachMinutes: d.estimatedTimeToReachMinutes,
+            vehicleType: d.vehicle.vehicleType,
+            vehicleModel: d.vehicle.vehicleModel,
+            color: d.vehicle.color,
+            numberPlate: d.vehicle.numberPlate,
+            availability: d.availability
+              ? {
+                  day: d.availability.day,
+                  date: d.availability.date,
+                  vehicleType: d.availability.vehicleType,
+                  isAvailableForBookings:
+                    d.availability.isAvailableForBookings,
+                  availableSeats: d.availability.availableSeats,
+                  timeSlots: d.availability.timeSlots || [],
+                  pickupLocation: d.availability.pickupLocation || null,
+                  dropOffLocation: d.availability.dropOffLocation || null,
+                  matchesTimeSlot: d.availability.matchesTimeSlot,
+                }
+              : null,
+          }))
+        : [],
     };
   }
 

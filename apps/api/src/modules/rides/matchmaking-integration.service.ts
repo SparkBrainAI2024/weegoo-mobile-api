@@ -6,7 +6,7 @@ import { Rides, RidesDocument } from '@libs/data-access/entities/rides.entity';
 import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.entity';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
-import { RideLocationInput, TriggerMatchmakingResult, UpdateLocationResult, VehicleEstimateGraphQL } from '@libs/data-access';
+import { RideLocationInput, RideSchedule, TriggerMatchmakingResult, UpdateLocationResult, VehicleEstimateGraphQL } from '@libs/data-access';
 import { UserDetailsService } from '@libs/services/user';
 
 @Injectable()
@@ -51,9 +51,19 @@ export class MatchmakingIntegrationService {
   private get MATCH_SCHEDULED_QUERY(): string {
     return `mutation MatchScheduledDrivers($input: MatchScheduledDriversInput!) {
       matchScheduledDrivers(input: $input) {
-        matched rideId rideUUId driverId driverName
+        matched rideId rideUUId driverId driverName rideStatus
         attempts { attemptNumber radiusKm waitTimeSeconds driversFound driversRequested driverAccepted acceptedDriverId timeoutExpired status }
         message
+        availableDrivers {
+          driverId driverName driverImage phone rating
+          vehicleType vehicleModel color numberPlate
+          distanceToPickupKm estimatedTimeToReachMinutes
+          availability {
+            day date vehicleType isAvailableForBookings availableSeats timeSlots matchesTimeSlot
+            pickupLocation { address latitude longitude }
+            dropOffLocation { address latitude longitude }
+          }
+        }
         acceptedDetails {
           rideId rideUUId driverId driverName phone profileImage rating
           vehicleId vehicleModel vehicleType color numberPlate year
@@ -91,6 +101,7 @@ export class MatchmakingIntegrationService {
     vehicleId: Types.ObjectId,
     bookingTime: Date,
     noOfPassengers: number = 1,
+    vehicleType?: string,
   ): Partial<RidesDocument> {
     return {
       rideType,
@@ -98,6 +109,7 @@ export class MatchmakingIntegrationService {
       rideStatus: RideStatus.PENDING,
       passengerId: new Types.ObjectId(userId),
       vehicleId: vehicleId || new Types.ObjectId(),
+      schedule: this.buildScheduleInfo(rideType, bookingTime, noOfPassengers, vehicleType),
       pickupLocation: {
         type: 'Point',
         coordinates: [pickupLocation.longitude, pickupLocation.latitude],
@@ -118,6 +130,39 @@ export class MatchmakingIntegrationService {
       } as any,
       noOfPassengers,
       deleted: false,
+    };
+  }
+
+  /**
+   * Builds the schedule sub-document for a SCHEDULED ride booking.
+   * INSTANT rides return null (schedule info is only meaningful for bookings).
+   */
+  private buildScheduleInfo(
+    rideType: RideTypes,
+    bookingTime: Date,
+    noOfPassengers: number,
+    vehicleType?: string,
+  ): RideSchedule | null {
+    if (rideType !== RideTypes.SCHEDULED) return null;
+    const utcStart = new Date(bookingTime);
+    utcStart.setUTCHours(0, 0, 0, 0);
+    // Day-of-week name derived in Nepal wall-clock time (UTC+5:45, no DST).
+    const nepalWall = new Date(bookingTime.getTime() + 345 * 60000);
+    const day = [
+      'SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY',
+      'THURSDAY', 'FRIDAY', 'SATURDAY',
+    ][nepalWall.getUTCDay()];
+    return {
+      bookingType: 'SCHEDULED',
+      bookingTime,
+      bookingDate: utcStart,
+      day,
+      noOfPassengers: noOfPassengers || 1,
+      vehicleType: vehicleType || null,
+      isFlexible: false,
+      pickupBufferTimeMinutes: 0,
+      timeSlots: [],
+      availabilityDayId: null,
     };
   }
 
@@ -347,6 +392,8 @@ export class MatchmakingIntegrationService {
         message: result?.message || 'No driver found',
         driverId: result?.driverId || undefined,
         driverName: result?.driverName || undefined,
+        rideStatus: result?.rideStatus || 'PENDING',
+        availableDrivers: result?.availableDrivers || [],
         attempts: this.normalizeAttempts(result?.attempts, 120),
         ablyChannelId: `WG-RIDE-${result?.rideUUId || ''}-ride-details`,
         driverLocationChannel: `WG-DRIVER-${result?.driverId || ''}-driver-location`,
@@ -380,6 +427,7 @@ export class MatchmakingIntegrationService {
     const rideData = this.buildRideDocument(
       RideTypes.SCHEDULED, userId, pickupLocation, dropoffLocation,
       vehicle?._id || new Types.ObjectId(), bookingTime, noOfPassengers,
+      vehicleType,
     );
 
     let ride: RidesDocument;
@@ -392,7 +440,6 @@ export class MatchmakingIntegrationService {
     }
 
     // Silently save recent places in the background
-    this.saveRecentPlacesSilently(userId, pickupLocation, dropoffLocation);
 
     try {
       const data = await this.callMatchmakingGraphql(
@@ -403,28 +450,32 @@ export class MatchmakingIntegrationService {
       const result = data?.matchScheduledDrivers;
 
       if (result?.matched) {
-        this.logger.log(`Scheduled matchmaking succeeded for ride ${ride.rideUUId}: driver ${result.driverId}`);
+        this.logger.log(`Scheduled booking succeeded for ride ${ride.rideUUId}: ${(result?.availableDrivers || []).length} available option(s)`);
         return {
           success: true,
           matched: true,
           rideId: ride._id.toString(),
           rideUUId: ride.rideUUId,
-          message: `Driver ${result.driverName || result.driverId} matched for scheduled ride`,
+          message: result?.message || `Found ${(result?.availableDrivers || []).length} available scheduled ride(s)`,
           driverId: result.driverId,
           driverName: result.driverName,
+          rideStatus: result.rideStatus || RideStatus.PENDING,
+          availableDrivers: result?.availableDrivers || [],
           attempts: this.normalizeAttempts(result?.attempts, 120),
           acceptedDetails: result.acceptedDetails,
         };
       }
 
-      // Keep ride for later cancellation/polling
-      this.logger.warn(`Scheduled matchmaking failed for ride ${ride.rideUUId}: ${result?.message}`);
+      // Keep ride (PENDING) so a driver can still accept before the buffer
+      this.logger.warn(`No available scheduled drivers right now for ride ${ride.rideUUId}: ${result?.message}`);
       return {
-        success: false,
+        success: true,
         matched: false,
         rideId: ride._id.toString(),
         rideUUId: ride.rideUUId,
-        message: result?.message || 'No driver found for scheduled ride',
+        message: result?.message || 'No available scheduled drivers right now. The booking stays PENDING.',
+        rideStatus: RideStatus.PENDING,
+        availableDrivers: result?.availableDrivers || [],
       };
     } catch (error: any) {
       this.logger.error(`Scheduled matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}`);

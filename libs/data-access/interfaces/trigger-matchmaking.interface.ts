@@ -52,6 +52,35 @@ export interface AcceptedDetailsInterface {
   driverLocationChannel?: string;
 }
 
+export interface ScheduledAvailabilityInterface {
+  day?: string;
+  date?: string;
+  vehicleType?: string;
+  isAvailableForBookings?: boolean;
+  availableSeats?: number;
+  timeSlots?: string[];
+  pickupLocation?: { address?: string; latitude?: number | null; longitude?: number | null };
+  dropOffLocation?: { address?: string; latitude?: number | null; longitude?: number | null };
+  matchesTimeSlot?: boolean;
+}
+
+/** One available scheduled ride option returned by the booking listing flow. */
+export interface AvailableScheduledDriverInterface {
+  driverId?: string;
+  driverName?: string;
+  driverImage?: string | null;
+  phone?: string;
+  rating?: number;
+  vehicleId?: string;
+  vehicleType?: string;
+  vehicleModel?: string;
+  color?: string;
+  numberPlate?: string;
+  distanceToPickupKm?: number;
+  estimatedTimeToReachMinutes?: number;
+  availability?: ScheduledAvailabilityInterface | null;
+}
+
 export interface TriggerMatchmakingResult {
   success: boolean;
   message: string;
@@ -75,4 +104,5 @@ export interface TriggerMatchmakingResult {
   pickupLocation?: LocationInterface;
   dropoffLocation?: LocationInterface;
   acceptedDetails?: AcceptedDetailsInterface;
+  availableDrivers?: AvailableScheduledDriverInterface[];
 }

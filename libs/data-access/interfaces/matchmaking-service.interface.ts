@@ -16,6 +16,21 @@ export interface DriverScore {
   completedTripsCount: number;
   score: number;
   estimatedTimeToReachMinutes: number;
+  /**
+   * Resolved availability of the driver for the requested scheduled day/time.
+   * Populated only for SCHEDULED rides in findAvailableScheduledDrivers.
+   */
+  scheduledAvailability?: {
+    day: string;
+    date: string;
+    vehicleType: string;
+    isAvailableForBookings: boolean;
+    availableSeats: number;
+    timeSlots: string[];
+    pickupLocation?: { address: string; latitude?: number | null; longitude?: number | null } | null;
+    dropOffLocation?: { address: string; latitude?: number | null; longitude?: number | null } | null;
+    matchesTimeSlot: boolean;
+  };
 }
 
 export interface FareBreakdown {

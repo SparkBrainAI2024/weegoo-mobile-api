@@ -6,6 +6,7 @@ import { RideStatus, RideTypes } from "../enums/rides.enum";
 import { RideLocation } from "../common/ride.location";
 import { Fare } from "../common/fare";
 import { PaymentDetails } from "../common/payment-details";
+import { RideSchedule } from "../common/ride-schedule";
 import { Vehicle } from "./vehicle.entity";
 import { customAlphabet } from "nanoid";
 import { CancellationDetail } from "../dtos/response/cancel-ride.response";
@@ -24,6 +25,14 @@ export class Rides extends BaseEntity {
   @Field(() => Date)
   @Prop({ type: Date, required: true })
   bookingTime: Date;
+
+  /**
+   * Schedule info for a SCHEDULED ride booking. Populated at booking creation.
+   * Only present for RideTypes.SCHEDULED; INSTANT rides leave it null.
+   */
+  @Field(() => RideSchedule, { nullable: true })
+  @Prop({ type: RideSchedule, required: false, default: null })
+  schedule?: RideSchedule | null;
 
   @Field(() => RideStatus)
   @Prop({ type: String, enum: RideStatus, required: true })
