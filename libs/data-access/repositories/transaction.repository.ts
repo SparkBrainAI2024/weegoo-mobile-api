@@ -332,7 +332,7 @@ export class TransactionRepository {
           tripId: 1,
           amount: 1,
           paymentMethod: 1,
-          paymentStatus: '$status',
+          paymentStatus: "$status",
           remarks: 1,
           createdAt: 1,
           rideStatus: "$ride.rideStatus",
@@ -423,7 +423,185 @@ export class TransactionRepository {
     ]);
     return response;
   }
-  async findOne (filter: Partial<Transaction>): Promise<Transaction | null> {
+  async findOne(filter: Partial<Transaction>): Promise<Transaction | null> {
     return this.model.findOne(filter).exec();
+  }
+  // ── Payments dashboard ──────────────────────────────────────────────────
+
+  async sumByType(
+    type: TransactionType,
+    direction: TransactionDirection | null,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    const match: any = {
+      type,
+      status: TransactionStatus.COMPLETED,
+      createdAt: { $gte: start, $lte: end },
+      deleted: { $ne: true },
+    };
+    if (direction) match.direction = direction;
+
+    const result = await this.model.aggregate([
+      { $match: match },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
+
+  async countInRange(start: Date, end: Date): Promise<number> {
+    return this.model.countDocuments({
+      createdAt: { $gte: start, $lte: end },
+      deleted: { $ne: true },
+    });
+  }
+
+  async getCommissionSeries(
+    start: Date,
+    end: Date,
+  ): Promise<{ date: string; amount: number }[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.COMMISSION,
+          status: TransactionStatus.COMPLETED,
+          createdAt: { $gte: start, $lte: end },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: "Asia/Kathmandu",
+            },
+          },
+          amount: { $sum: "$amount" },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, date: "$_id", amount: 1 } },
+    ]);
+  }
+
+  async getNetFlowTrend(
+    start: Date,
+    end: Date,
+  ): Promise<{ date: string; amount: number }[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          type: { $in: [TransactionType.TOPUP, TransactionType.WITHDRAWAL] },
+          status: TransactionStatus.COMPLETED,
+          createdAt: { $gte: start, $lte: end },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: "Asia/Kathmandu",
+            },
+          },
+          net: {
+            $sum: {
+              $cond: [
+                { $eq: ["$type", TransactionType.TOPUP] },
+                "$amount",
+                { $multiply: ["$amount", -1] },
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, date: "$_id", amount: "$net" } },
+    ]);
+  }
+
+  async getPendingWithdrawalRows(limit = 10): Promise<any[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+          deleted: { $ne: true },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driver",
+        },
+      },
+      { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+    ]);
+  }
+
+  async getPendingWithdrawalsTotal(): Promise<number> {
+    const result = await this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+          deleted: { $ne: true },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
+
+  async getRecentTransactionsPaginated(
+    page: number,
+    limit: number,
+    filter: { type?: TransactionType; status?: TransactionStatus } = {},
+  ): Promise<{ data: any[]; total: number }> {
+    const match: any = { deleted: { $ne: true } };
+    if (filter.type) match.type = filter.type;
+    if (filter.status) match.status = filter.status;
+
+    const basePipeline: any[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: "users",
+          localField: "driverId",
+          foreignField: "_id",
+          as: "driver",
+        },
+      },
+      { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "riderId",
+          foreignField: "_id",
+          as: "rider",
+        },
+      },
+      { $unwind: { path: "$rider", preserveNullAndEmptyArrays: true } },
+    ];
+
+    const [data, countResult] = await Promise.all([
+      this.model.aggregate([
+        ...basePipeline,
+        { $sort: { createdAt: -1 } },
+        { $skip: page * limit },
+        { $limit: limit },
+      ]),
+      this.model.aggregate([...basePipeline, { $count: "count" }]),
+    ]);
+
+    return { data, total: countResult[0]?.count ?? 0 };
   }
 }
