@@ -51,15 +51,17 @@ export class MatchmakingIntegrationService {
   private get MATCH_SCHEDULED_QUERY(): string {
     return `mutation MatchScheduledDrivers($input: MatchScheduledDriversInput!) {
       matchScheduledDrivers(input: $input) {
-        matched rideId rideUUId driverId driverName rideStatus
+        matched rideId rideUUId passengerId driverId driverName driverImage rating rideStatus
+        estimatedFare { baseFare total }
         attempts { attemptNumber radiusKm waitTimeSeconds driversFound driversRequested driverAccepted acceptedDriverId timeoutExpired status }
         message
+        ablyChannelId
         availableDrivers {
-          driverId driverName driverImage phone rating
-          vehicleType vehicleModel color numberPlate
-          distanceToPickupKm estimatedTimeToReachMinutes
+          driverId driverName driverImage driverEmail phone rating
+          vehicleId vehicleName vehicleType vehicleModel isAcType vehicleModelType color numberPlate
+          distanceToPickupKm estimatedTimeToReachMinutes estimatedFare
           availability {
-                        day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
+            day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
             pickupLocation { address latitude longitude }
             dropOffLocation { address latitude longitude }
           }
@@ -71,6 +73,12 @@ export class MatchmakingIntegrationService {
           pickupLocation { address coordinates city }
           dropoffLocation { address coordinates city }
           estimatedFare estimatedTimeInMinutes distanceInKm acceptedAt
+          ablyChannelId bookingTime noOfPassengers
+          availability {
+            day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
+            pickupLocation { address latitude longitude }
+            dropOffLocation { address latitude longitude }
+          }
         }
       }
     }`;
@@ -292,7 +300,6 @@ export class MatchmakingIntegrationService {
       // Matchmaking did not find a match - verify ride status before deleting
       this.logger.warn(`Matchmaking returned no match for ride ${ride.rideUUId}. Verifying ride status.`);
       const rideAfterMatchmaking = await this.ridesModel.findById(ride._id);
-
       if (!rideAfterMatchmaking) {
         this.logger.warn(`Ride ${ride.rideUUId} was deleted/cancelled during matchmaking (likely by cancelInstantRide). Returning cancelled signal.`);
         return {
@@ -326,7 +333,7 @@ export class MatchmakingIntegrationService {
 
       // Ride is still pending - safe to delete
       this.logger.warn(`Matchmaking failed for ride ${ride.rideUUId}. Deleting ride.`);
-      await this.ridesModel.findByIdAndDelete(ride._id);
+      await this.deleteAbandonedRide(ride);
       return {
         ...baseResponse,
         rideId: '',
@@ -362,7 +369,7 @@ export class MatchmakingIntegrationService {
 
       // Ride is still pending - safe to delete
       this.logger.error(`Matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}. Deleting ride.`);
-      await this.ridesModel.findByIdAndDelete(ride._id).exec();
+      await this.deleteAbandonedRide(ride);
       return {
         success: false,
         matched: false,
@@ -371,6 +378,90 @@ export class MatchmakingIntegrationService {
         message: 'Matchmaking service unavailable',
       };
     }
+  }
+
+  /**
+   * Maps a raw matchScheduledDrivers result (ScheduledMatchResultGraphQL shape)
+   * into the normalized TriggerMatchmakingResult consumed by the passenger
+   * resolvers — mirroring the mapping done for instant matchmaking.
+   */
+  private normalizeScheduledResult(
+    result: any,
+    ride?: RidesDocument | null,
+  ): TriggerMatchmakingResult {
+    const baseResponse = {
+      success: !!result?.matched,
+      matched: result?.matched || false,
+      rideId: result?.rideId || (ride?._id ? ride._id.toString() : ''),
+      rideUUId: result?.rideUUId || ride?.rideUUId || '',
+      passengerId: result?.passengerId || (ride?.passengerId ? ride.passengerId.toString() : undefined),
+      driverId: result?.driverId || undefined,
+      driverName: result?.driverName || undefined,
+      driverImage: result?.driverImage || undefined,
+      rating: result?.rating || undefined,
+      rideType: RideTypes.SCHEDULED,
+      rideStatus: result?.rideStatus || RideStatus.PENDING,
+      message: result?.message || 'No driver found',
+      attempts: this.normalizeAttempts(result?.attempts, 120),
+      estimatedFare: result?.estimatedFare
+        ? {
+            baseFare: result.estimatedFare.baseFare,
+            total: result.estimatedFare.total,
+          }
+        : undefined,
+      estimatedFareTotal: result?.estimatedFare?.total || undefined,
+      ablyChannelId:
+        result?.ablyChannelId || (result?.rideUUId ? `WG-RIDE-${result.rideUUId}-ride-details` : undefined),
+      driverLocationChannel: `WG-DRIVER-${result?.driverId || ''}-driver-location`,
+      pickupLocation: ride?.pickupLocation
+        ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city }
+        : undefined,
+      dropoffLocation: ride?.dropoffLocation
+        ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city }
+        : undefined,
+      noOfPassengers: ride?.noOfPassengers || result?.acceptedDetails?.noOfPassengers || 1,
+      availableDrivers: result?.availableDrivers || [],
+    } as any;
+
+    if (!result?.acceptedDetails) {
+      return baseResponse;
+    }
+
+    const ad = result.acceptedDetails;
+    return {
+      ...baseResponse,
+      acceptedDetails: {
+        rideId: ad.rideId || baseResponse.rideId,
+        rideUUId: ad.rideUUId || baseResponse.rideUUId,
+        driver: {
+          driverId: ad.driverId || '',
+          fullName: ad.driverName || '',
+          phone: ad.phone || '',
+          profileImage: ad.profileImage || ad.driverImage || null,
+          rating: ad.rating || 0,
+        },
+        vehicle: {
+          vehicleId: ad.vehicleId || '',
+          vehicleModel: ad.vehicleModel || '',
+          vehicleType: ad.vehicleType || '',
+          color: ad.color || '',
+          numberPlate: ad.numberPlate || '',
+          year: ad.year || undefined,
+        },
+        passenger: ad.passengerId ? { passengerId: ad.passengerId } : undefined,
+        pickupLocation: ad.pickupLocation,
+        dropoffLocation: ad.dropoffLocation,
+        estimatedFare: ad.estimatedFare,
+        estimatedTimeInMinutes: ad.estimatedTimeInMinutes,
+        distanceInKm: ad.distanceInKm,
+        acceptedAt: ad.acceptedAt,
+        bookingTime: ad.bookingTime,
+        noOfPassengers: ad.noOfPassengers,
+        availability: ad.availability || undefined,
+        ablyChannelId: ad.ablyChannelId || baseResponse.ablyChannelId,
+        driverLocationChannel: baseResponse.driverLocationChannel,
+      },
+    };
   }
 
   async triggerScheduledMatchmaking(rideId: string): Promise<TriggerMatchmakingResult> {
@@ -384,27 +475,24 @@ export class MatchmakingIntegrationService {
       );
       const result = data?.matchScheduledDrivers;
 
-      const baseResponse = {
-        success: !!result?.matched,
-        matched: result?.matched || false,
-        rideId: result?.rideId || rideId,
-        rideUUId: result?.rideUUId || '',
-        message: result?.message || 'No driver found',
-        driverId: result?.driverId || undefined,
-        driverName: result?.driverName || undefined,
-        rideStatus: result?.rideStatus || 'PENDING',
-        availableDrivers: result?.availableDrivers || [],
-        attempts: this.normalizeAttempts(result?.attempts, 120),
-        ablyChannelId: `WG-RIDE-${result?.rideUUId || ''}-ride-details`,
-        driverLocationChannel: `WG-DRIVER-${result?.driverId || ''}-driver-location`,
-      } as any;
-
       if (result?.matched) {
         this.logger.log(`Scheduled matchmaking succeeded for ride ${rideId}: driver ${result.driverId}`);
-        return { ...baseResponse, acceptedDetails: result.acceptedDetails };
+        return this.normalizeScheduledResult(result);
       }
 
-      return { ...baseResponse };
+      return {
+        success: false,
+        matched: false,
+        rideId: result?.rideId || rideId,
+        rideUUId: result?.rideUUId || '',
+        passengerId: result?.passengerId || undefined,
+        message: result?.message || 'No driver found',
+        rideType: RideTypes.SCHEDULED,
+        rideStatus: result?.rideStatus || RideStatus.PENDING,
+        attempts: this.normalizeAttempts(result?.attempts, 120),
+        ablyChannelId: result?.ablyChannelId || (result?.rideUUId ? `WG-RIDE-${result.rideUUId}-ride-details` : undefined),
+        availableDrivers: result?.availableDrivers || [],
+      };
     } catch (error: any) {
       this.logger.error(`Scheduled matchmaking request failed: ${error?.message || error}`);
       return { success: false, matched: false, rideId, rideUUId: '', message: 'Matchmaking service unavailable' };
@@ -451,31 +539,19 @@ export class MatchmakingIntegrationService {
 
       if (result?.matched) {
         this.logger.log(`Scheduled booking succeeded for ride ${ride.rideUUId}: ${(result?.availableDrivers || []).length} available option(s)`);
-        return {
-          success: true,
-          matched: true,
-          rideId: ride._id.toString(),
-          rideUUId: ride.rideUUId,
-          message: result?.message || `Found ${(result?.availableDrivers || []).length} available scheduled ride(s)`,
-          driverId: result.driverId,
-          driverName: result.driverName,
-          rideStatus: result.rideStatus || RideStatus.PENDING,
-          availableDrivers: result?.availableDrivers || [],
-          attempts: this.normalizeAttempts(result?.attempts, 120),
-          acceptedDetails: result.acceptedDetails,
-        };
+        return this.normalizeScheduledResult(result, ride);
       }
 
       // Keep ride (PENDING) so a driver can still accept before the buffer
       this.logger.warn(`No available scheduled drivers right now for ride ${ride.rideUUId}: ${result?.message}`);
       return {
+        ...this.normalizeScheduledResult(result, ride),
         success: true,
         matched: false,
         rideId: ride._id.toString(),
         rideUUId: ride.rideUUId,
         message: result?.message || 'No available scheduled drivers right now. The booking stays PENDING.',
         rideStatus: RideStatus.PENDING,
-        availableDrivers: result?.availableDrivers || [],
       };
     } catch (error: any) {
       this.logger.error(`Scheduled matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}`);
@@ -484,6 +560,7 @@ export class MatchmakingIntegrationService {
         matched: false,
         rideId: ride._id.toString(),
         rideUUId: ride.rideUUId,
+        rideType: RideTypes.SCHEDULED,
         message: 'Matchmaking service unavailable',
       };
     }
@@ -546,6 +623,42 @@ export class MatchmakingIntegrationService {
     } catch (error: any) {
       this.logger.error(`Failed to cancel instant ride ${error?.message || error}`);
       return { success: false, message: 'Failed to cancel ride' };
+    }
+  }
+
+  /**
+   * Safely deletes an abandoned ride left over from a failed/unsuccesful
+   * matchmaking attempt. Re-verifies the ride status immediately before
+   * deletion so a ride that was confirmed (or progressed) by the matchmaking
+   * service is never removed, and retries once if the delete fails so a
+   * transient DB error never leaves a lingering PENDING ride.
+   */
+  private async deleteAbandonedRide(ride: RidesDocument): Promise<void> {
+    const rideId = ride._id;
+    try {
+      const fresh = await this.ridesModel.findById(rideId).exec();
+      if (!fresh) {
+        this.logger.log(`Ride ${ride.rideUUId} no longer exists - nothing to clean up.`);
+        return;
+      }
+      // Only terminal/unmatched states are safe to remove.
+      const deletableStatuses = [RideStatus.PENDING, RideStatus.CANCELLED];
+      if (!deletableStatuses.includes(fresh.rideStatus)) {
+        this.logger.warn(`Ride ${ride.rideUUId} progressed to ${fresh.rideStatus} during matchmaking - preserving ride.`);
+        return;
+      }
+      try {
+        await this.ridesModel.findByIdAndDelete(rideId);
+        this.logger.log(`Abandoned ride ${ride.rideUUId} (${rideId}) deleted after failed matchmaking.`);
+      } catch (deleteErr: any) {
+        // One retry to guarantee cleanup on transient DB failures
+        this.logger.error(`First delete attempt failed for ride ${ride.rideUUId}: ${deleteErr?.message || deleteErr}. Retrying.`);
+        await this.ridesModel.findByIdAndDelete(rideId);
+        this.logger.log(`Abandoned ride ${ride.rideUUId} (${rideId}) deleted on retry.`);
+      }
+    } catch (cleanupErr: any) {
+      // Never let cleanup failure mask the matchmaking result
+      this.logger.error(`Failed to clean up abandoned ride ${ride.rideUUId} (${rideId}): ${cleanupErr?.message || cleanupErr}`);
     }
   }
 

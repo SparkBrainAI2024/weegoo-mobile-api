@@ -30,6 +30,7 @@ export interface LocationInterface {
 }
 
 export interface FareBreakdownInterface {
+  baseFare?: number;
   pickupCost?: number;
   distanceCost?: number;
   durationCost?: number;
@@ -48,6 +49,9 @@ export interface AcceptedDetailsInterface {
   estimatedTimeInMinutes?: number;
   distanceInKm?: number;
   acceptedAt?: string;
+  bookingTime?: string;
+  noOfPassengers?: number;
+  availability?: ScheduledAvailabilityInterface | null;
   ablyChannelId?: string;
   driverLocationChannel?: string;
 }
@@ -91,6 +95,7 @@ export interface TriggerMatchmakingResult {
   matched: boolean;
   rideId: string;
   rideUUId: string;
+  passengerId?: string;
   driverId?: string;
   driverName?: string;
   driverImage?: string;

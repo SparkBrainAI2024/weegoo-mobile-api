@@ -208,6 +208,15 @@ export class MatchmakingResolver {
       passengerId: result.passengerId,
       driverId: result.driverId,
       driverName: result.driverName,
+      driverImage: result.acceptedDetails?.driver?.profileImage || null,
+      rating: result.acceptedDetails?.driver?.rating || null,
+      estimatedFare:
+        result.acceptedDetails?.estimatedFare != null
+          ? {
+              baseFare: result.acceptedDetails.estimatedFare,
+              total: result.acceptedDetails.estimatedFare,
+            }
+          : undefined,
       attempts: result.attempts.map((a) => ({
         attemptNumber: a.attemptNumber,
         radiusKm: a.radiusKm,
