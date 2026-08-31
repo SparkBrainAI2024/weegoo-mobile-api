@@ -78,6 +78,7 @@ export * from './common/ride.location';
 export * from './common/fare';
 export * from './common/payment-details';
 export * from './common/ride-user-snapshot';
+export * from './common/ride-schedule';
 export * from './common/rating-user-snapshot';
 export * from './common/saved-location';
 export * from './common/recent-place';

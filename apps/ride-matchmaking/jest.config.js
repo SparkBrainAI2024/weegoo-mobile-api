@@ -1,5 +1,5 @@
 module.exports = {
-  displayName: 'api',
+    displayName: 'ride-matchmaking',
   rootDir: '../..',
   testMatch: ['<rootDir>/apps/ride-matchmaking/**/*.spec.ts'],
   transform: {

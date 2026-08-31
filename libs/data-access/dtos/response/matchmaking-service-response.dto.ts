@@ -67,6 +67,54 @@ export class PickupLocationGraphQL {
 }
 
 @ObjectType()
+export class ScheduledAvailabilityLocationGraphQL {
+  @Field(() => String, { nullable: true })
+  address?: string;
+
+  @Field(() => Float, { nullable: true })
+  latitude?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  longitude?: number | null;
+}
+
+@ObjectType()
+export class ScheduledDriverAvailabilityGraphQL {
+  @Field(() => String)
+  day: string;
+
+  @Field(() => String)
+  date: string;
+
+  @Field(() => String)
+  vehicleType: string;
+
+  @Field(() => Float)
+  amount: number;
+
+  @Field(() => Boolean)
+  isAvailableForBookings: boolean;
+
+  @Field(() => Int)
+  availableSeats: number;
+
+  @Field(() => Int, { nullable: true })
+  remainingSeats?: number;
+
+  @Field(() => [String])
+  timeSlots: string[];
+
+  @Field(() => ScheduledAvailabilityLocationGraphQL, { nullable: true })
+  pickupLocation?: ScheduledAvailabilityLocationGraphQL | null;
+
+  @Field(() => ScheduledAvailabilityLocationGraphQL, { nullable: true })
+  dropOffLocation?: ScheduledAvailabilityLocationGraphQL | null;
+
+  @Field(() => Boolean)
+  matchesTimeSlot: boolean;
+}
+
+@ObjectType()
 export class DropoffLocationGraphQL {
   @Field(() => String)
   address: string;
@@ -133,6 +181,15 @@ export class DriverAcceptedDetailsGraphQL {
 
   @Field(() => String, { nullable: true })
   acceptedAt?: string;
+
+  @Field(() => String, { nullable: true })
+  bookingTime?: string;
+
+  @Field(() => Int, { nullable: true })
+  noOfPassengers?: number;
+
+  @Field(() => ScheduledDriverAvailabilityGraphQL, { nullable: true })
+  availability?: ScheduledDriverAvailabilityGraphQL | null;
 }
 
 @ObjectType()
@@ -177,6 +234,69 @@ export class MatchResultGraphQL {
   acceptedDetails?: DriverAcceptedDetailsGraphQL;
 }
 
+/**
+ * One available scheduled ride option returned by the booking listing flow.
+ * Carries the driver info, the vehicle info, and the driver's availability info
+ * for the requested day.
+ */
+@ObjectType()
+export class ScheduledAvailableDriverGraphQL {
+  @Field(() => String)
+  driverId: string;
+
+  @Field(() => String)
+  driverName: string;
+
+  @Field(() => String, { nullable: true })
+  driverImage?: string | null;
+
+  @Field(() => String, { nullable: true })
+  driverEmail?: string | null;
+
+  @Field(() => String, { nullable: true })
+  phone?: string;
+
+  @Field(() => Float, { nullable: true })
+  rating?: number;
+
+  /** Amount configured on the driver's availability day for the requested day. */
+  @Field(() => Float, { nullable: true })
+  amount?: number;
+
+  // Vehicle information
+  @Field(() => String, { nullable: true })
+  vehicleType?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleModel?: string;
+
+  @Field(() => String, { nullable: true })
+  color?: string;
+
+  @Field(() => String, { nullable: true })
+  numberPlate?: string;
+
+  /** Vehicle commercial name (e.g. "Hiace"). */
+  @Field(() => String, { nullable: true })
+  vehicleName?: string | null;
+
+  /** AC mode of the vehicle. */
+  @Field(() => Boolean, { nullable: true })
+  isAcType?: boolean | null;
+
+  /** Fuel/mode of the vehicle: EV or PETROL. */
+  @Field(() => String, { nullable: true })
+  vehicleModelType?: string | null;
+
+  // Availability information of the driver on the requested day
+  @Field(() => ScheduledDriverAvailabilityGraphQL, { nullable: true })
+  availability?: ScheduledDriverAvailabilityGraphQL | null;
+
+  /** Estimated fare = the amount configured on the driver's availability day. */
+  @Field(() => Float, { nullable: true })
+  estimatedFare?: number;
+}
+
 @ObjectType()
 export class ScheduledMatchResultGraphQL {
   @Field(() => Boolean)
@@ -191,32 +311,17 @@ export class ScheduledMatchResultGraphQL {
   @Field(() => String)
   passengerId: string;
 
-  @Field(() => String, { nullable: true })
-  driverId?: string;
-
-  @Field(() => String, { nullable: true })
-  driverName?: string;
-
-  @Field(() => String, { nullable: true })
-  driverImage?: string;
-
-  @Field(() => Float, { nullable: true })
-  rating?: number;
-
-  @Field(() => ScheduledFareBreakdownGraphQL, { nullable: true })
-  estimatedFare?: ScheduledFareBreakdownGraphQL;
-
-  @Field(() => [MatchAttemptResultGraphQL])
-  attempts: MatchAttemptResultGraphQL[];
-
   @Field(() => String)
   message: string;
 
   @Field(() => String, { nullable: true })
   ablyChannelId?: string;
 
-  @Field(() => DriverAcceptedDetailsGraphQL, { nullable: true })
-  acceptedDetails?: DriverAcceptedDetailsGraphQL;
+  @Field(() => String, { nullable: true })
+  rideStatus?: string;
+
+  @Field(() => [ScheduledAvailableDriverGraphQL], { nullable: true })
+  availableDrivers?: ScheduledAvailableDriverGraphQL[];
 }
 
 @ObjectType()

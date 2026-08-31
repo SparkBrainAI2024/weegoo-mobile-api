@@ -30,6 +30,7 @@ export interface LocationInterface {
 }
 
 export interface FareBreakdownInterface {
+  baseFare?: number;
   pickupCost?: number;
   distanceCost?: number;
   durationCost?: number;
@@ -48,8 +49,44 @@ export interface AcceptedDetailsInterface {
   estimatedTimeInMinutes?: number;
   distanceInKm?: number;
   acceptedAt?: string;
+  bookingTime?: string;
+  noOfPassengers?: number;
+  availability?: ScheduledAvailabilityInterface | null;
   ablyChannelId?: string;
   driverLocationChannel?: string;
+}
+
+export interface ScheduledAvailabilityInterface {
+  day?: string;
+  date?: string;
+  vehicleType?: string;
+  isAvailableForBookings?: boolean;
+  availableSeats?: number;
+  timeSlots?: string[];
+  pickupLocation?: { address?: string; latitude?: number | null; longitude?: number | null };
+  dropOffLocation?: { address?: string; latitude?: number | null; longitude?: number | null };
+  matchesTimeSlot?: boolean;
+}
+
+/** One available scheduled ride option returned by the booking listing flow. */
+export interface AvailableScheduledDriverInterface {
+  driverId?: string;
+  driverName?: string;
+  driverImage?: string | null;
+  driverEmail?: string | null;
+  phone?: string;
+  rating?: number;
+  vehicleId?: string;
+  vehicleName?: string | null;
+  vehicleType?: string;
+  vehicleModel?: string;
+  isAcType?: boolean | null;
+  vehicleModelType?: string | null;
+  color?: string;
+  numberPlate?: string;
+  distanceToPickupKm?: number;
+  estimatedTimeToReachMinutes?: number;
+  availability?: ScheduledAvailabilityInterface | null;
 }
 
 export interface TriggerMatchmakingResult {
@@ -58,6 +95,7 @@ export interface TriggerMatchmakingResult {
   matched: boolean;
   rideId: string;
   rideUUId: string;
+  passengerId?: string;
   driverId?: string;
   driverName?: string;
   driverImage?: string;
@@ -75,4 +113,5 @@ export interface TriggerMatchmakingResult {
   pickupLocation?: LocationInterface;
   dropoffLocation?: LocationInterface;
   acceptedDetails?: AcceptedDetailsInterface;
+  availableDrivers?: AvailableScheduledDriverInterface[];
 }
