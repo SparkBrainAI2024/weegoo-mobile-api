@@ -2,7 +2,7 @@ import { Resolver, Mutation, Args, Query, Int, ID } from '@nestjs/graphql';
 import { Logger, UseGuards, BadRequestException, SetMetadata } from '@nestjs/common';
 import { AuthGuard, RoleGuard } from '@libs/guards';
 import { CurrentUser } from '@libs/common';
-import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, User, TriggerMatchmakingResultResponse, VehicleEstimateGraphQL, RideLocationInput, BasicResponse, roles } from '@libs/data-access';
+import { TriggerInstantMatchmakingInput, TriggerScheduledMatchmakingInput, User, TriggerMatchmakingResultResponse, ScheduledRideResultResponse, VehicleEstimateGraphQL, RideLocationInput, BasicResponse, roles } from '@libs/data-access';
 import { MatchmakingIntegrationService } from '../matchmaking-integration.service';
 @Resolver()
 @UseGuards(AuthGuard,RoleGuard)
@@ -73,14 +73,14 @@ export class MatchmakingResolver {
    * Create a scheduled ride and trigger scheduled matchmaking.
    * rideType: SCHEDULED, bookingTime, noOfPassengers (default 1).
    */
-  @Mutation(() => TriggerMatchmakingResultResponse, {
+  @Mutation(() => ScheduledRideResultResponse, {
     name: 'requestScheduledRide',
     description: 'Create a scheduled ride with pickup/dropoff and booking time, then match drivers via expanding-ring algorithm',
   })
   async requestScheduledRide(
     @CurrentUser() user: User,
     @Args('input') input: TriggerScheduledMatchmakingInput,
-  ): Promise<TriggerMatchmakingResultResponse> {
+  ): Promise<ScheduledRideResultResponse> {
     this.logger.log(`GraphQL: requestScheduledRide called by user ${user._id}`);
     return this.matchmakingIntegration.createAndMatchScheduledRide(
       user._id.toString(),

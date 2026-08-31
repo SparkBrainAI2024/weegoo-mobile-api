@@ -259,11 +259,9 @@ export class ScheduledAvailableDriverGraphQL {
   @Field(() => Float, { nullable: true })
   rating?: number;
 
+  /** Amount configured on the driver's availability day for the requested day. */
   @Field(() => Float, { nullable: true })
-  distanceToPickupKm?: number;
-
-  @Field(() => Float, { nullable: true })
-  estimatedTimeToReachMinutes?: number;
+  amount?: number;
 
   // Vehicle information
   @Field(() => String, { nullable: true })
@@ -313,32 +311,11 @@ export class ScheduledMatchResultGraphQL {
   @Field(() => String)
   passengerId: string;
 
-  @Field(() => String, { nullable: true })
-  driverId?: string;
-
-  @Field(() => String, { nullable: true })
-  driverName?: string;
-
-  @Field(() => String, { nullable: true })
-  driverImage?: string;
-
-  @Field(() => Float, { nullable: true })
-  rating?: number;
-
-  @Field(() => ScheduledFareBreakdownGraphQL, { nullable: true })
-  estimatedFare?: ScheduledFareBreakdownGraphQL;
-
-  @Field(() => [MatchAttemptResultGraphQL])
-  attempts: MatchAttemptResultGraphQL[];
-
   @Field(() => String)
   message: string;
 
   @Field(() => String, { nullable: true })
   ablyChannelId?: string;
-
-  @Field(() => DriverAcceptedDetailsGraphQL, { nullable: true })
-  acceptedDetails?: DriverAcceptedDetailsGraphQL;
 
   @Field(() => String, { nullable: true })
   rideStatus?: string;

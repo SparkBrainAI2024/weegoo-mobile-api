@@ -206,90 +206,9 @@ export class MatchmakingResolver {
       rideId: result.rideId,
       rideUUId: result.rideUUId,
       passengerId: result.passengerId,
-      driverId: result.driverId,
-      driverName: result.driverName,
-      driverImage: result.acceptedDetails?.driver?.profileImage || null,
-      rating: result.acceptedDetails?.driver?.rating || null,
-      estimatedFare:
-        result.acceptedDetails?.estimatedFare != null
-          ? {
-              baseFare: result.acceptedDetails.estimatedFare,
-              total: result.acceptedDetails.estimatedFare,
-            }
-          : undefined,
-      attempts: result.attempts.map((a) => ({
-        attemptNumber: a.attemptNumber,
-        radiusKm: a.radiusKm,
-        waitTimeSeconds: a.waitTimeSeconds,
-        driversFound: a.driversFound,
-        driversRequested: a.driversRequested,
-        driverAccepted: a.driverAccepted,
-        acceptedDriverId: a.acceptedDriverId,
-        timeoutExpired: a.timeoutExpired,
-        status: a.status,
-      })),
       message: result.message,
       ablyChannelId:
         result.ablyChannelId || `WG-RIDE-${result.rideUUId}-ride-details`,
-      acceptedDetails: result.acceptedDetails
-        ? {
-            rideId: result.acceptedDetails.rideId,
-            rideUUId: result.acceptedDetails.rideUUId,
-            driverId: result.acceptedDetails.driver.driverId,
-            driverName: result.acceptedDetails.driver.fullName,
-            driverImage: result.acceptedDetails.driver.profileImage || null,
-            phone: result.acceptedDetails.driver.phone,
-            rating: result.acceptedDetails.driver.rating,
-            vehicleModel: result.acceptedDetails.vehicle.vehicleModel,
-            vehicleType: result.acceptedDetails.vehicle.vehicleType,
-            color: result.acceptedDetails.vehicle.color,
-            numberPlate: result.acceptedDetails.vehicle.numberPlate,
-            pickupLocation: {
-              address: result.acceptedDetails.pickupLocation.address,
-              coordinates: result.acceptedDetails.pickupLocation.coordinates,
-              city: result.acceptedDetails.pickupLocation.city,
-            },
-            dropoffLocation: result.acceptedDetails.dropoffLocation
-              ? {
-                  address: result.acceptedDetails.dropoffLocation.address,
-                  coordinates:
-                    result.acceptedDetails.dropoffLocation.coordinates,
-                  city: result.acceptedDetails.dropoffLocation.city,
-                }
-              : undefined,
-            estimatedFare: result.acceptedDetails.estimatedFare,
-            estimatedTimeInMinutes:
-              result.acceptedDetails.estimatedTimeInMinutes,
-            distanceInKm: result.acceptedDetails.distanceInKm,
-            acceptedAt: result.acceptedDetails.acceptedAt,
-            bookingTime: result.acceptedDetails.bookingTime
-              ? new Date(result.acceptedDetails.bookingTime).toISOString()
-              : undefined,
-            noOfPassengers: result.acceptedDetails.noOfPassengers,
-            availability: result.acceptedDetails.availability
-              ? {
-                  day: result.acceptedDetails.availability.day,
-                  date: result.acceptedDetails.availability.date,
-                  vehicleType: result.acceptedDetails.availability.vehicleType,
-                  amount:
-                    (result.acceptedDetails.availability as any).amount ?? 0,
-                  isAvailableForBookings:
-                    result.acceptedDetails.availability.isAvailableForBookings,
-                  availableSeats:
-                    result.acceptedDetails.availability.availableSeats,
-                  remainingSeats: (result.acceptedDetails.availability as any)
-                    .remainingSeats,
-                  timeSlots: result.acceptedDetails.availability.timeSlots || [],
-                  pickupLocation:
-                    result.acceptedDetails.availability.pickupLocation || null,
-                  dropOffLocation:
-                    result.acceptedDetails.availability.dropOffLocation || null,
-                  matchesTimeSlot:
-                    result.acceptedDetails.availability.matchesTimeSlot,
-                }
-              : null,
-          }
-        : undefined,
       rideStatus: result.rideStatus,
       availableDrivers: result.availableDrivers
         ? result.availableDrivers.map((d) => ({
@@ -299,8 +218,7 @@ export class MatchmakingResolver {
             driverEmail: (d as any).driverEmail || null,
             phone: d.phone,
             rating: d.rating,
-            distanceToPickupKm: d.distanceToPickupKm,
-            estimatedTimeToReachMinutes: d.estimatedTimeToReachMinutes,
+            amount: (d.availability as any).amount ?? 0,
             vehicleType: d.vehicle.vehicleType,
             vehicleModel: d.vehicle.vehicleModel,
             color: d.vehicle.color,

@@ -446,7 +446,7 @@ export class MatchmakingService {
       return ud?.driverOnlineStatus === DriverOnlineStatus.ONLINE;
     });
     this.logger.log(`Checking active rides for ${activeRideDriverIds.length} online drivers`);
-    const activeRides = activeRideDriverIds.length matchScheduledDrivers> 0
+    const activeRides = activeRideDriverIds.length > 0
       ? await this.ridesModel.find({
         driverId: { $in: activeRideDriverIds },
         rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },

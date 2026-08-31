@@ -51,30 +51,15 @@ export class MatchmakingIntegrationService {
   private get MATCH_SCHEDULED_QUERY(): string {
     return `mutation MatchScheduledDrivers($input: MatchScheduledDriversInput!) {
       matchScheduledDrivers(input: $input) {
-        matched rideId rideUUId passengerId driverId driverName driverImage rating rideStatus
-        estimatedFare { baseFare total }
-        attempts { attemptNumber radiusKm waitTimeSeconds driversFound driversRequested driverAccepted acceptedDriverId timeoutExpired status }
+        matched rideId rideUUId passengerId rideStatus
         message
         ablyChannelId
         availableDrivers {
-          driverId driverName driverImage driverEmail phone rating
+          driverId driverName driverImage driverEmail phone rating amount
           vehicleName vehicleType vehicleModel isAcType vehicleModelType color numberPlate
-          distanceToPickupKm estimatedTimeToReachMinutes estimatedFare
+          estimatedFare
           availability {
-            day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
-            pickupLocation { address latitude longitude }
-            dropOffLocation { address latitude longitude }
-          }
-        }
-        acceptedDetails {
-          rideId rideUUId driverId driverName phone driverImage rating
-          vehicleModel vehicleType color numberPlate
-          pickupLocation { address coordinates city }
-          dropoffLocation { address coordinates city }
-          estimatedFare estimatedTimeInMinutes distanceInKm acceptedAt
-          ablyChannelId bookingTime noOfPassengers
-          availability {
-            day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
+            day date vehicleType amount isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
             pickupLocation { address latitude longitude }
             dropOffLocation { address latitude longitude }
           }
@@ -401,73 +386,22 @@ export class MatchmakingIntegrationService {
       rideId: result?.rideId || (ride?._id ? ride._id.toString() : ''),
       rideUUId: result?.rideUUId || ride?.rideUUId || '',
       passengerId: result?.passengerId || (ride?.passengerId ? ride.passengerId.toString() : undefined),
-      driverId: result?.driverId || undefined,
-      driverName: result?.driverName || undefined,
-      driverImage: result?.driverImage || undefined,
-      rating: result?.rating || undefined,
       rideType: RideTypes.SCHEDULED,
       rideStatus: result?.rideStatus || RideStatus.PENDING,
       message: result?.message || 'No driver found',
-      attempts: this.normalizeAttempts(result?.attempts, 120),
-      estimatedFare: result?.estimatedFare
-        ? {
-            baseFare: result.estimatedFare.baseFare,
-            total: result.estimatedFare.total,
-          }
-        : undefined,
-      estimatedFareTotal: result?.estimatedFare?.total || undefined,
       ablyChannelId:
         result?.ablyChannelId || (result?.rideUUId ? `WG-RIDE-${result.rideUUId}-ride-details` : undefined),
-      driverLocationChannel: `WG-DRIVER-${result?.driverId || ''}-driver-location`,
       pickupLocation: ride?.pickupLocation
         ? { address: ride.pickupLocation.address, coordinates: ride.pickupLocation.coordinates, city: ride.pickupLocation.city }
         : undefined,
       dropoffLocation: ride?.dropoffLocation
         ? { address: ride.dropoffLocation.address, coordinates: ride.dropoffLocation.coordinates, city: ride.dropoffLocation.city }
         : undefined,
-      noOfPassengers: ride?.noOfPassengers || result?.acceptedDetails?.noOfPassengers || 1,
+      noOfPassengers: ride?.noOfPassengers || 1,
       availableDrivers: result?.availableDrivers || [],
     } as any;
 
-    if (!result?.acceptedDetails) {
-      return baseResponse;
-    }
-
-    const ad = result.acceptedDetails;
-    return {
-      ...baseResponse,
-      acceptedDetails: {
-        rideId: ad.rideId || baseResponse.rideId,
-        rideUUId: ad.rideUUId || baseResponse.rideUUId,
-        driver: {
-          driverId: ad.driverId || '',
-          fullName: ad.driverName || '',
-          phone: ad.phone || '',
-          profileImage: ad.profileImage || ad.driverImage || null,
-          rating: ad.rating || 0,
-        },
-        vehicle: {
-          vehicleId: ad.vehicleId || '',
-          vehicleModel: ad.vehicleModel || '',
-          vehicleType: ad.vehicleType || '',
-          color: ad.color || '',
-          numberPlate: ad.numberPlate || '',
-          year: ad.year || undefined,
-        },
-        passenger: ad.passengerId ? { passengerId: ad.passengerId } : undefined,
-        pickupLocation: ad.pickupLocation,
-        dropoffLocation: ad.dropoffLocation,
-        estimatedFare: ad.estimatedFare,
-        estimatedTimeInMinutes: ad.estimatedTimeInMinutes,
-        distanceInKm: ad.distanceInKm,
-        acceptedAt: ad.acceptedAt,
-        bookingTime: ad.bookingTime,
-        noOfPassengers: ad.noOfPassengers,
-        availability: ad.availability || undefined,
-        ablyChannelId: ad.ablyChannelId || baseResponse.ablyChannelId,
-        driverLocationChannel: baseResponse.driverLocationChannel,
-      },
-    };
+    return baseResponse;
   }
 
   async triggerScheduledMatchmaking(rideId: string): Promise<TriggerMatchmakingResult> {
