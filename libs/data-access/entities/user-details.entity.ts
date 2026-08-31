@@ -182,7 +182,12 @@ export class UserDetails extends BaseEntity {
 }
 export const UserDetailsSchema = SchemaFactory.createForClass(UserDetails);
 
-UserDetailsSchema.pre("save", function (next) {
+// IMPORTANT: use pre("validate"), NOT pre("save"). Mongoose runs document
+// validation BEFORE pre("save") middleware, so generating the display IDs in
+// a pre("save") hook is too late — `required: true` would fail first.
+// pre("validate") runs before validation, so the generated IDs are present
+// when the required check happens.
+UserDetailsSchema.pre("validate", function (next) {
   if (!this.displayIdAsDriver) {
     this.displayIdAsDriver = "DR-" + generateIssueId();
   }

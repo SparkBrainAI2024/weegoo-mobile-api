@@ -491,7 +491,7 @@ export class AvailabilityService {
 
   private async toStoredDays(
     days: AvailabilityDayInput[],
-    driverVehicleType: VehicleType,
+    driverVehicleType: ScheduledVehicleType ,
   ): Promise<AvailabilityDay[]> {
     const stored: AvailabilityDay[] = [];
     for (const day of days) {
@@ -553,7 +553,7 @@ export class AvailabilityService {
    */
   private async resolveDayAmount(
     day: AvailabilityDayLike,
-    driverVehicleType: VehicleType,
+    driverVehicleType: ScheduledVehicleType ,
   ): Promise<number> {
     const useSystemFare = day.useSystemFare ?? true;
     if (!useSystemFare) {
@@ -572,7 +572,7 @@ export class AvailabilityService {
    * amount = (basePickupCost + perKm * distanceKm + perMinute * durationMinutes) * multiplier
    */
   private async calculateSystemFare(
-    vehicle: VehicleType,
+    vehicle: ScheduledVehicleType ,
     pickup?: SavedLocation | null,
     dropoff?: SavedLocation | null,
   ): Promise<number> {
@@ -612,7 +612,7 @@ export class AvailabilityService {
   private async getBaatoRoute(
     pickup: SavedLocation,
     dropoff: SavedLocation,
-    vehicle: VehicleType,
+    vehicle: ScheduledVehicleType,
   ): Promise<{ distanceKm: number; durationMinutes: number }> {
     const apiKey = this.envService.getBaatoApiKey();
     const baseUrl = this.envService.getBaatoApiUrl();
@@ -630,7 +630,7 @@ export class AvailabilityService {
             `${pickup.latitude},${pickup.longitude}`,
             `${dropoff.latitude},${dropoff.longitude}`,
           ],
-          mode: vehicle === VehicleType.CAR ? "car" : "bike",
+          mode: vehicle === ScheduledVehicleType.CAR ? "car" : "car",
         },
       });
       const route = response.data?.data?.[0];
@@ -670,15 +670,16 @@ export class AvailabilityService {
     return { distanceKm, durationMinutes };
   }
 
-  /** Looks up the driver's registered vehicle type (CAR / MOTORBIKE / SCOOTER). */
+  /** Looks up the driver's registered vehicle type (CAR / JEEP / MICRO). */
   private async getDriverVehicleType(
     driverId: string | Types.ObjectId,
-  ): Promise<VehicleType> {
+  ): Promise<ScheduledVehicleType > {
     const vehicle = await this.vehicleRepository.findOne({
       driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
       deleted: false,
     });
-    return vehicle?.vehicleType ?? VehicleType.CAR;
+     return (vehicle?.vehicleType as ScheduledVehicleType) ??
+    ScheduledVehicleType.CAR;
   }
 
   /** Great-circle distance between two coordinates in kilometres (haversine). */
