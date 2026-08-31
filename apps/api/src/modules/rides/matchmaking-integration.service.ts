@@ -387,7 +387,7 @@ export class MatchmakingIntegrationService {
       rideUUId: result?.rideUUId || ride?.rideUUId || '',
       passengerId: result?.passengerId || (ride?.passengerId ? ride.passengerId.toString() : undefined),
       rideType: RideTypes.SCHEDULED,
-      rideStatus: result?.rideStatus || RideStatus.PENDING,
+      rideStatus: result?.rideStatus || RideStatus.BOOKING,
       message: result?.message || 'No driver found',
       ablyChannelId:
         result?.ablyChannelId || (result?.rideUUId ? `WG-RIDE-${result.rideUUId}-ride-details` : undefined),
@@ -428,7 +428,7 @@ export class MatchmakingIntegrationService {
         passengerId: result?.passengerId || undefined,
         message: result?.message || 'No driver found',
         rideType: RideTypes.SCHEDULED,
-        rideStatus: result?.rideStatus || RideStatus.PENDING,
+        rideStatus: result?.rideStatus || RideStatus.BOOKING,
         attempts: this.normalizeAttempts(result?.attempts, 120),
         ablyChannelId: result?.ablyChannelId || (result?.rideUUId ? `WG-RIDE-${result.rideUUId}-ride-details` : undefined),
         availableDrivers: result?.availableDrivers || [],
@@ -450,6 +450,9 @@ export class MatchmakingIntegrationService {
       RideTypes.SCHEDULED, userId, pickupLocation, dropoffLocation,
       new Types.ObjectId(), bookingTime, noOfPassengers,
     );
+    // Scheduled rides requested via requestScheduledRide start in BOOKING status
+    // (not PENDING) — they become CONFIRMED once the driver booking/payment flow completes.
+    rideData.rideStatus = RideStatus.BOOKING;
 
     let ride: RidesDocument;
     try {
@@ -486,7 +489,7 @@ export class MatchmakingIntegrationService {
         return this.normalizeScheduledResult(result, ride);
       }
 
-      // No driver matched: remove the scheduled ride so no orphan PENDING
+      // No driver matched: remove the scheduled ride so no orphan BOOKING
       // booking lingers. deleteAbandonedRide re-verifies the status first so a
       // ride that was confirmed during matchmaking is never removed.
       this.logger.warn(`No available scheduled drivers right now for ride ${ride.rideUUId}: ${result?.message}. Removing the scheduled ride.`);
@@ -498,7 +501,7 @@ export class MatchmakingIntegrationService {
         rideId: '',
         rideUUId: '',
         message: result?.message || 'No available scheduled drivers right now.',
-        rideStatus: RideStatus.PENDING,
+        rideStatus: RideStatus.BOOKING,
       };
     } catch (error: any) {
       this.logger.error(`Scheduled matchmaking request failed for ride ${ride.rideUUId}: ${error?.message || error}`);
@@ -589,7 +592,7 @@ export class MatchmakingIntegrationService {
         return;
       }
       // Only terminal/unmatched states are safe to remove.
-      const deletableStatuses = [RideStatus.PENDING, RideStatus.CANCELLED];
+      const deletableStatuses = [RideStatus.PENDING, RideStatus.BOOKING, RideStatus.CANCELLED];
       if (!deletableStatuses.includes(fresh.rideStatus)) {
         this.logger.warn(`Ride ${ride.rideUUId} progressed to ${fresh.rideStatus} during matchmaking - preserving ride.`);
         return;

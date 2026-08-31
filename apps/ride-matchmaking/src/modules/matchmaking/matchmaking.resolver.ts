@@ -189,7 +189,7 @@ export class MatchmakingResolver {
   @Mutation(() => ScheduledMatchResultGraphQL, {
     name: "matchScheduledDrivers",
     description:
-      "BOOKING flow for a SCHEDULED ride. Returns the drivers/vehicles available for the requested day (JEEP/CAR/MICRO), prioritised nearest-first, with vehicle + availability + driver info. The ride is kept PENDING; a driver may accept any time before the pickup buffer.",
+      "BOOKING flow for a SCHEDULED ride. Returns the drivers/vehicles available for the requested day (JEEP/CAR/MICRO), prioritised nearest-first, with vehicle + availability + driver info. The ride is kept BOOKING; a driver may accept any time before the pickup buffer.",
   })
   async matchScheduledDrivers(
     @Args("input") input: MatchScheduledDriversInput,

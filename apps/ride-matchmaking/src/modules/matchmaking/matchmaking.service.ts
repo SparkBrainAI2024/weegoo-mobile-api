@@ -140,7 +140,7 @@ export class MatchmakingService {
     const { rideId } = params;
     const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).populate('vehicleId').exec();
     if (!ride) return { matched: false, rideId, rideUUId: '', passengerId: '', attempts: [], message: 'Ride not found' };
-    if (ride.rideStatus !== RideStatus.PENDING) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: `Ride is not in PENDING status. Current: ${ride.rideStatus}` };
+    if (ride.rideStatus !== RideStatus.PENDING && ride.rideStatus !== RideStatus.BOOKING) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: `Ride is not in BOOKING/PENDING status. Current: ${ride.rideStatus}` };
     if (ride.rideType !== RideTypes.SCHEDULED) return { matched: false, rideId, rideUUId: ride.rideUUId, passengerId: ride.passengerId.toString(), attempts: [], message: 'Use matchDrivers for INSTANT rides.' };
 
     const pickupCoords = ride.pickupLocation?.coordinates;
@@ -157,7 +157,7 @@ export class MatchmakingService {
     // drivers/vehicles whose route matches the requested destination that day
     // (driver ride-preference SCHEDULED/BOTH, availability day + time +
     // destination + seat capacity + buffer window), prioritising the nearest
-    // pickup location first. The ride stays PENDING for the passenger.
+    // pickup location first. The ride stays BOOKING for the passenger.
     const dropoffCoords = ride.dropoffLocation?.coordinates;
     const dropoffLat = dropoffCoords?.[1];
     const dropoffLng = dropoffCoords?.[0];
@@ -208,10 +208,10 @@ export class MatchmakingService {
       attempts: [],
       message:
         availableDrivers.length > 0
-          ? `${availableDrivers.length} available scheduled ride(s) on ${bookingDateLabel}. Ride booked and kept PENDING; a driver may accept before the pickup buffer.`
+          ? `${availableDrivers.length} available scheduled ride(s) on ${bookingDateLabel}. Ride booked and kept BOOKING; a driver may accept before the pickup buffer.`
           : 'No drivers available for the requested day/time. Please try a different schedule.',
       availableDrivers,
-      rideStatus: RideStatus.PENDING,
+      rideStatus: RideStatus.BOOKING,
       ablyChannelId: ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
     };
   }
