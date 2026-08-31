@@ -129,6 +129,7 @@ export * from './dtos/input/complete-ride.input';
 export * from './dtos/input/create-rating.input';
 export * from './dtos/input/create-complaint.input';
 export * from './dtos/input/passenger-payment.input';
+export * from './dtos/input/book-scheduled-ride.input';
 export * from './dtos/input/create-contact-us.input';
 export * from './dtos/input/update-notification-settings.input';
 export * from './dtos/input/get-driver-trips.input';

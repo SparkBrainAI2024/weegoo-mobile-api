@@ -6,6 +6,7 @@ import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
 import { EnvService } from '@libs/common/config/env.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AdminUser, AdminUserSchema } from '@libs/data-access/entities/admin-user.entity';
+import { Availability, AvailabilitySchema } from '@libs/data-access/entities/availability.entity';
 import { PassengerPaymentService } from './passenger-payment.service';
 import { PassengerPaymentResolver } from './resolver/passenger-payment.resolver';
 import { RidePersistentModule } from '@libs/services/rides/rides-persistent.module';
@@ -20,6 +21,7 @@ import { PromoCodePersistenceModule } from '@libs/services/promocode/src/promoco
     PromoCodePersistenceModule,
     MongooseModule.forFeature([
       { name: AdminUser.name, schema: AdminUserSchema },
+      { name: Availability.name, schema: AvailabilitySchema },
     ]),
   ],
   providers: [TransactionService, EnvService, PassengerPaymentService, PassengerPaymentResolver],
