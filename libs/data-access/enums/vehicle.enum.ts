@@ -1,6 +1,8 @@
 import { registerEnumType } from "@nestjs/graphql";
 
 export enum VehicleType {
+  JEEP = "JEEP",
+  MICRO = "MICRO",
   CAR = "CAR",
   MOTORBIKE = "MOTORBIKE",
   SCOOTER = "SCOOTER",
@@ -50,8 +52,7 @@ registerEnumType(AnyVehicleType, {
     "Any vehicle type: on-demand (CAR, MOTORBIKE, SCOOTER) or scheduled (JEEP, MICRO, CAR).",
 });
 
-/** All valid vehicle type values across both enums (for runtime validation). */
+/** All valid vehicle type values (deduplicated, for runtime validation). */
 export const ALL_VEHICLE_TYPES: (VehicleType | ScheduledVehicleType)[] = [
   ...Object.values(VehicleType),
-  ...Object.values(ScheduledVehicleType),
 ];

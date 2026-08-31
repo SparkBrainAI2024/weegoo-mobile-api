@@ -3,7 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Types } from "mongoose";
 import { BaseEntity } from "@libs/data-access/base/base.entity";
 import { VehicleImage, VehicleImageSchema } from "./vehicle-image.embedded";
-import { ScheduledVehicleType, VehicleModelType, VehicleType } from "../enums/vehicle.enum";
+import { ScheduledVehicleType, VehicleModelType, VehicleType,AnyVehicleType } from "../enums/vehicle.enum";
 
 export type VehicleDocument = HydratedDocument<Vehicle>;
 
@@ -15,7 +15,7 @@ export class Vehicle extends BaseEntity {
   driverId: Types.ObjectId;
 
 
-  @Field(() => String)
+  @Field(() => AnyVehicleType)
   @Prop({
     type: String,
     required: true,
@@ -24,7 +24,7 @@ export class Vehicle extends BaseEntity {
       ...Object.values(ScheduledVehicleType),
     ],
   })
-  vehicleType: VehicleType | ScheduledVehicleType;
+  vehicleType:AnyVehicleType;
 
   @Field(() => String)
   @Prop({ type: String, required: true })
