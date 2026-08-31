@@ -143,9 +143,9 @@ export class Rides extends BaseEntity {
 
   @Prop({
     type: Types.ObjectId,
-    required: true,
+    required: false,
     ref: Vehicle.name,
-    index: true,
+    index: false,
   })
   vehicleId: Types.ObjectId;
 

@@ -47,21 +47,31 @@ const utcStartOfDay = (d: Date): Date => {
   return x;
 };
 
-/** Booking time expressed as minutes-since-Nepal-midnight (for slot comparison). */
-const bookingTimeMinutesSinceMidnight = (bookingTime: Date): number => {
-  const wall = new Date((bookingTime || new Date()).getTime() + NEPAL_TZ_OFFSET_MINUTES * 60000);
-  return wall.getUTCHours() * 60 + wall.getUTCMinutes();
-};
-
-/** Parse an "HH:mm" (optionally "HH:mm:ss") slot start into minutes-since-midnight. */
-const slotStartMinutes = (startTime: string): number | null => {
-  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(startTime || '').trim());
+/**
+ * Resolve a slot's start time as a full ISO datetime (e.g.
+ * "2026-09-01T16:00:00.000Z"). ISO datetime slots are used as-is. Legacy
+ * "HH:mm" / "HH:mm:ss" slots are anchored to the booking day (UTC date of
+ * the booking time). Returns null for unparseable values.
+ */
+const slotStartDate = (startTime: string, bookingTime: Date): Date | null => {
+  const raw = String(startTime || '').trim();
+  if (!raw) return null;
+  // Full ISO datetime (contains a date part) — parse directly.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // Legacy "HH:mm" / "HH:mm:ss" — anchor to the booking day (UTC).
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
   if (!m) return null;
   const h = parseInt(m[1], 10);
   const min = parseInt(m[2], 10);
   if (h > 23 || min > 59) return null;
-  return h * 60 + min;
+  const day = utcStartOfDay(bookingTime || new Date());
+  day.setUTCHours(h, min, 0, 0);
+  return day;
 };
+
 
 /** Month/day/name helpers used when exposing the resolved availability day. */
 const formatSlot = (startTime: string): string => String(startTime || '').trim();
@@ -436,7 +446,7 @@ export class MatchmakingService {
       return ud?.driverOnlineStatus === DriverOnlineStatus.ONLINE;
     });
     this.logger.log(`Checking active rides for ${activeRideDriverIds.length} online drivers`);
-    const activeRides = activeRideDriverIds.length > 0
+    const activeRides = activeRideDriverIds.length matchScheduledDrivers> 0
       ? await this.ridesModel.find({
         driverId: { $in: activeRideDriverIds },
         rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
@@ -500,7 +510,6 @@ export class MatchmakingService {
   ): { day: AvailabilityDay; effectiveSeats: number } | null {
     if (!availability || !availability.days || availability.days.length === 0) return null;
     const targetDate = utcStartOfDay(bookingTime);
-    const bookingMinutes = bookingTimeMinutesSinceMidnight(bookingTime);
 
     // SCHEDULED rides are booking-like: there is no passenger-requested vehicle
     // type. Match purely on calendar date + booking-enabled + seat capacity.
@@ -519,10 +528,26 @@ export class MatchmakingService {
         : VEHICLE_SEAT_CAPACITY[day.vehicleType as ScheduledVehicleType] || 1;
     if (noOfPassengers > effectiveSeats) return null;
 
-    // The booking must fall within (at or after) one of the driver's time slots.
+    // The booking request must relate to one of the driver's time slots.
+    // Slots are stored as full ISO datetimes (e.g. "2026-09-01T16:00:00.000Z")
+    // and are compared directly against the booking time. Legacy "HH:mm"
+    // slots are anchored to the booking day.
+    //
+    // A request matches a slot when it is made:
+    //  - at/after the slot start time (booking at the departure time), or
+    //  - BEFORE the slot's buffer window opens — i.e. at least
+    //    `pickupBufferTimeMinutes` before the slot start time (advance
+    //    booking made from the start of the availability day up to the
+    //    point where the driver needs to leave for the pickup).
     const matchesSlot = (day.timeSlots || []).some((s) => {
-      const start = slotStartMinutes(s?.startTime);
-      return start !== null && bookingMinutes >= start;
+      const start = slotStartDate(s?.startTime, bookingTime);
+      if (start === null) return false;
+      const bufferMinutes = day.pickupBufferTimeMinutes || 0;
+      const bufferWindowOpensAt = start.getTime() - bufferMinutes * 60000;
+      return (
+        bookingTime.getTime() >= start.getTime() ||
+        bookingTime.getTime() <= bufferWindowOpensAt
+      );
     });
     if (!matchesSlot) return null;
     return { day, effectiveSeats };
@@ -615,7 +640,13 @@ export class MatchmakingService {
     if (vehicles.length === 0) return [];
 
     // Batch-fetch all userDetails for the drivers in one query
-    const driverIds = vehicles.map((v) => (v.driverId as any as UserDocument)._id).filter(Boolean);
+    // (skip vehicles whose driverId could not be populated — e.g. the driver
+    // was deleted — otherwise reading _id off a null reference would throw).
+    const driverIds = vehicles
+      .map((v) => v.driverId as any as UserDocument)
+      .filter(Boolean)
+      .map((d) => d._id)
+      .filter(Boolean);
     this.logger.log(`Found ${driverIds.length} drivers of scheduled vehicle types for booking search`);
     const userDetailsDocs = await this.userDetailsModel.find({ userId: { $in: driverIds }, deleted: false }).exec();
     const userDetailsMap = new Map<string, UserDetailsDocument>();

@@ -58,7 +58,7 @@ export class MatchmakingIntegrationService {
         ablyChannelId
         availableDrivers {
           driverId driverName driverImage driverEmail phone rating
-          vehicleId vehicleName vehicleType vehicleModel isAcType vehicleModelType color numberPlate
+          vehicleName vehicleType vehicleModel isAcType vehicleModelType color numberPlate
           distanceToPickupKm estimatedTimeToReachMinutes estimatedFare
           availability {
             day date vehicleType isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
@@ -67,9 +67,8 @@ export class MatchmakingIntegrationService {
           }
         }
         acceptedDetails {
-          rideId rideUUId driverId driverName phone profileImage rating
-          vehicleId vehicleModel vehicleType color numberPlate year
-          passengerId
+          rideId rideUUId driverId driverName phone driverImage rating
+          vehicleModel vehicleType color numberPlate
           pickupLocation { address coordinates city }
           dropoffLocation { address coordinates city }
           estimatedFare estimatedTimeInMinutes distanceInKm acceptedAt
@@ -109,7 +108,6 @@ export class MatchmakingIntegrationService {
     vehicleId: Types.ObjectId,
     bookingTime: Date,
     noOfPassengers: number = 1,
-    vehicleType?: string,
   ): Partial<RidesDocument> {
     return {
       rideType,
@@ -117,7 +115,7 @@ export class MatchmakingIntegrationService {
       rideStatus: RideStatus.PENDING,
       passengerId: new Types.ObjectId(userId),
       vehicleId: vehicleId || new Types.ObjectId(),
-      schedule: this.buildScheduleInfo(rideType, bookingTime, noOfPassengers, vehicleType),
+      schedule: this.buildScheduleInfo(rideType, bookingTime, noOfPassengers),
       pickupLocation: {
         type: 'Point',
         coordinates: [pickupLocation.longitude, pickupLocation.latitude],
@@ -149,7 +147,6 @@ export class MatchmakingIntegrationService {
     rideType: RideTypes,
     bookingTime: Date,
     noOfPassengers: number,
-    vehicleType?: string,
   ): RideSchedule | null {
     if (rideType !== RideTypes.SCHEDULED) return null;
     const utcStart = new Date(bookingTime);
@@ -166,7 +163,6 @@ export class MatchmakingIntegrationService {
       bookingDate: utcStart,
       day,
       noOfPassengers: noOfPassengers || 1,
-      vehicleType: vehicleType || null,
       isFlexible: false,
       pickupBufferTimeMinutes: 0,
       timeSlots: [],
@@ -176,14 +172,24 @@ export class MatchmakingIntegrationService {
 
   private async callMatchmakingGraphql(query: string, variables: Record<string, any>, timeout: number = 60000): Promise<any> {
     const matchmakingUrl = this.getMatchmakingUrl();
-    const response = await axios.post(
-      `${matchmakingUrl}/graphql`,
-      { query, variables },
-      timeout?{ timeout: timeout }:{},
-    );
+    try {
+      const response = await axios.post(
+        `${matchmakingUrl}/graphql`,
+        { query, variables },
+        timeout?{ timeout: timeout }:{},
+      );
 
-  this.logger.log('B. After axios',JSON.stringify(response.data));
-    return response.data?.data;
+      this.logger.log('B. After axios',JSON.stringify(response.data));
+      return response.data?.data;
+    } catch (error: any) {
+      // Surface the actual GraphQL error body (validation errors, etc.) so a
+      // bare "status code 400" log is never all we have to debug with.
+      const responseErrors = error?.response?.data?.errors;
+      if (responseErrors) {
+        this.logger.error(`Matchmaking GraphQL errors: ${JSON.stringify(responseErrors)}`);
+      }
+      throw error;
+    }
   }
 
   // ─── Public API ──────────────────────────────────────────────────────────
@@ -503,19 +509,12 @@ export class MatchmakingIntegrationService {
     userId: string,
     pickupLocation: RideLocationInput,
     dropoffLocation: RideLocationInput,
-    vehicleType: string,
     bookingTime: Date,
     noOfPassengers: number = 1,
   ): Promise<TriggerMatchmakingResult> {
-    const vehicle = await this.vehicleModel.findOne({
-      vehicleType: vehicleType as any,
-      deleted: false,
-    }).exec();
-
     const rideData = this.buildRideDocument(
       RideTypes.SCHEDULED, userId, pickupLocation, dropoffLocation,
-      vehicle?._id || new Types.ObjectId(), bookingTime, noOfPassengers,
-      vehicleType,
+      new Types.ObjectId(), bookingTime, noOfPassengers,
     );
 
     let ride: RidesDocument;
@@ -537,20 +536,34 @@ export class MatchmakingIntegrationService {
       );
       const result = data?.matchScheduledDrivers;
 
+      // Persist the ride document after the matchmaking mutation so the ride
+      // reflects the matched driver / returned status.
+      if (result?.driverId) {
+        ride.driverId = new Types.ObjectId(result.driverId);
+      }
+      if (result?.rideStatus) {
+        ride.rideStatus = result.rideStatus;
+      }
+      await ride.save();
+      this.logger.log(`Scheduled ride ${ride.rideUUId} saved after matchmaking (matched: ${!!result?.matched}).`);
+
       if (result?.matched) {
         this.logger.log(`Scheduled booking succeeded for ride ${ride.rideUUId}: ${(result?.availableDrivers || []).length} available option(s)`);
         return this.normalizeScheduledResult(result, ride);
       }
 
-      // Keep ride (PENDING) so a driver can still accept before the buffer
-      this.logger.warn(`No available scheduled drivers right now for ride ${ride.rideUUId}: ${result?.message}`);
+      // No driver matched: remove the scheduled ride so no orphan PENDING
+      // booking lingers. deleteAbandonedRide re-verifies the status first so a
+      // ride that was confirmed during matchmaking is never removed.
+      this.logger.warn(`No available scheduled drivers right now for ride ${ride.rideUUId}: ${result?.message}. Removing the scheduled ride.`);
+      await this.deleteAbandonedRide(ride);
       return {
         ...this.normalizeScheduledResult(result, ride),
         success: true,
         matched: false,
-        rideId: ride._id.toString(),
-        rideUUId: ride.rideUUId,
-        message: result?.message || 'No available scheduled drivers right now. The booking stays PENDING.',
+        rideId: '',
+        rideUUId: '',
+        message: result?.message || 'No available scheduled drivers right now.',
         rideStatus: RideStatus.PENDING,
       };
     } catch (error: any) {
