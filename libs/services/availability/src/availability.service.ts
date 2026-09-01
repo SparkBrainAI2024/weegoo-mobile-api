@@ -18,7 +18,7 @@ import {
 } from "@libs/data-access/entities/availability.entity";
 import { AvailabilityRepository } from "@libs/data-access/repositories/availability.repository";
 import { VehicleRepository } from "@libs/data-access/repositories/vehicle.repository";
-import { ScheduledVehicleType, VehicleType } from "@libs/data-access/enums/vehicle.enum";
+import { AnyVehicleType, ScheduledVehicleType, VehicleType } from "@libs/data-access/enums/vehicle.enum";
 import { SavedLocation } from "@libs/data-access/common/saved-location";
 
 /** Average speed (km/h) used to estimate trip duration for system fare. */
@@ -56,17 +56,69 @@ const utcStartOfDay = (d: Date): Date => {
   return x;
 };
 
-const dayOfWeekFromDate = (d: Date): DayOfWeek => {
-  const map: Record<number, DayOfWeek> = {
-    0: DayOfWeek.SUNDAY,
-    1: DayOfWeek.MONDAY,
-    2: DayOfWeek.TUESDAY,
-    3: DayOfWeek.WEDNESDAY,
-    4: DayOfWeek.THURSDAY,
-    5: DayOfWeek.FRIDAY,
-    6: DayOfWeek.SATURDAY,
-  };
-  return map[toNepalWallClock(d).getUTCDay()];
+const NEPAL_DAY_MAP: Record<number, DayOfWeek> = {
+  0: DayOfWeek.SUNDAY,
+  1: DayOfWeek.MONDAY,
+  2: DayOfWeek.TUESDAY,
+  3: DayOfWeek.WEDNESDAY,
+  4: DayOfWeek.THURSDAY,
+  5: DayOfWeek.FRIDAY,
+  6: DayOfWeek.SATURDAY,
+};
+
+/**
+ * Maps a "wall-clock-in-UTC" Date (whose UTC fields already represent the
+ * intended calendar day) to a DayOfWeek. No timezone shifting is applied here.
+ */
+const dayFromWallClock = (d: Date): DayOfWeek => NEPAL_DAY_MAP[d.getUTCDay()];
+
+/**
+ * Returns the DayOfWeek of a date measured in NEPAL time (UTC+5:45, no DST).
+ */
+const dayOfWeekFromDate = (d: Date): DayOfWeek => dayFromWallClock(toNepalWallClock(d));
+
+/**
+ * Resolves a time-slot `startTime`'s Nepal wall-clock as a Date whose UTC
+ * fields hold that Nepal wall-clock value (so callers can read .getUTCDay(),
+ * .getUTCHours(), … directly without any further offset).
+ *
+ * - String WITH a timezone designator (trailing `Z` or `±HH:MM`) is an absolute
+ *   instant → shift it once into Nepal wall-clock.
+ * - Naive string WITHOUT a timezone is already NEPAL wall-clock (this is what
+ *   the frontend sends) → its literal date/time fields are used as-is, so the
+ *   +5:45 offset is NOT applied a second time (which is what used to roll
+ *   late-day slots across midnight and trigger TIME_SLOT_DAY_MISMATCH).
+ * - Returns null for unparseable values or a string with no date part.
+ */
+const nepalWallClockOfSlot = (startTime: string): Date | null => {
+  const s = String(startTime ?? "").trim();
+  if (!s) return null;
+
+  // Full ISO datetime carrying an explicit timezone → absolute instant.
+  if (/[zZ]$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) {
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return null;
+    return toNepalWallClock(d);
+  }
+
+  // Naive ISO datetime (no timezone) → already Nepal wall-clock.
+  // Matches e.g. "2026-09-01", "2026-09-01T23:00:00", "2026-09-01T23:00:00.000".
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?)?$/.exec(s);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const da = Number(m[3]);
+    const h = Number(m[4] || 0);
+    const mi = Number(m[5] || 0);
+    const se = Number(m[6] || 0);
+    const ms = Number((m[7] || "").padEnd(3, "0") || "0");
+    if (mo < 1 || mo > 12 || da < 1 || da > 31 || h > 23 || mi > 59 || se > 59) {
+      return null;
+    }
+    return new Date(Date.UTC(y, mo - 1, da, h, mi, se, ms));
+  }
+
+  return null;
 };
 
 /**
@@ -491,7 +543,7 @@ export class AvailabilityService {
 
   private async toStoredDays(
     days: AvailabilityDayInput[],
-    driverVehicleType: ScheduledVehicleType ,
+    driverVehicleType: AnyVehicleType ,
   ): Promise<AvailabilityDay[]> {
     const stored: AvailabilityDay[] = [];
     for (const day of days) {
@@ -533,12 +585,17 @@ export class AvailabilityService {
    */
   private assertValidTimeSlots(day: DayOfWeek, slots: { startTime: string }[]): void {
     for (const slot of slots) {
-      const slotDate = new Date(slot.startTime);
-      if (isNaN(slotDate.getTime())) {
+      // `nepalWallClockOfSlot` interprets the frontend's slot start time using
+      // Nepal wall-clock semantics — naive values are already Nepal time (no
+      // extra +5:45 shift), offset/Z values are converted once. Without this,
+      // a late-day Nepal slot was shifted across midnight and its weekday no
+      // longer matched the availability day.
+      const slotDate = nepalWallClockOfSlot(slot.startTime);
+      if (!slotDate) {
         ErrorException(null, "AVAILABILITY.TIME_SLOT_INVALID", HttpStatus.BAD_REQUEST);
       }
       assertEditableDate(utcStartOfDay(slotDate));
-      if (dayOfWeekFromDate(slotDate) !== day) {
+      if (dayFromWallClock(slotDate) !== day) {
         ErrorException(null, "AVAILABILITY.TIME_SLOT_DAY_MISMATCH", HttpStatus.BAD_REQUEST);
       }
     }
@@ -553,7 +610,7 @@ export class AvailabilityService {
    */
   private async resolveDayAmount(
     day: AvailabilityDayLike,
-    driverVehicleType: ScheduledVehicleType ,
+    driverVehicleType: AnyVehicleType ,
   ): Promise<number> {
     const useSystemFare = day.useSystemFare ?? true;
     if (!useSystemFare) {
@@ -572,7 +629,7 @@ export class AvailabilityService {
    * amount = (basePickupCost + perKm * distanceKm + perMinute * durationMinutes) * multiplier
    */
   private async calculateSystemFare(
-    vehicle: ScheduledVehicleType ,
+    vehicle: AnyVehicleType ,
     pickup?: SavedLocation | null,
     dropoff?: SavedLocation | null,
   ): Promise<number> {
@@ -612,7 +669,7 @@ export class AvailabilityService {
   private async getBaatoRoute(
     pickup: SavedLocation,
     dropoff: SavedLocation,
-    vehicle: ScheduledVehicleType,
+    vehicle: AnyVehicleType,
   ): Promise<{ distanceKm: number; durationMinutes: number }> {
     const apiKey = this.envService.getBaatoApiKey();
     const baseUrl = this.envService.getBaatoApiUrl();
@@ -630,7 +687,7 @@ export class AvailabilityService {
             `${pickup.latitude},${pickup.longitude}`,
             `${dropoff.latitude},${dropoff.longitude}`,
           ],
-          mode: vehicle === ScheduledVehicleType.CAR ? "car" : "car",
+          mode: vehicle === AnyVehicleType.CAR ? "car" : "car",
         },
       });
       const route = response.data?.data?.[0];
@@ -673,13 +730,13 @@ export class AvailabilityService {
   /** Looks up the driver's registered vehicle type (CAR / JEEP / MICRO). */
   private async getDriverVehicleType(
     driverId: string | Types.ObjectId,
-  ): Promise<ScheduledVehicleType > {
+  ): Promise<AnyVehicleType > {
     const vehicle = await this.vehicleRepository.findOne({
       driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
       deleted: false,
     });
-     return (vehicle?.vehicleType as ScheduledVehicleType) ??
-    ScheduledVehicleType.CAR;
+     return (vehicle?.vehicleType as AnyVehicleType) ??
+    AnyVehicleType.CAR;
   }
 
   /** Great-circle distance between two coordinates in kilometres (haversine). */
