@@ -91,7 +91,7 @@ export class Issue {
 
 export const IssueSchema = SchemaFactory.createForClass(Issue);
 
-IssueSchema.pre("save", function (next) {
+IssueSchema.pre("validate", function (next) {
   if (!this.displayId) {
     this.displayId = generateIssueId();
   }
