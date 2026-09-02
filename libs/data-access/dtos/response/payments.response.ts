@@ -94,9 +94,6 @@ export class TopupWithdrawalResponse {
 
   @Field(() => Float, { nullable: true })
   netFlowPercentChange?: number;
-
-  @Field(() => [ChartPoint], { nullable: true })
-  netFlowTrend?: ChartPoint[];
 }
 
 @ObjectType()

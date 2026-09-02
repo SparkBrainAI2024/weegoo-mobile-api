@@ -17,7 +17,11 @@ import {
 } from "../enums/payment.enum";
 import { RideStatus } from "../enums/rides.enum";
 import { toMongoId } from "@libs/common";
-import { buildDateBuckets } from "@libs/common/utils/payments-date-range.util";
+import {
+  buildDateBuckets,
+  Granularity,
+} from "@libs/common/utils/payments-date-range.util";
+import { ChartPoint } from "../dtos/response/payments.response";
 
 export interface CreateTransactionDto {
   // TODOwalletId: string;
@@ -450,7 +454,26 @@ export class TransactionRepository {
     ]);
     return result[0]?.total ?? 0;
   }
+  async sumByTypeWithDate(
+    type: TransactionType,
+    direction: TransactionDirection | null,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    const match: any = {
+      type,
+      status: TransactionStatus.COMPLETED,
+      deleted: { $ne: true },
+      createdAt: { $gte: start, $lte: end },
+    };
+    if (direction) match.direction = direction;
 
+    const result = await this.model.aggregate([
+      { $match: match },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
   async countInRange(): Promise<number> {
     return this.model.countDocuments({
       deleted: { $ne: true },
@@ -551,6 +574,42 @@ export class TransactionRepository {
     ]);
   }
 
+  async getNetFlowTrendWithDate(
+    start: Date,
+    end: Date,
+    granularity: Granularity,
+    keys: string[],
+  ): Promise<ChartPoint[]> {
+    const dateFormat = granularity === "day" ? "%Y-%m-%d" : "%Y-%m";
+
+    const results = await this.model.aggregate([
+      {
+        $match: {
+          type: { $in: [TransactionType.TOPUP, TransactionType.WITHDRAWAL] },
+          status: TransactionStatus.COMPLETED,
+          deleted: { $ne: true },
+          createdAt: { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          net: {
+            $sum: {
+              $cond: [
+                { $eq: ["$direction", TransactionDirection.CREDIT] },
+                "$amount",
+                { $multiply: ["$amount", -1] },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const map = new Map(results.map((r) => [r._id, r.net]));
+    return keys.map((key) => ({ date: key, amount: map.get(key) ?? 0 }));
+  }
   async getPendingWithdrawalRows(limit = 10): Promise<any[]> {
     return this.model.aggregate([
       {

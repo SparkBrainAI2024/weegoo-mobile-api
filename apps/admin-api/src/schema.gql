@@ -1533,7 +1533,6 @@ type TopupWithdrawalResponse {
   totalWithdrawals: StatCard!
   netFlow: Float!
   netFlowPercentChange: Float
-  netFlowTrend: [ChartPoint!]
 }
 
 type TransactionUserInfo {

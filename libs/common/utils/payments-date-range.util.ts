@@ -146,3 +146,13 @@ export function calcPercentChange(current: number, previous: number): number {
   if (!previous) return current > 0 ? 100 : 0;
   return Number((((current - previous) / previous) * 100).toFixed(1));
 }
+
+export function getPreviousPeriod(
+  start: Date,
+  end: Date,
+): { start: Date; end: Date } {
+  const durationMs = end.getTime() - start.getTime();
+  const prevEnd = new Date(start.getTime() - 1); // 1ms before current start
+  const prevStart = new Date(prevEnd.getTime() - durationMs);
+  return { start: prevStart, end: prevEnd };
+}

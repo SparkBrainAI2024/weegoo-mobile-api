@@ -22,6 +22,7 @@ import {
   resolveDateRange,
   calcPercentChange,
   buildDateBuckets,
+  getPreviousPeriod,
 } from "../../../../common/utils/payments-date-range.util";
 import { TimeRangeFilter } from "@libs/data-access";
 
@@ -107,25 +108,41 @@ export class PaymentsService {
   async getTopupVsWithdrawals(
     input: PaymentsOverviewInput,
   ): Promise<TopupWithdrawalResponse> {
+    const { start, end, granularity, keys } = buildDateBuckets(input.period);
+    const { start: prevStart, end: prevEnd } = getPreviousPeriod(start, end);
+
     const [topups, prevTopups, withdrawals, prevWithdrawals, trend] =
       await Promise.all([
-        this.transactionRepository.sumByType(
+        this.transactionRepository.sumByTypeWithDate(
           TransactionType.TOPUP,
           TransactionDirection.CREDIT,
+          start,
+          end,
         ),
-        this.transactionRepository.sumByType(
+        this.transactionRepository.sumByTypeWithDate(
           TransactionType.TOPUP,
           TransactionDirection.CREDIT,
+          prevStart,
+          prevEnd,
         ),
-        this.transactionRepository.sumByType(
+        this.transactionRepository.sumByTypeWithDate(
           TransactionType.WITHDRAWAL,
           TransactionDirection.DEBIT,
+          start,
+          end,
         ),
-        this.transactionRepository.sumByType(
+        this.transactionRepository.sumByTypeWithDate(
           TransactionType.WITHDRAWAL,
           TransactionDirection.DEBIT,
+          prevStart,
+          prevEnd,
         ),
-        this.transactionRepository.getNetFlowTrend(),
+        this.transactionRepository.getNetFlowTrendWithDate(
+          start,
+          end,
+          granularity,
+          keys,
+        ),
       ]);
 
     const netFlow = topups - withdrawals;
