@@ -309,6 +309,7 @@ export class DriverAcceptedDetailsGraphQL {
 
   rating?: number;
 
+  @Field(() => String, { nullable: true })
   phone?: string;
 
 

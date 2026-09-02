@@ -151,6 +151,23 @@ enum PaymentStatusEnum {
   FAILED
 }
 
+type RideScheduleTimeSlot {
+  startTime: String
+}
+
+type RideSchedule {
+  bookingType: String
+  bookingTime: DateTime
+  noOfPassengers: Int
+  vehicleType: String
+  bookingDate: DateTime
+  day: String
+  isFlexible: Boolean
+  pickupBufferTimeMinutes: Int
+  timeSlots: [RideScheduleTimeSlot!]
+  availabilityDayId: String
+}
+
 type VehicleImage {
   s3Key: String!
   status: ImageStatus!
@@ -164,19 +181,31 @@ type Vehicle {
   deletedAt: DateTime
   deleted: Boolean
   driverId: String!
-  vehicleType: VehicleType!
+  vehicleType: AnyVehicleType!
   name: String!
   vehicleModel: String!
   year: Int!
   color: String!
   numberPlate: String!
   images: [VehicleImage!]!
+  vehicleModelType: VehicleModelType
+  isAcType: Boolean!
 }
 
-enum VehicleType {
+"""
+Any vehicle type: on-demand (CAR, MOTORBIKE, SCOOTER) or scheduled (JEEP, MICRO, CAR).
+"""
+enum AnyVehicleType {
+  JEEP
+  MICRO
   CAR
   MOTORBIKE
   SCOOTER
+}
+
+enum VehicleModelType {
+  EV
+  PETROL
 }
 
 type CancellationDetail {
@@ -218,6 +247,7 @@ type Rides {
   deleted: Boolean
   rideType: RideTypes!
   bookingTime: DateTime!
+  schedule: RideSchedule
   rideStatus: RideStatus!
   passengerId: String!
   driverId: String
@@ -278,6 +308,9 @@ enum RideStatus {
   """Ride is cancelled"""
   CANCELLED
   PENDING
+
+  """Scheduled ride requested and awaiting driver booking/payment"""
+  BOOKING
 }
 
 type DocumentFile {
@@ -347,7 +380,7 @@ type Favourites {
   rideId: String!
   pickupLocation: RideLocation
   dropoffLocation: RideLocation
-  vehicleType: VehicleType!
+  vehicleType: String!
   noOfPassengers: Float!
   estimatedFare: Float!
 }
@@ -651,6 +684,12 @@ type AdminRidePricing {
   amountPerMinute: Float!
 }
 
+enum VehicleType {
+  CAR
+  MOTORBIKE
+  SCOOTER
+}
+
 type MaintenanceInfo {
   _id: String!
   createdAt: DateTime
@@ -658,6 +697,46 @@ type MaintenanceInfo {
   deletedAt: DateTime
   deleted: Boolean
   message: String!
+}
+
+type AvailabilityTimeSlot {
+  startTime: String!
+}
+
+type AvailabilityDay {
+  day: DayOfWeek!
+  date: DateTime!
+  vehicleType: ScheduledVehicleType!
+  isAvailableForBookings: Boolean!
+  isOneWay: Boolean!
+  availableSeats: Float!
+  useSystemFare: Boolean!
+  amount: Float!
+  timeSlots: [AvailabilityTimeSlot!]!
+  majorStops: [String!]!
+  pickupBufferTimeMinutes: Float!
+  pickupLocation: SavedLocation
+  dropOffLocation: SavedLocation
+  notes: String
+}
+
+"""
+Days of the week a driver can set availability for (Sunday to Saturday)
+"""
+enum DayOfWeek {
+  SUNDAY
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+enum ScheduledVehicleType {
+  JEEP
+  MICRO
+  CAR
 }
 
 type NotificationSettings {
@@ -902,9 +981,48 @@ type AcceptedDetailsResponse {
   acceptedAt: String
   ablyChannelId: String
   driverLocationChannel: String
+  availability: ScheduledDriverAvailabilityInfo
+}
+
+type ScheduledDriverAvailabilityInfo {
+  day: String
+  date: String
+  vehicleType: String
+  amount: Float
+  isAvailableForBookings: Boolean
+  availableSeats: Int
+  remainingSeats: Int
+  timeSlots: [String!]
+  matchesTimeSlot: Boolean
+  totalTrips: Int
+  pickupLocation: PickupDropoffLocationInfo
+  dropOffLocation: PickupDropoffLocationInfo
+  notes: String
+  majorStops: [String!]
+}
+
+type ScheduledAvailableDriverInfo {
+  driverId: String
+  driverName: String
+  driverImage: String
+  driverEmail: String
+  phone: String
+  rating: Float
+  vehicleId: String
+  vehicleName: String
+  vehicleType: String
+  vehicleModel: String
+  isAcType: Boolean
+  vehicleModelType: String
+  color: String
+  numberPlate: String
+  vehicleImage: String
+  amount: Float
+  availability: ScheduledDriverAvailabilityInfo
 }
 
 type EstimatedFareBreakdownResponse {
+  baseFare: Float
   pickupCost: Float
   distanceCost: Float
   durationCost: Float
@@ -915,11 +1033,6 @@ type FareBreakdownGraphQL {
   pickupCost: Float!
   distanceCost: Float!
   durationCost: Float!
-  total: Float!
-}
-
-type ScheduledFareBreakdownGraphQL {
-  baseFare: Float!
   total: Float!
 }
 
@@ -941,6 +1054,29 @@ type PickupLocationGraphQL {
   city: String
 }
 
+type ScheduledAvailabilityLocationGraphQL {
+  address: String
+  latitude: Float
+  longitude: Float
+}
+
+type ScheduledDriverAvailabilityGraphQL {
+  day: String!
+  date: String!
+  vehicleType: String!
+  amount: Float!
+  isAvailableForBookings: Boolean!
+  availableSeats: Int!
+  remainingSeats: Int
+  timeSlots: [String!]!
+  pickupLocation: ScheduledAvailabilityLocationGraphQL
+  dropOffLocation: ScheduledAvailabilityLocationGraphQL
+  matchesTimeSlot: Boolean!
+  totalTrips: Int!
+  notes: String
+  majorStops: [String!]
+}
+
 type DropoffLocationGraphQL {
   address: String!
   coordinates: [Float!]!
@@ -953,6 +1089,7 @@ type DriverAcceptedDetailsGraphQL {
   driverId: String!
   driverName: String
   driverImage: String
+  vehicleImage: String
   rating: Float
   phone: String
   vehicleType: String
@@ -966,6 +1103,29 @@ type DriverAcceptedDetailsGraphQL {
   dropoffLocation: DropoffLocationGraphQL
   ablyChannelId: String
   acceptedAt: String
+  bookingTime: String
+  noOfPassengers: Int
+  availability: ScheduledDriverAvailabilityGraphQL
+}
+
+type ScheduledAvailableDriverGraphQL {
+  driverId: String!
+  driverName: String!
+  driverImage: String
+  driverEmail: String
+  vehicleImage: String
+  phone: String
+  rating: Float
+  amount: Float
+  vehicleType: String
+  vehicleModel: String
+  color: String
+  numberPlate: String
+  vehicleName: String
+  isAcType: Boolean
+  vehicleModelType: String
+  availability: ScheduledDriverAvailabilityGraphQL
+  estimatedFare: Float
 }
 
 type RideWithoutRelations {
@@ -976,6 +1136,7 @@ type RideWithoutRelations {
   deleted: Boolean
   rideType: RideTypes!
   bookingTime: DateTime!
+  schedule: RideSchedule
   rideStatus: RideStatus!
   passengerId: String!
   driverId: String
@@ -2039,6 +2200,7 @@ input CreateNotificationInput {
   driverSnapshot: RideUserInputSnapshot
   noOfPassengers: Float
   rideUUId: String
+  silent: Boolean
 }
 
 input NotificationLocationInput {
@@ -2070,7 +2232,7 @@ input SubmitDocumentForReviewInput {
 
 input RegisterVehicleInput {
   """Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER."""
-  vehicleType: VehicleType!
+  vehicleType: AnyVehicleType!
 
   """Vehicle model name, for example: Honda City."""
   vehicleModel: String!
@@ -2088,13 +2250,8 @@ input RegisterVehicleInput {
   imageS3Key: String!
 
   """Vehicle model Type type: EV or PETROL."""
-  vehicleModelType: VechileModelType
+  vehicleModelType: VehicleModelType
   name: String!
-}
-
-enum VechileModelType {
-  EV
-  PETROL
 }
 
 input EditVehicleInput {
@@ -2117,7 +2274,7 @@ input EditVehicleInput {
   color: String
 
   """Vehicle model Type type: EV or PETROL."""
-  vehicleModelType: VechileModelType
+  vehicleModelType: VehicleModelType
   name: String!
 }
 
