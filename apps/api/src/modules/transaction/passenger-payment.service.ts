@@ -366,17 +366,37 @@ export class PassengerPaymentService {
         // ── Decrement seats on the booked availability day ─────────
         // Match the exact stored day by its concrete date and reduce the
         // available seat count by the number of passengers booked.
-        await this.availabilityModel.updateOne(
+        //
+        // `$elemMatch` binds BOTH the date and the remaining-seat guard to the
+        // SAME day element, so we only decrement the specific day being booked
+        // and never drive its seats below the requested passenger count. This
+        // is atomic with respect to concurrent bookings (no overselling).
+        const seatBooking = ride.noOfPassengers || 1;
+        const seatsDecrement = await this.availabilityModel.updateOne(
             {
                 driverId: new Types.ObjectId(driverId),
                 deleted: false,
-                'days.date': day.date,
+                days: {
+                    $elemMatch: {
+                        date: day.date,
+                        availableSeats: { $gte: seatBooking },
+                    },
+                },
             },
             {
-                $inc: { 'days.$.availableSeats': -(ride.noOfPassengers || 1) },
+                $inc: { 'days.$.availableSeats': -seatBooking },
             },
             { session },
         );
+
+        // If the atomic update changed nothing, the day no longer has enough
+        // remaining seats (e.g. another passenger booked concurrently after our
+        // earlier capacity check) => roll the whole booking back via the error.
+        if (seatsDecrement.modifiedCount === 0) {
+            throw new BadRequestException(
+                `Not enough available seats on the driver's availability day`,
+            );
+        }
     }
 
     private async getSession(useTransactions: boolean): Promise<any> {

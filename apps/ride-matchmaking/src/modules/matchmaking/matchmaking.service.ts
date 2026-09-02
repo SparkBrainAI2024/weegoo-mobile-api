@@ -34,7 +34,6 @@ import { DynamicPricingService } from './services/dynamic-pricing.service';
 import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
-import { canAccommodateParty, getRemainingSeats } from './seat-calculator.util';
 
 // ─── Scheduled availability helpers ─────────────────────────────────────────
 /** Nepal standard time offset is UTC+5:45 (no DST). */
@@ -587,47 +586,6 @@ export class MatchmakingService {
     };
   }
 
-  /**
-   * Count passengers already booked (CONFIRMED/ONGOING/PICKUP) on a given
-   * driver-day. Used by the SCHEDULED shared-ride matcher (and the accept
-   * guard) so a driver can carry multiple passengers up to their seat capacity
-   * without overselling it.
-   *
-   * Returns a map of driverId (hex string) -> booked passenger count.
-   */
-  private async getBookedSeatsByDriver(
-    driverIds: Types.ObjectId[],
-    bookingDate: Date,
-  ): Promise<Map<string, number>> {
-    if (!driverIds.length) return new Map();
-    const rows = await this.ridesModel
-      .aggregate([
-        {
-          $match: {
-            driverId: { $in: driverIds },
-            rideType: RideTypes.SCHEDULED,
-            deleted: false,
-            rideStatus: {
-              $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP],
-            },
-            'schedule.bookingDate': bookingDate,
-          },
-        },
-        {
-          $group: {
-            _id: '$driverId',
-            bookedSeats: { $sum: { $ifNull: ['$noOfPassengers', 1] } },
-          },
-        },
-      ])
-      .exec();
-    const map = new Map<string, number>();
-    for (const row of rows) {
-      if (row?._id) map.set(row._id.toString(), row.bookedSeats || 0);
-    }
-    return map;
-  }
-
   private async findAvailableScheduledDrivers(
     pickupLat: number,
     pickupLng: number,
@@ -671,18 +629,17 @@ export class MatchmakingService {
       if (a.driverId) availabilityMap.set(a.driverId.toString(), a);
     }
 
-    // SCHEDULED rides are shared: multiple passengers may book the same driver
-    // up to the driver's seat capacity for the day. Count seats already
-    // CONFIRMED/IN-PROGRESS on the requested driver-day so we only offer a
-    // driver while seats remain (and report the remaining count).
-    const bookingReference = bookingTime || new Date();
-    const bookingDate = utcStartOfDay(bookingReference);
-    const bookedSeatsByDriver = await this.getBookedSeatsByDriver(driverIds, bookingDate);
+    // SCHEDULED rides are shared: `day.availableSeats` is a LIVING REMAINING
+    // counter — it is atomically decremented by bookScheduledRide when a seat
+    // is booked, so it already reflects confirmed bookings. Do NOT subtract
+    // confirmed-ride passengers again here (that would double-subtract).
 
     // Get ALL rides of the candidate drivers on the requested day at/before the
     // booking time. A driver whose ride starts within `pickupBufferTimeMinutes`
     // BEFORE the requested booking time cannot take another booking in that
     // window, so its availability is filtered out below.
+    const bookingReference = bookingTime || new Date();
+    const bookingDate = utcStartOfDay(bookingReference);
     const dayRides = await this.ridesModel
       .find({
         driverId: { $in: driverIds },
@@ -733,11 +690,11 @@ export class MatchmakingService {
       if (!resolvedDay) continue;
       const day = resolvedDay.day;
 
-      // Shared seat capacity: offer this driver only while seats remain on the
-      // requested day for this passenger party (multiple passengers may share).
-      const bookedSeats = bookedSeatsByDriver.get(driver._id.toString()) || 0;
-      const remainingSeats = getRemainingSeats(resolvedDay.effectiveSeats, bookedSeats);
-      if (!canAccommodateParty(resolvedDay.effectiveSeats, bookedSeats, noOfPassengers)) {
+      // Shared seat capacity: `day.availableSeats` is the living remaining
+      // counter (decremented on each successful booking), so remaining seats
+      // for this driver-day ARE the day's availableSeats.
+      const remainingSeats = resolvedDay.effectiveSeats;
+      if (remainingSeats < noOfPassengers) {
         continue;
       }
 
@@ -927,22 +884,13 @@ export class MatchmakingService {
               )
             : null;
           if (resolvedSchedDay) {
-            const acceptedBookingDate = utcStartOfDay(ride.bookingTime);
-            const acceptedBookedMap = await this.getBookedSeatsByDriver(
-              [new Types.ObjectId(driverId)],
-              acceptedBookingDate,
-            );
-            const acceptedBooked = acceptedBookedMap.get(driverId) || 0;
-            if (
-              !canAccommodateParty(
-                resolvedSchedDay.effectiveSeats,
-                acceptedBooked,
-                noOfPassengersForAccept,
-              )
-            ) {
+            // `day.availableSeats` is the living remaining counter (decremented
+            // atomically on each successful booking), so the accept guard just
+            // needs the day to still hold this passenger's party.
+            if (resolvedSchedDay.effectiveSeats < noOfPassengersForAccept) {
               this.logger.warn(
                 `Driver ${driverId} has no remaining seats for scheduled ride ${ride.rideUUId} ` +
-                  `(capacity ${resolvedSchedDay.effectiveSeats}, booked ${acceptedBooked}, party ${noOfPassengersForAccept})`,
+                  `(remaining ${resolvedSchedDay.effectiveSeats}, party ${noOfPassengersForAccept})`,
               );
               return {
                 success: false,
