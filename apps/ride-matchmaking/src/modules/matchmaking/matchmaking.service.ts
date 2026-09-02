@@ -177,6 +177,7 @@ export class MatchmakingService {
       driverName: d.fullName,
       driverImage: d.profileImage || null,
       driverEmail: d.email || null,
+      vehicleImage: d.vehicleImage || null,
       phone: d.phone,
       rating: d.rating,
       distanceToPickupKm: d.distanceToPickupKm,
@@ -200,6 +201,7 @@ export class MatchmakingService {
     const bookingDateLabel = ride.bookingTime
       ? new Date(ride.bookingTime).toLocaleDateString()
       : 'the requested day';
+
     return {
       matched: availableDrivers.length > 0,
       rideId,
@@ -558,6 +560,7 @@ export class MatchmakingService {
     day: AvailabilityDay,
     effectiveSeats: number,
     remainingSeats?: number,
+    totalTrips?: number,
   ): NonNullable<DriverScore['scheduledAvailability']> {
     return {
       day: day.day,
@@ -569,6 +572,11 @@ export class MatchmakingService {
       remainingSeats:
         remainingSeats != null ? Math.max(0, Math.floor(remainingSeats)) : undefined,
       timeSlots: (day.timeSlots || []).map((s) => formatSlot(s.startTime)).filter(Boolean),
+      // Completed trips of this available driver — lives on the availability day so the
+      // client can show the driver's lifetime trip count for the matched option.
+      totalTrips: totalTrips ?? 0,
+      notes: day.notes ?? null,
+      majorStops: day.majorStops || [],
       pickupLocation: day.pickupLocation
         ? { address: day.pickupLocation.address || '', latitude: day.pickupLocation.latitude, longitude: day.pickupLocation.longitude }
         : null,
@@ -760,7 +768,7 @@ export class MatchmakingService {
           pickupLat, pickupLng, dayPickup.latitude, dayPickup.longitude, (day.vehicleType as string || v.vehicleType || 'CAR').toLowerCase(),
         );
         const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
-        drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', email: driver.email || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleName: v.name || '', vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, isAcType: v.isAcType ?? (v.vehicleType as string) === 'CAR', vehicleModelType: v.vehicleModelType || null, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day, resolvedDay.effectiveSeats, remainingSeats) });
+        drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', email: driver.email || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleName: v.name || '', vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, isAcType: v.isAcType ?? (v.vehicleType as string) === 'CAR', vehicleModelType: v.vehicleModelType || null, vehicleImage: v.images?.length ? this.s3.getPublicUrl(v.images.find((img) => img.status === 'ACTIVE')?.s3Key || v.images[0].s3Key) : null, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day, resolvedDay.effectiveSeats, remainingSeats, completedTripsCount) });
       } catch (err) {
         this.logger.warn(`Failed to compute pickup distance for driver ${driver._id}: ${err}`);
       }

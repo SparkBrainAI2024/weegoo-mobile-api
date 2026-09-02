@@ -192,11 +192,21 @@ export class ScheduledDriverAvailabilityInfo {
   @Field(() => Boolean, { nullable: true })
   matchesTimeSlot?: boolean;
 
+  /** Completed trips of the available driver on this availability day. */
+  @Field(() => Int, { nullable: true })
+  totalTrips?: number;
+
   @Field(() => PickupDropoffLocationInfo, { nullable: true })
   pickupLocation?: PickupDropoffLocationInfo;
 
   @Field(() => PickupDropoffLocationInfo, { nullable: true })
   dropOffLocation?: PickupDropoffLocationInfo;
+
+  @Field({ nullable: true })
+  notes?: string;
+
+  @Field(() => [String], { nullable: true })
+  majorStops?: string[];
 }
 
 @ObjectType()
@@ -243,8 +253,8 @@ export class ScheduledAvailableDriverInfo {
   @Field(() => String, { nullable: true })
   numberPlate?: string;
 
-  @Field(() => Float, { nullable: true })
-  estimatedFare?: number;
+  @Field(() => String, { nullable: true })
+  vehicleImage?: string;
 
   /** Amount configured on the driver's availability day for the requested day. */
   @Field(() => Float, { nullable: true })

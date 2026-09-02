@@ -7,6 +7,7 @@ export interface DriverScore {
   phone: string;
   email?: string;
   profileImage?: string;
+  vehicleImage?: string | null;
   vehicleId: string;
   /** Vehicle commercial name (e.g. "Hiace", "Quick Rider"). */
   vehicleName?: string;
@@ -40,6 +41,12 @@ export interface DriverScore {
     pickupLocation?: { address: string; latitude?: number | null; longitude?: number | null } | null;
     dropOffLocation?: { address: string; latitude?: number | null; longitude?: number | null } | null;
     matchesTimeSlot: boolean;
+    /** Additional notes from the driver for this day. */
+    notes?: string | null;
+    /** Major stops along the driver's route for this day. */
+    majorStops?: string[];
+    /** Completed trips of the available driver on this availability day. */
+    totalTrips?: number;
   };
 }
 

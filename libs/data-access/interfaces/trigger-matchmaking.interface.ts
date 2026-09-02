@@ -66,6 +66,12 @@ export interface ScheduledAvailabilityInterface {
   pickupLocation?: { address?: string; latitude?: number | null; longitude?: number | null };
   dropOffLocation?: { address?: string; latitude?: number | null; longitude?: number | null };
   matchesTimeSlot?: boolean;
+  /** Completed trips of the available driver on this availability day. */
+  totalTrips?: number;
+  /** Additional notes from the driver for the day. */
+  notes?: string | null;
+  /** Major stops along the driver's route for the day. */
+  majorStops?: string[];
 }
 
 /** One available scheduled ride option returned by the booking listing flow. */
@@ -76,6 +82,7 @@ export interface AvailableScheduledDriverInterface {
   driverEmail?: string | null;
   phone?: string;
   rating?: number;
+  vehicleImage?: string | null;
   vehicleId?: string;
   vehicleName?: string | null;
   vehicleType?: string;

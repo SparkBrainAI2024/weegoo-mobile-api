@@ -55,11 +55,11 @@ export class MatchmakingIntegrationService {
         message
         ablyChannelId
         availableDrivers {
-          driverId driverName driverImage driverEmail phone rating amount
+          driverId driverName driverImage driverEmail vehicleImage phone rating amount
           vehicleName vehicleType vehicleModel isAcType vehicleModelType color numberPlate
           estimatedFare
           availability {
-            day date vehicleType amount isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot
+            day date vehicleType amount isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot totalTrips notes majorStops
             pickupLocation { address latitude longitude }
             dropOffLocation { address latitude longitude }
           }
