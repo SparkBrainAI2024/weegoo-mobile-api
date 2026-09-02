@@ -63,9 +63,21 @@ export class HealthController {
           job: jobName,
           result: await this.cronService.handleExpiredAvailabilityCleanup(),
         };
+      case 'deleteExpiredBookingScheduleRequests':
+        return {
+          success: true,
+          job: jobName,
+          result: await this.cronService.deleteExpiredBookingScheduleRequests(),
+        };
+      case 'transitionScheduledRidesToOngoing':
+        return {
+          success: true,
+          job: jobName,
+          result: await this.cronService.transitionScheduledRidesToOngoing(),
+        };
       default:
         throw new BadRequestException(
-          `Unknown cron job "${jobName}". Supported jobs: cleanupStaleOfflineDrivers, handleMidnightCleanup, handleExpiredAvailabilityCleanup`,
+          `Unknown cron job "${jobName}". Supported jobs: cleanupStaleOfflineDrivers, handleMidnightCleanup, handleExpiredAvailabilityCleanup, deleteExpiredBookingScheduleRequests, transitionScheduledRidesToOngoing`,
         );
     }
   }

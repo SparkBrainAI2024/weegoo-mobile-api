@@ -84,6 +84,75 @@ export class PassengerPaymentService {
         return 2 * R * Math.asin(Math.sqrt(a));
     }
 
+    /**
+     * Road distance & duration between two coordinates via the Baato routing
+     * API (same service used by matchmaking's DistanceCalculatorService).
+     * Falls back to the haversine estimate only when Baato is not configured
+     * or the request fails.
+     */
+    private async getBaatoRoute(
+        originLat: number,
+        originLng: number,
+        destLat: number,
+        destLng: number,
+    ): Promise<{ distanceKm: number; durationMinutes: number }> {
+        const apiKey = this.envService.getBaatoApiKey();
+        const baseUrl = this.envService.getBaatoApiUrl();
+
+        if (!apiKey || !baseUrl) {
+            this.logger.warn('Baato API not configured. Using haversine fallback.');
+            return this.haversineEstimate(originLat, originLng, destLat, destLng);
+        }
+
+        try {
+            const params = new URLSearchParams();
+            params.append('key', apiKey);
+            params.append('points[]', `${originLat},${originLng}`);
+            params.append('points[]', `${destLat},${destLng}`);
+            params.append('mode', 'car');
+
+            const response = await axios.get(`${baseUrl}/directions`, { params });
+            const route = response.data?.data?.[0];
+            if (route && route.distanceInMeters != null) {
+                const distanceKm = Number((route.distanceInMeters / 1000).toFixed(2));
+                // Baato time is in ms; fall back to the speed estimate when absent.
+                const durationMinutes = route.timeInMs != null
+                    ? Math.max(1, Math.ceil(route.timeInMs / 1000 / 60))
+                    : this.estimateDurationMinutes(distanceKm);
+                return { distanceKm, durationMinutes };
+            }
+
+            this.logger.warn(
+                `Baato returned no routes (${originLat},${originLng} → ${destLat},${destLng}). Using haversine fallback.`,
+            );
+            return this.haversineEstimate(originLat, originLng, destLat, destLng);
+        } catch (error: any) {
+            const detail = error?.response?.data
+                ? JSON.stringify(error.response.data)
+                : error?.message;
+            this.logger.error(`Baato API error: ${detail}. Using haversine fallback.`);
+            return this.haversineEstimate(originLat, originLng, destLat, destLng);
+        }
+    }
+
+    /** Haversine distance/duration fallback when Baato is unavailable. */
+    private haversineEstimate(
+        originLat: number,
+        originLng: number,
+        destLat: number,
+        destLng: number,
+    ): { distanceKm: number; durationMinutes: number } {
+        const distanceKm = Number(
+            this.haversineKm(originLat, originLng, destLat, destLng).toFixed(2),
+        );
+        return { distanceKm, durationMinutes: this.estimateDurationMinutes(distanceKm) };
+    }
+
+    /** Average urban speed ~30 km/h; minimum 5 minutes. */
+    private estimateDurationMinutes(distanceKm: number): number {
+        return Math.max(5, Math.ceil((distanceKm / 30) * 60));
+    }
+
     private utcStartOfDay(d: Date): Date {
         const x = new Date(d);
         x.setUTCHours(0, 0, 0, 0);
@@ -201,16 +270,21 @@ export class PassengerPaymentService {
         }
 
         // ── Distance / ETA from ride pickup to the availability-day pickup ──
+        // Road route via the Baato routing API (haversine fallback when
+        // Baato is unavailable).
         const rideCoords = ride.pickupLocation?.coordinates;
         const dayPickup = day.pickupLocation;
         let distanceInKm = 0;
         let estimatedTimeInMinutes = 0;
         if (rideCoords?.length === 2 && dayPickup?.latitude != null && dayPickup?.longitude != null) {
-            distanceInKm = Number(
-                this.haversineKm(rideCoords[1], rideCoords[0], dayPickup.latitude, dayPickup.longitude).toFixed(2),
+            const route = await this.getBaatoRoute(
+                rideCoords[1],
+                rideCoords[0],
+                dayPickup.latitude,
+                dayPickup.longitude,
             );
-            // Average urban speed ~30 km/h; minimum 5 minutes.
-            estimatedTimeInMinutes = Math.max(5, Math.ceil((distanceInKm / 30) * 60));
+            distanceInKm = route.distanceKm;
+            estimatedTimeInMinutes = route.durationMinutes;
         }
 
         const commissionRate = 0.2;
@@ -291,7 +365,7 @@ export class PassengerPaymentService {
             rideUUId: ride.rideUUId,
             paymentMethod: PaymentMethodEnum.WALLET,
             fareBreakdown: {
-                baseFare: amount,
+                baseFare: 0,
                 distanceCharge: 0,
                 discount: 0,
                 subTotal: amount,
@@ -366,17 +440,37 @@ export class PassengerPaymentService {
         // ── Decrement seats on the booked availability day ─────────
         // Match the exact stored day by its concrete date and reduce the
         // available seat count by the number of passengers booked.
-        await this.availabilityModel.updateOne(
+        //
+        // `$elemMatch` binds BOTH the date and the remaining-seat guard to the
+        // SAME day element, so we only decrement the specific day being booked
+        // and never drive its seats below the requested passenger count. This
+        // is atomic with respect to concurrent bookings (no overselling).
+        const seatBooking = ride.noOfPassengers || 1;
+        const seatsDecrement = await this.availabilityModel.updateOne(
             {
                 driverId: new Types.ObjectId(driverId),
                 deleted: false,
-                'days.date': day.date,
+                days: {
+                    $elemMatch: {
+                        date: day.date,
+                        availableSeats: { $gte: seatBooking },
+                    },
+                },
             },
             {
-                $inc: { 'days.$.availableSeats': -(ride.noOfPassengers || 1) },
+                $inc: { 'days.$.availableSeats': -seatBooking },
             },
             { session },
         );
+
+        // If the atomic update changed nothing, the day no longer has enough
+        // remaining seats (e.g. another passenger booked concurrently after our
+        // earlier capacity check) => roll the whole booking back via the error.
+        if (seatsDecrement.modifiedCount === 0) {
+            throw new BadRequestException(
+                `Not enough available seats on the driver's availability day`,
+            );
+        }
     }
 
     private async getSession(useTransactions: boolean): Promise<any> {

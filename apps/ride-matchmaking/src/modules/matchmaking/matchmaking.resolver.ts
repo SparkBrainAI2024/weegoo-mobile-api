@@ -216,6 +216,7 @@ export class MatchmakingResolver {
             driverName: d.driverName,
             driverImage: d.driverImage || null,
             driverEmail: (d as any).driverEmail || null,
+            vehicleImage: (d as any).vehicleImage || null,
             phone: d.phone,
             rating: d.rating,
             amount: (d.availability as any).amount ?? 0,
@@ -241,6 +242,9 @@ export class MatchmakingResolver {
                   pickupLocation: d.availability.pickupLocation || null,
                   dropOffLocation: d.availability.dropOffLocation || null,
                   matchesTimeSlot: d.availability.matchesTimeSlot,
+                  totalTrips: (d.availability as any).totalTrips ?? 0,
+                  notes: (d.availability as any).notes ?? null,
+                  majorStops: (d.availability as any).majorStops || [],
                 }
               : null,
           }))
