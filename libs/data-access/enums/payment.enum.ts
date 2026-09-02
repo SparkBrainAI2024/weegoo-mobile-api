@@ -1,70 +1,82 @@
 import { registerEnumType } from "@nestjs/graphql";
 
 export enum PaymentMethodEnum {
-    CASH = 'CASH',
-    WALLET = 'WALLET'
+  CASH = "CASH",
+  WALLET = "WALLET",
 }
 registerEnumType(PaymentMethodEnum, {
-    name: 'PaymentMethodEnum',
-    description: 'Payment method for the ride',
-    valuesMap: {
-        CASH: {
-            description: 'Payment method is cash',
-        },
-        WALLET: {
-            description: 'Payment via internal wallet',
-        }
+  name: "PaymentMethodEnum",
+  description: "Payment method for the ride",
+  valuesMap: {
+    CASH: {
+      description: "Payment method is cash",
     },
+    WALLET: {
+      description: "Payment via internal wallet",
+    },
+  },
+});
+
+export enum TimeRangeFilter {
+  LAST_7_DAYS = "LAST_7_DAYS",
+  LAST_MONTH = "LAST_MONTH",
+  LAST_6_MONTHS = "LAST_6_MONTHS",
+  THIS_YEAR = "THIS_YEAR",
+}
+
+registerEnumType(TimeRangeFilter, {
+  name: "TimeRangeFilter",
+  description: "Date-range filter for payment dashboard analytics",
 });
 
 export enum PaymentMediumEnum {
-    ESEWA = 'ESEWA',
-    KHALTI = 'KHALTI',
+  ESEWA = "ESEWA",
+  KHALTI = "KHALTI",
 }
 registerEnumType(PaymentMediumEnum, {
-    name: 'PaymentMediumEnum',
-    description: 'Payment medium/gateway used for the transaction',
-    valuesMap: {
-        ESEWA: {
-            description: 'Payment processed through eSewa gateway',
-        },
-        KHALTI: {
-            description: 'Payment processed through Khalti gateway',
-        },
+  name: "PaymentMediumEnum",
+  description: "Payment medium/gateway used for the transaction",
+  valuesMap: {
+    ESEWA: {
+      description: "Payment processed through eSewa gateway",
     },
+    KHALTI: {
+      description: "Payment processed through Khalti gateway",
+    },
+  },
 });
 
 export enum PaymentStatusEnum {
-    PAID = 'Paid',
-    PENDING = 'Pending',
-    FAILED = 'Failed'
+  PAID = "Paid",
+  PENDING = "Pending",
+  FAILED = "Failed",
 }
 
 registerEnumType(PaymentStatusEnum, {
-    name: 'PaymentStatusEnum',
-    description: 'Status of the payment transaction',
-    valuesMap: {
-        PAID: {
-            description: 'Payment has been completed',
-        },
-        PENDING: {
-            description: 'Payment is pending',
-        },
-        FAILED: {
-            description: 'Payment has failed',
-        }
+  name: "PaymentStatusEnum",
+  description: "Status of the payment transaction",
+  valuesMap: {
+    PAID: {
+      description: "Payment has been completed",
     },
+    PENDING: {
+      description: "Payment is pending",
+    },
+    FAILED: {
+      description: "Payment has failed",
+    },
+  },
 });
 
 registerEnumType(PaymentMediumEnum, {
-    name: 'PaymentMediumEnum',
-    description: 'Payment medium/gateway used for the transaction',
-    valuesMap: {
-        ESEWA: {
-            description: 'Payment processed through eSewa gateway',
-        },
-        KHALTI: {
-            description: 'Payment processed through Khalti gateway',
-        },
+  name: "PaymentMediumEnum",
+  description: "Payment medium/gateway used for the transaction",
+  valuesMap: {
+    ESEWA: {
+      description: "Payment processed through eSewa gateway",
     },
+    KHALTI: {
+      description: "Payment processed through Khalti gateway",
+    },
+  },
 });

@@ -10,9 +10,14 @@ import {
   TransactionStatus,
   TransactionType,
 } from "../enums/transaction.enum";
-import { PaymentMethodEnum, PaymentMediumEnum } from "../enums/payment.enum";
+import {
+  PaymentMethodEnum,
+  PaymentMediumEnum,
+  TimeRangeFilter,
+} from "../enums/payment.enum";
 import { RideStatus } from "../enums/rides.enum";
 import { toMongoId } from "@libs/common";
+import { buildDateBuckets } from "@libs/common/utils/payments-date-range.util";
 
 export interface CreateTransactionDto {
   // TODOwalletId: string;
@@ -431,13 +436,10 @@ export class TransactionRepository {
   async sumByType(
     type: TransactionType,
     direction: TransactionDirection | null,
-    start: Date,
-    end: Date,
   ): Promise<number> {
     const match: any = {
       type,
       status: TransactionStatus.COMPLETED,
-      createdAt: { $gte: start, $lte: end },
       deleted: { $ne: true },
     };
     if (direction) match.direction = direction;
@@ -449,11 +451,40 @@ export class TransactionRepository {
     return result[0]?.total ?? 0;
   }
 
-  async countInRange(start: Date, end: Date): Promise<number> {
+  async countInRange(): Promise<number> {
     return this.model.countDocuments({
-      createdAt: { $gte: start, $lte: end },
       deleted: { $ne: true },
     });
+  }
+
+  async getCommissionOverviewRepo(filter: TimeRangeFilter) {
+    const { start, end, granularity, labels, keys } = buildDateBuckets(filter);
+    const dateFormat = granularity === "day" ? "%Y-%m-%d" : "%Y-%m";
+
+    const results = await this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.COMMISSION,
+          status: TransactionStatus.COMPLETED,
+          createdAt: { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    const map = new Map(results.map((r) => [r._id, r.total]));
+    const dataPoints = keys.map((key, i) => ({
+      date: labels[i],
+      amount: map.get(key) ?? 0,
+    }));
+    const totalCommission = dataPoints.reduce((s, p) => s + p.amount, 0);
+
+    return { totalCommission, dataPoints };
   }
 
   async getCommissionSeries(
@@ -486,16 +517,12 @@ export class TransactionRepository {
     ]);
   }
 
-  async getNetFlowTrend(
-    start: Date,
-    end: Date,
-  ): Promise<{ date: string; amount: number }[]> {
+  async getNetFlowTrend(): Promise<{ date: string; amount: number }[]> {
     return this.model.aggregate([
       {
         $match: {
           type: { $in: [TransactionType.TOPUP, TransactionType.WITHDRAWAL] },
           status: TransactionStatus.COMPLETED,
-          createdAt: { $gte: start, $lte: end },
           deleted: { $ne: true },
         },
       },

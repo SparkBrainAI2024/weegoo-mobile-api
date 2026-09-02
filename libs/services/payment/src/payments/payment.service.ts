@@ -21,7 +21,9 @@ import {
 import {
   resolveDateRange,
   calcPercentChange,
+  buildDateBuckets,
 } from "../../../../common/utils/payments-date-range.util";
+import { TimeRangeFilter } from "@libs/data-access";
 
 @Injectable()
 export class PaymentsService {
@@ -30,31 +32,13 @@ export class PaymentsService {
     private readonly walletRepository: WalletRepository,
   ) {}
 
-  async getPaymentsSummary(
-    input: PaymentsOverviewInput,
-  ): Promise<PaymentsSummaryResponse> {
-    const { start, end, prevStart, prevEnd } = resolveDateRange(
-      input.period,
-      input.startDate,
-      input.endDate,
-    );
-
+  async getPaymentsSummary(): Promise<PaymentsSummaryResponse> {
     const [commission, prevCommission, totalTx, prevTotalTx, balances] =
       await Promise.all([
-        this.transactionRepository.sumByType(
-          TransactionType.COMMISSION,
-          null,
-          start,
-          end,
-        ),
-        this.transactionRepository.sumByType(
-          TransactionType.COMMISSION,
-          null,
-          prevStart,
-          prevEnd,
-        ),
-        this.transactionRepository.countInRange(start, end),
-        this.transactionRepository.countInRange(prevStart, prevEnd),
+        this.transactionRepository.sumByType(TransactionType.COMMISSION, null),
+        this.transactionRepository.sumByType(TransactionType.COMMISSION, null),
+        this.transactionRepository.countInRange(),
+        this.transactionRepository.countInRange(),
         this.walletRepository.getBalancesByRole(),
       ]);
 
@@ -78,36 +62,10 @@ export class PaymentsService {
     };
   }
 
-  async getCommissionOverview(
-    input: PaymentsOverviewInput,
-  ): Promise<CommissionOverviewResponse> {
-    const { start, end, prevStart, prevEnd } = resolveDateRange(
-      input.period,
-      input.startDate,
-      input.endDate,
-    );
-
-    const [series, total, prevTotal] = await Promise.all([
-      this.transactionRepository.getCommissionSeries(start, end),
-      this.transactionRepository.sumByType(
-        TransactionType.COMMISSION,
-        null,
-        start,
-        end,
-      ),
-      this.transactionRepository.sumByType(
-        TransactionType.COMMISSION,
-        null,
-        prevStart,
-        prevEnd,
-      ),
-    ]);
-
-    return {
-      totalCommission: total,
-      percentChange: calcPercentChange(total, prevTotal),
-      series,
-    };
+  async getCommissionOverview(filter: TimeRangeFilter) {
+    const result =
+      await this.transactionRepository.getCommissionOverviewRepo(filter);
+    return result;
   }
 
   async getWalletBalances(): Promise<WalletBalancesResponse> {
@@ -120,8 +78,6 @@ export class PaymentsService {
     const commission = await this.transactionRepository.sumByType(
       TransactionType.COMMISSION,
       null,
-      new Date(0),
-      new Date(),
     );
 
     const total = driver + customer + commission;
@@ -151,39 +107,25 @@ export class PaymentsService {
   async getTopupVsWithdrawals(
     input: PaymentsOverviewInput,
   ): Promise<TopupWithdrawalResponse> {
-    const { start, end, prevStart, prevEnd } = resolveDateRange(
-      input.period,
-      input.startDate,
-      input.endDate,
-    );
-
     const [topups, prevTopups, withdrawals, prevWithdrawals, trend] =
       await Promise.all([
         this.transactionRepository.sumByType(
           TransactionType.TOPUP,
           TransactionDirection.CREDIT,
-          start,
-          end,
         ),
         this.transactionRepository.sumByType(
           TransactionType.TOPUP,
           TransactionDirection.CREDIT,
-          prevStart,
-          prevEnd,
         ),
         this.transactionRepository.sumByType(
           TransactionType.WITHDRAWAL,
           TransactionDirection.DEBIT,
-          start,
-          end,
         ),
         this.transactionRepository.sumByType(
           TransactionType.WITHDRAWAL,
           TransactionDirection.DEBIT,
-          prevStart,
-          prevEnd,
         ),
-        this.transactionRepository.getNetFlowTrend(start, end),
+        this.transactionRepository.getNetFlowTrend(),
       ]);
 
     const netFlow = topups - withdrawals;

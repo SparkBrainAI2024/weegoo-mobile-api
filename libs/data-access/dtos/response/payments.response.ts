@@ -51,7 +51,7 @@ export class CommissionOverviewResponse {
   percentChange?: number;
 
   @Field(() => [ChartPoint])
-  series: ChartPoint[];
+  dataPoints: ChartPoint[];
 }
 
 @ObjectType()

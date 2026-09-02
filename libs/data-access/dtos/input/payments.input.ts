@@ -4,20 +4,15 @@ import {
   TransactionStatus,
   TransactionType,
 } from "../../enums/transaction.enum";
+import { TimeRangeFilter } from "@libs/data-access/enums/payment.enum";
 
 @InputType()
 export class PaymentsOverviewInput {
-  @Field(() => PaymentsPeriodEnum, {
+  @Field(() => TimeRangeFilter, {
     nullable: true,
-    defaultValue: PaymentsPeriodEnum.THIS_MONTH,
+    defaultValue: TimeRangeFilter.LAST_7_DAYS,
   })
-  period?: PaymentsPeriodEnum;
-
-  @Field(() => Date, { nullable: true })
-  startDate?: Date;
-
-  @Field(() => Date, { nullable: true })
-  endDate?: Date;
+  period?: TimeRangeFilter;
 }
 
 @InputType()

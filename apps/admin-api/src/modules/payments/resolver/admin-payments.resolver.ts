@@ -18,11 +18,8 @@ export class PaymentsResolver {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Query(() => PaymentsSummaryResponse)
-  async paymentsSummary(
-    @Args("input", { type: () => PaymentsOverviewInput, nullable: true })
-    input: PaymentsOverviewInput = {},
-  ): Promise<PaymentsSummaryResponse> {
-    return this.paymentsService.getPaymentsSummary(input);
+  async paymentsSummary(): Promise<PaymentsSummaryResponse> {
+    return this.paymentsService.getPaymentsSummary();
   }
 
   @Query(() => CommissionOverviewResponse)
@@ -30,7 +27,7 @@ export class PaymentsResolver {
     @Args("input", { type: () => PaymentsOverviewInput, nullable: true })
     input: PaymentsOverviewInput = {},
   ): Promise<CommissionOverviewResponse> {
-    return this.paymentsService.getCommissionOverview(input);
+    return this.paymentsService.getCommissionOverview(input.period);
   }
 
   @Query(() => WalletBalancesResponse)
