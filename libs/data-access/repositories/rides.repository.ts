@@ -782,9 +782,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           break;
         case RideFilterStatus.ALL:
         default:
-          // Exclude PICKUP and CONFIRMED rides for ALL/default filter
+          // Exclude PICKUP, CONFIRMED and BOOKING rides for ALL/default filter.
+          // BOOKING is the scheduled seat-booking lifecycle state (requested via
+          // matchScheduledDrivers but not yet accepted by a driver) — it must
+          // never surface in the user-facing rides list.
           filter.rideStatus = {
-            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED],
+            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED, RideStatus.BOOKING],
           };
           break;
       }
@@ -929,6 +932,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     ];
     const upcomingResult = await this.model
       .find({
+        // Note: rideStatus is constrained to CONFIRMED/PENDING here, so
+        // scheduled seat-bookings (BOOKING status) can never match — they only
+        // surface once a driver accepts them and the ride becomes CONFIRMED.
         rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
         ...filter,
       })
