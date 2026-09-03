@@ -22,6 +22,8 @@ import axios from 'axios';
 import { AdminUser, AdminUserDocument } from '@libs/data-access/entities/admin-user.entity';
 import { ErrorException } from '@libs/common';
 import { DiscountTypeEnum } from '@libs/data-access';
+import { Availability, AvailabilityDocument } from '@libs/data-access/entities/availability.entity';
+import { RideTypes, RideStatus } from '@libs/data-access/enums/rides.enum';
 
 export interface PassengerPaymentResult {
     success: boolean;
@@ -65,8 +67,410 @@ export class PassengerPaymentService {
         private readonly rideChannelService: RideChannelService,
         private readonly envService: EnvService,
         @InjectModel(AdminUser.name) private readonly adminModel: Model<AdminUserDocument>,
+        @InjectModel(Availability.name) private readonly availabilityModel: Model<AvailabilityDocument>,
     ) {
         this.matchmakingUrl = this.envService.getString('RIDE_MATCHMAKING_URL', 'http://localhost:3004');
+    }
+
+    /** Haversine great-circle distance (km) between two coordinate pairs. */
+    private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+        const R = 6371;
+        const toRad = (x: number) => (x * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    /**
+     * Road distance & duration between two coordinates via the Baato routing
+     * API (same service used by matchmaking's DistanceCalculatorService).
+     * Falls back to the haversine estimate only when Baato is not configured
+     * or the request fails.
+     */
+    private async getBaatoRoute(
+        originLat: number,
+        originLng: number,
+        destLat: number,
+        destLng: number,
+    ): Promise<{ distanceKm: number; durationMinutes: number }> {
+        const apiKey = this.envService.getBaatoApiKey();
+        const baseUrl = this.envService.getBaatoApiUrl();
+
+        if (!apiKey || !baseUrl) {
+            this.logger.warn('Baato API not configured. Using haversine fallback.');
+            return this.haversineEstimate(originLat, originLng, destLat, destLng);
+        }
+
+        try {
+            const params = new URLSearchParams();
+            params.append('key', apiKey);
+            params.append('points[]', `${originLat},${originLng}`);
+            params.append('points[]', `${destLat},${destLng}`);
+            params.append('mode', 'car');
+
+            const response = await axios.get(`${baseUrl}/directions`, { params });
+            const route = response.data?.data?.[0];
+            if (route && route.distanceInMeters != null) {
+                const distanceKm = Number((route.distanceInMeters / 1000).toFixed(2));
+                // Baato time is in ms; fall back to the speed estimate when absent.
+                const durationMinutes = route.timeInMs != null
+                    ? Math.max(1, Math.ceil(route.timeInMs / 1000 / 60))
+                    : this.estimateDurationMinutes(distanceKm);
+                return { distanceKm, durationMinutes };
+            }
+
+            this.logger.warn(
+                `Baato returned no routes (${originLat},${originLng} → ${destLat},${destLng}). Using haversine fallback.`,
+            );
+            return this.haversineEstimate(originLat, originLng, destLat, destLng);
+        } catch (error: any) {
+            const detail = error?.response?.data
+                ? JSON.stringify(error.response.data)
+                : error?.message;
+            this.logger.error(`Baato API error: ${detail}. Using haversine fallback.`);
+            return this.haversineEstimate(originLat, originLng, destLat, destLng);
+        }
+    }
+
+    /** Haversine distance/duration fallback when Baato is unavailable. */
+    private haversineEstimate(
+        originLat: number,
+        originLng: number,
+        destLat: number,
+        destLng: number,
+    ): { distanceKm: number; durationMinutes: number } {
+        const distanceKm = Number(
+            this.haversineKm(originLat, originLng, destLat, destLng).toFixed(2),
+        );
+        return { distanceKm, durationMinutes: this.estimateDurationMinutes(distanceKm) };
+    }
+
+    /** Average urban speed ~30 km/h; minimum 5 minutes. */
+    private estimateDurationMinutes(distanceKm: number): number {
+        return Math.max(5, Math.ceil((distanceKm / 30) * 60));
+    }
+
+    private utcStartOfDay(d: Date): Date {
+        const x = new Date(d);
+        x.setUTCHours(0, 0, 0, 0);
+        return x;
+    }
+
+    /**
+     * Book a PENDING scheduled ride with a specific driver.
+     *
+     * - Resolves the driver's availability day from the ride's bookingTime.
+     * - Charges the ride amount from the passenger's WALLET; fails validation
+     *   when the balance is insufficient.
+     * - Inside a single MongoDB transaction session: debits the passenger,
+     *   credits the driver (amount - commission) and credits the admin
+     *   (commission), creates the transaction records, and updates the ride
+     *   with the availability-day schedule info, driver-to-pickup distance /
+     *   ETA, fare details and paymentStatus = PAID.
+     */
+    async bookScheduledRide(
+        rideId: string,
+        driverId: string,
+        passengerId: string,
+    ): Promise<PassengerPaymentResult> {
+        this.logger.log(`Booking scheduled ride ${rideId} with driver ${driverId} for passenger ${passengerId}`);
+
+        // ── Validate ride ─────────────────────────────────────────
+        const ride = await this.ridesRepository.findById(new Types.ObjectId(rideId));
+        if (!ride) {
+            throw new NotFoundException('Ride not found');
+        }
+        if (ride.rideType !== RideTypes.SCHEDULED) {
+            throw new BadRequestException('Only scheduled rides can be booked');
+        }
+        if (ride.rideStatus !== RideStatus.BOOKING) {
+            throw new BadRequestException(`Ride is not in BOOKING status. Current: ${ride.rideStatus}`);
+        }
+        if (ride.passengerId?.toString() !== passengerId) {
+            throw new BadRequestException('This ride does not belong to you');
+        }
+        if (ride.paymentDetails?.paymentStatus === PaymentStatusEnum.PAID) {
+            throw new BadRequestException('Ride has already been booked and paid');
+        }
+        if (ride.driverId) {
+            throw new BadRequestException('Ride has already been booked by a driver');
+        }
+        if (!ride.bookingTime) {
+            throw new BadRequestException('Ride has no booking time');
+        }
+
+        // ── Resolve the driver's availability day from the booking time ──
+        const availabilityDoc = await this.availabilityModel
+            .findOne({ driverId: new Types.ObjectId(driverId), deleted: false })
+            .exec();
+        if (!availabilityDoc || !availabilityDoc.days?.length) {
+            throw new BadRequestException('Driver has no availability');
+        }
+        const targetDate = this.utcStartOfDay(new Date(ride.bookingTime));
+        const day = availabilityDoc.days.find(
+            (d) =>
+                d &&
+                this.utcStartOfDay(new Date(d.date)).getTime() === targetDate.getTime() &&
+                d.isAvailableForBookings !== false,
+        );
+        if (!day) {
+            throw new BadRequestException('Driver is not available on the ride booking date');
+        }
+        if ((ride.noOfPassengers || 1) > (day.availableSeats || 0)) {
+            throw new BadRequestException(`Not enough available seats on the driver's availability day`);
+        }
+        const amount = day.amount ?? 0;
+        if (amount <= 0) {
+            throw new BadRequestException(`No booking amount configured for the driver's availability day`);
+        }
+
+        // Slot window: request must be made before the buffer window opens,
+        // or at/after the slot start time (consistent with matchmaking).
+        if (day.timeSlots?.length) {
+            const bufferMinutes = day.pickupBufferTimeMinutes || 0;
+            const bookingTime = new Date(ride.bookingTime).getTime();
+            const matchesSlot = day.timeSlots.some((s) => {
+                if (!s?.startTime) return false;
+                const start = new Date(s.startTime);
+                if (isNaN(start.getTime())) return false;
+                return (
+                    bookingTime >= start.getTime() ||
+                    bookingTime <= start.getTime() - bufferMinutes * 60000
+                );
+            });
+            if (!matchesSlot) {
+                throw new BadRequestException(`Booking time does not match any of the driver's time slots`);
+            }
+        }
+
+        return this.executeScheduledBooking(ride, driverId, passengerId, day, amount);
+    }
+
+    /**
+     * Runs the wallet transfer + ride update for a scheduled booking inside a
+     * MongoDB transaction session (falls back to non-transactional execution
+     * when the deployment doesn't support transactions).
+     */
+    private async executeScheduledBooking(
+        ride: RidesDocument,
+        driverId: string,
+        passengerId: string,
+        day: any,
+        amount: number,
+    ): Promise<PassengerPaymentResult> {
+        // ── Wallet balance validation ─────────────────────────────
+        const balance = await this.walletService.getBalance(passengerId);
+        if (balance < amount) {
+            throw new BadRequestException(
+                `Insufficient wallet balance. Required: ${amount}, Available: ${balance}. Please top up your wallet.`,
+            );
+        }
+
+        // ── Distance / ETA from ride pickup to the availability-day pickup ──
+        // Road route via the Baato routing API (haversine fallback when
+        // Baato is unavailable).
+        const rideCoords = ride.pickupLocation?.coordinates;
+        const dayPickup = day.pickupLocation;
+        let distanceInKm = 0;
+        let estimatedTimeInMinutes = 0;
+        if (rideCoords?.length === 2 && dayPickup?.latitude != null && dayPickup?.longitude != null) {
+            const route = await this.getBaatoRoute(
+                rideCoords[1],
+                rideCoords[0],
+                dayPickup.latitude,
+                dayPickup.longitude,
+            );
+            distanceInKm = route.distanceKm;
+            estimatedTimeInMinutes = route.durationMinutes;
+        }
+
+        const commissionRate = 0.2;
+        const commissionAmount = Number((amount * commissionRate).toFixed(2));
+        const driverAmount = Number((amount - commissionAmount).toFixed(2));
+
+        const admin = await this.adminModel.findOne().sort({ createdAt: 1 }).exec();
+        this.adminId = admin?._id.toString() || '';
+
+        const useTransactions = this.isUsingAtlas();
+        const session = useTransactions ? await this.getSession(useTransactions) : null;
+        const transactions: { transactionId: string; userId: string; type: string; amount: number }[] = [];
+
+        try {
+            const bookingLogic = async () => {
+                // Debit passenger wallet for the day amount
+                await this.walletService.debitWallet(passengerId, amount, session);
+                const passengerTxn = await this.createTransaction(
+                    passengerId,
+                    TransactionDirection.DEBIT,
+                    TransactionType.RIDE_PAYMENT,
+                    amount,
+                    PaymentMethodEnum.WALLET,
+                    ride._id.toString(),
+                    driverId,
+                    TransactionStatus.COMPLETED,
+                    session,
+                );
+                transactions.push({ transactionId: passengerTxn._id.toString(), userId: passengerId, type: 'DEBIT', amount });
+
+                // Credit driver wallet (amount - commission)
+                await this.walletService.creditWallet(driverId, driverAmount, session);
+                const driverTxn = await this.createTransaction(
+                    driverId,
+                    TransactionDirection.CREDIT,
+                    TransactionType.RIDE_PAYMENT,
+                    driverAmount,
+                    PaymentMethodEnum.WALLET,
+                    ride._id.toString(),
+                    passengerId,
+                    TransactionStatus.COMPLETED,
+                    session,
+                );
+                transactions.push({ transactionId: driverTxn._id.toString(), userId: driverId, type: 'CREDIT', amount: driverAmount });
+
+                // Credit admin wallet (commission)
+                const adminTxn = await this.createTransaction(
+                    this.adminId,
+                    TransactionDirection.CREDIT,
+                    TransactionType.COMMISSION,
+                    commissionAmount,
+                    PaymentMethodEnum.WALLET,
+                    ride._id.toString(),
+                    passengerId,
+                    TransactionStatus.COMPLETED,
+                    session,
+                );
+                transactions.push({ transactionId: adminTxn._id.toString(), userId: this.adminId, type: 'CREDIT', amount: commissionAmount });
+
+                await this.applyScheduledBookingToRide(ride, driverId, day, amount, distanceInKm, estimatedTimeInMinutes, commissionRate, session);
+            };
+
+            if (useTransactions) {
+                await session.withTransaction(bookingLogic);
+            } else {
+                await bookingLogic();
+            }
+        } finally {
+            await session?.endSession?.();
+        }
+
+        this.logger.log(`Scheduled ride ${ride.rideUUId} booked: passenger -${amount}, driver +${driverAmount}, admin commission +${commissionAmount}`);
+
+        return {
+            success: true,
+            message: `Scheduled ride booked successfully with the driver for ${day.day}. Payment completed from wallet.`,
+            rideId: ride._id.toString(),
+            rideUUId: ride.rideUUId,
+            paymentMethod: PaymentMethodEnum.WALLET,
+            fareBreakdown: {
+                baseFare: 0,
+                distanceCharge: 0,
+                discount: 0,
+                subTotal: amount,
+                totalFare: amount,
+            },
+            transactions,
+            paid: true,
+        };
+    }
+
+    /** Update the ride document with booking schedule, fare and payment info. */
+    private async applyScheduledBookingToRide(
+        ride: RidesDocument,
+        driverId: string,
+        day: any,
+        amount: number,
+        distanceInKm: number,
+        estimatedTimeInMinutes: number,
+        commissionRate: number,
+        session: any,
+    ): Promise<void> {
+        const paymentDetails: PaymentDetails = {
+            baseAmount: amount,
+            distanceAmount: 0,
+            totalAmount: amount,
+            subTotal: amount,
+            noOfPassengers: ride.noOfPassengers || 1,
+            paymentMethod: PaymentMethodEnum.WALLET,
+            discountAmount: 0,
+            paymentStatus: PaymentStatusEnum.PAID,
+            driverCommission: commissionRate,
+        };
+
+        await this.ridesModel.updateOne(
+            { _id: ride._id, rideStatus: RideStatus.BOOKING },
+            {
+                $set: {
+                    driverId: new Types.ObjectId(driverId),
+                    schedule: {
+                        bookingType: 'SCHEDULED',
+                        bookingTime: ride.bookingTime,
+                        bookingDate: this.utcStartOfDay(new Date(ride.bookingTime)),
+                        day: day.day,
+                        noOfPassengers: ride.noOfPassengers || 1,
+                        vehicleType: day.vehicleType,
+                        isFlexible: false,
+                        pickupBufferTimeMinutes: day.pickupBufferTimeMinutes || 0,
+                        timeSlots: (day.timeSlots || []).map((s: any) => ({ startTime: s.startTime })),
+                        availabilityDayId: day._id?.toString() || null,
+                    },
+                    distanceInKm,
+                    estimatedTimeInMinutes,
+                    estimatedFare: amount,
+                    fare: {
+                        baseAmount: amount,
+                        subTotal: amount,
+                        trafficCongestionAmount: 0,
+                        distanceAmount: 0,
+                        totalAmount: amount,
+                        noOfPassengers: ride.noOfPassengers || 1,
+                        discountAmount: 0,
+                        promoCodeId: null,
+                    },
+                    paymentDetails,
+                    rideStatus: RideStatus.CONFIRMED,
+                    isAcknowledgeByDriver: false,
+                },
+            },
+            { session },
+        );
+
+        // ── Decrement seats on the booked availability day ─────────
+        // Match the exact stored day by its concrete date and reduce the
+        // available seat count by the number of passengers booked.
+        //
+        // `$elemMatch` binds BOTH the date and the remaining-seat guard to the
+        // SAME day element, so we only decrement the specific day being booked
+        // and never drive its seats below the requested passenger count. This
+        // is atomic with respect to concurrent bookings (no overselling).
+        const seatBooking = ride.noOfPassengers || 1;
+        const seatsDecrement = await this.availabilityModel.updateOne(
+            {
+                driverId: new Types.ObjectId(driverId),
+                deleted: false,
+                days: {
+                    $elemMatch: {
+                        date: day.date,
+                        availableSeats: { $gte: seatBooking },
+                    },
+                },
+            },
+            {
+                $inc: { 'days.$.availableSeats': -seatBooking },
+            },
+            { session },
+        );
+
+        // If the atomic update changed nothing, the day no longer has enough
+        // remaining seats (e.g. another passenger booked concurrently after our
+        // earlier capacity check) => roll the whole booking back via the error.
+        if (seatsDecrement.modifiedCount === 0) {
+            throw new BadRequestException(
+                `Not enough available seats on the driver's availability day`,
+            );
+        }
     }
 
     private async getSession(useTransactions: boolean): Promise<any> {

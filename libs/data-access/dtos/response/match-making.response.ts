@@ -157,10 +157,118 @@ export class AcceptedDetailsResponse {
 
   @Field(() => String, { nullable: true })
   driverLocationChannel?: string;
+
+  @Field(() => ScheduledDriverAvailabilityInfo, { nullable: true })
+  availability?: ScheduledDriverAvailabilityInfo | null;
+}
+
+@ObjectType()
+export class ScheduledDriverAvailabilityInfo {
+  @Field(() => String, { nullable: true })
+  day?: string;
+
+  @Field(() => String, { nullable: true })
+  date?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleType?: string;
+
+  /** Amount configured on the availability day. */
+  @Field(() => Float, { nullable: true })
+  amount?: number;
+
+  @Field(() => Boolean, { nullable: true })
+  isAvailableForBookings?: boolean;
+
+  @Field(() => Int, { nullable: true })
+  availableSeats?: number;
+
+  @Field(() => Int, { nullable: true })
+  remainingSeats?: number;
+
+  @Field(() => [String], { nullable: true })
+  timeSlots?: string[];
+
+  @Field(() => Boolean, { nullable: true })
+  matchesTimeSlot?: boolean;
+
+  /** Completed trips of the available driver on this availability day. */
+  @Field(() => Int, { nullable: true })
+  totalTrips?: number;
+
+  @Field(() => PickupDropoffLocationInfo, { nullable: true })
+  pickupLocation?: PickupDropoffLocationInfo;
+
+  @Field(() => PickupDropoffLocationInfo, { nullable: true })
+  dropOffLocation?: PickupDropoffLocationInfo;
+
+  @Field({ nullable: true })
+  notes?: string;
+
+  @Field(() => [String], { nullable: true })
+  majorStops?: string[];
+}
+
+@ObjectType()
+export class ScheduledAvailableDriverInfo {
+  @Field(() => String, { nullable: true })
+  driverId?: string;
+
+  @Field(() => String, { nullable: true })
+  driverName?: string;
+
+  @Field(() => String, { nullable: true })
+  driverImage?: string;
+
+  @Field(() => String, { nullable: true })
+  driverEmail?: string;
+
+  @Field(() => String, { nullable: true })
+  phone?: string;
+
+  @Field(() => Float, { nullable: true })
+  rating?: number;
+
+  @Field(() => String, { nullable: true })
+  vehicleId?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleName?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleType?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleModel?: string;
+
+  @Field(() => Boolean, { nullable: true })
+  isAcType?: boolean;
+
+  @Field(() => String, { nullable: true })
+  vehicleModelType?: string;
+
+  @Field(() => String, { nullable: true })
+  color?: string;
+
+  @Field(() => String, { nullable: true })
+  numberPlate?: string;
+
+  @Field(() => String, { nullable: true })
+  vehicleImage?: string;
+
+  /** Amount configured on the driver's availability day for the requested day. */
+  @Field(() => Float, { nullable: true })
+  amount?: number;
+
+  @Field(() => ScheduledDriverAvailabilityInfo, { nullable: true })
+  availability?: ScheduledDriverAvailabilityInfo;
 }
 
 @ObjectType()
 export class EstimatedFareBreakdownResponse {
+  @Field(() => Float, { nullable: true })
+  baseFare?: number;
+
   @Field(() => Float, { nullable: true })
   pickupCost?: number;
 
@@ -190,6 +298,9 @@ export class TriggerMatchmakingResultResponse {
 
   @Field(() => String)
   rideUUId: string;
+
+  @Field(() => String, { nullable: true })
+  passengerId?: string;
 
   @Field(() => String, { nullable: true })
   driverId?: string;
@@ -241,4 +352,54 @@ export class TriggerMatchmakingResultResponse {
 
   @Field(() => AcceptedDetailsResponse, { nullable: true })
   acceptedDetails?: AcceptedDetailsResponse;
+
+  @Field(() => [ScheduledAvailableDriverInfo], { nullable: true })
+  availableDrivers?: ScheduledAvailableDriverInfo[];
+}
+
+/**
+ * Response type for the requestScheduledRide mutation. Identical to
+ * TriggerMatchmakingResultResponse but WITHOUT acceptedDetails — the
+ * scheduled booking flow never returns accepted driver details.
+ */
+@ObjectType()
+export class ScheduledRideResultResponse {
+  @Field(() => Boolean)
+  success: boolean;
+
+  @Field(() => String)
+  message: string;
+
+  @Field(() => Boolean)
+  matched: boolean;
+
+  @Field(() => String)
+  rideId: string;
+
+  @Field(() => String)
+  rideUUId: string;
+
+  @Field(() => String, { nullable: true })
+  passengerId?: string;
+
+  @Field(() => String, { nullable: true })
+  rideType?: string;
+
+  @Field(() => String, { nullable: true })
+  rideStatus?: string;
+
+  @Field(() => Int, { nullable: true })
+  noOfPassengers?: number;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
+
+  @Field(() => PickupDropoffLocationInfo, { nullable: true })
+  pickupLocation?: PickupDropoffLocationInfo;
+
+  @Field(() => PickupDropoffLocationInfo, { nullable: true })
+  dropoffLocation?: PickupDropoffLocationInfo;
+
+  @Field(() => [ScheduledAvailableDriverInfo], { nullable: true })
+  availableDrivers?: ScheduledAvailableDriverInfo[];
 }

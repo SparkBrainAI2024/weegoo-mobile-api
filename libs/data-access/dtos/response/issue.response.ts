@@ -196,3 +196,54 @@ export class BulkResolveIssuesResponse {
   @Field(() => Int)
   resolvedCount: number;
 }
+
+/**
+ * A single high-priority issue shown on the admin dashboard.
+ * Flattened shape with reporter name and ride UUID resolved via joins.
+ */
+@ObjectType()
+export class HighPriorityIssue {
+  @Field(() => ID)
+  id: string;
+
+  @Field(() => String)
+  ticketCode: string;
+
+  @Field(() => Date)
+  createdAt: Date;
+
+  @Field(() => String)
+  reportedByName: string;
+
+  @Field(() => ReportedByType)
+  reportedByType: ReportedByType;
+
+  @Field(() => String, { nullable: true })
+  rideId?: string;
+
+  @Field(() => String, { nullable: true })
+  categoryLabel?: string;
+
+  @Field(() => IssueStatus)
+  status: IssueStatus;
+
+  @Field(() => IssuePriority)
+  priority: IssuePriority;
+
+  @Field(() => String, { nullable: true })
+  issueContent?: string;
+}
+
+/**
+ * Response for the admin dashboard "high priority issues" widget.
+ * Returns the top N (default 5) open/in-review HIGH-priority issues,
+ * sorted by oldest first.
+ */
+@ObjectType()
+export class HighPriorityIssuesResponse {
+  @Field(() => [HighPriorityIssue])
+  items: HighPriorityIssue[];
+
+  @Field(() => Int)
+  total: number;
+}

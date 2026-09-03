@@ -2,7 +2,7 @@ import { NotificationType } from "@libs/data-access/enums/notification.enum";
 import { GenderEnum } from "@libs/data-access/enums/user.enum";
 import { RideUserInputSnapshot } from "@libs/data-access/common/ride-user-snapshot";
 import { Field, InputType, Float } from "@nestjs/graphql";
-import { IsEnum, IsOptional, IsString, IsNumber, IsArray, ValidateNested, IsMongoId, IsNotEmpty } from "class-validator";
+import { IsEnum, IsOptional, IsString, IsNumber, IsArray, ValidateNested, IsMongoId, IsNotEmpty, IsBoolean } from "class-validator";
 import { Type } from "class-transformer";
 import { RideStatus, RideTypes } from "@libs/data-access/enums/rides.enum";
 
@@ -188,4 +188,14 @@ export class CreateNotificationInput {
   @IsOptional()
   @IsString()
   rideUUId?: string;
+
+  /**
+   * When true, the FCM push is sent as a data-only (silent) message:
+   * no system notification is displayed and no sound is played.
+   * The client app handles the payload in the background.
+   */
+  @Field(() => Boolean, { nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  silent?: boolean;
 }

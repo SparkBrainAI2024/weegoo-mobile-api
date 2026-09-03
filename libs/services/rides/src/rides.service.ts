@@ -1,95 +1,56 @@
+import { Injectable } from "@nestjs/common";
+import { Types } from "mongoose";
 import {
-  RidesRepository,
   User,
   RidesDocument,
-  RideStatus,
-  RideTypes,
-  ProvinceEnum,
-  roles,
-  UserDetailsRepository,
-  DiscountTypeEnum,
-  PromoCodeStatusEnum,
-  PromoCode,
-  PromoCodeDocument,
-  DriverDocumentRepository,
-  DriverOnlineStatus,
-  AppliedToEnum,
-  UserDailyOnlineStatusRepository,
   GetAllRidesPaginationInput,
-  UserDocument,
-  Vehicle,
-  VehicleDocument,
-  UserRepository,
   UserType,
+  CreatePromoCodeInput,
+  PromoCodeDocument,
 } from "@libs/data-access";
-
-import {
-  PromoCodeUsed,
-  PromoCodeUsedDocument,
-} from "@libs/data-access/entities/promo-code-used.entity";
-import { Model, Types } from "mongoose";
-import { HttpStatus, Injectable } from "@nestjs/common";
-import { TransactionService } from "@libs/services/payment/src/transaction/transaction.service";
-import { ErrorException } from "@libs/common/exceptions";
+import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
+import { AdminDashboardInput } from "@libs/data-access/dtos/input/dashboard.input";
 import { CancelRideInput } from "@libs/data-access/dtos/input/cancel-ride.input";
 import { UpdateRideInput } from "@libs/data-access/dtos/input/update-ride.input";
-import { IssueRepository } from "@libs/data-access/repositories/issue.repository";
-import {
-  CategoryAccessedByRole,
-  IssueCategoryForRole,
-  IssueParentCategory,
-} from "@libs/data-access/enums/issue.enum";
-import { toMongoId, REQUIRED_SIDES } from "@libs/common";
-import { CreatePromoCodeInput } from "@libs/data-access";
-import {
-  getActiveProfileImageUrl,
-  transformToEntityNameObjectFromId,
-} from "@libs/common/utils/entity.utils";
-import { S3Service } from "@libs/s3/s3.service";
-import { WalletService } from "@libs/services/payment/src/wallet/wallet.service";
-import axios from "axios";
-
-import { InjectModel } from "@nestjs/mongoose";
-import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
-import { RidesListInput } from "@libs/data-access/dtos/input/rides-list.input";
-import {
-  AdminRideUserSnapshot,
-  RideDetailResponse,
-} from "@libs/data-access/dtos/response/rides-list.response";
 import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input";
+import {
+  DashboardChartResponse,
+  UserStatsResponse,
+  RideStatusChartResponse,
+  PassengerRegistrationChartResponse,
+  DriverStatusCounts,
+  TotalRidersChartResponse,
+} from "@libs/data-access/dtos/response/admin-dashboard.response";
+import { RideDetailResponse } from "@libs/data-access/dtos/response/rides-list.response";
+import { RideAdminDashboardService } from "./services/ride-admin-dashboard.service";
+import { RideQueryService } from "./services/ride-query.service";
+import { RideLifecycleService } from "./services/ride-lifecycle.service";
+import { RidePromoService } from "./services/ride-promo-code.service";
+
+/**
+ * Facade over the ride domain sub-services.
+ *
+ * Keeps the original public API surface so existing resolvers and modules
+ * continue to work unchanged, while delegating implementation to focused
+ * single-responsibility services:
+ *  - RideAdminDashboardService — admin dashboard & analytics
+ *  - RideQueryService          — read-only ride queries & driver trips
+ *  - RideLifecycleService      — ride state mutations (create/start/complete/cancel/update)
+ *  - RidePromoService          — promo-code application
+ */
 @Injectable()
 export class RidesService {
   constructor(
-    private readonly rideRepository: RidesRepository,
-    private readonly userRepository: UserRepository,
-    private readonly transactionService: TransactionService,
-    private readonly issueRepository: IssueRepository,
-    private readonly userDetailsRepository: UserDetailsRepository,
-    private readonly driverDocumentRepository: DriverDocumentRepository,
-    private readonly s3: S3Service,
-    private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
-    @InjectModel(PromoCode.name)
-    private readonly promoCodeModel: Model<PromoCodeDocument>,
-    @InjectModel(PromoCodeUsed.name)
-    private readonly promoCodeUsedModel: Model<PromoCodeUsed>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Vehicle.name)
-    private readonly vehicleModel: Model<VehicleDocument>,
-    private readonly walletService: WalletService,
+    private readonly adminDashboardService: RideAdminDashboardService,
+    private readonly queryService: RideQueryService,
+    private readonly lifecycleService: RideLifecycleService,
+    private readonly promoService: RidePromoService,
   ) {}
 
-  /**
-   * Fetches rides for the current user based on their role with pagination.
-   * - If user role is USER: returns rides where user is the rider
-   * - If user role is DRIVER: returns rides where user is the driver
-   * - Vehicle data (model, name/type) is populated in the result
-   * - Returns paginated results
-   */
+  // ---- Query: user-facing rides ----
+
   async findRides(user: User, options: GetAllRidesPaginationInput) {
-    return this.rideRepository.findRidesByUserWithCursorPagination(
-      user,
-      options,
-    );
+    return this.queryService.findRides(user, options);
   }
 
   async getDriverTripsWithCommission(
@@ -98,877 +59,107 @@ export class RidesService {
     page: number,
     limit: number,
   ) {
-    const [result, walletAmount] = await Promise.all([
-      this.rideRepository.getDriverTripsWithCommission(
-        new Types.ObjectId(driverId),
-        filter,
-        page,
-        limit,
-      ),
-      this.walletService.getBalance(driverId),
-    ]);
-
-    return {
-      ...result,
-      walletAmount,
-    };
+    return this.queryService.getDriverTripsWithCommission(
+      driverId,
+      filter,
+      page,
+      limit,
+    );
   }
 
   async getRidesList(input: RidesListInput) {
-    const { rides, total } = await this.rideRepository.findRides(input);
-    return {
-      rides,
-      total,
-      page: input.page,
-      limit: input.limit,
-    };
+    return this.adminDashboardService.getRidesList(input);
   }
 
-  //userId can be of  either driver or passenger
   async enlistRidesByDriverOrPassenger(
     userId: string,
     historyAs: UserType,
     options: GetAllRidesPaginationInput,
   ) {
-    //get fullname and phone number and uuid for driver and passenger
-    const user = this.userRepository.findById(toMongoId(userId));
-
-    // return this.rideRepository.getRideHistoryOfIndividualRiderOrUser(
-    //   user,
-    //   options,
-    // );
+    return this.queryService.enlistRidesByDriverOrPassenger(
+      userId,
+      historyAs,
+      options,
+    );
   }
 
   async homeDashboardApi(user: User): Promise<any> {
-    const rides = await this.rideRepository.homeDashboardApi(user);
-    const enrichedRides = await Promise.all(
-      rides.map((ride) => this.enrichRideDetails(ride)),
-    );
-
-    // Passengers receive the standard ride list with null stats
-    if (user.loginAs !== roles.RIDER) {
-      return {
-        rides: enrichedRides,
-        verification: null,
-        stats: {
-          totalEarnings: null,
-          totalTrips: null,
-          rating: null,
-          onlineHoursToday: null,
-        },
-        onlineStatus: null,
-        vehicleStatus: null,
-      };
-    }
-
-    const userId = toMongoId(user._id.toString());
-
-    // Fetch Driver Data: Details (Rating, Online Status), Documents, and Vehicle
-    const [details, docs, vehicle] = await Promise.all([
-      this.userDetailsRepository.findOne({ userId }),
-      this.driverDocumentRepository.find({ driverId: userId }),
-      this.vehicleModel.findOne({ driverId: userId }).exec(),
-    ]);
-
-    // 1. Evaluate Document Upload Status
-    const requiredTypes = Object.keys(REQUIRED_SIDES);
-    const documentStatuses = requiredTypes.map((type: any) => {
-      const doc = docs.find((d) => d.type === type);
-      if (!doc)
-        return { type, status: DriverDocumentBundleStatus.NOT_SUBMITTED }; // No document uploaded for this type
-      return { type, status: doc.status };
-    });
-
-    const verificationRequired = documentStatuses.some(
-      (d) => d.status !== DriverDocumentBundleStatus.APPROVED,
-    );
-
-    // 2. Aggregate Earnings (Today)
-    // Per requirement: Total earnings 0 if verification is required
-    const earningsData = !verificationRequired
-      ? await this.transactionService.getDriversEarningByDate(
-          user._id.toString(),
-        )
-      : { netEarning: 0 };
-
-    // 3. Total Trip History (Today only)
-    // Use rideCompletedAt when available, otherwise fall back to bookingTime
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-    const totalTrips = await this.rideRepository.count({
-      driverId: userId,
-      rideStatus: RideStatus.COMPLETED,
-      $or: [
-        { rideCompletedAt: { $gte: startOfToday, $lte: endOfToday } },
-        {
-          rideCompletedAt: null,
-          bookingTime: { $gte: startOfToday, $lte: endOfToday },
-        },
-      ],
-    });
-
-    // 4. Online Hours Tracking (from UserDailyOnlineStatus)
-    const today = new Date().toISOString().split("T")[0];
-    const onlineRecord = await this.userDailyOnlineStatusRepository.findOne({
-      userId: userId,
-      date: today,
-    });
-    let totalOnlineSeconds = onlineRecord?.totalOnlineSeconds || 0;
-    // If currently online, add elapsed time since lastOnlineAt
-    if (
-      details?.driverOnlineStatus === DriverOnlineStatus.ONLINE &&
-      onlineRecord?.lastOnlineAt
-    ) {
-      totalOnlineSeconds += Math.floor(
-        (Date.now() - onlineRecord.lastOnlineAt.getTime()) / 1000,
-      );
-    }
-    const onlineMinutesToday = Math.floor(totalOnlineSeconds / 60);
-
-    // Enrich each ride with driver, passenger, and vehicle info
-
-    // Determine vehicle status: if driver has no vehicle, verification is required
-    const hasVehicle = !!vehicle;
-    const finalVerificationRequired = verificationRequired || !hasVehicle;
-
-    return {
-      rides: enrichedRides,
-      verification: {
-        verificationRequired: finalVerificationRequired,
-        documentStatuses,
-      },
-      stats: {
-        totalEarnings: earningsData.netEarning,
-        totalTrips,
-        rating: details?.rating || 0,
-        onlineHoursToday: (onlineMinutesToday / 60).toFixed(2),
-      },
-      onlineStatus: details?.driverOnlineStatus || DriverOnlineStatus.OFFLINE,
-      vehicleStatus: hasVehicle,
-    };
-  }
-  /**
-   * Creates a new ride with an auto-generated rideUUId using nanoid.
-   * Also calculates timeToReachRiderInMinutes and timeToReachRider based on
-   * distance and booking time before saving.
-   */
-  async createRide(rideData: Partial<RidesDocument>): Promise<RidesDocument> {
-    return this.rideRepository.createRide(rideData);
+    return this.queryService.homeDashboardApi(user);
   }
 
-  /**
-   * Starts a ride by setting rideStartedAt and updating ride status to ONGOING.
-   * Calculates estimatedTimeInMinutes and estimatedFare based on distance.
-   */
-  async startRide(
-    rideId: Types.ObjectId,
-    startedAt: Date,
-    distanceInKm?: number,
-  ): Promise<RidesDocument | null> {
-    return this.rideRepository.startRide(rideId, startedAt, distanceInKm);
+  async getRideById(rideId: string, user: User): Promise<any> {
+    return this.queryService.getRideById(rideId, user);
   }
 
-  /**
-   * Completes a ride by setting rideCompletedAt, rideStatus to COMPLETED.
-   * Calculates actual duration from rideStartedAt to rideCompletedAt for
-   * estimatedTimeInMinutes and estimatedFare.
-   */
-  async completeRide(
-    rideId: Types.ObjectId,
-    completedAt: Date,
-    distanceInKm?: number,
-  ): Promise<any> {
-    const ride = await this.rideRepository.completeRide(
-      rideId,
-      completedAt,
-      distanceInKm,
-    );
-    if (!ride) return null;
-    const userId = ride.passengerId?.toString();
-    const walletAmount = userId
-      ? await this.walletService.getBalance(userId)
-      : 0;
-    const rideObj = (ride as any).toObject ? (ride as any).toObject() : ride;
-    return {
-      ...rideObj,
-      _id: ride._id.toString(),
-      rideCompletedAt: ride.rideCompletedAt,
-      walletAmount,
-    };
-  }
-
-  /**
-   * Generates sample rides for testing purposes.
-   * Creates the following distribution:
-   *
-   * Instant rides:
-   *   - 1 ongoing
-   *   - 3 completed
-   *   - 5 cancelled
-   *
-   * Scheduled rides:
-   *   - 10 confirmed
-   *   - 10 pending
-   *   - 3 completed
-   *   - 5 cancelled
-   *
-   * The rideUUId, estimatedFare, estimatedTimeInMinutes, timeToReachRiderInMinutes,
-   * and timeToReachRider are automatically calculated by the pre-save hook.
-   */
-  async generateSampleRides(
-    driverId: Types.ObjectId,
-    riderId: Types.ObjectId,
-    vehicleId: Types.ObjectId,
-    adminId: Types.ObjectId,
-  ): Promise<RidesDocument[]> {
-    const generatedRides: RidesDocument[] = [];
-
-    // ---- Instant rides: 1 ongoing, 3 completed, 5 cancelled ----
-    const instantStatuses: RideStatus[] = [
-      RideStatus.ONGOING,
-      RideStatus.COMPLETED,
-      RideStatus.COMPLETED,
-      RideStatus.COMPLETED,
-      RideStatus.CANCELLED,
-      RideStatus.CANCELLED,
-      RideStatus.CANCELLED,
-      RideStatus.CANCELLED,
-      RideStatus.CANCELLED,
-    ];
-
-    for (const rideStatus of instantStatuses) {
-      const ride = await this.buildAndSaveRide({
-        rideType: RideTypes.INSTANT,
-        rideStatus,
-        driverId,
-        riderId,
-        vehicleId,
-        adminId,
-        index: generatedRides.length,
-      });
-      generatedRides.push(ride);
-    }
-
-    // ---- Scheduled rides: 10 confirmed, 10 pending, 3 completed, 5 cancelled ----
-    const scheduledStatuses: RideStatus[] = [
-      ...Array(10).fill(RideStatus.CONFIRMED),
-      ...Array(10).fill(RideStatus.PENDING),
-      ...Array(3).fill(RideStatus.COMPLETED),
-      ...Array(5).fill(RideStatus.CANCELLED),
-    ];
-
-    for (const rideStatus of scheduledStatuses) {
-      const ride = await this.buildAndSaveRide({
-        rideType: RideTypes.SCHEDULED,
-        rideStatus,
-        driverId,
-        riderId,
-        vehicleId,
-        adminId,
-        index: generatedRides.length,
-      });
-      generatedRides.push(ride);
-    }
-
-    return generatedRides;
-  }
-
-  /**
-   * Builds ride data from status and type, sets time fields accordingly, and saves.
-   */
-  private async buildAndSaveRide(params: {
-    rideType: RideTypes;
-    rideStatus: RideStatus;
-    driverId: Types.ObjectId;
-    riderId: Types.ObjectId;
-    vehicleId: Types.ObjectId;
-    adminId: Types.ObjectId;
-    index: number;
-  }): Promise<RidesDocument> {
-    const {
-      rideType,
-      rideStatus,
-      driverId,
-      riderId,
-      vehicleId,
-      adminId,
-      index,
-    } = params;
-
-    let rideStartedAt: Date | undefined;
-    let rideCompletedAt: Date | undefined;
-
-    // Scheduled confirmed/pending rides: booking time exactly 30 days in the future
-    const isFutureBooking =
-      rideType === RideTypes.SCHEDULED &&
-      (rideStatus === RideStatus.CONFIRMED ||
-        rideStatus === RideStatus.PENDING);
-    let bookingTime: Date;
-    if (isFutureBooking) {
-      bookingTime = new Date(Date.now() + 30 * 24 * 3600000); // Exactly 30 days from now
-    } else {
-      bookingTime = new Date(Date.now() - Math.random() * 3600000 * 24); // Random booking time within last 24 hours
-    }
-    const distanceInKm = parseFloat((Math.random() * 15 + 2).toFixed(1)); // Random distance between 2.0 and 17.0 km
-
-    if (
-      rideStatus === RideStatus.ONGOING ||
-      rideStatus === RideStatus.COMPLETED
-    ) {
-      rideStartedAt = new Date(
-        bookingTime.getTime() + Math.random() * 10 * 60000,
-      ); // Started 0-10 mins after booking
-    }
-    if (rideStatus === RideStatus.COMPLETED && rideStartedAt) {
-      // Assuming average speed of 30km/h, so 2 minutes per km. Add some randomness.
-      const travelTimeMs = distanceInKm * 2 * 60000 + Math.random() * 5 * 60000;
-      rideCompletedAt = new Date(rideStartedAt.getTime() + travelTimeMs);
-    }
-
-    // Calculate estimated fare (matching the pre-save hook logic)
-    const baseFare = 50;
-    const perKmRate = 20;
-    const perMinuteRate = 5;
-    let estimatedFare = baseFare + distanceInKm * perKmRate;
-
-    // For completed rides, also add the time-based component
-    if (
-      rideStatus === RideStatus.COMPLETED &&
-      rideStartedAt &&
-      rideCompletedAt
-    ) {
-      const durationMs = rideCompletedAt.getTime() - rideStartedAt.getTime();
-      const actualMinutes = Math.ceil(durationMs / 60000);
-      estimatedFare =
-        baseFare + distanceInKm * perKmRate + actualMinutes * perMinuteRate;
-    }
-
-    const rideData: Partial<RidesDocument> = {
-      rideType,
-      bookingTime,
-      rideStatus,
-      passengerId: riderId,
-      driverId,
-      vehicleId,
-      distanceInKm,
-      estimatedFare,
-      rideStartedAt,
-      rideCompletedAt,
-      pickupLocation: {
-        address: `Kathmandu ward -${index + 1}`,
-        city: "Kathmandu",
-        province: ProvinceEnum.BAGMATI,
-        district: "Kathmandu",
-        fullAddress: `Kathmandu ward -${index + 1}`,
-        type: "Point",
-        coordinates: [85.3 + Math.random() * 0.1, 27.7 + Math.random() * 0.1],
-      } as any,
-      dropoffLocation: {
-        address: `Kathmandu ward ${index + 2}`,
-        city: "Kathmandu",
-        province: ProvinceEnum.BAGMATI,
-        district: "Kathmandu",
-        fullAddress: `  Kathmandu ward ${index + 2}`,
-        type: "Point",
-        coordinates: [85.4 + Math.random() * 0.1, 27.8 + Math.random() * 0.1],
-      } as any,
-      deleted: false,
-    };
-
-    const newRide = await this.rideRepository.createRide(rideData);
-
-    // Create transactions for confirmed rides in non-local environments
-    if (
-      newRide.rideStatus === RideStatus.CONFIRMED &&
-      process.env.NODE_ENV !== "local"
-    ) {
-      await this.transactionService.createRideTransactions({
-        tripId: newRide._id.toString(),
-        adminId: adminId.toString(),
-        riderId: newRide.passengerId.toString(),
-        driverId: newRide.driverId.toString(),
-        totalFare: Number(newRide.estimatedFare),
-        commission: Number(newRide.estimatedFare) * 0.2, // Assuming 20% commission for testing
-      });
-    }
-
-    return newRide;
-  }
-
-  /**
-   * Creates a new promo code in the database.
-   * @param input Data for the new promo code.
-   * @returns The created PromoCode document.
-   */
-  async createPromoCode(
-    input: CreatePromoCodeInput,
-  ): Promise<PromoCodeDocument> {
-    return this.promoCodeModel.create(input);
-  }
-
-  /**
-   * Helper to enrich ride data with detailed driver and passenger information.
-   * Normalizes IDs, fetches user details, and constructs snapshots for the frontend.
-   */
-  private async enrichRideDetails(rideDocument: RidesDocument): Promise<any> {
-    const ride = rideDocument.toObject() as any;
-    // Normalize Vehicle
-    if (ride.vehicleId && typeof ride.vehicleId === "object") {
-      ride.vehicle = ride.vehicleId;
-      ride.vehicleId = ride.vehicleId._id.toString();
-    }
-
-    const formatSnapshot = async (
-      userRef: any,
-      fallbackName: string,
-      includeLocationChannelId = false,
-    ) => {
-      if (!userRef) return null;
-      const isPopulated = typeof userRef === "object" && userRef._id;
-      const userId = isPopulated ? userRef._id.toString() : userRef.toString();
-      const baseData = isPopulated ? userRef : {};
-
-      const details = await this.userDetailsRepository.findOne(
-        { userId: toMongoId(userId) },
-        null,
-        {
-          fullName: 1,
-          profileImages: 1,
-          rating: 1,
-          locationChannelId: 1,
-          geoLocation: 1,
-        },
-      );
-
-      const combined = { ...baseData, ...details?.toObject() };
-      const result: any = {
-        fullName: combined.fullName || baseData.fullName || fallbackName,
-        profileImage: getActiveProfileImageUrl(combined.profileImages, (key) =>
-          this.s3.getPublicUrl(key),
-        ),
-        rating: combined.rating ?? 0,
-        phone: combined.phone || baseData.phone || "",
-      };
-      if (includeLocationChannelId) {
-        result.locationChannelId = combined.locationChannelId;
-        result.geoLocation = combined?.geoLocation || null;
-      }
-      return result;
-    };
-
-    const [driver, passenger] = await Promise.all([
-      formatSnapshot(ride.driverId, "Driver", true),
-      formatSnapshot(ride.passengerId, "Passenger", false),
-    ]);
-
-    if (ride.passengerId && typeof ride.passengerId === "object")
-      ride.passengerId = ride.passengerId._id.toString();
-    if (ride.driverId && typeof ride.driverId === "object")
-      ride.driverId = ride.driverId._id.toString();
-
-    // Ensure vehicle info is present
-    if (!ride.vehicle && ride.vehicleId && typeof ride.vehicleId === "object") {
-      ride.vehicle = ride.vehicleId;
-      ride.vehicleId = ride.vehicleId._id.toString();
-    }
-
-    return {
-      ...ride,
-      _id: ride._id.toString(),
-      driver,
-      passenger,
-      ablyChannelId:
-        ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
-    };
-  }
-
-  private enrichRideDetailsForAdmin(
-    rideDocument: RidesDocument,
-  ): RideDetailResponse {
-    const ride = rideDocument.toObject() as any;
-
-    const formatAdminSnapshot = (
-      userDoc: any,
-      role: "driver" | "passenger",
-    ): AdminRideUserSnapshot | null => {
-      if (!userDoc) return null;
-
-      const details = userDoc.userDetails || {};
-      const displayId =
-        role === "driver"
-          ? details.displayIdAsDriver
-          : details.displayIdAsPassenger;
-
-      return {
-        userId: userDoc._id.toString(),
-        fullName: details.fullName || userDoc.name || "",
-        displayId: displayId || "—",
-        email: userDoc.email || "",
-        phone: userDoc.phone || "",
-        profileImage: getActiveProfileImageUrl(details.profileImages, (key) =>
-          this.s3.getPublicUrl(key),
-        ),
-        rating: details.rating ?? 0,
-        suspended: userDoc.suspended ?? false,
-        totalTripsAsPassenger: details.totalTripsAsPassenger,
-        totalRidesAsDriver: details.totalRidesAsDriver,
-      };
-    };
-
-    const driver = formatAdminSnapshot(ride.driverId, "driver");
-    const passenger = formatAdminSnapshot(ride.passengerId, "passenger");
-
-    const totalAmount = ride.paymentDetails?.totalAmount ?? 0;
-    const commissionRate = ride.paymentDetails?.driverCommission ?? 0.2;
-    const platformCommissionAmount = totalAmount * commissionRate;
-
-    return {
-      id: ride._id.toString(),
-      rideUUId: ride.rideUUId,
-      rideType: ride.rideType,
-      rideStatus: ride.rideStatus,
-      bookingTime: ride.bookingTime,
-      rideStartedAt: ride.rideStartedAt,
-      rideCompletedAt: ride.rideCompletedAt,
-      pickupLocation: ride.pickupLocation,
-      dropoffLocation: ride.dropoffLocation,
-      distanceInKm: ride.distanceInKm,
-      durationInMinutes:
-        ride.actualCompletedDurationInMinutes || ride.estimatedTimeInMinutes,
-      waitTimeInMinutes: ride.timeToReachPassengerInMinutes,
-      fare: ride.fare,
-      paymentDetails: ride.paymentDetails,
-      platformCommissionAmount,
-      driverEarningsAmount: totalAmount - platformCommissionAmount,
-      vehicle: typeof ride.vehicleId === "object" ? ride.vehicleId : undefined,
-      driver,
-      passenger,
-    };
+  async getRideByIdAdmin(id: string) {
+    return this.queryService.getRideByIdAdmin(id);
   }
 
   async getRideDetail(input: RideDetailInput): Promise<RideDetailResponse> {
-    const rideDocument =
-      await this.rideRepository.findByIdWithFullDetailsForAdmin(input.id);
-
-    if (!rideDocument) {
-      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-    }
-
-    return this.enrichRideDetailsForAdmin(rideDocument);
-  }
-
-  async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
-    const userLoginAs = user.loginAs === roles.RIDER ? "DRIVER" : "PASSENGER";
-    const ride = await this.rideRepository.findById(
-      new Types.ObjectId(input.rideId),
-    );
-
-    if (!ride) {
-      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-    }
-
-    const subCategory = await this.issueRepository.findIssueCategoryById(
-      input.cancelSubCategoryId,
-    );
-
-    if (
-      subCategory.parentCategory.toLowerCase() !==
-      IssueParentCategory.CANCEL.toLowerCase()
-    ) {
-      ErrorException(
-        null,
-        "RIDES.INVALID_CANCEL_SUB_CATEGORY",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (
-      !(
-        subCategory.categoryForRole === IssueCategoryForRole.BOTH ||
-        subCategory.categoryForRole === (userLoginAs as IssueCategoryForRole)
-      )
-    ) {
-      ErrorException(
-        null,
-        "RIDES.INVALID_CANCEL_SUB_CATEGORY",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (
-      subCategory.label.toLowerCase() === "other" &&
-      !input.cancelReasonContent
-    ) {
-      ErrorException(
-        null,
-        "RIDES.CANCEL_REASON_REQUIRED_FOR_OTHER",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const isPassenger = ride.passengerId.toString() === user._id.toString();
-    const isDriver = ride.driverId.toString() === user._id.toString();
-
-    if (!isPassenger && !isDriver) {
-      ErrorException(null, "RIDES.CANCEL_UNAUTHORIZED", HttpStatus.FORBIDDEN);
-    }
-
-    if (ride.rideStatus === RideStatus.CANCELLED) {
-      ErrorException(
-        null,
-        "RIDES.CANCEL_ALREADY_CANCELLED",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (ride.rideStatus === RideStatus.COMPLETED) {
-      ErrorException(
-        null,
-        "RIDES.CANCEL_ALREADY_COMPLETED",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    if (ride.rideStatus === RideStatus.ONGOING) {
-      ErrorException(null, "RIDES.CANCEL_IN_PROGRESS", HttpStatus.BAD_REQUEST);
-    }
-
-    if (ride.rideStatus === RideStatus.PENDING) {
-      ErrorException(null, "RIDES.CANCEL_PENDING", HttpStatus.BAD_REQUEST);
-    }
-
-    const cancelledRide = await this.rideRepository.cancelRide({
-      rideId: input.rideId,
-      cancelledBy: user._id,
-      cancelledByRole: userLoginAs as CategoryAccessedByRole,
-      cancelSubCategoryId: toMongoId(input.cancelSubCategoryId), // Convert to ObjectId using
-      cancelSubCategoryLabel: input.cancelSubCategoryLabel,
-      cancelReasonContent: input.cancelReasonContent,
-    });
-
-    // Send cancel ride notification to the matchmaking service (Ably + push notification)
-    // This is done asynchronously to not block the cancellation response
-    this.sendCancelRideNotification(input.rideId, user).catch((err: any) => {
-      console.error(
-        `Failed to send cancel ride notification: ${err?.message || err}`,
-      );
-    });
-
-    return cancelledRide;
-  }
-
-  /**
-   * Sends a cancel ride notification to the matchmaking service via GraphQL.
-   * Publishes a ride-cancelled event on the Ably channel and sends push notifications
-   * to the other party (passenger or driver).
-   */
-  private async sendCancelRideNotification(
-    rideId: string,
-    user: User,
-  ): Promise<void> {
-    try {
-      const matchmakingUrl =
-        process.env.RIDE_MATCHMAKING_URL || "http://localhost:3004";
-      const userRole = user.loginAs === roles.RIDER ? roles.RIDER : roles.USER;
-
-      const query = `mutation CancelRideNotification($rideId: String!, $userId: String!, $roles: String!) {
-        cancelRideNotification(rideId: $rideId, userId: $userId, roles: $roles) {
-          success message
-        }
-      }`;
-
-      await axios.post(`${matchmakingUrl}/graphql`, {
-        query,
-        variables: {
-          rideId,
-          userId: user._id.toString(),
-          roles: userRole,
-        },
-      });
-    } catch (err: any) {
-      console.error(
-        `Failed to send cancel ride notification to matchmaking service: ${err?.message || err}`,
-      );
-    }
-  }
-
-  /**
-   * Gets ride details by ID with all populated information (vehicle, driver, passenger).
-   * Only the passenger who owns the ride can access it.
-   */
-  async getRideById(rideId: string, user: User): Promise<any> {
-    const rideDocument =
-      await this.rideRepository.findByIdWithAllDetails(rideId);
-    if (!rideDocument) {
-      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-    }
-    if (user.loginAs === roles.USER) {
-      // Verify that the user is the passenger of this ride
-      if (rideDocument.passengerId._id.toString() !== user._id.toString()) {
-        ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-      }
-    }
-    if (user.loginAs === roles.RIDER) {
-      if (rideDocument.driverId._id.toString() !== user._id.toString()) {
-        ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-      }
-    }
-    const enriched = await this.enrichRideDetails(rideDocument);
-    const walletAmount = await this.walletService.getBalance(
-      user._id.toString(),
-    );
-    return {
-      ...enriched,
-      rideCompletedAt: rideDocument.rideCompletedAt,
-      rideEndedAt: rideDocument.rideEndedAt,
-      walletAmount,
-    };
-  }
-
-  /**
-   * Updates an upcoming confirmed ride's booking time, pickup location, and/or dropoff location.
-   * Only rides with rideStatus CONFIRMED and bookingTime in the future can be updated.
-   * Returns the updated ride document with a localized message.
-   */
-  async updateRide(user: User, input: UpdateRideInput): Promise<any> {
-    // Find the upcoming confirmed ride for this passenger
-    const existingRide =
-      await this.rideRepository.findUpcomingConfirmedRideById(
-        input.rideId,
-        user,
-      );
-
-    if (!existingRide) {
-      ErrorException(null, "RIDES.UPDATE_RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-    }
-
-    // Build update data - only include fields that are provided
-    const updateData: {
-      bookingTime?: Date;
-      pickupLocation?: any;
-      dropoffLocation?: any;
-      noOfPassengers?: number;
-    } = {};
-
-    if (input.bookingTime) {
-      const now = new Date();
-      const minAllowedBookingTime = new Date(
-        existingRide.bookingTime.getTime() - 24 * 60 * 60 * 1000,
-      );
-
-      if (input.bookingTime < now) {
-        ErrorException(
-          null,
-          "RIDES.INVALID_BOOKING_TIME",
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      if (input.bookingTime < minAllowedBookingTime) {
-        ErrorException(
-          null,
-          "RIDES.BOOKING_TIME_LIMIT_EXCEEDED",
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      // Check for overlapping rides within a 1-hour window
-      const bufferMinutes = 60;
-      const startTime = new Date(
-        input.bookingTime.getTime() - bufferMinutes * 60000,
-      );
-      const endTime = new Date(
-        input.bookingTime.getTime() + bufferMinutes * 60000,
-      );
-
-      const overlapFilter: any = {
-        _id: { $ne: toMongoId(input.rideId) },
-        rideStatus: {
-          $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP],
-        },
-        bookingTime: { $gte: startTime, $lte: endTime },
-        deleted: false,
-      };
-
-      if (user.loginAs === roles.USER) {
-        overlapFilter.passengerId = user._id;
-      } else {
-        overlapFilter.driverId = user._id;
-      }
-
-      const overlappingRide = await this.rideRepository.findOne(overlapFilter);
-      if (overlappingRide) {
-        ErrorException(null, "RIDES.RIDE_OVERLAP", HttpStatus.BAD_REQUEST);
-      }
-
-      updateData.bookingTime = input.bookingTime;
-    }
-
-    if (input.noOfPassengers) {
-      updateData.noOfPassengers = input.noOfPassengers;
-    }
-
-    if (input.pickupLocation) {
-      updateData.pickupLocation = {
-        type: "Point",
-        coordinates: [
-          input.pickupLocation.longitude,
-          input.pickupLocation.latitude,
-        ],
-        address: input.pickupLocation.address,
-        city: input.pickupLocation.city || "",
-        province: input.pickupLocation.province || ProvinceEnum.BAGMATI,
-        district: input.pickupLocation.district || "",
-        fullAddress: input.pickupLocation.fullAddress,
-      };
-    }
-
-    if (input.dropoffLocation) {
-      updateData.dropoffLocation = {
-        type: "Point",
-        coordinates: [
-          input.dropoffLocation.longitude,
-          input.dropoffLocation.latitude,
-        ],
-        address: input.dropoffLocation.address,
-        city: input.dropoffLocation.city || "",
-        province: input.dropoffLocation.province || ProvinceEnum.BAGMATI,
-        district: input.dropoffLocation.district || "",
-        fullAddress: input.dropoffLocation.fullAddress,
-      };
-    }
-
-    const updatedRide = await this.rideRepository.updateUpcomingConfirmedRide(
-      input.rideId,
-      user,
-      updateData,
-    );
-
-    if (!updatedRide) {
-      ErrorException(null, "RIDES.UPDATE_RIDE_FAILED", HttpStatus.BAD_REQUEST);
-    }
-
-    const enrichedRide = await this.enrichRideDetails(updatedRide);
-    return {
-      _id: enrichedRide._id,
-      ride: enrichedRide,
-      message: "RIDES.UPDATE_RIDE_SUCCESS",
-    };
+    return this.queryService.getRideDetail(input);
   }
 
   async getOngoingRideWithDetails(
     rideId: string,
     userId: Types.ObjectId,
   ): Promise<any> {
-    const rideDocument = await this.rideRepository.getOngoingRideWithDetails(
-      rideId,
-      userId,
-    );
-    if (!rideDocument)
-      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
+    return this.queryService.getOngoingRideWithDetails(rideId, userId);
+  }
 
-    return this.enrichRideDetails(rideDocument);
+  // ---- Lifecycle mutations ----
+
+  async createRide(rideData: Partial<RidesDocument>): Promise<RidesDocument> {
+    return this.lifecycleService.createRide(rideData);
+  }
+
+  async startRide(
+    rideId: Types.ObjectId,
+    startedAt: Date,
+    distanceInKm?: number,
+  ): Promise<RidesDocument | null> {
+    return this.lifecycleService.startRide(rideId, startedAt, distanceInKm);
+  }
+
+  async completeRide(
+    rideId: Types.ObjectId,
+    completedAt: Date,
+    distanceInKm?: number,
+  ): Promise<any> {
+    return this.lifecycleService.completeRide(
+      rideId,
+      completedAt,
+      distanceInKm,
+    );
+  }
+
+  async cancelRide(user: User, input: CancelRideInput): Promise<RidesDocument> {
+    return this.lifecycleService.cancelRide(user, input);
+  }
+
+  async updateRide(user: User, input: UpdateRideInput): Promise<any> {
+    return this.lifecycleService.updateRide(user, input);
+  }
+
+  async generateSampleRides(
+    driverId: Types.ObjectId,
+    riderId: Types.ObjectId,
+    vehicleId: Types.ObjectId,
+    adminId: Types.ObjectId,
+  ): Promise<RidesDocument[]> {
+    return this.lifecycleService.generateSampleRides(
+      driverId,
+      riderId,
+      vehicleId,
+      adminId,
+    );
+  }
+
+  // ---- Promo codes ----
+
+  async createPromoCode(
+    input: CreatePromoCodeInput,
+  ): Promise<PromoCodeDocument> {
+    return this.promoService.createPromoCode(input);
   }
 
   async applyPromoCode(
@@ -976,231 +167,49 @@ export class RidesService {
     rideId: string,
     promoCodeId: string,
   ): Promise<any> {
-    const ride = await this.rideRepository.findById(toMongoId(rideId));
-    if (!ride || ride.passengerId.toString() !== user._id.toString()) {
-      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-    }
-    if (ride.fare && ride.fare["promoCodeId"]) {
-      ErrorException(
-        null,
-        "RIDES.PROMO_ALREADY_APPLIED",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (!ride.rideEndedAt) {
-      ErrorException(
-        null,
-        "RIDES.PROMO_NOT_APPLICABLE_FOR_STATUS",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    const promo = await this.promoCodeModel
-      .findById(toMongoId(promoCodeId))
-      .exec();
-
-    if (!promo) {
-      ErrorException(
-        null,
-        "RIDES.PROMO_CODE_NOT_FOUND",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    if (
-      promo.appliedTo !== (ride.rideType as unknown as AppliedToEnum) &&
-      promo.appliedTo !== AppliedToEnum.ALL_RIDES
-    ) {
-      ErrorException(
-        null,
-        "RIDES.PROMO_NOT_APPLICABLE_FOR_RIDE_TYPE",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const now = new Date();
-    // Check if expired
-    if (
-      promo.status === PromoCodeStatusEnum.EXPIRED ||
-      promo.expiryDateTime < now
-    ) {
-      ErrorException(null, "RIDES.PROMO_EXPIRED", HttpStatus.BAD_REQUEST);
-    }
-
-    // Check if not started
-    if (promo.startDateTime > now) {
-      ErrorException(null, "RIDES.PROMO_NOT_STARTED", HttpStatus.BAD_REQUEST);
-    }
-
-    // Check if active
-    if (promo.status !== PromoCodeStatusEnum.ACTIVE) {
-      ErrorException(null, "RIDES.PROMO_INACTIVE", HttpStatus.BAD_REQUEST);
-    }
-
-    // Check total usage limit
-    const totalUsage = await this.promoCodeUsedModel.countDocuments({
-      promoCodeId: promo._id,
-    });
-    if (totalUsage >= promo.totalUsageLimit) {
-      ErrorException(
-        null,
-        "RIDES.PROMO_TOTAL_LIMIT_REACHED",
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-
-    // Check perUserLimit
-    const usageCount = await this.promoCodeUsedModel.countDocuments({
-      userId: user._id,
-      promoCodeId: promo._id,
-    });
-
-    if (usageCount >= promo.perUserLimit) {
-      ErrorException(null, "RIDES.PROMO_LIMIT_REACHED", HttpStatus.BAD_REQUEST);
-    }
-
-    // Check minimum fare
-    if (Number(ride.estimatedFare) < (Number(promo.minimumFare) || 0)) {
-      ErrorException(null, "RIDES.MIN_FARE_NOT_MET", HttpStatus.BAD_REQUEST);
-    }
-
-    // Calculate discount (rounded to nearest integer)
-    let discount = 0;
-    if (promo.discountType === DiscountTypeEnum.PERCENTAGE) {
-      discount = Math.round(
-        Number(ride.estimatedFare) *
-          ((Number(promo.percentageAmount) || 0) / 100),
-      );
-      if (promo.maxDiscount && discount > Number(promo.maxDiscount)) {
-        discount = Math.round(Number(promo.maxDiscount));
-      }
-    } else {
-      discount = Math.round(Number(promo.flatAmount) || 0);
-      if (discount > Number(ride.fare.totalAmount)) {
-        discount = Math.round(Number(ride.fare.totalAmount));
-      }
-    }
-
-    // Calculate subtotal (total amount before discount, rounded)
-    const subTotal = Math.round(Number(ride.estimatedFare));
-    const finalAmount = Math.max(0, subTotal - discount);
-
-    // Update ride
-    const updatedRide = await this.rideRepository.findOneAndUpdate(
-      { _id: ride._id },
-      {
-        $set: {
-          estimatedFare: finalAmount,
-          "fare.discountAmount": discount,
-          "fare.promoCodeId": promo._id,
-          "fare.promoCodeName": promo.name,
-          "fare.subTotal": subTotal,
-          "fare.totalAmount": finalAmount,
-          "paymentDetails.promoCodeId": promo._id,
-          "paymentDetails.promoCodeName": promo.name,
-          "paymentDetails.discountAmount": discount,
-          "paymentDetails.subTotal": subTotal,
-          "paymentDetails.totalAmount": finalAmount,
-        },
-      },
-      { new: true },
-    );
-
-    // Create usage record
-    await this.promoCodeUsedModel.create({
-      userId: user._id,
-      promoCodeId: promo._id,
-      rideId: ride._id,
-    });
-
-    //update the promoCodeUsedCount
-    await this.promoCodeModel.updateOne(
-      { _id: promo._id },
-      { $inc: { promoCodeUsedCount: 1 } },
-    );
-    const rideObj = updatedRide.toObject() as any;
-    transformToEntityNameObjectFromId(rideObj, ["vehicleId", "vehicle"]);
-
-    return {
-      message: "RIDES.PROMO_APPLIED",
-      success: true,
-      ride: rideObj,
-    };
+    return this.promoService.applyPromoCode(user, rideId, promoCodeId);
   }
 
   async removePromoCode(user: User, rideId: string): Promise<any> {
-    const ride = await this.rideRepository.findById(toMongoId(rideId));
-    if (!ride || ride.passengerId.toString() !== user._id.toString()) {
-      ErrorException(null, "RIDES.RIDE_NOT_FOUND", HttpStatus.NOT_FOUND);
-    }
-
-    if (!ride.fare || !ride.fare["promoCodeId"]) {
-      return { success: true, message: "RIDES.PROMO_REMOVED", ride };
-    }
-
-    const discountAmount = ride.fare["discountAmount"] || 0;
-    const promoId = ride.fare["promoCodeId"];
-
-    // Update ride - revert estimated fare and clear fields
-    const revertedFare = Math.round(
-      Number(ride.estimatedFare) + Number(discountAmount),
-    );
-    const updatedRide = await this.rideRepository.findOneAndUpdate(
-      { _id: ride._id },
-      {
-        $set: {
-          estimatedFare: revertedFare,
-          "fare.discountAmount": 0,
-          "fare.promoCodeId": null,
-          "fare.promoCodeName": null,
-          "fare.subTotal": ride.fare.totalAmount,
-          "paymentDetails.promoCodeId": null,
-          "paymentDetails.promoCodeName": null,
-          "paymentDetails.discountAmount": 0,
-          "paymentDetails.subTotal": ride.fare.totalAmount,
-        },
-      },
-      { new: true },
-    );
-
-    // Delete usage record
-    await this.promoCodeUsedModel.deleteOne({
-      rideId: ride._id,
-      promoCodeId: promoId,
-      userId: user._id,
-    });
-    await this.promoCodeModel.updateOne(
-      { _id: promoId },
-      { $inc: { promoCodeUsedCount: -1 } },
-    );
-    const rideObj = updatedRide.toObject() as any;
-    transformToEntityNameObjectFromId(rideObj, ["vehicleId", "vehicle"]);
-
-    return {
-      message: "RIDES.PROMO_REMOVED",
-      success: true,
-      ride: rideObj,
-    };
+    return this.promoService.removePromoCode(user, rideId);
   }
 
-  async getRideByIdAdmin(id: string) {
-    const ride = await this.rideRepository.findRideByIdAdmin(id);
-    if (!ride) return null;
+  // ---- Admin dashboard & analytics ----
 
-    return {
-      ...ride,
-      passenger: ride.passenger && {
-        ...ride.passenger,
-        profileImage: getActiveProfileImageUrl(
-          ride.passenger.profileImages,
-          (key) => this.s3.getPublicUrl(key),
-        ),
-      },
-      driver: ride.driver && {
-        ...ride.driver,
-        profileImage: getActiveProfileImageUrl(
-          ride.driver.profileImages,
-          (key) => this.s3.getPublicUrl(key),
-        ),
-      },
-    };
+  async getAdminDashboard(input: AdminDashboardInput) {
+    return this.adminDashboardService.getAdminDashboard(input);
+  }
+
+  async getRideStatusChart(
+    input: AdminDashboardInput,
+  ): Promise<RideStatusChartResponse> {
+    return this.adminDashboardService.getRideStatusChart(input);
+  }
+
+  async getUserStats(
+    fromDate?: Date,
+    endDate?: Date,
+  ): Promise<UserStatsResponse> {
+    return this.adminDashboardService.getUserStats(fromDate, endDate);
+  }
+
+  async getCompletedRideDashboardChart(
+    input: AdminDashboardInput,
+  ): Promise<DashboardChartResponse> {
+    return this.adminDashboardService.getCompletedRideDashboardChart(input);
+  }
+
+  async getPassengerRegistrationChart(
+    input?: AdminDashboardInput,
+  ): Promise<PassengerRegistrationChartResponse> {
+    return this.adminDashboardService.getPassengerRegistrationChart(input);
+  }
+
+  async getDriverStatusCounts(): Promise<DriverStatusCounts> {
+    return this.adminDashboardService.getDriverStatusCounts();
+  }
+
+  async getTotalRidersChart(): Promise<TotalRidersChartResponse> {
+    return this.adminDashboardService.getTotalRidersChart();
   }
 }

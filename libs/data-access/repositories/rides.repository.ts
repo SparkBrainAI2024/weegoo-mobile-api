@@ -517,6 +517,187 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   }
 
   /**
+   * Fetches all completed rides within a date range for the admin dashboard.
+   * Filters by `rideCompletedAt` falling within [fromDate, endDate] (inclusive).
+   * Enriches each ride with passenger, driver, and vehicle details.
+   * Supports pagination.
+   */
+  /**
+   * Aggregates completed rides for a date range, grouped either by day or by month.
+   * Used for the admin dashboard chart.
+   */
+  /**
+   * Counts rides by status (ongoing, cancelled, completed) within a date range.
+   * "ongoing" = CONFIRMED, ONGOING, PICKUP, PENDING
+   * "completed" = COMPLETED
+   * "cancelled" = CANCELLED
+   */
+  async getRideStatusCounts(
+    fromDate: Date,
+    toDate: Date,
+  ): Promise<{ ongoing: number; cancelled: number; completed: number }> {
+    const start = new Date(fromDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(toDate);
+    end.setHours(23, 59, 59, 999);
+
+    const [result] = await this._model.aggregate([
+      {
+        $match: {
+          bookingTime: { $gte: start, $lte: end },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          ongoing: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [
+                    "$rideStatus",
+                    [
+                      RideStatus.CONFIRMED,
+                      RideStatus.ONGOING,
+                      RideStatus.PICKUP,
+                      RideStatus.PENDING,
+                    ],
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          cancelled: {
+            $sum: {
+              $cond: [
+                { $eq: ["$rideStatus", RideStatus.CANCELLED] },
+                1,
+                0,
+              ],
+            },
+          },
+          completed: {
+            $sum: {
+              $cond: [
+                { $eq: ["$rideStatus", RideStatus.COMPLETED] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    return {
+      ongoing: result?.ongoing ?? 0,
+      cancelled: result?.cancelled ?? 0,
+      completed: result?.completed ?? 0,
+    };
+  }
+
+  /**
+   * Aggregates admin dashboard stats in a single query using $facet.
+   * Returns total active rides, unique active drivers/passengers, and cancelled rides.
+   */
+  async getAdminDashboardStats(
+    fromDate: Date,
+    toDate: Date,
+    activeStatuses: RideStatus[],
+  ): Promise<{
+    totalActiveRides: number;
+    activeRider: number;
+    activePassenger: number;
+    totalCancelledRides: number;
+  }> {
+    const [result] = await this._model.aggregate([
+      {
+        $match: {
+          bookingTime: { $gte: fromDate, $lte: toDate },
+          deleted: false,
+        },
+      },
+      {
+        $facet: {
+          activeRides: [
+            { $match: { rideStatus: { $in: activeStatuses } } },
+            {
+              $group: {
+                _id: null,
+                count: { $sum: 1 },
+                drivers: { $addToSet: "$driverId" },
+                passengers: { $addToSet: "$passengerId" },
+              },
+            },
+          ],
+          cancelledRides: [
+            { $match: { rideStatus: RideStatus.CANCELLED } },
+            { $count: "count" },
+          ],
+        },
+      },
+    ]);
+
+    const active = result?.activeRides?.[0];
+    return {
+      totalActiveRides: active?.count ?? 0,
+      activeRider: active?.drivers?.length ?? 0,
+      activePassenger: active?.passengers?.length ?? 0,
+      totalCancelledRides: result?.cancelledRides?.[0]?.count ?? 0,
+    };
+  }
+
+  async getCompletedRidesChart(
+    fromDate: Date,
+    endDate: Date,
+    groupBy: "day" | "month",
+  ) {
+    const match: Record<string, any> = {
+      rideStatus: RideStatus.COMPLETED,
+      rideCompletedAt: { $gte: fromDate, $lte: endDate },
+      deleted: { $ne: true },
+    };
+
+    const dateProjection =
+      groupBy === "day"
+        ? {
+            $dateToString: {
+              date: "$rideCompletedAt",
+              format: "%Y-%m-%d",
+            },
+          }
+        : {
+            $dateToString: {
+              date: "$rideCompletedAt",
+              format: "%Y-%m",
+            },
+          };
+
+    const pipeline: any[] = [
+      { $match: match },
+      {
+        $group: {
+          _id: dateProjection,
+          value: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          key: "$_id",
+          value: 1,
+        },
+      },
+      { $sort: { key: 1 } },
+    ];
+
+    return this._model.aggregate(pipeline);
+  }
+
+  /**
    * Updates ride with timing data when the ride starts.
    * Sets rideStartedAt and recalculates estimatedFare and estimatedTimeInMinutes
    * based on distance and booking time.
@@ -601,9 +782,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           break;
         case RideFilterStatus.ALL:
         default:
-          // Exclude PICKUP and CONFIRMED rides for ALL/default filter
+          // Exclude PICKUP, CONFIRMED and BOOKING rides for ALL/default filter.
+          // BOOKING is the scheduled seat-booking lifecycle state (requested via
+          // matchScheduledDrivers but not yet accepted by a driver) — it must
+          // never surface in the user-facing rides list.
           filter.rideStatus = {
-            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED],
+            $nin: [RideStatus.PICKUP, RideStatus.CONFIRMED, RideStatus.BOOKING],
           };
           break;
       }
@@ -748,6 +932,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     ];
     const upcomingResult = await this.model
       .find({
+        // Note: rideStatus is constrained to CONFIRMED/PENDING here, so
+        // scheduled seat-bookings (BOOKING status) can never match — they only
+        // surface once a driver accepts them and the ride becomes CONFIRMED.
         rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.PENDING] },
         ...filter,
       })
@@ -818,7 +1005,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         populate: {
           path: "userDetails",
           select:
-            "fullName displayIdAsDriver profileImages rating totalRidesAsDriver",
+            "fullName displayIdAsDriver profileImages rating totalRidesAsDriver geoLocation",
         },
       },
       {
@@ -827,7 +1014,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         populate: {
           path: "userDetails",
           select:
-            "fullName displayIdAsPassenger profileImages rating totalTripsAsPassenger",
+            "fullName displayIdAsPassenger profileImages rating totalTripsAsPassenger geoLocation",
         },
       },
     ];

@@ -3,7 +3,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseEntity } from "../base/base.entity";
 import { HydratedDocument, Types } from "mongoose";
 import { RideLocation } from "../common/ride.location";
-import { VehicleType } from "../enums/vehicle.enum";
+import { ScheduledVehicleType, VehicleType } from "../enums/vehicle.enum";
 import { RideTypes } from "../enums/rides.enum";
 import { paginateAndSoftDelete } from "../plugins/mongoose.plugin";
 @ObjectType()
@@ -30,9 +30,16 @@ export class Favourites extends BaseEntity {
     @Prop({ type: RideLocation, required: false })
     dropoffLocation: RideLocation;
 
-    @Field(() => VehicleType)
-    @Prop({ type: String, enum: VehicleType, required: true })
-    vehicleType: VehicleType;
+    @Field(() => String)
+    @Prop({
+      type: String,
+      required: true,
+      enum: [
+        ...Object.values(VehicleType),
+        ...Object.values(ScheduledVehicleType),
+      ],
+    })
+    vehicleType: VehicleType | ScheduledVehicleType;
 
     @Field(() => Number, { defaultValue: 1 })
     @Prop({ type: Number, default: 1, required: true })

@@ -4,6 +4,7 @@ import { Rides } from "../../entities/rides.entity";
 import { PaymentDetails } from "@libs/data-access/common/payment-details";
 import { Fare } from "@libs/data-access/common/fare";
 import { RideLocation } from "@libs/data-access/common/ride.location";
+import { GeoLocation } from "@libs/data-access/common/geo.location";
 import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 import { RideStatus, RideTypes } from "@libs/data-access/enums/rides.enum";
 
@@ -53,6 +54,9 @@ export class AdminRideUserSnapshot {
 
   @Field(() => Number, { nullable: true })
   totalRidesAsDriver?: number;
+
+  @Field(() => GeoLocation, { nullable: true })
+  geoLocation?: GeoLocation;
 }
 @ObjectType()
 export class RideDetailResponse {

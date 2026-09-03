@@ -12,6 +12,7 @@ export enum RideStatus {
     COMPLETED = 'COMPLETED',
     CANCELLED = 'CANCELLED',
     PENDING = 'PENDING',
+    BOOKING = 'BOOKING',
 }
 export const UpcomingRideStatus = "UPCOMING"; // Special status for filtering upcoming rides
 registerEnumType(RideTypes, {
@@ -39,6 +40,9 @@ registerEnumType(RideStatus, {
         },
         PICKUP: {
             description: 'Driver has picked up the rider',
+        },
+        BOOKING: {
+            description: 'Scheduled ride requested and awaiting driver booking/payment',
         },
         COMPLETED: {
             description: 'Ride is completed',

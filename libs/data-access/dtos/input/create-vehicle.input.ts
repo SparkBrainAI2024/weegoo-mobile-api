@@ -1,4 +1,4 @@
-import { VehicleModelType, VehicleType } from "@libs/data-access";
+import { VehicleModelType, VehicleType,AnyVehicleType } from "@libs/data-access";
 import { Field, InputType, Int } from "@nestjs/graphql";
 import {
   IsEnum,
@@ -12,12 +12,12 @@ import {
 
 @InputType()
 export class RegisterVehicleInput {
-  @Field(() => VehicleType, {
+  @Field(() => AnyVehicleType, {
     description:
       "Vehicle type registerVehicleenum: CAR, MOTORBIKE, or SCOOTER.",
   })
-  @IsEnum(VehicleType, { message: "VEHICLE.INVALID_TYPE" })
-  vehicleType: VehicleType;
+  @IsEnum(AnyVehicleType, { message: "VEHICLE.INVALID_TYPE" })
+  vehicleType: AnyVehicleType;
 
   @Field({
     description: "Vehicle model name, for example: Honda City.",

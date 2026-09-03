@@ -13,6 +13,6 @@ import { MongooseModule } from '@nestjs/mongoose';
     ]),
   ],
   providers: [TransactionRepository],
-  exports: [TransactionRepository], // only repo exported, not the model directly
+  exports: [TransactionRepository, MongooseModule],
 })
 export class TransactionPersistenceModule {}

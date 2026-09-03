@@ -4,6 +4,7 @@ import { Rides, RidesSchema } from '@libs/data-access/entities/rides.entity';
 import { User, UserSchema } from '@libs/data-access/entities/user.entity';
 import { UserDetails, UserDetailsSchema } from '@libs/data-access/entities/user-details.entity';
 import { Vehicle, VehicleSchema } from '@libs/data-access/entities/vehicle.entity';
+import { Availability, AvailabilitySchema } from '@libs/data-access/entities/availability.entity';
 import { UserDailyOnlineStatus, UserDailyOnlineStatusSchema } from '@libs/data-access/entities/user-daily-online-status.entity';
 import { PromoCode, PromoCodeSchema } from '@libs/data-access/entities/promo-code.entity';
 import { PromoCodeUsed, PromoCodeUsedSchema } from '@libs/data-access/entities/promo-code-used.entity';
@@ -29,6 +30,7 @@ import { UserPersistenceModule } from '@libs/services/user/user-persistent.modul
       { name: UserDetails.name, schema: UserDetailsSchema },
       { name: UserDailyOnlineStatus.name, schema: UserDailyOnlineStatusSchema },
       { name: Vehicle.name, schema: VehicleSchema },
+      { name: Availability.name, schema: AvailabilitySchema },
       { name: PromoCode.name, schema: PromoCodeSchema },
       { name: PromoCodeUsed.name, schema: PromoCodeUsedSchema },
     ]),
