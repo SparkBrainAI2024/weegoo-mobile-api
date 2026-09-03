@@ -1640,6 +1640,7 @@ type AdminRideUserSnapshot {
   suspended: Boolean!
   totalTripsAsPassenger: Float
   totalRidesAsDriver: Float
+  geoLocation: GeoLocation
 }
 
 type RideDetailResponse {

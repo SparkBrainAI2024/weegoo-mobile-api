@@ -1005,7 +1005,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         populate: {
           path: "userDetails",
           select:
-            "fullName displayIdAsDriver profileImages rating totalRidesAsDriver",
+            "fullName displayIdAsDriver profileImages rating totalRidesAsDriver geoLocation",
         },
       },
       {
@@ -1014,7 +1014,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         populate: {
           path: "userDetails",
           select:
-            "fullName displayIdAsPassenger profileImages rating totalTripsAsPassenger",
+            "fullName displayIdAsPassenger profileImages rating totalTripsAsPassenger geoLocation",
         },
       },
     ];

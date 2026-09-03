@@ -397,6 +397,7 @@ export class RideQueryService {
         suspended: userDoc.suspended ?? false,
         totalTripsAsPassenger: details.totalTripsAsPassenger,
         totalRidesAsDriver: details.totalRidesAsDriver,
+        geoLocation: details.geoLocation ?? null,
       };
     };
 
