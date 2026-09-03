@@ -56,7 +56,7 @@ export class MatchmakingIntegrationService {
         ablyChannelId
         availableDrivers {
           driverId driverName driverImage driverEmail vehicleImage phone rating amount
-          vehicleName vehicleType vehicleModel isAcType vehicleModelType color numberPlate
+          vehicleId vehicleName vehicleType vehicleModel year isAcType color numberPlate
           estimatedFare
           availability {
             day date vehicleType amount isAvailableForBookings availableSeats remainingSeats timeSlots matchesTimeSlot totalTrips notes majorStops

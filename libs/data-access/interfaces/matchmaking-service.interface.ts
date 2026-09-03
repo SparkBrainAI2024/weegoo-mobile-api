@@ -15,6 +15,8 @@ export interface DriverScore {
   vehicleType: string;
   color: string;
   numberPlate: string;
+  /** Manufacturing year of the vehicle. */
+  year?: number | null;
   /** AC mode of the vehicle. */
   isAcType?: boolean;
   /** Fuel/mode of the vehicle: EV or PETROL. */

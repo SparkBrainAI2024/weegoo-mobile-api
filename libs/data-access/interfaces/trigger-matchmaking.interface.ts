@@ -87,8 +87,9 @@ export interface AvailableScheduledDriverInterface {
   vehicleName?: string | null;
   vehicleType?: string;
   vehicleModel?: string;
+  /** Manufacturing year of the vehicle. */
+  year?: number | null;
   isAcType?: boolean | null;
-  vehicleModelType?: string | null;
   color?: string;
   numberPlate?: string;
   distanceToPickupKm?: number;
