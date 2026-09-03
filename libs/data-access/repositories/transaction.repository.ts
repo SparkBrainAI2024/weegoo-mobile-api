@@ -623,9 +623,9 @@ export class TransactionRepository {
       { $limit: limit },
       {
         $lookup: {
-          from: "users",
+          from: "userdetails",
           localField: "driverId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "driver",
         },
       },
@@ -660,18 +660,18 @@ export class TransactionRepository {
       { $match: match },
       {
         $lookup: {
-          from: "users",
+          from: "userdetails",
           localField: "driverId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "driver",
         },
       },
       { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
       {
         $lookup: {
-          from: "users",
+          from: "userdetails",
           localField: "riderId",
-          foreignField: "_id",
+          foreignField: "userId",
           as: "rider",
         },
       },

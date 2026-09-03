@@ -161,7 +161,6 @@ export class PaymentsService {
       },
       netFlow,
       netFlowPercentChange: calcPercentChange(netFlow, prevNetFlow),
-      netFlowTrend: trend,
     };
   }
 
@@ -189,16 +188,17 @@ export class PaymentsService {
         id: tx.transactionUuid ?? tx._id.toString(),
         type: tx.type,
         user: {
-          userId: person?._id?.toString() ?? null,
+          userId: person?.userId?.toString() ?? null,
           fullName: person?.fullName ?? null,
           displayId:
-            (isDriverParty ? person?.driverSlugId : person?.passengerSlugId) ??
-            null,
+            (isDriverParty
+              ? person?.displayIdAsDriver
+              : person?.displayIdAsPassenger) ?? null,
           userType: isDriverParty
             ? WalletUserType.DRIVER
             : WalletUserType.PASSENGER,
         },
-        description: tx.remarks ?? null,
+        description: tx.type ?? null,
         amount: tx.amount,
         direction: tx.direction,
         status: tx.status,
@@ -226,9 +226,9 @@ export class PaymentsService {
     ]);
 
     const data = rows.map((tx: any) => ({
-      id: tx._id.toString(),
+      id: tx.driver.userId.toString(),
       fullName: tx.driver?.fullName ?? null,
-      displayId: tx.driver?.driverSlugId ?? null,
+      displayId: tx.driver?.displayIdAsDriver ?? null,
       amount: tx.amount,
       status: tx.status,
       requestedAt: tx.createdAt,
