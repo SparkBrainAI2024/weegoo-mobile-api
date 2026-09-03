@@ -922,11 +922,14 @@ export class MatchmakingService {
             }
             // The scheduled (booking) fare is the amount configured on the
             // accepting driver's availability day — not a system-calculated fare.
+            // The scheduled (booking) fare is the availability day amount
+            // charged PER SEAT booked, matching the wallet debit performed by
+            // bookScheduledRide in the passenger API.
             const acceptedDayAmount = resolvedSchedDay.day.amount ?? 0;
             if (acceptedDayAmount > 0) {
-              baseFare = acceptedDayAmount;
+              baseFare = 0;
               distanceFare = 0;
-              totalAmount = acceptedDayAmount;
+              totalAmount = acceptedDayAmount * noOfPassengersForAccept;
             }
           }
         }

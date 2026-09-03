@@ -175,6 +175,7 @@ export class PassengerPaymentService {
         rideId: string,
         driverId: string,
         passengerId: string,
+        clientAmount?: number,
     ): Promise<PassengerPaymentResult> {
         this.logger.log(`Booking scheduled ride ${rideId} with driver ${driverId} for passenger ${passengerId}`);
 
@@ -222,9 +223,35 @@ export class PassengerPaymentService {
         if ((ride.noOfPassengers || 1) > (day.availableSeats || 0)) {
             throw new BadRequestException(`Not enough available seats on the driver's availability day`);
         }
-        const amount = day.amount ?? 0;
-        if (amount <= 0) {
+        const seatsBooked = ride.noOfPassengers || 1;
+        if (seatsBooked < 1) {
+            throw new BadRequestException(`Invalid number of seats booked`);
+        }
+
+        // ── Booking amount validation ──────────────────────────────
+        // The payable amount is the driver's availability-day (per-seat)
+        // amount multiplied by the number of seats being booked. The wallet
+        // is ALWAYS charged this server-computed amount — never a client-
+        // supplied value.
+        const perSeatAmount = day.amount ?? 0;
+        if (perSeatAmount <= 0) {
             throw new BadRequestException(`No booking amount configured for the driver's availability day`);
+        }
+        const amount = Number((perSeatAmount * seatsBooked).toFixed(2));
+        if (amount <= 0) {
+            throw new BadRequestException(`Invalid booking amount for the driver's availability day`);
+        }
+        // Cross-check the client-supplied expected amount when provided.
+        if (clientAmount != null) {
+            const normalizedClientAmount = Number(clientAmount);
+            if (!Number.isFinite(normalizedClientAmount)) {
+                throw new BadRequestException(`Invalid booking amount provided`);
+            }
+            if (Math.abs(normalizedClientAmount - amount) > 0.01) {
+                throw new BadRequestException(
+                    `Booking amount mismatch. Expected: ${amount} (day amount ${perSeatAmount} x ${seatsBooked} seat(s)), received: ${normalizedClientAmount}`,
+                );
+            }
         }
 
         // Slot window: request must be made before the buffer window opens,

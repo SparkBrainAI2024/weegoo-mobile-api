@@ -51,6 +51,7 @@ export class PassengerPaymentResolver {
       input.rideId,
       input.driverId,
       user._id.toString(),
+      input.amount,
     );
 
     return {
