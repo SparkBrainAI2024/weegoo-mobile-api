@@ -489,8 +489,12 @@ export class AuthService {
         verificationCode,
       );
       return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
-    } catch (e) {
+    } catch (e:any) {
       console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ phoneSignUp ~ e:", e)
+      // Handle Mongo duplicate key error (race condition between findByPhone and create)
+      if (e?.code === 11000 || e?.name === "MongoServerError" || /duplicate key/i.test(e?.message || "")) {
+        ErrorException(null, "USER.USED_PHONE", HttpStatus.CONFLICT);
+      }
       ErrorException(
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
