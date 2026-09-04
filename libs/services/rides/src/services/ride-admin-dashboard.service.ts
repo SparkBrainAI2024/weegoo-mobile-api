@@ -181,6 +181,9 @@ export class RideAdminDashboardService {
           "details.lastLocationUpdateAt": { $gte: startDate, $lte: endDate },
         },
       },
+      // De-duplicate: a driver with multiple userdetails docs (or multiple
+      // online location updates) must still be counted only ONCE.
+      { $group: { _id: "$_id" } },
       { $count: "count" },
     ]);
 
@@ -189,7 +192,9 @@ export class RideAdminDashboardService {
 
   /**
    * Counts passengers (role USER) who are verified, not suspended, and
-   * registered (createdAt) within the given date range.
+   * registered (createdAt) up to the given endDate (inclusive). The count is
+   * NOT bounded by startDate — any passenger registered on or before endDate
+   * is counted.
    */
   private async getActivePassengerCount(
     startDate: Date,
@@ -202,7 +207,7 @@ export class RideAdminDashboardService {
           verified: true,
           suspended: false,
           deleted: false,
-          createdAt: { $gte: startDate, $lte: endDate },
+          createdAt: { $lte: endDate },
         },
       },
       { $count: "count" },

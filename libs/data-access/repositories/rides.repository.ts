@@ -601,7 +601,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
   /**
    * Aggregates admin dashboard stats in a single query using $facet.
-   * Returns total active rides, unique active drivers/passengers, and cancelled rides.
+   * Returns total active rides and cancelled rides for the date range.
+   * (activeRider / activePassenger are computed by
+   * RideAdminDashboardService.getActiveRiderCount / getActivePassengerCount.)
    */
   async getAdminDashboardStats(
     fromDate: Date,
@@ -609,8 +611,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     activeStatuses: RideStatus[],
   ): Promise<{
     totalActiveRides: number;
-    activeRider: number;
-    activePassenger: number;
     totalCancelledRides: number;
   }> {
     const [result] = await this._model.aggregate([
@@ -628,8 +628,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
               $group: {
                 _id: null,
                 count: { $sum: 1 },
-                drivers: { $addToSet: "$driverId" },
-                passengers: { $addToSet: "$passengerId" },
               },
             },
           ],
@@ -644,8 +642,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const active = result?.activeRides?.[0];
     return {
       totalActiveRides: active?.count ?? 0,
-      activeRider: active?.drivers?.length ?? 0,
-      activePassenger: active?.passengers?.length ?? 0,
       totalCancelledRides: result?.cancelledRides?.[0]?.count ?? 0,
     };
   }
