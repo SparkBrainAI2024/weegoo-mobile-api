@@ -181,17 +181,30 @@ export class MatchmakingService {
       rating: d.rating,
       distanceToPickupKm: d.distanceToPickupKm,
       estimatedTimeToReachMinutes: d.estimatedTimeToReachMinutes,
-      // Vehicle information
+      // Vehicle information — flat fields are what the GraphQL DTOs
+      // (ScheduledAvailableDriverGraphQL / ScheduledAvailableDriverInfo) expose;
+      // they must be present at the top level or they resolve as null.
+      vehicleId: d.vehicleId,
+      vehicleName: d.vehicleName || null,
+      vehicleType: d.vehicleType,
+      vehicleModel: d.vehicleModel || null,
+      vehicleModelType: d.vehicleModelType || null,
+      isAcType: d.isAcType ?? null,
+      color: d.color || null,
+      numberPlate: d.numberPlate || null,
+      year: d.year ?? null,
+      amount: d.scheduledAvailability?.amount ?? null,
+      // Nested vehicle object kept for backward compatibility with existing consumers
       vehicle: {
         vehicleId: d.vehicleId,
         vehicleName: d.vehicleName || null,
         vehicleType: d.vehicleType,
-        vehicleModel: d.vehicleModel,
+        vehicleModel: d.vehicleModel || null,
+        vehicleModelType: d.vehicleModelType || null,
         isAcType: d.isAcType ?? null,
-        // Fuel/mode of the vehicle: EV or PETROL
-        modelType: d.vehicleModelType || null,
         color: d.color,
         numberPlate: d.numberPlate,
+        year: d.year ?? null,
       },
       // Availability information of the driver on the requested day
       availability: d.scheduledAvailability || null,
@@ -487,7 +500,7 @@ export class MatchmakingService {
       const distResult = await this.distanceCalculator.calculateDriverDistance(pickupLat, pickupLng, driverLat, driverLng, vehicleType.toLowerCase());
       if (distResult.distanceKm <= radiusKm) {
         const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
-        drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes });
+        drivers.push({ driverId: driver._id.toString(), fullName: userDetails?.fullName || driver.fullName || 'Driver', phone: driver.phone || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, distanceToPickupKm: distResult.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: distResult.durationMinutes });
       }
     }
     return drivers;
@@ -560,6 +573,7 @@ export class MatchmakingService {
     effectiveSeats: number,
     remainingSeats?: number,
     totalTrips?: number,
+    bookingTime?: Date,
   ): NonNullable<DriverScore['scheduledAvailability']> {
     return {
       day: day.day,
@@ -570,7 +584,18 @@ export class MatchmakingService {
       availableSeats: effectiveSeats,
       remainingSeats:
         remainingSeats != null ? Math.max(0, Math.floor(remainingSeats)) : undefined,
-      timeSlots: (day.timeSlots || []).map((s) => formatSlot(s.startTime)).filter(Boolean),
+      // Only expose time slots the requested booking time has NOT already
+      // crossed — passed slots are hidden from the passenger even though the
+      // driver may still have been matched via one of them.
+      timeSlots: (day.timeSlots || [])
+        .filter((s) => {
+          if (!bookingTime) return true;
+          const start = slotStartDate(s?.startTime, bookingTime);
+          if (!start) return true;
+          return start.getTime() >= bookingTime.getTime();
+        })
+        .map((s) => formatSlot(s.startTime))
+        .filter(Boolean),
       // Completed trips of this available driver — lives on the availability day so the
       // client can show the driver's lifetime trip count for the matched option.
       totalTrips: totalTrips ?? 0,
@@ -725,7 +750,7 @@ export class MatchmakingService {
           pickupLat, pickupLng, dayPickup.latitude, dayPickup.longitude, (day.vehicleType as string || v.vehicleType || 'CAR').toLowerCase(),
         );
         const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
-        drivers.push({ driverId: driver._id.toString(), fullName: driver.fullName || 'Driver', phone: driver.phone || '', email: driver.email || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleName: v.name || '', vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, isAcType: v.isAcType ?? (v.vehicleType as string) === 'CAR', vehicleModelType: v.vehicleModelType || null, vehicleImage: v.images?.length ? this.s3.getPublicUrl(v.images.find((img) => img.status === 'ACTIVE')?.s3Key || v.images[0].s3Key) : null, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day, resolvedDay.effectiveSeats, remainingSeats, completedTripsCount) });
+        drivers.push({ driverId: driver._id.toString(), fullName: userDetails?.fullName || driver.fullName || 'Driver', phone: driver.phone || '', email: driver.email || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleName: v.name || '', vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, year: v.year ?? null, isAcType: v.isAcType ?? (v.vehicleType as string) === 'CAR', vehicleModelType: v.vehicleModelType || null, vehicleImage: v.images?.length ? this.s3.getPublicUrl(v.images.find((img) => img.status === 'ACTIVE')?.s3Key || v.images[0].s3Key) : null, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day, resolvedDay.effectiveSeats, remainingSeats, completedTripsCount, bookingReference) });
       } catch (err) {
         this.logger.warn(`Failed to compute pickup distance for driver ${driver._id}: ${err}`);
       }
@@ -899,11 +924,14 @@ export class MatchmakingService {
             }
             // The scheduled (booking) fare is the amount configured on the
             // accepting driver's availability day — not a system-calculated fare.
+            // The scheduled (booking) fare is the availability day amount
+            // charged PER SEAT booked, matching the wallet debit performed by
+            // bookScheduledRide in the passenger API.
             const acceptedDayAmount = resolvedSchedDay.day.amount ?? 0;
             if (acceptedDayAmount > 0) {
-              baseFare = acceptedDayAmount;
+              baseFare = 0;
               distanceFare = 0;
-              totalAmount = acceptedDayAmount;
+              totalAmount = acceptedDayAmount * noOfPassengersForAccept;
             }
           }
         }
@@ -2324,7 +2352,7 @@ export class MatchmakingService {
       ride.bookingTime
         ? this.resolveAvailabilityDay(availabilityDoc, ride.bookingTime, noOfPassengers)
         : null;
-        const availability = resolvedAvailability ? this.buildScheduledAvailabilityInfo(resolvedAvailability.day, resolvedAvailability.effectiveSeats) : null;
+        const availability = resolvedAvailability ? this.buildScheduledAvailabilityInfo(resolvedAvailability.day, resolvedAvailability.effectiveSeats, undefined, undefined, ride.bookingTime) : null;
     return {
       rideId: ride._id.toString(),
       rideUUId: ride.rideUUId,

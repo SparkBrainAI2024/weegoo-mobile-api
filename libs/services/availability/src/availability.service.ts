@@ -598,6 +598,13 @@ export class AvailabilityService {
       if (dayFromWallClock(slotDate) !== day) {
         ErrorException(null, "AVAILABILITY.TIME_SLOT_DAY_MISMATCH", HttpStatus.BAD_REQUEST);
       }
+      // The slot's start time must not already be in the past (relevant for
+      // slots on today's date — e.g. an 08:00 slot when it is already 14:00).
+      // `slotDate` is a Nepal wall-clock value, so convert it back to the real
+      // instant before comparing with the current time.
+      if (fromNepalWallClock(slotDate).getTime() <= Date.now()) {
+        ErrorException(null, "AVAILABILITY.TIME_SLOT_PAST", HttpStatus.BAD_REQUEST);
+      }
     }
   }
 

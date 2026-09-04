@@ -87,8 +87,11 @@ export interface AvailableScheduledDriverInterface {
   vehicleName?: string | null;
   vehicleType?: string;
   vehicleModel?: string;
-  isAcType?: boolean | null;
+  /** Fuel/mode of the vehicle: EV or PETROL. */
   vehicleModelType?: string | null;
+  /** Manufacturing year of the vehicle. */
+  year?: number | null;
+  isAcType?: boolean | null;
   color?: string;
   numberPlate?: string;
   distanceToPickupKm?: number;

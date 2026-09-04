@@ -80,6 +80,7 @@ export class AvailabilityDayInput {
   @IsOptional()
   @IsArray()
   @IsString({ each: true, message: "AVAILABILITY.MAJOR_STOP_LABEL_REQUIRED" })
+  @ArrayMaxSize(5, { message: "AVAILABILITY.MAJOR_STOPS_MAX" })
   majorStops?: string[];
 
   @Field(() => Number, { defaultValue: 0 })
@@ -141,6 +142,7 @@ export class UpdateAvailabilityInput {
   @IsOptional()
   @IsArray()
   @IsString({ each: true, message: "AVAILABILITY.MAJOR_STOP_LABEL_REQUIRED" })
+  @ArrayMaxSize(5, { message: "AVAILABILITY.MAJOR_STOPS_MAX" })
   majorStops?: string[];
 
   @Field(() => Number, { nullable: true })

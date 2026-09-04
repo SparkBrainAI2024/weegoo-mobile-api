@@ -33,6 +33,7 @@ export const AVAILABILITY = {
   DUPLICATE_DAY:
     "Availability for this day has already been added. Use the edit option to update it.",
   TIME_SLOT_INVALID: "Time slot start time must be a valid date and time.",
+  TIME_SLOT_PAST: "Time slot start time has already passed. Please choose a future time slot.",
   ONE_WAY_ONE_SLOT:
     "A one-way trip must have exactly one time slot.",
   ROUND_TRIP_TWO_SLOTS:
@@ -43,4 +44,5 @@ export const AVAILABILITY = {
     "There must be at least 3 hours between time slot start times.",
   TIME_SLOT_DAY_MISMATCH:
     "The day of the time slot start time does not match the availability day it belongs to.",
+  MAJOR_STOPS_MAX: "A maximum of 5 major stops is allowed.",
 };

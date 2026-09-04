@@ -1,4 +1,4 @@
-import {  VehicleModelType, VehicleType } from "@libs/data-access";
+import {  AnyVehicleType, VehicleModelType, VehicleType } from "@libs/data-access";
 import { Field, InputType, Int } from "@nestjs/graphql";
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class-validator";
 
@@ -9,10 +9,10 @@ export class EditVehicleInput {
   @IsString()
   imageS3Key: string;
 
-  @Field(() => VehicleType, { nullable: true, description: "Vehicle type: CAR, MOTORBIKE, or SCOOTER." })
+  @Field(() => AnyVehicleType, { nullable: true, description: "Vehicle type: CAR, MOTORBIKE, JEEP, MICRO or SCOOTER." })
   @IsNotEmpty()
-  @IsEnum(VehicleType, { message: "VEHICLE.INVALID_TYPE" })
-  vehicleType?: VehicleType;
+  @IsEnum(AnyVehicleType, { message: "VEHICLE.INVALID_TYPE" })
+  vehicleType?: AnyVehicleType;
 
   @Field({ nullable: true, description: "Vehicle model name, for example: Honda City." })
   @IsNotEmpty()

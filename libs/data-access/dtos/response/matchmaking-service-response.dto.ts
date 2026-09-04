@@ -553,10 +553,31 @@ export class ScheduledAvailableDriverGraphQL {
   vehicleType?: string;
 
 
+/** Vehicle document id. */
+
+  @Field(() => ID, { nullable: true })
+
+  vehicleId?: string | null;
 
   @Field(() => String, { nullable: true })
 
   vehicleModel?: string;
+
+
+
+  /** Fuel/mode of the vehicle: EV or PETROL. */
+
+  @Field(() => String, { nullable: true })
+
+  vehicleModelType?: string | null;
+
+
+
+  /** Manufacturing year of the vehicle. */
+
+  @Field(() => Int, { nullable: true })
+
+  year?: number | null;
 
 
 
@@ -585,14 +606,6 @@ export class ScheduledAvailableDriverGraphQL {
   @Field(() => Boolean, { nullable: true })
 
   isAcType?: boolean | null;
-
-
-
-  /** Fuel/mode of the vehicle: EV or PETROL. */
-
-  @Field(() => String, { nullable: true })
-
-  vehicleModelType?: string | null;
 
 
 

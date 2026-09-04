@@ -65,4 +65,15 @@ export class RegisterVehicleInput {
   @IsNotEmpty()
   @IsString()
   name: string;
+
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      "Seat capacity for scheduled (carpool) bookings. Optional — if omitted, the system default for the vehicle type is used.",
+  })
+  @IsOptional()
+  @IsInt({ message: "VEHICLE.SEAT_CAPACITY_INVALID" })
+  @Min(1, { message: "VEHICLE.SEAT_CAPACITY_INVALID" })
+  @Max(100, { message: "VEHICLE.SEAT_CAPACITY_INVALID" })
+  seatCapacity?: number | null;
 }
