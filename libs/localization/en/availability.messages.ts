@@ -33,6 +33,7 @@ export const AVAILABILITY = {
   DUPLICATE_DAY:
     "Availability for this day has already been added. Use the edit option to update it.",
   TIME_SLOT_INVALID: "Time slot start time must be a valid date and time.",
+  TIME_SLOT_PAST: "Time slot start time has already passed. Please choose a future time slot.",
   ONE_WAY_ONE_SLOT:
     "A one-way trip must have exactly one time slot.",
   ROUND_TRIP_TWO_SLOTS:
