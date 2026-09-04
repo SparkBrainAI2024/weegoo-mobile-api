@@ -1807,6 +1807,103 @@ type EmailTemplateListWithPaginationResponse {
   pagination: Pagination!
 }
 
+type StatCard {
+  value: Float!
+  percentChange: Float
+  isIncrease: Boolean
+}
+
+type PaymentsSummaryResponse {
+  totalCommission: StatCard!
+  driverWalletBalance: StatCard!
+  customerWalletBalance: StatCard!
+  totalTransactions: StatCard!
+}
+
+type ChartPoint {
+  date: String!
+  amount: Float!
+}
+
+type CommissionOverviewResponse {
+  totalCommission: Float!
+  percentChange: Float
+  dataPoints: [ChartPoint!]!
+}
+
+type WalletBalanceSegment {
+  label: String!
+  value: Float!
+  percentage: Float!
+}
+
+type WalletBalancesResponse {
+  totalBalance: Float!
+  driverWallet: WalletBalanceSegment!
+  customerWallet: WalletBalanceSegment!
+  commission: WalletBalanceSegment!
+}
+
+type TopupWithdrawalResponse {
+  totalTopups: StatCard!
+  totalWithdrawals: StatCard!
+  netFlow: Float!
+  netFlowPercentChange: Float
+}
+
+type TransactionUserInfo {
+  userId: String
+  fullName: String
+  displayId: String
+  userType: WalletUserType
+}
+
+"""Type of wallet owner"""
+enum WalletUserType {
+  """Wallet belongs to passenger"""
+  PASSENGER
+
+  """Wallet belongs to driver"""
+  DRIVER
+
+  """Wallet belongs to admin"""
+  ADMIN
+}
+
+type TransactionResponse {
+  id: String!
+  type: TransactionType!
+  user: TransactionUserInfo!
+  description: String
+  amount: Float!
+  direction: TransactionDirection!
+  status: TransactionStatus!
+  createdAt: DateTime!
+}
+
+type PaginatedTransactionsResponse {
+  data: [TransactionResponse!]!
+  total: Int!
+  page: Int!
+  limit: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+}
+
+type PendingWithdrawalItem {
+  id: String!
+  fullName: String
+  displayId: String
+  amount: Float!
+  status: TransactionStatus!
+  requestedAt: DateTime!
+}
+
+type PendingWithdrawalsResponse {
+  data: [PendingWithdrawalItem!]!
+  totalPending: Float!
+}
+
 input NotificationSettingsInput {
   earnings: Boolean! = true
   appUpdates: Boolean! = true
@@ -1882,6 +1979,12 @@ type Query {
   adminRidePricings: [AdminRidePricing!]!
   adminRidePricing(vehicleType: VehicleType!): AdminRidePricing!
   maintenanceInfo: MaintenanceInfo!
+  paymentsSummary: PaymentsSummaryResponse!
+  commissionOverview(input: PaymentsOverviewInput): CommissionOverviewResponse!
+  walletBalances: WalletBalancesResponse!
+  topupVsWithdrawals(input: PaymentsOverviewInput): TopupWithdrawalResponse!
+  recentTransactions(input: RecentTransactionsInput): PaginatedTransactionsResponse!
+  pendingWithdrawals: PendingWithdrawalsResponse!
 }
 
 input PaginationInputOnly {
@@ -2000,6 +2103,27 @@ input IssueListInput {
 
 input IssueDetailInput {
   id: ID!
+}
+
+input PaymentsOverviewInput {
+  period: TimeRangeFilter = LAST_7_DAYS
+}
+
+"""Date-range filter for payment dashboard analytics"""
+enum TimeRangeFilter {
+  LAST_7_DAYS
+  LAST_MONTH
+  LAST_6_MONTHS
+  THIS_YEAR
+}
+
+input RecentTransactionsInput {
+  period: TimeRangeFilter = LAST_7_DAYS
+  page: Int = 0
+  limit: Int = 5
+  type: TransactionType
+  status: TransactionStatus
+  searchText: String
 }
 
 type Mutation {
