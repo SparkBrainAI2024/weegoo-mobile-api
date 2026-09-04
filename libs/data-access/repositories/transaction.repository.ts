@@ -10,9 +10,18 @@ import {
   TransactionStatus,
   TransactionType,
 } from "../enums/transaction.enum";
-import { PaymentMethodEnum, PaymentMediumEnum } from "../enums/payment.enum";
+import {
+  PaymentMethodEnum,
+  PaymentMediumEnum,
+  TimeRangeFilter,
+} from "../enums/payment.enum";
 import { RideStatus } from "../enums/rides.enum";
 import { toMongoId } from "@libs/common";
+import {
+  buildDateBuckets,
+  Granularity,
+} from "@libs/common/utils/payments-date-range.util";
+import { ChartPoint } from "../dtos/response/payments.response";
 
 export interface CreateTransactionDto {
   // TODOwalletId: string;
@@ -332,7 +341,7 @@ export class TransactionRepository {
           tripId: 1,
           amount: 1,
           paymentMethod: 1,
-          paymentStatus: '$status',
+          paymentStatus: "$status",
           remarks: 1,
           createdAt: 1,
           rideStatus: "$ride.rideStatus",
@@ -423,7 +432,7 @@ export class TransactionRepository {
     ]);
     return response;
   }
-  async findOne (filter: Partial<Transaction>): Promise<Transaction | null> {
+  async findOne(filter: Partial<Transaction>): Promise<Transaction | null> {
     return this.model.findOne(filter).exec();
   }
 
@@ -464,5 +473,260 @@ export class TransactionRepository {
       totalRevenue: result?.totalRevenue || 0,
       completedTransactionsCount: result?.completedTransactionsCount || 0,
     };
+  }
+  // ── Payments dashboard ──────────────────────────────────────────────────
+
+  async sumByType(
+    type: TransactionType,
+    direction: TransactionDirection | null,
+  ): Promise<number> {
+    const match: any = {
+      type,
+      status: TransactionStatus.COMPLETED,
+      deleted: { $ne: true },
+    };
+    if (direction) match.direction = direction;
+
+    const result = await this.model.aggregate([
+      { $match: match },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
+  async sumByTypeWithDate(
+    type: TransactionType,
+    direction: TransactionDirection | null,
+    start: Date,
+    end: Date,
+  ): Promise<number> {
+    const match: any = {
+      type,
+      status: TransactionStatus.COMPLETED,
+      deleted: { $ne: true },
+      createdAt: { $gte: start, $lte: end },
+    };
+    if (direction) match.direction = direction;
+
+    const result = await this.model.aggregate([
+      { $match: match },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
+  async countInRange(): Promise<number> {
+    return this.model.countDocuments({
+      deleted: { $ne: true },
+    });
+  }
+
+  async getCommissionOverviewRepo(filter: TimeRangeFilter) {
+    const { start, end, granularity, labels, keys } = buildDateBuckets(filter);
+    const dateFormat = granularity === "day" ? "%Y-%m-%d" : "%Y-%m";
+
+    const results = await this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.COMMISSION,
+          status: TransactionStatus.COMPLETED,
+          createdAt: { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    const map = new Map(results.map((r) => [r._id, r.total]));
+    const dataPoints = keys.map((key, i) => ({
+      date: labels[i],
+      amount: map.get(key) ?? 0,
+    }));
+    const totalCommission = dataPoints.reduce((s, p) => s + p.amount, 0);
+
+    return { totalCommission, dataPoints };
+  }
+
+  async getCommissionSeries(
+    start: Date,
+    end: Date,
+  ): Promise<{ date: string; amount: number }[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.COMMISSION,
+          status: TransactionStatus.COMPLETED,
+          createdAt: { $gte: start, $lte: end },
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: "Asia/Kathmandu",
+            },
+          },
+          amount: { $sum: "$amount" },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, date: "$_id", amount: 1 } },
+    ]);
+  }
+
+  async getNetFlowTrend(): Promise<{ date: string; amount: number }[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          type: { $in: [TransactionType.TOPUP, TransactionType.WITHDRAWAL] },
+          status: TransactionStatus.COMPLETED,
+          deleted: { $ne: true },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$createdAt",
+              timezone: "Asia/Kathmandu",
+            },
+          },
+          net: {
+            $sum: {
+              $cond: [
+                { $eq: ["$type", TransactionType.TOPUP] },
+                "$amount",
+                { $multiply: ["$amount", -1] },
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $project: { _id: 0, date: "$_id", amount: "$net" } },
+    ]);
+  }
+
+  async getNetFlowTrendWithDate(
+    start: Date,
+    end: Date,
+    granularity: Granularity,
+    keys: string[],
+  ): Promise<ChartPoint[]> {
+    const dateFormat = granularity === "day" ? "%Y-%m-%d" : "%Y-%m";
+
+    const results = await this.model.aggregate([
+      {
+        $match: {
+          type: { $in: [TransactionType.TOPUP, TransactionType.WITHDRAWAL] },
+          status: TransactionStatus.COMPLETED,
+          deleted: { $ne: true },
+          createdAt: { $gte: start, $lte: end },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          net: {
+            $sum: {
+              $cond: [
+                { $eq: ["$direction", TransactionDirection.CREDIT] },
+                "$amount",
+                { $multiply: ["$amount", -1] },
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    const map = new Map(results.map((r) => [r._id, r.net]));
+    return keys.map((key) => ({ date: key, amount: map.get(key) ?? 0 }));
+  }
+  async getPendingWithdrawalRows(limit = 10): Promise<any[]> {
+    return this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+          deleted: { $ne: true },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "driverId",
+          foreignField: "userId",
+          as: "driver",
+        },
+      },
+      { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+    ]);
+  }
+
+  async getPendingWithdrawalsTotal(): Promise<number> {
+    const result = await this.model.aggregate([
+      {
+        $match: {
+          type: TransactionType.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+          deleted: { $ne: true },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
+    return result[0]?.total ?? 0;
+  }
+
+  async getRecentTransactionsPaginated(
+    page: number,
+    limit: number,
+    filter: { type?: TransactionType; status?: TransactionStatus } = {},
+  ): Promise<{ data: any[]; total: number }> {
+    const match: any = { deleted: { $ne: true } };
+    if (filter.type) match.type = filter.type;
+    if (filter.status) match.status = filter.status;
+
+    const basePipeline: any[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "driverId",
+          foreignField: "userId",
+          as: "driver",
+        },
+      },
+      { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "riderId",
+          foreignField: "userId",
+          as: "rider",
+        },
+      },
+      { $unwind: { path: "$rider", preserveNullAndEmptyArrays: true } },
+    ];
+
+    const [data, countResult] = await Promise.all([
+      this.model.aggregate([
+        ...basePipeline,
+        { $sort: { createdAt: -1 } },
+        { $skip: page * limit },
+        { $limit: limit },
+      ]),
+      this.model.aggregate([...basePipeline, { $count: "count" }]),
+    ]);
+
+    return { data, total: countResult[0]?.count ?? 0 };
   }
 }
