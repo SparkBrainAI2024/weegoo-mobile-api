@@ -241,6 +241,10 @@ export class ScheduledAvailableDriverInfo {
   @Field(() => String, { nullable: true })
   vehicleModel?: string;
 
+  /** Fuel/mode of the vehicle: EV or PETROL. */
+  @Field(() => String, { nullable: true })
+  vehicleModelType?: string | null;
+
   /** Manufacturing year of the vehicle. */
   @Field(() => Int, { nullable: true })
   year?: number | null;

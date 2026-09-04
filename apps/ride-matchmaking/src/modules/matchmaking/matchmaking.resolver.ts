@@ -223,6 +223,7 @@ export class MatchmakingResolver {
             vehicleId: (d as any).vehicleId || d.vehicle?.vehicleId || null,
             vehicleType: d.vehicle?.vehicleType ?? (d as any).vehicleType ?? null,
             vehicleModel: d.vehicle?.vehicleModel ?? (d as any).vehicleModel ?? null,
+            vehicleModelType: d.vehicle?.vehicleModelType ?? (d as any).vehicleModelType ?? null,
             color: d.vehicle?.color ?? (d as any).color ?? null,
             numberPlate: d.vehicle?.numberPlate ?? (d as any).numberPlate ?? null,
             vehicleName: d.vehicle?.vehicleName ?? ((d as any).vehicleName || null),

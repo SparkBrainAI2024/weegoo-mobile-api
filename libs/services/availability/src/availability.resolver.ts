@@ -6,7 +6,12 @@ import {
   AddAvailabilityInput,
   UpdateAvailabilityInput,
 } from "@libs/data-access/dtos/input/availability.input";
-import { AvailabilityDayDetail } from "@libs/data-access/dtos/response/availability.response";
+import {
+  AvailabilityDayDetail,
+  ScheduledVehicleSeatCapacity,
+} from "@libs/data-access/dtos/response/availability.response";
+import { ScheduledVehicleType } from "@libs/data-access/enums/vehicle.enum";
+import { VEHICLE_SEAT_CAPACITY } from "@libs/data-access/entities/availability.entity";
 import { BasicResponse } from "@libs/data-access/dtos/response/basic.response";
 import { Availability, roles, User } from "@libs/data-access";
 import { AvailabilityService } from "./availability.service";
@@ -15,6 +20,20 @@ import { AvailabilityService } from "./availability.service";
 @UseGuards(AuthGuard, RoleGuard)
 export class AvailabilityResolver {
   constructor(private readonly availabilityService: AvailabilityService) {}
+
+  @Query(() => [ScheduledVehicleSeatCapacity], {
+    name: "scheduledVehicleSeatCapacities",
+    description:
+      "Returns the maximum seat capacity configured for each scheduled vehicle type (JEEP, MICRO, CAR).",
+  })
+  scheduledVehicleSeatCapacities(): ScheduledVehicleSeatCapacity[] {
+    return (Object.values(ScheduledVehicleType) as ScheduledVehicleType[]).map(
+      (vehicleType) => ({
+        vehicleType,
+        maxSeats: VEHICLE_SEAT_CAPACITY[vehicleType],
+      }),
+    );
+  }
 
   @Roles(roles.RIDER)
   @Mutation(() => Availability, {

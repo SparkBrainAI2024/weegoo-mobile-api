@@ -43,4 +43,5 @@ export const AVAILABILITY = {
     "There must be at least 3 hours between time slot start times.",
   TIME_SLOT_DAY_MISMATCH:
     "The day of the time slot start time does not match the availability day it belongs to.",
+  MAJOR_STOPS_MAX: "A maximum of 5 major stops is allowed.",
 };

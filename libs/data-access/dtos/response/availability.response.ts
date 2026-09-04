@@ -53,3 +53,16 @@ export class AvailabilityDayDetail {
   @Field({ nullable: true })
   notes?: string;
 }
+
+/**
+ * The configured maximum seat capacity for one scheduled vehicle type.
+ * Values come from the VEHICLE_SEAT_CAPACITY config on the availability entity.
+ */
+@ObjectType()
+export class ScheduledVehicleSeatCapacity {
+  @Field(() => ScheduledVehicleType)
+  vehicleType: ScheduledVehicleType;
+
+  @Field(() => Number)
+  maxSeats: number;
+}

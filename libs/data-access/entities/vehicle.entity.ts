@@ -20,8 +20,8 @@ export class Vehicle extends BaseEntity {
     type: String,
     required: true,
     enum: [
-      ...Object.values(VehicleType),
-      ...Object.values(ScheduledVehicleType),
+      ...Object.values(AnyVehicleType),
+    6
     ],
   })
   vehicleType:AnyVehicleType;
@@ -60,6 +60,15 @@ export class Vehicle extends BaseEntity {
   @Field(() => Boolean, { defaultValue: false })
   @Prop({ type: Boolean, default: false })
   isAcType: boolean;
+
+  /**
+   * Driver-configured seat capacity for scheduled (carpool) bookings.
+   * Nullable — when not set, the system default (VEHICLE_SEAT_CAPACITY
+   * for the vehicle type) is used instead.
+   */
+  @Field(() => Int, { nullable: true })
+  @Prop({ type: Number, default: null, min: 1 })
+  seatCapacity?: number | null;
 }
 
 export const VehicleSchema = SchemaFactory.createForClass(Vehicle);
