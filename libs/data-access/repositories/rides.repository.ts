@@ -501,7 +501,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     pipeline.push({
       $facet: {
         data: [
-          { $sort: { bookingTime: -1 } },
+          { $sort: { createdAt: -1 } },
           { $skip: (page - 1) * limit },
           { $limit: limit },
         ],
@@ -572,20 +572,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           },
           cancelled: {
             $sum: {
-              $cond: [
-                { $eq: ["$rideStatus", RideStatus.CANCELLED] },
-                1,
-                0,
-              ],
+              $cond: [{ $eq: ["$rideStatus", RideStatus.CANCELLED] }, 1, 0],
             },
           },
           completed: {
             $sum: {
-              $cond: [
-                { $eq: ["$rideStatus", RideStatus.COMPLETED] },
-                1,
-                0,
-              ],
+              $cond: [{ $eq: ["$rideStatus", RideStatus.COMPLETED] }, 1, 0],
             },
           },
         },
