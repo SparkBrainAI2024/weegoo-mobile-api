@@ -1225,6 +1225,11 @@ export class MatchmakingService {
    * Process driver location updates for all active rides.
    * Calculates distance to pickup/dropoff, updates ride docs, publishes to ride channel,
    * and sends proximity notifications through Ably.
+   *
+   * Applies to both INSTANT and SCHEDULED rides. For SCHEDULED rides the pickup
+   * announcements (driver-moving / driver-arriving / driver-arrived messages and
+   * notifications) are intentionally suppressed — the ride is already ONGOING — while
+   * all destination/ongoing events and notifications are still published.
    */
   private async processDriverLocationForRides(
     driverId: string,
@@ -1236,11 +1241,12 @@ export class MatchmakingService {
     const activeRides = await this.ridesModel.find({
       driverId: driverObjectId,
       rideStatus: { $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP] },
-      rideType: RideTypes.INSTANT,
+      rideType: { $in: [RideTypes.INSTANT, RideTypes.SCHEDULED] },
       deleted: false,
     }).exec();
 
     for (const activeRide of activeRides) {
+      const isScheduledRide = activeRide.rideType === RideTypes.SCHEDULED;
       const pickupCoords = activeRide.pickupLocation?.coordinates;
       const dropoffCoords = activeRide.dropoffLocation?.coordinates;
 
@@ -1277,7 +1283,7 @@ export class MatchmakingService {
           },
         }).exec();
 
-        // Publish to the ride channel
+        // Publish to the ride channel (pickup announcement — suppressed for scheduled rides)
         if (distanceKm > 0.3)
           await this.rideChannelService.publishRideEvent(activeRide.rideUUId, 'driver-moving', {
             rideId: activeRide._id.toString(),
@@ -1290,7 +1296,7 @@ export class MatchmakingService {
           });
 
         // --- "Driver is arriving" — within 1km of pickup (CONFIRMED rides only) ---
-        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.3 && !activeRide.driverArrivingNotified) {
+        if (!isScheduledRide && activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.3 && !activeRide.driverArrivingNotified) {
           await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
           const passenger = await this.userModel.findById(activeRide.passengerId).exec();
           if (passenger) {
@@ -1318,7 +1324,7 @@ export class MatchmakingService {
             }, passenger);
           }
         }
-        if (activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05) {
+        if (!isScheduledRide && activeRide.rideStatus === RideStatus.CONFIRMED && distanceKm <= 0.05) {
           await this.ridesModel.findByIdAndUpdate(activeRide._id, { $set: { driverArrivingNotified: true } }).exec();
           const passenger = await this.userModel.findById(activeRide.passengerId).exec();
           if (passenger) {
