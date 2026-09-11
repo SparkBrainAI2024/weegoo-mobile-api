@@ -76,16 +76,11 @@ export class RideSchedule {
   @ApiProperty({ required: false })
   pickupBufferTimeMinutes?: number;
 
-  /** Time slots on the matched driver's availability day (HH:mm). */
+  /** The exact booked start-time slot(s) of this scheduled ride (startTime of
+   *  the availability-day slot the passenger selected at booking). */
   @Field(() => [RideScheduleTimeSlot], { nullable: true })
   @Prop({ type: [RideScheduleTimeSlotSchema], required: false, default: [] })
   @ApiProperty({ required: false })
   timeSlots?: RideScheduleTimeSlot[];
-
-  /** Reference to the matched availability day of the driver. */
-  @Field(() => String, { nullable: true })
-  @Prop({ type: String, required: false, default: null })
-  @ApiProperty({ required: false })
-  availabilityDayId?: string;
 }
 export const RideScheduleSchema = SchemaFactory.createForClass(RideSchedule);

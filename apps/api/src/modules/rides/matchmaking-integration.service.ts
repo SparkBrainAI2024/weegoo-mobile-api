@@ -151,7 +151,6 @@ export class MatchmakingIntegrationService {
       isFlexible: false,
       pickupBufferTimeMinutes: 0,
       timeSlots: [],
-      availabilityDayId: null,
     };
   }
 

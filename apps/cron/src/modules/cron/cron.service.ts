@@ -292,10 +292,11 @@ export class CronService {
 
   // ─── Scheduled-ride ONGOING transition (runs every minute) ──────────────────
   //
-  // CONFIRMED SCHEDULED rides become ONGOING once the buffer time of the
-  // availability-day start time slot they were booked against has elapsed
-  // (slot start + pickupBufferTimeMinutes). Each transitioned ride's full
-  // details are published on the ride's Ably channel (`ride-details` event).
+  // CONFIRMED SCHEDULED rides become ONGOING exactly when the current time has
+  // reached (crossed or equals) the ride's start time — the availability-day
+  // start-time slot the passenger booked, with no pickup-buffer offset added.
+  // Each transitioned ride's details are published on the ride's Ably channel
+  // (`ride-details` event).
   @Cron('* * * * *')
   async transitionScheduledRidesToOngoing(): Promise<{
     processed: number;
@@ -401,10 +402,14 @@ export class CronService {
   }
 
   /**
-   * Resolve the timestamp at which a scheduled ride should flip to ONGOING:
-   * the availability-day start time slot (on the ride's booking date) plus the
-   * day's pickup buffer time. Falls back to `bookingDate + buffer` for
-   * flexible bookings with no concrete time slots.
+   * Resolve the timestamp at which a scheduled ride should flip to ONGOING.
+   * This is the ride's start time — the availability-day start-time slot the
+   * passenger booked (on the ride's booking date). The transition is scheduled
+   * EXACTLY at that start time (no pickup-buffer offset added), so the sweep
+   * flips it the moment the current time crosses or equals it.
+   *
+   * Falls back to the concrete booking time for flexible bookings with no
+   * time slots.
    */
   private resolveOngoingTriggerTime(ride: RidesDocument): Date | null {
     const schedule = ride.schedule;
@@ -415,9 +420,8 @@ export class CronService {
         : null;
     if (!bookingDate) return null;
 
-    const bufferMs = (schedule?.pickupBufferTimeMinutes ?? 0) * 60 * 1000;
-
-    // Base date at UTC midnight (bookingDate is stored as UTC start of day).
+    // Base date at UTC midnight (bookingDate is stored as UTC start of day) —
+    // used to anchor legacy "HH:mm" slots to the booking day.
     const base = new Date(
       Date.UTC(
         bookingDate.getUTCFullYear(),
@@ -433,22 +437,47 @@ export class CronService {
     const slots =
       schedule?.timeSlots?.map((s) => s.startTime).filter(Boolean) || [];
     if (slots.length === 0) {
-      // Flexible / whole-day booking: trigger from the booking date itself.
-      return new Date(base.getTime() + bufferMs);
+      // Flexible / whole-day booking: no concrete slot to anchor to — use the
+      // actual booking time as the ride's start time.
+      return ride.bookingTime ? new Date(ride.bookingTime) : base;
     }
 
-    // Use the earliest slot start on the booking day.
-    let earliest: Date | null = null;
+    // Use the exact booked start time. Since the schedule stores only the booked
+    // slot, the single parsed start time IS the ride's start time (the "earliest"
+    // fallback simply handles any defensive duplicates).
+    let start: Date | null = null;
     for (const slot of slots) {
-      const parts = String(slot).split(':');
-      const hh = parseInt(parts[0], 10);
-      const mm = parseInt(parts[1] || '0', 10);
-      if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
-      const slotStart = new Date(base.getTime() + hh * 3600000 + mm * 60000);
-      if (!earliest || slotStart < earliest) earliest = slotStart;
+      const slotStart = this.parseSlotStartTime(String(slot), base);
+      if (!slotStart) continue;
+      if (!start || slotStart < start) start = slotStart;
     }
-    if (!earliest) return new Date(base.getTime() + bufferMs);
-    return new Date(earliest.getTime() + bufferMs);
+    if (!start) return ride.bookingTime ? new Date(ride.bookingTime) : base;
+    return start;
+  }
+
+  /**
+   * Parse a slot start time into a full UTC Date. Supports full ISO datetimes
+   * (e.g. "2026-09-01T16:00:00.000Z", the format persisted on the ride's booked
+   * schedule slot) and legacy "HH:mm" / "HH:mm:ss" values anchored onto the
+   * given booking-day base date. Returns null for unparseable values.
+   */
+  private parseSlotStartTime(startTime: string, base: Date): Date | null {
+    const raw = String(startTime || '').trim();
+    if (!raw) return null;
+    // Full ISO datetime (contains a date part) — parse directly.
+    if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
+      const d = new Date(raw);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    // Legacy "HH:mm" / "HH:mm:ss" — anchor to the booking day (UTC).
+    const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
+    if (!m) return null;
+    const hh = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    if (hh > 23 || mm > 59) return null;
+    const d = new Date(base);
+    d.setUTCHours(hh, mm, 0, 0);
+    return d;
   }
 
   /**
