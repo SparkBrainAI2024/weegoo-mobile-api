@@ -2,9 +2,7 @@
 import { Args, Query, Resolver } from "@nestjs/graphql";
 
 import { UseGuards } from "@nestjs/common";
-import {
-  RidesService,
-} from "@libs/services/rides/rides.service";
+import { RidesService } from "@libs/services/rides/rides.service";
 import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 import {
   RideDetailResponse,
@@ -25,9 +23,7 @@ import { RideDetailInput } from "@libs/data-access/dtos/input/ride-detail.input"
 
 @Resolver()
 export class AdminRidesResolver {
-  constructor(
-    private readonly ridesService: RidesService,
-  ) {}
+  constructor(private readonly ridesService: RidesService) {}
 
   @UseGuards(AdminAuthGuard)
   @Query(() => RidesListResponse)
