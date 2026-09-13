@@ -524,7 +524,6 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       };
     });
     const total = result.totalCount[0]?.count ?? 0;
-    console.log(total, "total");
 
     const totalPages = Math.ceil(total / limit);
     const hasNextPage = page < totalPages;
