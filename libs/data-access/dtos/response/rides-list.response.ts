@@ -7,21 +7,10 @@ import { RideLocation } from "@libs/data-access/common/ride.location";
 import { GeoLocation } from "@libs/data-access/common/geo.location";
 import { Vehicle } from "@libs/data-access/entities/vehicle.entity";
 import { RideStatus, RideTypes } from "@libs/data-access/enums/rides.enum";
+import { Paginated } from "@libs/data-access/base/base.response";
 
 @ObjectType()
-export class RidesListResponse {
-  @Field(() => [Rides])
-  rides: Rides[];
-
-  @Field(() => Int)
-  total: number;
-
-  @Field(() => Int)
-  page: number;
-
-  @Field(() => Int)
-  limit: number;
-}
+export class RidesListResponse extends Paginated(Rides) {}
 
 @ObjectType()
 export class AdminRideUserSnapshot {

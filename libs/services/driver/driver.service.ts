@@ -203,24 +203,38 @@ export class DriverService {
       search,
     );
 
-    const data: DriverListItem[] = result.data.map((row: any) => {
-      return {
-        id: row.id?.toString(),
-        fullName: row.fullName || "Driver",
-        phone: row.phone || "",
-        status: row.status,
-        profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
-          this.s3.getPublicUrl(key),
-        ),
-        suspended: row.suspended,
-        totalRidesAsDriver: row.totalRidesAsDriver,
-        totalEarnings: row.totalEarnings,
-        rating: row.rating,
-        joinedDate: row.createdAt
-          ? new Date(row.createdAt)?.toDateString()
-          : null,
-      };
-    });
+    const dataPromises: Promise<DriverListItem>[] = result.data.map(
+      async (row: any) => {
+        const documents =
+          await this.driverDocumentRepository.getDriverDocuments(
+            row.id?.toString(),
+          );
+
+        const allDocumentsApproved =
+          this.getAllDocumentsApprovedStatus(documents);
+        return {
+          id: row.id?.toString(),
+          fullName: row.fullName || "Driver",
+          phone: row.phone || "",
+          profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
+            this.s3.getPublicUrl(key),
+          ),
+          status: row.suspended
+            ? "BLOCKED"
+            : allDocumentsApproved
+              ? "ACTIVE"
+              : "PENDING",
+          totalRidesAsDriver: row.totalRidesAsDriver,
+
+          totalEarnings: row.totalEarnings,
+          rating: row.rating,
+          joinedDate: row.createdAt
+            ? new Date(row.createdAt)?.toDateString()
+            : null,
+        };
+      },
+    );
+    const data = await Promise.all(dataPromises);
 
     return {
       data,
