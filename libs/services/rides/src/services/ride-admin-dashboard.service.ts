@@ -39,12 +39,10 @@ export class RideAdminDashboardService {
   ) {}
 
   async getRidesList(input: RidesListInput) {
-    const { rides, total } = await this.rideRepository.findRides(input);
+    const { rides, pagination } = await this.rideRepository.findRides(input);
     return {
-      rides,
-      total,
-      page: input.page,
-      limit: input.limit,
+      data: [...rides],
+      pagination,
     };
   }
 
@@ -121,10 +119,7 @@ export class RideAdminDashboardService {
         totalActiveRides,
         prevRideStats.totalActiveRides,
       ),
-      activeRider: this.calculatePercentageChange(
-        activeRider,
-        prevActiveRider,
-      ),
+      activeRider: this.calculatePercentageChange(activeRider, prevActiveRider),
       activePassenger: this.calculatePercentageChange(
         activePassenger,
         prevActivePassenger,
@@ -226,10 +221,7 @@ export class RideAdminDashboardService {
    *  - returns 0 if the current value is also 0 (no change)
    * The result is rounded to two decimal places.
    */
-  private calculatePercentageChange(
-    current: number,
-    previous: number,
-  ): number {
+  private calculatePercentageChange(current: number, previous: number): number {
     if (previous === 0) {
       return current > 0 ? 100 : 0;
     }
@@ -249,7 +241,7 @@ export class RideAdminDashboardService {
     startOfToday.setHours(0, 0, 0, 0);
 
     const [result] = await this.userModel.aggregate([
-      { $match: {  roles: { $in: [roles.USER] }, deleted: {$ne: true} } },
+      { $match: { roles: { $in: [roles.USER] }, deleted: { $ne: true } } },
       {
         $group: {
           _id: null,
@@ -425,8 +417,18 @@ export class RideAdminDashboardService {
     }
 
     const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
 
     const data: ChartDataPoint[] = [];
@@ -581,8 +583,18 @@ export class RideAdminDashboardService {
     }
 
     const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
 
     const data: ChartDataPoint[] = [];

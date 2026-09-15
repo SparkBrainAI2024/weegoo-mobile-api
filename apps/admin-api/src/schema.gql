@@ -190,6 +190,7 @@ type Vehicle {
   images: [VehicleImage!]!
   vehicleModelType: VehicleModelType
   isAcType: Boolean!
+  seatCapacity: Int
 }
 
 """
@@ -1012,8 +1013,9 @@ type ScheduledAvailableDriverInfo {
   vehicleName: String
   vehicleType: String
   vehicleModel: String
-  isAcType: Boolean
   vehicleModelType: String
+  year: Int
+  isAcType: Boolean
   color: String
   numberPlate: String
   vehicleImage: String
@@ -1118,12 +1120,14 @@ type ScheduledAvailableDriverGraphQL {
   rating: Float
   amount: Float
   vehicleType: String
+  vehicleId: ID
   vehicleModel: String
+  vehicleModelType: String
+  year: Int
   color: String
   numberPlate: String
   vehicleName: String
   isAcType: Boolean
-  vehicleModelType: String
   availability: ScheduledDriverAvailabilityGraphQL
   estimatedFare: Float
 }
@@ -1623,10 +1627,9 @@ type RiderRatingsResponse {
 }
 
 type RidesListResponse {
-  rides: [Rides!]!
-  total: Int!
-  page: Int!
-  limit: Int!
+  message: String
+  data: [Rides!]
+  pagination: Pagination!
 }
 
 type AdminRideUserSnapshot {
@@ -2377,14 +2380,19 @@ input RegisterVehicleInput {
   """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VehicleModelType
   name: String!
+
+  """
+  Seat capacity for scheduled (carpool) bookings. Optional — if omitted, the system default for the vehicle type is used.
+  """
+  seatCapacity: Int
 }
 
 input EditVehicleInput {
   """S3 key for the new vehicle image."""
   imageS3Key: String
 
-  """Vehicle type: CAR, MOTORBIKE, or SCOOTER."""
-  vehicleType: VehicleType
+  """Vehicle type: CAR, MOTORBIKE, JEEP, MICRO or SCOOTER."""
+  vehicleType: AnyVehicleType
 
   """Vehicle model name, for example: Honda City."""
   vehicleModel: String
