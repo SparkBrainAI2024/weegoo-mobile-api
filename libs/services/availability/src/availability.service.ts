@@ -4,7 +4,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Rides } from "@libs/data-access/entities/rides.entity";
 import { RideStatus } from "@libs/data-access/enums/rides.enum";
 import axios from "axios";
-import { ErrorException, MATCHMAKING_CONFIG, toMongoId } from "@libs/common";
+import { ErrorException, MATCHMAKING_CONFIG, toMongoId, parseSlotStartMs, nepalWallClockOfSlot, toNepalWallClock, fromNepalWallClock } from "@libs/common";
 import { EnvService } from "@libs/common/config/env.service";
 import {
   AddAvailabilityInput,
@@ -31,21 +31,6 @@ const EARTH_RADIUS_KM = 6371;
 
 /** Converts degrees to radians. */
 const degreesToRadians = (deg: number): number => (deg * Math.PI) / 180;
-
-/**
- * All availability week boundaries are calculated in NEPAL time (UTC+5:45,
- * no DST) so that startDate/endDate are correct for Nepali days regardless
- * of the server's own timezone.
- */
-const NEPAL_TZ_OFFSET_MINUTES = 345;
-
-/** Shifts an instant into Nepal wall-clock (use with UTC getters/setters). */
-const toNepalWallClock = (d: Date): Date =>
-  new Date(d.getTime() + NEPAL_TZ_OFFSET_MINUTES * 60000);
-
-/** Converts a Nepal wall-clock value back to the real instant. */
-const fromNepalWallClock = (d: Date): Date =>
-  new Date(d.getTime() - NEPAL_TZ_OFFSET_MINUTES * 60000);
 
 /**
  * Returns the given date truncated to UTC midnight. Availability day dates
@@ -79,50 +64,6 @@ const dayFromWallClock = (d: Date): DayOfWeek => NEPAL_DAY_MAP[d.getUTCDay()];
  * Returns the DayOfWeek of a date measured in NEPAL time (UTC+5:45, no DST).
  */
 const dayOfWeekFromDate = (d: Date): DayOfWeek => dayFromWallClock(toNepalWallClock(d));
-
-/**
- * Resolves a time-slot `startTime`'s Nepal wall-clock as a Date whose UTC
- * fields hold that Nepal wall-clock value (so callers can read .getUTCDay(),
- * .getUTCHours(), … directly without any further offset).
- *
- * - String WITH a timezone designator (trailing `Z` or `±HH:MM`) is an absolute
- *   instant → shift it once into Nepal wall-clock.
- * - Naive string WITHOUT a timezone is already NEPAL wall-clock (this is what
- *   the frontend sends) → its literal date/time fields are used as-is, so the
- *   +5:45 offset is NOT applied a second time (which is what used to roll
- *   late-day slots across midnight and trigger TIME_SLOT_DAY_MISMATCH).
- * - Returns null for unparseable values or a string with no date part.
- */
-const nepalWallClockOfSlot = (startTime: string): Date | null => {
-  const s = String(startTime ?? "").trim();
-  if (!s) return null;
-
-  // Full ISO datetime carrying an explicit timezone → absolute instant.
-  if (/[zZ]$/.test(s) || /[+-]\d{2}:\d{2}$/.test(s)) {
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return null;
-    return toNepalWallClock(d);
-  }
-
-  // Naive ISO datetime (no timezone) → already Nepal wall-clock.
-  // Matches e.g. "2026-09-01", "2026-09-01T23:00:00", "2026-09-01T23:00:00.000".
-  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?)?$/.exec(s);
-  if (m) {
-    const y = Number(m[1]);
-    const mo = Number(m[2]);
-    const da = Number(m[3]);
-    const h = Number(m[4] || 0);
-    const mi = Number(m[5] || 0);
-    const se = Number(m[6] || 0);
-    const ms = Number((m[7] || "").padEnd(3, "0") || "0");
-    if (mo < 1 || mo > 12 || da < 1 || da > 31 || h > 23 || mi > 59 || se > 59) {
-      return null;
-    }
-    return new Date(Date.UTC(y, mo - 1, da, h, mi, se, ms));
-  }
-
-  return null;
-};
 
 /**
  * Maximum number of days ahead (including today) that availability can be
@@ -201,23 +142,6 @@ interface AvailabilityDayLike {
   majorStops?: string[] | null;
   pickupBufferTimeMinutes?: number | null;
 }
-
-/**
- * Parses a time-slot start value ("HH:mm" or any parseable date string)
- * into a comparable millisecond value. NaN when unparseable.
- */
-const parseSlotStartMs = (startTime: string): number => {
-  const s = String(startTime ?? "").trim();
-  const hm = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
-  if (hm) {
-    const h = parseInt(hm[1], 10);
-    const m = parseInt(hm[2], 10);
-    if (h > 23 || m > 59) return NaN;
-    return (h * 60 + m) * 60000;
-  }
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? NaN : d.getTime();
-};
 
 /** Minimum gap between two time-slot start times: 3 hours. */
 const TIME_SLOT_MIN_GAP_MS = 3 * 60 * 60 * 1000;
