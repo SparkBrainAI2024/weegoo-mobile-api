@@ -58,6 +58,13 @@ export class AvailabilityDayInput {
   @IsNumber()
   availableSeats?: number;
 
+  /** Independent return-trip seat count for this day (round trips only).
+   *  Stored and tracked separately from `availableSeats` (outbound). */
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  returnAvailableSeats?: number;
+
   @Field(() => Boolean, { defaultValue: true })
   @IsOptional()
   @IsBoolean()
@@ -186,6 +193,12 @@ export class UpdateAvailabilityInput {
   @IsOptional()
   @IsNumber()
   availableSeats?: number;
+
+  /** Independent return-trip seat count for this day (round trips only). */
+  @Field(() => Number, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  returnAvailableSeats?: number;
 
   @Field(() => Boolean, { nullable: true })
   @IsOptional()

@@ -8,6 +8,7 @@ import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
 import { RideLocationInput, RideSchedule, TriggerMatchmakingResult, UpdateLocationResult, VehicleEstimateGraphQL } from '@libs/data-access';
 import { UserDetailsService } from '@libs/services/user';
+import { BadRequestError } from '@libs/common';
 
 @Injectable()
 export class MatchmakingIntegrationService {
@@ -445,9 +446,21 @@ export class MatchmakingIntegrationService {
     bookingTime: Date,
     noOfPassengers: number = 1,
   ): Promise<TriggerMatchmakingResult> {
+    // Validate & normalize the booking time up front. The GraphQL Date scalar
+    // can hand us an already-invalid Date object (e.g. from an unparsable
+    // client string) that otherwise reaches Mongoose and fails with a cryptic
+    // "Cast to date failed for value \"Invalid Date\"" on bookingTime /
+    // schedule.bookingTime / schedule.bookingDate. Reject it clearly here.
+    const normalizedBookingTime = new Date(bookingTime);
+    if (Number.isNaN(normalizedBookingTime.getTime())) {
+      throw new BadRequestError(
+        `Invalid bookingTime "${String(bookingTime)}". Provide a valid ISO-8601 date, e.g. "2026-09-15T08:30:00.000Z".`,
+      );
+    }
+
     const rideData = this.buildRideDocument(
       RideTypes.SCHEDULED, userId, pickupLocation, dropoffLocation,
-      new Types.ObjectId(), bookingTime, noOfPassengers,
+      new Types.ObjectId(), normalizedBookingTime, noOfPassengers,
     );
     // Scheduled rides requested via requestScheduledRide start in BOOKING status
     // (not PENDING) — they become CONFIRMED once the driver booking/payment flow completes.

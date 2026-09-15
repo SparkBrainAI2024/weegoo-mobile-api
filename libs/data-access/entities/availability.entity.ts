@@ -89,11 +89,21 @@ export class AvailabilityDay {
   @Prop({ type: Boolean, default: false })
   isOneWay: boolean;
 
-  /** Number of seats available for booking. Defaults to the capacity of the
-   *  selected vehicle type (CAR = 5, JEEP = 8, MICRO = 15). */
+  /** Number of seats available for booking on the OUTBOUND ("to destination")
+   *  trip for this day. Defaults to the capacity of the selected vehicle type
+   *  (CAR = 5, JEEP = 8, MICRO = 15). This counter is independent from
+   *  `returnAvailableSeats` — decrementing one never affects the other. */
   @Field(() => Number, { defaultValue: 0 })
   @Prop({ type: Number, default: 0 })
   availableSeats: number;
+
+  /** Number of seats available for booking on the RETURN trip for this day.
+   *  Kept fully independent from `availableSeats` (outbound) so updating one
+   *  trip's capacity never affects the other. Only meaningful for round trips
+   *  (`isOneWay = false`); one-way days leave it at 0. Persisted per date. */
+  @Field(() => Number, { defaultValue: 0 })
+  @Prop({ type: Number, default: 0 })
+  returnAvailableSeats: number;
 
   /** True when the fare is set by the platform (system fare).
    *  When false the driver supplies a custom amount for the day. */

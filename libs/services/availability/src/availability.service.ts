@@ -133,6 +133,7 @@ interface AvailabilityDayLike {
   amount?: number | null;
   vehicleType: ScheduledVehicleType | VehicleType;
   availableSeats?: number | null;
+  returnAvailableSeats?: number | null;
   isAvailableForBookings?: boolean | null;
   isOneWay?: boolean | null;
   notes?: string | null;
@@ -195,6 +196,25 @@ export class AvailabilityService {
           ErrorException(null, "AVAILABILITY.TIME_SLOT_MIN_GAP", HttpStatus.BAD_REQUEST);
         }
       }
+    }
+  }
+
+  /**
+   * Validates the independent seat-count controls for an availability day:
+   * - outbound seats (`availableSeats`) and return seats (`returnAvailableSeats`)
+   *   must never be negative;
+   * - neither may exceed the vehicle-type capacity.
+   * One-way days must not carry a return-trip seat count.
+   */
+  private assertSeatCapacities(day: { isOneWay?: boolean | null; availableSeats?: number | null; returnAvailableSeats?: number | null; vehicleType?: ScheduledVehicleType | VehicleType | null }): void {
+    const capacity = VEHICLE_SEAT_CAPACITY[(day.vehicleType || ScheduledVehicleType.CAR) as ScheduledVehicleType] || 1;
+    const outbound = day.availableSeats ?? -1;
+    const returnSeats = day.returnAvailableSeats ?? 0;
+    if (outbound < 0 || outbound > capacity || returnSeats < 0 || returnSeats > capacity) {
+      ErrorException(null, "AVAILABILITY.INVALID_SEAT_COUNT", HttpStatus.BAD_REQUEST);
+    }
+    if ((day.isOneWay ?? false) && returnSeats > 0) {
+      ErrorException(null, "AVAILABILITY.RETURN_SEATS_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
     }
   }
 
@@ -284,6 +304,7 @@ export class AvailabilityService {
       isAvailableForBookings: found.isAvailableForBookings ?? true,
       isOneWay: found.isOneWay ?? false,
       availableSeats: found.availableSeats ?? VEHICLE_SEAT_CAPACITY[found.vehicleType],
+      returnAvailableSeats: found.returnAvailableSeats ?? 0,
       useSystemFare: found.useSystemFare ?? true,
             amount: found.amount ?? 0,
       timeSlots: found.timeSlots || [],
@@ -359,6 +380,8 @@ export class AvailabilityService {
       updatedDay.isAvailableForBookings = input.isAvailableForBookings;
     if (input.isOneWay !== undefined) updatedDay.isOneWay = input.isOneWay;
     if (input.availableSeats !== undefined) updatedDay.availableSeats = input.availableSeats;
+    if (input.returnAvailableSeats !== undefined)
+      updatedDay.returnAvailableSeats = input.returnAvailableSeats;
     if (input.useSystemFare !== undefined) updatedDay.useSystemFare = input.useSystemFare;
     if (input.amount !== undefined) updatedDay.amount = input.amount;
     // If the fare mode switched to system fare (e.g. previously added with
@@ -372,6 +395,8 @@ export class AvailabilityService {
     // One-way → exactly 1 slot; round trip → exactly 2 slots,
     // no duplicates and at least 3 hours between start times.
     this.assertTimeSlotRules(updatedDay.isOneWay ?? false, updatedDay.timeSlots);
+    // Independent seat counts: 0 <= outbound/return <= vehicle capacity.
+    this.assertSeatCapacities(updatedDay);
     if (
       updatedDay.useSystemFare === false &&
       (updatedDay.amount === undefined ||
@@ -508,6 +533,8 @@ export class AvailabilityService {
       // One-way → exactly 1 slot; round trip → exactly 2 slots,
       // no duplicates and at least 3 hours between start times.
       this.assertTimeSlotRules(day.isOneWay ?? false, day.timeSlots);
+      // Independent seat counts: 0 <= outbound/return <= vehicle capacity.
+      this.assertSeatCapacities(day);
       if (
         day.useSystemFare === false &&
         (day.amount === undefined || day.amount === null || day.amount <= 0)
@@ -527,6 +554,7 @@ export class AvailabilityService {
         isAvailableForBookings: day.isAvailableForBookings ?? true,
         isOneWay: day.isOneWay ?? false,
         availableSeats: day.availableSeats ?? VEHICLE_SEAT_CAPACITY[day.vehicleType],
+        returnAvailableSeats: day.returnAvailableSeats ?? 0,
         useSystemFare: day.useSystemFare ?? true,
         amount: await this.resolveDayAmount(day, driverVehicleType),
       } as AvailabilityDay);
