@@ -151,6 +151,9 @@ export class MatchmakingIntegrationService {
       noOfPassengers: noOfPassengers || 1,
       isFlexible: false,
       pickupBufferTimeMinutes: 0,
+      // The exact booked slot is resolved and stored later, when the passenger
+      // books the scheduled ride (see resolveBookedTimeSlots in @libs/common),
+      // because the driver's availability day/slots may not be known yet here.
       timeSlots: [],
     };
   }

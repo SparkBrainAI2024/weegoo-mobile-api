@@ -72,6 +72,10 @@ export const resolveBookedTimeSlots = (
   timeSlots: TimeSlotLike[],
 ): TimeSlotResolution => {
   const target = new Date(bookingTime).getTime();
+  // Base day (UTC midnight) used to anchor legacy "HH:mm" availability slots
+  // to the booking day so they can be matched against the booking time.
+  const base = new Date(target);
+  base.setUTCHours(0, 0, 0, 0);
 
   let bestFuture: string | null = null;
   let bestFutureDiff = Number.MAX_VALUE;
@@ -80,11 +84,15 @@ export const resolveBookedTimeSlots = (
 
   for (const slot of timeSlots) {
     if (!slot?.startTime) continue;
-    const start = new Date(slot.startTime);
-    if (isNaN(start.getTime())) continue;
-    const diff = Math.abs(start.getTime() - target);
+    // Use parseSlotStartTime so both full-ISO datetimes and "HH:mm" slots are
+    // resolved (plain `new Date("HH:mm")` is invalid and would silently cause
+    // a fallback to the raw booking time instead of the matched slot).
+    const start = parseSlotStartTime(String(slot.startTime), base);
+    if (!start) continue;
+    const slotTime = start.getTime();
+    const diff = Math.abs(slotTime - target);
 
-    if (start.getTime() >= target) {
+    if (slotTime >= target) {
       // Future slot: keep the nearest one.
       if (diff < bestFutureDiff) {
         bestFutureDiff = diff;
