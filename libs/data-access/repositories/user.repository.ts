@@ -7,6 +7,7 @@ import { ErrorException } from "@libs/common";
 import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles, UserStatus } from "../enums/user.enum";
 import { PipelineStage } from "mongoose";
+import { DriverDocumentBundleStatus } from "../enums/driver-document.enum";
 
 @Injectable()
 export class UserRepository extends BaseRepository<UserDocument> {
@@ -65,7 +66,13 @@ export class UserRepository extends BaseRepository<UserDocument> {
           as: "details",
         },
       },
-      { $unwind: { path: "$details", preserveNullAndEmptyArrays: true } },
+
+      {
+        $unwind: {
+          path: "$details",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
       ...(search
         ? [
@@ -80,15 +87,47 @@ export class UserRepository extends BaseRepository<UserDocument> {
           ]
         : []),
 
+      // Get this driver's documents
+      {
+        $lookup: {
+          from: "driverdocuments",
+          localField: "_id",
+          foreignField: "driverId",
+          as: "driverDocuments",
+        },
+      },
+
+      // Calculate status
       {
         $addFields: {
           computedStatus: {
             $cond: [
               { $eq: ["$suspended", true] },
+
               UserStatus.BLOCKED,
+
               {
                 $cond: [
-                  { $eq: ["$verified", true] },
+                  {
+                    $and: [
+                      { $gt: [{ $size: "$driverDocuments" }, 0] },
+                      {
+                        $allElementsTrue: {
+                          $map: {
+                            input: "$driverDocuments",
+                            as: "doc",
+                            in: {
+                              $eq: [
+                                "$$doc.status",
+                                DriverDocumentBundleStatus.APPROVED,
+                              ],
+                            },
+                          },
+                        },
+                      },
+                    ],
+                  },
+
                   UserStatus.ACTIVE,
                   UserStatus.PENDING,
                 ],
@@ -139,6 +178,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
         },
       },
     ]);
+    console.log(result, "result", status);
 
     const total = result.totalCount[0]?.count ?? 0;
     const counts = Object.fromEntries(

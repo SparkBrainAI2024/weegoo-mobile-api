@@ -99,9 +99,22 @@ export class DriverService {
     };
   }
 
-  private getDriverStatus(user: UserDocument): UserStatus {
-    if (user.suspended) return UserStatus.BLOCKED;
-    if (user.verified) return UserStatus.ACTIVE;
+  private getDriverStatus(
+    user: UserDocument,
+    documents: DriverDocument[],
+  ): UserStatus {
+    if (user.suspended) {
+      return UserStatus.BLOCKED;
+    }
+
+    const allDocumentsApproved = documents.every(
+      (doc) => doc.status === DriverDocumentBundleStatus.APPROVED,
+    );
+
+    if (documents.length > 0 && allDocumentsApproved) {
+      return UserStatus.ACTIVE;
+    }
+
     return UserStatus.PENDING;
   }
 
@@ -145,12 +158,12 @@ export class DriverService {
       userDoc.vehicle = vehicle;
     }
 
-    const status = this.getDriverStatus(userDoc);
-
     const documents =
       await this.driverDocumentRepository.getDriverDocuments(driverId);
 
     const allDocumentsApproved = this.getAllDocumentsApprovedStatus(documents);
+
+    const status = this.getDriverStatus(userDoc, documents);
     const driverEnrichedWithRideDetails =
       await this.enrichDataDriverWithRideDetails(driverId);
     return {
@@ -210,8 +223,6 @@ export class DriverService {
             row.id?.toString(),
           );
 
-        const allDocumentsApproved =
-          this.getAllDocumentsApprovedStatus(documents);
         return {
           id: row.id?.toString(),
           fullName: row.fullName || "Driver",
@@ -219,11 +230,7 @@ export class DriverService {
           profileImage: getActiveProfileImageUrl(row.profileImages, (key) =>
             this.s3.getPublicUrl(key),
           ),
-          status: row.suspended
-            ? "BLOCKED"
-            : allDocumentsApproved
-              ? "ACTIVE"
-              : "PENDING",
+          status: row.status,
           totalRidesAsDriver: row.totalRidesAsDriver,
 
           totalEarnings: row.totalEarnings,
