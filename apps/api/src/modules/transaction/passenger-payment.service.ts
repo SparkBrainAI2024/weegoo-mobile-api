@@ -20,7 +20,7 @@ import { EnvService } from '@libs/common/config/env.service';
 import { PaymentDetails } from '@libs/data-access/common/payment-details';
 import axios from 'axios';
 import { AdminUser, AdminUserDocument } from '@libs/data-access/entities/admin-user.entity';
-import { ErrorException } from '@libs/common';
+import { ErrorException, resolveBookedTimeSlots } from '@libs/common';
 import { DiscountTypeEnum } from '@libs/data-access';
 import { Availability, AvailabilityDocument } from '@libs/data-access/entities/availability.entity';
 import { RideTypes, RideStatus } from '@libs/data-access/enums/rides.enum';
@@ -444,7 +444,7 @@ export class PassengerPaymentService {
                         // the passenger's selected booking time) — not the driver's
                         // whole availability-day list. The availabilityDayId is no
                         // longer stored on the ride's schedule.
-                        timeSlots: this.resolveBookedTimeSlots(ride.bookingTime, day.timeSlots || []),
+                        timeSlots: resolveBookedTimeSlots(ride.bookingTime, day.timeSlots || []),
                     },
                     distanceInKm,
                     estimatedTimeInMinutes,
@@ -501,35 +501,6 @@ export class PassengerPaymentService {
                 `Not enough available seats on the driver's availability day`,
             );
         }
-    }
-
-    /**
-     * Resolve the exact booked start-time slot(s) to persist on a scheduled
-     * ride's `schedule`. Only the slot(s) matching the passenger's selected
-     * booking time are saved (instead of the driver's whole availability-day
-     * slot list). Falls back to the raw booking time when no slot can be
-     * matched (e.g. malformed slot start times).
-     */
-    private resolveBookedTimeSlots(
-        bookingTime: Date,
-        timeSlots: Array<{ startTime?: string }>,
-    ): Array<{ startTime: string }> {
-        const target = new Date(bookingTime).getTime();
-        let best: string | null = null;
-        let bestDiff = Number.MAX_VALUE;
-        for (const slot of timeSlots) {
-            if (!slot?.startTime) continue;
-            const start = new Date(slot.startTime);
-            if (isNaN(start.getTime())) continue;
-            const diff = Math.abs(start.getTime() - target);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                best = String(slot.startTime);
-            }
-        }
-        return best
-            ? [{ startTime: best }]
-            : [{ startTime: new Date(bookingTime).toISOString() }];
     }
 
     private async getSession(useTransactions: boolean): Promise<any> {

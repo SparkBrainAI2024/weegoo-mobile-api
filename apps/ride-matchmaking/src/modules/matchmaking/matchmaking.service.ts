@@ -31,7 +31,7 @@ import {
 } from '@libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
-import { MATCHMAKING_CONFIG, toMongoId } from '@libs/common';
+import { MATCHMAKING_CONFIG, toMongoId, resolveBookedTimeSlots } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 
@@ -722,7 +722,9 @@ export class MatchmakingService {
       // for this driver-day ARE the day's availableSeats.
       const remainingSeats = resolvedDay.effectiveSeats;
       this.logger.log(`Driver ${driver._id} has ${remainingSeats} remaining seats for ${bookingReference.toISOString()}`);
-      if (remainingSeats <= noOfPassengers) {
+      // Skip only when the day cannot fit the whole party (remaining < requested).
+      // Equal is fine: exactly `noOfPassengers` seats can hold the party.
+      if (remainingSeats < noOfPassengers) {
         continue;
       }
 
@@ -992,7 +994,14 @@ export class MatchmakingService {
                     day: resolved.day.day,
                     isFlexible: resolved.day.timeSlots?.length === 0,
                     pickupBufferTimeMinutes: resolved.day.pickupBufferTimeMinutes || 0,
-                    timeSlots: (resolved.day.timeSlots || []).map((s) => ({ startTime: s.startTime })),
+                    // Persist ONLY the nearest matched availability slot (not the
+                    // whole day's slot list, and never an empty/`_id`-only entry).
+                    // The passenger's bookingTime may differ from the slot start
+                    // (e.g. booked 07:00 → slot 08:00), so resolve the matched slot.
+                    timeSlots: resolveBookedTimeSlots(
+                      updatedRide.bookingTime,
+                      resolved.day.timeSlots || [],
+                    ),
                   },
                 },
               }).exec();
