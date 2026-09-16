@@ -20,7 +20,7 @@ import { EnvService } from '@libs/common/config/env.service';
 import { PaymentDetails } from '@libs/data-access/common/payment-details';
 import axios from 'axios';
 import { AdminUser, AdminUserDocument } from '@libs/data-access/entities/admin-user.entity';
-import { ErrorException, resolveBookedTimeSlots } from '@libs/common';
+import { ErrorException, resolveBookedTimeSlots, resolveScheduledSeatPool, SCHEDULED_SEAT_FIELD, SCHEDULED_SEAT_POOL, ScheduledSeatPool, parseSlotStartTime } from '@libs/common';
 import { DiscountTypeEnum } from '@libs/data-access';
 import { Availability, AvailabilityDocument } from '@libs/data-access/entities/availability.entity';
 import { RideTypes, RideStatus } from '@libs/data-access/enums/rides.enum';
@@ -220,12 +220,26 @@ export class PassengerPaymentService {
         if (!day) {
             throw new BadRequestException('Driver is not available on the ride booking date');
         }
-        if ((ride.noOfPassengers || 1) > (day.availableSeats || 0)) {
-            throw new BadRequestException(`Not enough available seats on the driver's availability day`);
-        }
         const seatsBooked = ride.noOfPassengers || 1;
         if (seatsBooked < 1) {
             throw new BadRequestException(`Invalid number of seats booked`);
+        }
+
+        // ── Seat pool: outbound vs return leg ─────────────────────
+        // A round-trip availability day holds TWO slots — index 0 is the
+        // outbound leg and index 1 (the last slot) is the return leg. A booking
+        // that falls on the RETURN slot must be allocated from
+        // `returnAvailableSeats`, never from the outbound `availableSeats`
+        // counter: the two pools are tracked independently.
+        const seatPool = resolveScheduledSeatPool(ride.bookingTime, day.timeSlots, day.isOneWay);
+        const seatPoolField = SCHEDULED_SEAT_FIELD[seatPool];
+        const seatPoolRemaining = Number((day as any)[seatPoolField] || 0);
+        if (seatsBooked > seatPoolRemaining) {
+            throw new BadRequestException(
+                seatPool === SCHEDULED_SEAT_POOL.RETURN
+                    ? `Not enough return-trip seats available on the driver's availability day`
+                    : `Not enough available seats on the driver's availability day`,
+            );
         }
 
         // ── Booking amount validation ──────────────────────────────
@@ -256,16 +270,22 @@ export class PassengerPaymentService {
 
         // Slot window: request must be made before the buffer window opens,
         // or at/after the slot start time (consistent with matchmaking).
+        // Slots are parsed with the shared helper so a full-ISO datetime and a
+        // legacy "HH:mm" slot resolve to the same start time the seat-pool
+        // resolution above used — the window check can never disagree with the
+        // pool the seats are taken from.
         if (day.timeSlots?.length) {
             const bufferMinutes = day.pickupBufferTimeMinutes || 0;
-            const bookingTime = new Date(ride.bookingTime).getTime();
+            const bookingTime = new Date(ride.bookingTime);
+            const bookingMs = bookingTime.getTime();
             const matchesSlot = day.timeSlots.some((s) => {
                 if (!s?.startTime) return false;
-                const start = new Date(s.startTime);
-                if (isNaN(start.getTime())) return false;
+                const start = parseSlotStartTime(String(s.startTime), bookingTime);
+                if (!start) return false;
+                const startMs = start.getTime();
                 return (
-                    bookingTime >= start.getTime() ||
-                    bookingTime <= start.getTime() - bufferMinutes * 60000
+                    bookingMs >= startMs ||
+                    bookingMs <= startMs - bufferMinutes * 60000
                 );
             });
             if (!matchesSlot) {
@@ -273,13 +293,17 @@ export class PassengerPaymentService {
             }
         }
 
-        return this.executeScheduledBooking(ride, driverId, passengerId, day, amount);
+        return this.executeScheduledBooking(ride, driverId, passengerId, day, amount, seatPool);
     }
 
     /**
      * Runs the wallet transfer + ride update for a scheduled booking inside a
      * MongoDB transaction session (falls back to non-transactional execution
      * when the deployment doesn't support transactions).
+     *
+     * `seatPool` decides which of the availability day's two independent seat
+     * counters the booking consumes: the outbound `availableSeats` or the
+     * return-trip `returnAvailableSeats`.
      */
     private async executeScheduledBooking(
         ride: RidesDocument,
@@ -287,6 +311,7 @@ export class PassengerPaymentService {
         passengerId: string,
         day: any,
         amount: number,
+        seatPool: ScheduledSeatPool = SCHEDULED_SEAT_POOL.OUTBOUND,
     ): Promise<PassengerPaymentResult> {
         // ── Wallet balance validation ─────────────────────────────
         const balance = await this.walletService.getBalance(passengerId);
@@ -371,7 +396,7 @@ export class PassengerPaymentService {
                 );
                 transactions.push({ transactionId: adminTxn._id.toString(), userId: this.adminId, type: 'CREDIT', amount: commissionAmount });
 
-                await this.applyScheduledBookingToRide(ride, driverId, day, amount, distanceInKm, estimatedTimeInMinutes, commissionRate, session);
+                await this.applyScheduledBookingToRide(ride, driverId, day, amount, distanceInKm, estimatedTimeInMinutes, commissionRate, session, seatPool);
             };
 
             if (useTransactions) {
@@ -383,7 +408,9 @@ export class PassengerPaymentService {
             await session?.endSession?.();
         }
 
-        this.logger.log(`Scheduled ride ${ride.rideUUId} booked: passenger -${amount}, driver +${driverAmount}, admin commission +${commissionAmount}`);
+        this.logger.log(
+            `Scheduled ride ${ride.rideUUId} booked: passenger -${amount}, driver +${driverAmount}, admin commission +${commissionAmount}, seat pool ${seatPool} (-${ride.noOfPassengers || 1} seat(s))`,
+        );
 
         return {
             success: true,
@@ -403,7 +430,13 @@ export class PassengerPaymentService {
         };
     }
 
-    /** Update the ride document with booking schedule, fare and payment info. */
+    /**
+     * Update the ride document with booking schedule, fare and payment info, and
+     * consume the booked seats from the correct availability-day pool.
+     *
+     * `seatPool` selects which of the day's two independent counters loses the
+     * seats: the outbound `availableSeats` or the return `returnAvailableSeats`.
+     */
     private async applyScheduledBookingToRide(
         ride: RidesDocument,
         driverId: string,
@@ -413,6 +446,7 @@ export class PassengerPaymentService {
         estimatedTimeInMinutes: number,
         commissionRate: number,
         session: any,
+        seatPool: ScheduledSeatPool = SCHEDULED_SEAT_POOL.OUTBOUND,
     ): Promise<void> {
         const paymentDetails: PaymentDetails = {
             baseAmount: amount,
@@ -426,11 +460,12 @@ export class PassengerPaymentService {
             driverCommission: commissionRate,
         };
 
-        // Resolve the exact booked slot(s) via the shared, reusable helper. It
-        // never throws: if no future slot and no nearest slot exists, it logs an
-        // error to the console and flags `resolved: false` while still returning
-        // a fallback slot so the booking flow keeps working.
-        const slotResolution = resolveBookedTimeSlots(
+        // Persist ONLY the exact booked start-time slot (matched to the
+        // passenger's selected booking time) via the shared, reusable helper —
+        // not the driver's whole availability-day list. The helper never
+        // throws: when nothing can be matched it falls back to the raw booking
+        // time so the booking flow keeps working and a startTime is always set.
+        const bookedTimeSlots = resolveBookedTimeSlots(
             ride.bookingTime,
             day.timeSlots || [],
         );
@@ -449,11 +484,12 @@ export class PassengerPaymentService {
                         vehicleType: day.vehicleType,
                         isFlexible: false,
                         pickupBufferTimeMinutes: day.pickupBufferTimeMinutes || 0,
-                        // Persist ONLY the exact booked start-time slot (matched to
-                        // the passenger's selected booking time) — not the driver's
-                        // whole availability-day list. The availabilityDayId is no
-                        // longer stored on the ride's schedule.
-                        timeSlots: resolveBookedTimeSlots(ride.bookingTime, day.timeSlots || []),
+                        // Persist ONLY the exact booked start-time slot (matched
+                        // to the passenger's selected booking time) — not the
+                        // driver's whole availability-day list. The
+                        // availabilityDayId is no longer stored on the ride's
+                        // schedule.
+                        timeSlots: bookedTimeSlots,
                     },
                     distanceInKm,
                     estimatedTimeInMinutes,
@@ -477,14 +513,21 @@ export class PassengerPaymentService {
         );
 
         // ── Decrement seats on the booked availability day ─────────
-        // Match the exact stored day by its concrete date and reduce the
-        // available seat count by the number of passengers booked.
+        // Match the exact stored day by its concrete date and reduce the seat
+        // count of the pool the booking draws from by the number of passengers
+        // booked:
+        //   - OUTBOUND booking → `availableSeats`
+        //   - RETURN booking   → `returnAvailableSeats`  (the return time slot)
+        // The two counters are independent, so booking a return leg never eats
+        // into the outbound seats (and vice versa).
         //
-        // `$elemMatch` binds BOTH the date and the remaining-seat guard to the
-        // SAME day element, so we only decrement the specific day being booked
-        // and never drive its seats below the requested passenger count. This
-        // is atomic with respect to concurrent bookings (no overselling).
+        // `$elemMatch` binds BOTH the date and the remaining-seat guard of the
+        // SELECTED pool to the SAME day element, so we only decrement the
+        // specific day being booked and never drive its seats below the
+        // requested passenger count. This is atomic with respect to concurrent
+        // bookings (no overselling).
         const seatBooking = ride.noOfPassengers || 1;
+        const seatPoolField = SCHEDULED_SEAT_FIELD[seatPool];
         const seatsDecrement = await this.availabilityModel.updateOne(
             {
                 driverId: new Types.ObjectId(driverId),
@@ -492,22 +535,25 @@ export class PassengerPaymentService {
                 days: {
                     $elemMatch: {
                         date: day.date,
-                        availableSeats: { $gte: seatBooking },
+                        [seatPoolField]: { $gte: seatBooking },
                     },
                 },
             },
             {
-                $inc: { 'days.$.availableSeats': -seatBooking },
+                $inc: { [`days.$.${seatPoolField}`]: -seatBooking },
             },
             { session },
         );
 
         // If the atomic update changed nothing, the day no longer has enough
-        // remaining seats (e.g. another passenger booked concurrently after our
-        // earlier capacity check) => roll the whole booking back via the error.
+        // remaining seats in that pool (e.g. another passenger booked
+        // concurrently after our earlier capacity check) => roll the whole
+        // booking back via the error.
         if (seatsDecrement.modifiedCount === 0) {
             throw new BadRequestException(
-                `Not enough available seats on the driver's availability day`,
+                seatPool === SCHEDULED_SEAT_POOL.RETURN
+                    ? `Not enough return-trip seats available on the driver's availability day`
+                    : `Not enough available seats on the driver's availability day`,
             );
         }
     }

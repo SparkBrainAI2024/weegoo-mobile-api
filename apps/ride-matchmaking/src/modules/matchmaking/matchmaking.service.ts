@@ -31,7 +31,7 @@ import {
 } from '@libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
-import { MATCHMAKING_CONFIG, toMongoId, resolveBookedTimeSlots } from '@libs/common';
+import { MATCHMAKING_CONFIG, toMongoId, resolveBookedTimeSlots, resolveScheduledSeatPool, SCHEDULED_SEAT_FIELD, SCHEDULED_SEAT_POOL } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
 
@@ -514,7 +514,9 @@ export class MatchmakingService {
    *  - The availability doc must contain a day matching the requested calendar
    *    date (stored as UTC midnight) and requested scheduled vehicle type.
    *  - `isAvailableForBookings` must be true.
-   *  - The day's `availableSeats` must be >= the requested passenger count.
+   *  - The day must still have seats in the pool this booking consumes
+   *    (outbound `availableSeats`, or `returnAvailableSeats` when the booking
+   *    falls on the return time slot) — at least the requested passenger count.
    *  - The booking time must fall within (at/after) one of the day's time slots.
    */
   private resolveAvailabilityDay(
@@ -536,10 +538,24 @@ export class MatchmakingService {
     });
     if (!day) return null;
 
+    // ── Seat pool: outbound vs return leg ───────────────────────
+    // A booking that falls on the RETURN time slot consumes
+    // `returnAvailableSeats`; an outbound booking consumes `availableSeats`.
+    // The two counters are independent, so the capacity gate (and the
+    // remaining-seats figure handed to the client) must be evaluated against
+    // the pool THIS booking draws from.
+    const seatPool = resolveScheduledSeatPool(bookingTime, day.timeSlots, day.isOneWay);
+    const configuredSeats = Number((day as any)[SCHEDULED_SEAT_FIELD[seatPool]]) || 0;
+    // Return seats are an explicit allocation: a round-trip day with 0 return
+    // seats has no return capacity left to sell. Outbound seats keep the
+    // historical fallback to the vehicle-type capacity when the driver left
+    // them unconfigured.
     const effectiveSeats =
-      day.availableSeats && day.availableSeats > 0
-        ? day.availableSeats
-        : VEHICLE_SEAT_CAPACITY[day.vehicleType as ScheduledVehicleType] || 1;
+      configuredSeats > 0
+        ? configuredSeats
+        : seatPool === SCHEDULED_SEAT_POOL.RETURN
+          ? 0
+          : VEHICLE_SEAT_CAPACITY[day.vehicleType as ScheduledVehicleType] || 1;
     if (noOfPassengers > effectiveSeats) return null;
 
     // The booking request must relate to one of the driver's time slots.
@@ -717,9 +733,10 @@ export class MatchmakingService {
       if (!resolvedDay) continue;
       const day = resolvedDay.day;
 
-      // Shared seat capacity: `day.availableSeats` is the living remaining
-      // counter (decremented on each successful booking), so remaining seats
-      // for this driver-day ARE the day's availableSeats.
+      // Shared seat capacity: the matching pool (outbound `availableSeats` or
+      // return `returnAvailableSeats`) is the living remaining counter,
+      // decremented on each successful booking of that leg — so the remaining
+      // seats for this driver-day ARE `resolvedDay.effectiveSeats`.
       const remainingSeats = resolvedDay.effectiveSeats;
       this.logger.log(`Driver ${driver._id} has ${remainingSeats} remaining seats for ${bookingReference.toISOString()}`);
       // Skip only when the day cannot fit the whole party (remaining < requested).
@@ -916,9 +933,10 @@ export class MatchmakingService {
               )
             : null;
           if (resolvedSchedDay) {
-            // `day.availableSeats` is the living remaining counter (decremented
-            // atomically on each successful booking), so the accept guard just
-            // needs the day to still hold this passenger's party.
+            // The matching pool's living remaining counter (outbound
+            // `availableSeats` or return `returnAvailableSeats`, decremented
+            // atomically on each successful booking of that leg) must still hold
+            // this passenger's party.
             if (resolvedSchedDay.effectiveSeats < noOfPassengersForAccept) {
               this.logger.warn(
                 `Driver ${driverId} has no remaining seats for scheduled ride ${ride.rideUUId} ` +
