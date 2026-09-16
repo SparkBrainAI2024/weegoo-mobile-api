@@ -712,6 +712,8 @@ export class MatchmakingService {
       // type + seats + time slot).
       const availabilityDoc = availabilityMap.get(driver._id.toString());
       const resolvedDay = this.resolveAvailabilityDay(availabilityDoc, bookingReference, noOfPassengers);
+      this.logger.log(`Driver ${driver._id} availability check for ${bookingReference.toISOString()}: resolvedDay=${resolvedDay ? 'YES' : 'NO'}`);
+      this.logger.log(`resolved day: ${JSON.stringify(resolvedDay)}`);
       if (!resolvedDay) continue;
       const day = resolvedDay.day;
 
@@ -719,18 +721,23 @@ export class MatchmakingService {
       // counter (decremented on each successful booking), so remaining seats
       // for this driver-day ARE the day's availableSeats.
       const remainingSeats = resolvedDay.effectiveSeats;
+      this.logger.log(`Driver ${driver._id} has ${remainingSeats} remaining seats for ${bookingReference.toISOString()}`);
+      // Skip only when the day cannot fit the whole party (remaining < requested).
+      // Equal is fine: exactly `noOfPassengers` seats can hold the party.
       if (remainingSeats < noOfPassengers) {
         continue;
       }
 
-      // BUFFER-TIME CONFLICT: drop the driver's availability when one of their
-      // rides on this day starts within the day's pickup buffer (minutes)
-      // before the requested booking time.
-      const bufferMinutes = day.pickupBufferTimeMinutes || 0;
-      const conflictingRide = (rideTimesByDriver.get(driver._id.toString()) || []).some(
-        (t) => bookingReference.getTime() - t.getTime() < bufferMinutes * 60000,
-      );
-      if (conflictingRide) continue;
+      // // BUFFER-TIME CONFLICT: drop the driver's availability when one of their
+      // // rides on this day starts within the day's pickup buffer (minutes)
+      // // before the requested booking time.
+      // this.logger.log(`Checking driver ${driver._id} for conflicting rides on ${bookingReference.toISOString()}`);
+      // const bufferMinutes = day.pickupBufferTimeMinutes || 0;
+      // const conflictingRide = (rideTimesByDriver.get(driver._id.toString()) || []).some(
+      //   (t) => bookingReference.getTime() - t.getTime() < bufferMinutes * 60000,
+      // );
+      // this.logger.log(`Driver ${driver._id} has ${conflictingRide ? 'a conflicting ride' : 'no conflicting rides'} on ${bookingReference.toISOString()}`);
+      // if (conflictingRide) continue;
 
       // SAME DESTINATION: the driver's availability route must end at the same
       // destination as the passenger's requested dropoff.
@@ -987,14 +994,14 @@ export class MatchmakingService {
                     day: resolved.day.day,
                     isFlexible: resolved.day.timeSlots?.length === 0,
                     pickupBufferTimeMinutes: resolved.day.pickupBufferTimeMinutes || 0,
-                    // Persist ONLY the nearest matched availability slot — not the
-                    // driver's whole day's slot list. The passenger's bookingTime
-                    // may differ from the slot start (e.g. booked 07:00 → slot 08:00),
-                    // so resolve the matched slot and store that.
+                    // Persist ONLY the nearest matched availability slot (not the
+                    // whole day's slot list, and never an empty/`_id`-only entry).
+                    // The passenger's bookingTime may differ from the slot start
+                    // (e.g. booked 07:00 → slot 08:00), so resolve the matched slot.
                     timeSlots: resolveBookedTimeSlots(
                       updatedRide.bookingTime,
                       resolved.day.timeSlots || [],
-                    ).timeSlots,
+                    ),
                   },
                 },
               }).exec();

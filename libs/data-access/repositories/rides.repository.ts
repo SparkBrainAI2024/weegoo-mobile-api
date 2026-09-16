@@ -502,7 +502,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       $facet: {
         data: [
           { $sort: { createdAt: -1 } },
-          { $skip: (page - 1) * limit },
+          { $skip: (page + 1) * limit },
           { $limit: limit },
         ],
         totalCount: [{ $count: "count" }],
@@ -510,9 +510,36 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     });
 
     const [result] = await this._model.aggregate(pipeline);
+    const resultData = result.data.map((item: any) => {
+      return {
+        ...item,
+        driver: {
+          ...item.driver,
+          profileImage: item?.profileImage?.socialPicture,
+        },
+        passenger: {
+          ...item.passenger,
+          profileImage: item?.profileImage?.socialPicture,
+        },
+      };
+    });
+    const total = result.totalCount[0]?.count ?? 0;
+
+    const totalPages = Math.ceil(total / limit);
+    const hasNextPage = page < totalPages;
+    const hasPreviousPage = page > 1;
+
     return {
-      rides: result.data,
-      total: result.totalCount[0]?.count ?? 0,
+      rides: resultData,
+      pagination: {
+        page,
+        limit,
+        hasNextPage,
+        hasPreviousPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        previousPage: hasPreviousPage ? page - 1 : null,
+        total,
+      },
     };
   }
 

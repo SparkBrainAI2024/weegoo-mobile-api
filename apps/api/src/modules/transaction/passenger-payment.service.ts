@@ -453,7 +453,7 @@ export class PassengerPaymentService {
                         // the passenger's selected booking time) — not the driver's
                         // whole availability-day list. The availabilityDayId is no
                         // longer stored on the ride's schedule.
-                        timeSlots: slotResolution.timeSlots,
+                        timeSlots: resolveBookedTimeSlots(ride.bookingTime, day.timeSlots || []),
                     },
                     distanceInKm,
                     estimatedTimeInMinutes,

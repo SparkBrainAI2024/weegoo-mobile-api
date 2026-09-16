@@ -7,6 +7,7 @@ import { ApiProperty } from "@nestjs/swagger";
  * availability time window the booking falls / will fall into).
  */
 @ObjectType()
+@Schema({ _id: false })
 export class RideScheduleTimeSlot {
   @Field(() => String, { nullable: true })
   @Prop({ type: String, required: false, default: null })
