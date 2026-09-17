@@ -132,7 +132,7 @@ export class UserDetailsService {
         updatedUserDetails.toObject();
       userDetailsObj.profileImage = getActiveProfileImageUrl(
         updatedUserDetails.profileImages,
-        (key) => this.s3.getPublicUrl(key),
+        (key) => this.s3.getPublicBucketUrl(key),
       );
       delete userDetailsObj.profileImages;
 

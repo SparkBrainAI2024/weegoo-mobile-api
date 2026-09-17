@@ -141,7 +141,7 @@ async editVehicle(driverId: string, vehicleId: string, input: EditVehicleInput, 
     );
 
     return active
-      ? this.s3.buildObjectUrl(active.s3Key)
+      ? this.s3.getPublicBucketUrl(active.s3Key)
       : null;
   }
 
@@ -194,7 +194,7 @@ async getVehicle(vehicleId: string, driverId: string, lang: string) {
 
     const activeImage = images?.find((img) => img.status === ImageStatus.ACTIVE);
     if (activeImage) {
-      vehicleData.imageUrl = this.s3.getPublicUrl(activeImage.s3Key);
+      vehicleData.imageUrl = this.s3.getPublicBucketUrl(activeImage.s3Key);
       vehicleData.imageS3Key = activeImage.s3Key;
     }
 

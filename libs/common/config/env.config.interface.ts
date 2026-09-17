@@ -159,6 +159,12 @@ export interface AWSConfig {
   /** Expiration time for get presigned url */
   signedUrlExpiresIn: number;
 
+  /** Public S3 bucket name (used for publicly-readable assets such as car-icon.svg) */
+  publicBucket?: string;
+
+  /** Public S3 region (used for publicly-readable assets such as car-icon.svg) */
+  publicRegion?: string;
+
   /** CloudFront configuration */
   cloudfront: {
     /** CloudFront domain */
