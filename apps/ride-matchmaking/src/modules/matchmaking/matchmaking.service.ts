@@ -31,9 +31,10 @@ import {
 } from '@libs/data-access';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { DynamicPricingService } from './services/dynamic-pricing.service';
-import { MATCHMAKING_CONFIG, toMongoId, resolveBookedTimeSlots, resolveScheduledSeatPool, SCHEDULED_SEAT_FIELD, SCHEDULED_SEAT_POOL } from '@libs/common';
+import { MATCHMAKING_CONFIG, toMongoId, resolveBookedTimeSlots, resolveScheduledSeatPool, SCHEDULED_SEAT_FIELD, SCHEDULED_SEAT_POOL, resolveBookedSlotIndex, parseSlotStartTime } from '@libs/common';
 import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import { S3Service } from '@libs/s3';
+import { resolveSlotTimeDiffMs, sortBySlotMatchThenLocation } from './scheduled-driver-order.util';
 
 // ─── Scheduled availability helpers ─────────────────────────────────────────
 /** Nepal standard time offset is UTC+5:45 (no DST). */
@@ -155,8 +156,10 @@ export class MatchmakingService {
     // passenger request. Instead we gather the information of ALL the
     // drivers/vehicles whose route matches the requested destination that day
     // (driver ride-preference SCHEDULED/BOTH, availability day + time +
-    // destination + seat capacity + buffer window), prioritising the nearest
-    // pickup location first. The ride stays BOOKING for the passenger.
+    // destination + seat capacity + buffer window). The returned list is ordered
+    // by the CLOSEST matched availability time slot to the requested booking
+    // time first, then by the nearest pickup location. The ride stays BOOKING
+    // for the passenger.
     const dropoffCoords = ride.dropoffLocation?.coordinates;
     const dropoffLat = dropoffCoords?.[1];
     const dropoffLng = dropoffCoords?.[0];
@@ -711,7 +714,9 @@ export class MatchmakingService {
       completedCountsMap.set(c._id.toString(), c.count);
     }
 
-    const drivers: DriverScore[] = [];
+    // Candidate drivers carrying the ordering keys used for the list handed back
+    // to requestScheduledRide (see scheduled-driver-order.util.ts).
+    const candidates: Array<{ driver: DriverScore; slotTimeDiffMs: number; distanceToPickupKm: number }> = [];
 
     for (const v of vehicles) {
       const driver = v.driverId as any as UserDocument;
@@ -765,25 +770,45 @@ export class MatchmakingService {
         if (destDistanceKm > SCHEDULED_DESTINATION_MATCH_RADIUS_KM) continue;
       }
 
-      // PRIORITY: the driver whose availability PICKUP for that day is nearest
-      // to the passenger's provided pickup location.
+      // PRIORITY ORDER (see scheduled-driver-order.util.ts):
+      //   1. the driver whose MATCHED availability time slot starts CLOSEST to
+      //      the requested booking time (an exact slot match ranks top),
+      //   2. then the driver whose availability PICKUP for that day is nearest
+      //      to the passenger's provided pickup location.
       const dayPickup = day.pickupLocation;
       if (!dayPickup || dayPickup.latitude == null || dayPickup.longitude == null) continue;
+
+      // Matched availability time slot for this booking: the SAME slot the seat
+      // pool is resolved from (nearest future slot, else nearest past), kept as
+      // an absolute difference from the requested booking time so the closest
+      // time match can be ordered first.
+      const slotIndex = resolveBookedSlotIndex(bookingReference, day.timeSlots || []);
+      const matchedSlot = slotIndex >= 0 ? (day.timeSlots || [])[slotIndex]?.startTime : null;
+      const matchedSlotStart = matchedSlot
+        ? parseSlotStartTime(String(matchedSlot), bookingReference)
+        : null;
+      const slotTimeDiffMs = resolveSlotTimeDiffMs(bookingReference, matchedSlotStart);
+      this.logger.log(
+        `Driver ${driver._id} matched slot ${matchedSlot || 'none'} (diff ${slotTimeDiffMs} ms from ${bookingReference.toISOString()})`,
+      );
+
       try {
         const pickupDist = await this.distanceCalculator.calculateDriverDistance(
           pickupLat, pickupLng, dayPickup.latitude, dayPickup.longitude, (day.vehicleType as string || v.vehicleType || 'CAR').toLowerCase(),
         );
         const completedTripsCount = completedCountsMap.get(driver._id.toString()) || 0;
-        drivers.push({ driverId: driver._id.toString(), fullName: userDetails?.fullName || driver.fullName || 'Driver', phone: driver.phone || '', email: driver.email || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleName: v.name || '', vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, year: v.year ?? null, isAcType: v.isAcType ?? (v.vehicleType as string) === 'CAR', vehicleModelType: v.vehicleModelType || null, vehicleImage: v.images?.length ? this.s3.getPublicUrl(v.images.find((img) => img.status === 'ACTIVE')?.s3Key || v.images[0].s3Key) : null, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day, resolvedDay.effectiveSeats, remainingSeats, completedTripsCount, bookingReference) });
+        candidates.push({ slotTimeDiffMs, distanceToPickupKm: pickupDist.distanceKm, driver: { driverId: driver._id.toString(), fullName: userDetails?.fullName || driver.fullName || 'Driver', phone: driver.phone || '', email: driver.email || '', profileImage: getActiveProfileImageUrl(userDetails.profileImages, (key) => this.s3.getPublicUrl(key)), vehicleId: v._id.toString(), vehicleName: v.name || '', vehicleModel: v.vehicleModel, vehicleType: v.vehicleType, color: v.color, numberPlate: v.numberPlate, year: v.year ?? null, isAcType: v.isAcType ?? (v.vehicleType as string) === 'CAR', vehicleModelType: v.vehicleModelType || null, vehicleImage: v.images?.length ? this.s3.getPublicUrl(v.images.find((img) => img.status === 'ACTIVE')?.s3Key || v.images[0].s3Key) : null, distanceToPickupKm: pickupDist.distanceKm, rating: driverRating, completedTripsCount, score: 0, estimatedTimeToReachMinutes: pickupDist.durationMinutes, scheduledAvailability: this.buildScheduledAvailabilityInfo(day, resolvedDay.effectiveSeats, remainingSeats, completedTripsCount, bookingReference) } });
       } catch (err) {
         this.logger.warn(`Failed to compute pickup distance for driver ${driver._id}: ${err}`);
       }
     }
-    // Prioritize the nearest available pickup first (nearest → farthest). No
-    // radius is applied — all same-destination drivers are returned.
-    drivers.sort((a, b) => a.distanceToPickupKm - b.distanceToPickupKm);
-    this.logger.log(`Found ${drivers.length} available scheduled drivers for the requested destination`);
-    return drivers;
+    // ORDER: best TIME match first — the driver whose matched availability slot
+    // start is closest to the requested booking time (an exact slot match ranks
+    // top) — then LOCATION: the driver whose availability pickup is nearest. No
+    // radius is applied; all same-destination drivers are returned.
+    const orderedDrivers = sortBySlotMatchThenLocation(candidates).map((c) => c.driver);
+    this.logger.log(`Found ${orderedDrivers.length} available scheduled drivers for the requested destination`);
+    return orderedDrivers;
   }
 
   private scoreDrivers(drivers: DriverScore[]): DriverScore[] {
