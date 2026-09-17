@@ -491,20 +491,20 @@ export class CronService {
 
     const driverImage = getActiveProfileImageUrl(
       driverDetails?.profileImages,
-      (key) => this.s3.getPublicUrl(key),
+      (key) => this.s3.getPublicBucketUrl(key),
     );
     const passengerImage = getActiveProfileImageUrl(
       passengerDetails?.profileImages,
-      (key) => this.s3.getPublicUrl(key),
+      (key) => this.s3.getPublicBucketUrl(key),
     );
 
     const activeVehicleImage = vehicle?.images?.find(
       (img: any) => img.status === 'ACTIVE',
     );
     const vehicleImage = activeVehicleImage
-      ? this.s3.getPublicUrl(activeVehicleImage.s3Key)
+      ? this.s3.getPublicBucketUrl(activeVehicleImage.s3Key)
       : vehicle?.images?.length
-        ? this.s3.getPublicUrl(vehicle.images[0].s3Key)
+        ? this.s3.getPublicBucketUrl(vehicle.images[0].s3Key)
         : null;
 
     const driverLocationChannelId =

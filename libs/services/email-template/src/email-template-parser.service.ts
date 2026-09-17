@@ -112,64 +112,26 @@ export class EmailTemplateParserService {
   private getCarIconUrl(): string {
     let carIconUrl: string | undefined;
 
-    // 1. Highest priority: Explicit EMAIL_CAR_ICON_URL env variable
-    const envUrl = process.env.EMAIL_CAR_ICON_URL;
-    console.log(`EMAIL_CAR_ICON_URL from env: ${envUrl}`);
-    if (envUrl && envUrl.trim().length > 0) {
-      carIconUrl = envUrl.trim();
+
+
+
+    const s3Bucket = process.env.S3_BUCKET_NAME;
+    const awsRegion = process.env.AWS_REGION;
+    if (s3Bucket && awsRegion) {
+      carIconUrl = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com/assets/car-icon.svg`;
     }
 
-    // 2. API_BASE_URL (e.g., http://localhost:3000/assets/car-icon.svg)
-    if (!carIconUrl) {
-      const apiBaseUrl = process.env.API_BASE_URL;
-      if (apiBaseUrl && apiBaseUrl.trim().length > 0) {
-        // Remove trailing /api if present since static assets are served at root
-        const baseUrl = apiBaseUrl.trim().replace(/\/$/, '').replace(/\/api$/, '');
-        carIconUrl = `${baseUrl}/assets/car-icon.svg`;
-      }
-    }
 
-    // 3. S3 URL if configured
-    if (!carIconUrl) {
-      const s3Bucket = process.env.S3_BUCKET_NAME;
-      const awsRegion = process.env.AWS_REGION;
-      if (s3Bucket && awsRegion) {
-        carIconUrl = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com/car-icon.svg`;
-      }
-    }
 
-    // 4. PRODUCTION_URL
-    if (!carIconUrl) {
-      const productionUrl = process.env.PRODUCTION_URL;
-      if (productionUrl && productionUrl.trim().length > 0) {
-        carIconUrl = `${productionUrl.trim()}/assets/car-icon.svg`;
-      }
-    }
 
-    // 5. Final fallback: relative path
-    if (!carIconUrl) {
-      carIconUrl = '/assets/car-icon.svg';
-    }
+
 
     // Log the car icon URL for debugging
     this.logger.log(`Car icon URL: ${carIconUrl}`);
 
     // Ensure URL is absolute for email clients (emails can't use relative paths)
     // If it's a relative path, prepend with API_BASE_URL or PRODUCTION_URL if available
-    if (carIconUrl.startsWith('/')) {
-      const apiBaseUrl = process.env.API_BASE_URL?.trim().replace(/\/$/, '');
-      const productionUrl = process.env.PRODUCTION_URL?.trim().replace(/\/$/, '');
 
-      if (apiBaseUrl) {
-        carIconUrl = `${apiBaseUrl}${carIconUrl}`;
-      } else if (productionUrl) {
-        carIconUrl = `${productionUrl}${carIconUrl}`;
-      } else {
-        // Last resort: use http://localhost for development
-        const port = process.env.PORT || '3000';
-        carIconUrl = `http://localhost:${port}${carIconUrl}`;
-      }
-    }
 
     return carIconUrl;
   }

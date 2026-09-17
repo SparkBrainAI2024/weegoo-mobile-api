@@ -80,6 +80,38 @@ export class S3Service {
     return { uploadUrl, s3Key: key, expiresInSeconds: expiresIn };
   }
 
+  /**
+   * Presigned PUT URL against the public bucket (AWS_PUBLIC_BUCKET /
+   * AWS_PUBLIC_REGION). Used for publicly-readable assets such as profile and
+   * vehicle images so uploads land in the same bucket their read URLs point to.
+   * Falls back to the primary upload bucket when the public bucket is not
+   * configured.
+   */
+  async getPublicBucketUploadUrl(
+    key: string,
+    contentType = "application/octet-stream",
+    expiresIn = DEFAULT_UPLOAD_EXPIRES_SECONDS,
+  ) {
+    if (!this.isPublicBucketConfigured()) {
+      return this.getUploadUrl(key, contentType, expiresIn);
+    }
+
+    const cmd = new PutObjectCommand({
+      Bucket: process.env.AWS_PUBLIC_BUCKET,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const uploadUrl = await getSignedUrl(this.client, cmd, { expiresIn });
+    return { uploadUrl, s3Key: key, expiresInSeconds: expiresIn };
+  }
+
+  isPublicBucketConfigured(): boolean {
+    return Boolean(
+      process.env.AWS_PUBLIC_BUCKET && process.env.AWS_PUBLIC_REGION,
+    );
+  }
+
   async getViewUrl(key: string, expiresIn: number): Promise<string> {
     if (expiresIn > 604800) {
       throw new Error("getViewUrl: expiresIn exceeds AWS maximum of 604800s");
@@ -113,5 +145,20 @@ export class S3Service {
 
   getPublicUrl(s3Key: string): string {
     return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${s3Key}`;
+  }
+
+  // ─── Public bucket URL ────────────────────────────────────────────────────────
+  /**
+   * Public bucket URL used for publicly-readable assets such as profile images,
+   * vehicle images and car-icon.svg. Falls back to the primary upload bucket
+   * when AWS_PUBLIC_BUCKET / AWS_PUBLIC_REGION are not configured.
+   */
+  getPublicBucketUrl(s3Key: string): string {
+    const publicBucketName = process.env.AWS_PUBLIC_BUCKET || "";
+    const publicBucketRegion = process.env.AWS_PUBLIC_REGION || "";
+    if (publicBucketName && publicBucketRegion) {
+      return `https://${publicBucketName}.s3.${publicBucketRegion}.amazonaws.com/${s3Key}`;
+    }
+    return this.buildObjectUrl(s3Key);
   }
 }

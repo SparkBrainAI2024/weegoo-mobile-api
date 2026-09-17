@@ -3,6 +3,13 @@ import { S3Service } from "@libs/s3";
 import { RequestUploadResponse } from "@libs/data-access/dtos/response/request-upload.response";
 import { UploadPurpose } from "@libs/data-access/enums/upload.enum";
 
+/** Purposes whose assets are publicly readable and live in the public bucket */
+const PUBLIC_BUCKET_PURPOSES: UploadPurpose[] = [
+  UploadPurpose.USER_PROFILE_IMAGE,
+  UploadPurpose.PROFILE_IMAGE,
+  UploadPurpose.VEHICLE_IMAGE,
+];
+
 @Injectable()
 export class UploadCenterService {
   constructor(private readonly s3: S3Service) {}
@@ -20,7 +27,11 @@ export class UploadCenterService {
     // Generate key — nothing saved to DB
     const s3Key = this.s3.buildKey(purpose, ownerId, contentType);
 
-    // Return presigned PUT URL
+    // Return presigned PUT URL — public assets (profile/vehicle images) go to
+    // the public bucket, everything else to the private upload bucket
+    if (PUBLIC_BUCKET_PURPOSES.includes(purpose)) {
+      return this.s3.getPublicBucketUploadUrl(s3Key, contentType);
+    }
     return this.s3.getUploadUrl(s3Key, contentType);
   }
 }

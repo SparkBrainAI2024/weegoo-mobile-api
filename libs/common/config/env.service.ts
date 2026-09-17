@@ -189,6 +189,20 @@ export class EnvService {
   }
 
   /**
+   * Get S3 public bucket name (used for publicly-readable assets such as car-icon.svg)
+   */
+  getS3PublicBucketName(): string {
+    return this.getString('AWS_PUBLIC_BUCKET', '');
+  }
+
+  /**
+   * Get S3 public bucket region (used for publicly-readable assets)
+   */
+  getS3PublicBucketRegion(): string {
+    return this.getString('AWS_PUBLIC_REGION', '');
+  }
+
+  /**
    * Get AWS S3 upload prefix
    */
   getAwsS3UploadPrefix(): string {

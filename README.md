@@ -210,8 +210,8 @@ cp apps/driver-api/.env.example apps/driver-api/.env
 | `SUPPORT_EMAIL_AUTH` | SMTP password / app token | `xxxxxxxxxxxx` |
 | `AWS_ACCESS_KEY_ID` | AWS credentials | `AKIA...` |
 | `AWS_S3_SECRET_KEY` | AWS secret | `xxxxxxxx` |
-| `S3_BUCKET_NAME` | S3 bucket name | `ride-hailing-uploads` |
-| `AWS_REGION` | AWS region | `us-east-1` |
+| `AWS_PUBLIC_BUCKET` | Public S3 bucket for car-icon.svg / profile & vehicle image URLs (falls back to `S3_BUCKET_NAME` if unset) | `ride-hailing-public` |
+| `AWS_PUBLIC_REGION` | AWS region for the public S3 bucket | `eu-west-2` |
 | `AWS_S3_UPLOAD_PREFIX` | Path prefix for uploads | `uploads/` |
 | `PRODUCTION_URL` | Public app URL | `https://ride-hailing.com` |
 

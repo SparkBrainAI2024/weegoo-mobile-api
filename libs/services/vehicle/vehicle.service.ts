@@ -131,7 +131,7 @@ export class VehicleService {
       (img) => img.status === ImageStatus.ACTIVE,
     );
 
-    return active ? this.s3.buildObjectUrl(active.s3Key) : null;
+    return active ? this.s3.getPublicBucketUrl(active.s3Key) : null;
   }
 
   // ─── Delete inactive images (cron) ────────────────────────────────────────────
@@ -190,7 +190,7 @@ export class VehicleService {
             ? [
                 {
                   ...activeImage,
-                  s3Key: this.s3.getPublicUrl(activeImage.s3Key),
+                  s3Key: this.s3.getPublicBucketUrl(activeImage.s3Key),
                 },
               ]
             : []),
