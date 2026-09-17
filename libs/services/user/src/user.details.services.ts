@@ -252,7 +252,7 @@ export class UserDetailsService {
         return img.status === ImageStatus.ACTIVE;
       });
       if (profileImages.length > 0) {
-        toObjectDetails.profileImage = this.s3.getPublicUrl(
+        toObjectDetails.profileImage = this.s3.getPublicBucketUrl(
           profileImages[0].s3Key,
         );
       }
