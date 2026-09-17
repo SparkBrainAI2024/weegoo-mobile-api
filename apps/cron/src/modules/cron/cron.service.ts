@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
-import { MATCHMAKING_CONFIG } from '@libs/common';
+import { MATCHMAKING_CONFIG, parseSlotStartTime } from '@libs/common';
 import {
   Rides,
   RidesDocument,
@@ -447,37 +447,12 @@ export class CronService {
     // fallback simply handles any defensive duplicates).
     let start: Date | null = null;
     for (const slot of slots) {
-      const slotStart = this.parseSlotStartTime(String(slot), base);
+      const slotStart = parseSlotStartTime(String(slot), base);
       if (!slotStart) continue;
       if (!start || slotStart < start) start = slotStart;
     }
     if (!start) return ride.bookingTime ? new Date(ride.bookingTime) : base;
     return start;
-  }
-
-  /**
-   * Parse a slot start time into a full UTC Date. Supports full ISO datetimes
-   * (e.g. "2026-09-01T16:00:00.000Z", the format persisted on the ride's booked
-   * schedule slot) and legacy "HH:mm" / "HH:mm:ss" values anchored onto the
-   * given booking-day base date. Returns null for unparseable values.
-   */
-  private parseSlotStartTime(startTime: string, base: Date): Date | null {
-    const raw = String(startTime || '').trim();
-    if (!raw) return null;
-    // Full ISO datetime (contains a date part) — parse directly.
-    if (/^\d{4}-\d{2}-\d{2}T/.test(raw)) {
-      const d = new Date(raw);
-      return isNaN(d.getTime()) ? null : d;
-    }
-    // Legacy "HH:mm" / "HH:mm:ss" — anchor to the booking day (UTC).
-    const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
-    if (!m) return null;
-    const hh = parseInt(m[1], 10);
-    const mm = parseInt(m[2], 10);
-    if (hh > 23 || mm > 59) return null;
-    const d = new Date(base);
-    d.setUTCHours(hh, mm, 0, 0);
-    return d;
   }
 
   /**

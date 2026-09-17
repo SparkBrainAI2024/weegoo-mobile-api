@@ -29,6 +29,11 @@ export class AvailabilityDayDetail {
   @Field(() => Number)
   availableSeats: number;
 
+  /** Independent return-trip seat count for this day (round trips only).
+   *  Tracked separately from `availableSeats` (outbound). */
+  @Field(() => Number)
+  returnAvailableSeats: number;
+
   @Field(() => Boolean)
   useSystemFare: boolean;
 
