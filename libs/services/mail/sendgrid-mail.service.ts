@@ -99,7 +99,10 @@ export class SendGridMailService {
       // 2. Parse the dynamic content and render it inside the base template
       const html = this.emailTemplateParserService.parseAndRender(
         emailTemplate.pageContent,
-        variables,
+        {...variables,
+          app_name:'WeeGoo',
+          support_email:this.envService.getSupportEmail(),
+        },
       );
 
       // 3. Build the SendGrid message

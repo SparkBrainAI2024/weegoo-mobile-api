@@ -1201,7 +1201,7 @@ export class AuthService {
           type: tokenTypes.verifyEmailToken,
         },
         this.envService.getJwtSecretKey(),
-        { expiresIn: '2m' }, // 2 minutes expiry
+        { expiresIn: '5h' }, // 2 minutes expiry
       );
 
       // Store the verification token JTI in user-token-meta for server-side validation
@@ -1227,6 +1227,7 @@ export class AuthService {
         variables: {
           name: userDetails.fullName || "User",
           verificationLink,
+          expiry_hours:5
         },
         
      })

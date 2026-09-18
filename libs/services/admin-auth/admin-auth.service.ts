@@ -197,6 +197,7 @@ export class AdminAuthService {
       variables: {
         name: admin.fullName || "Admin",
         otp,
+        expiry_minutes:2
       },
     });
 
