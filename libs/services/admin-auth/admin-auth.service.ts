@@ -192,7 +192,7 @@ export class AdminAuthService {
     // passing the otp code (and name) as template variables.
     await this.sendGridMailService.sendEmail({
       to: admin.email,
-      subject: "Forgot Password OTP",
+      subject: "Forgot Password",
       templateSlug: "forgot-password",
       variables: {
         name: admin.fullName || "Admin",
