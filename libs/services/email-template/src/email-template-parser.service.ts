@@ -153,11 +153,7 @@ export class EmailTemplateParserService {
   private getCarIconUrl(): string {
     let carIconUrl: string | undefined;
 
-    const explicitUrl = process.env.EMAIL_CAR_ICON_URL;
-    if (explicitUrl) {
-      carIconUrl = explicitUrl;
-    }
-
+  
     if (!carIconUrl) {
       const publicBucket = process.env.AWS_PUBLIC_BUCKET;
       const publicRegion = process.env.AWS_PUBLIC_REGION;
