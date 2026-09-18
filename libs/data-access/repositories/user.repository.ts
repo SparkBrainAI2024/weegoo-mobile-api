@@ -8,6 +8,7 @@ import { IPaginatedResult } from "../interfaces/pagination.interface";
 import { roles, UserStatus } from "../enums/user.enum";
 import { PipelineStage } from "mongoose";
 import { DriverDocumentBundleStatus } from "../enums/driver-document.enum";
+import { equal } from "assert";
 
 @Injectable()
 export class UserRepository extends BaseRepository<UserDocument> {
@@ -27,6 +28,73 @@ export class UserRepository extends BaseRepository<UserDocument> {
   userCounts() {
     try {
       return this.model.countDocuments();
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getAggregatePassengerData() {
+    try {
+      return this.model.aggregate([
+        {
+          $match: {
+            role: { $in: [roles.USER] },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+
+            BLOCKED: {
+              $sum: {
+                $cond: [{ $eq: ["$suspended", true] }, 1, 0],
+              },
+            },
+
+            ACTIVE: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$verified", true] },
+                      { $eq: ["$suspended", false] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            PENDING: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$verified", false] },
+                      { $eq: ["$suspended", false] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            BLOCKED: 1,
+            ACTIVE: 1,
+            PENDING: 1,
+          },
+        },
+      ]);
     } catch (e) {
       ErrorException(
         e,

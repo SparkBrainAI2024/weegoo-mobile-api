@@ -16,7 +16,6 @@ export interface IBaseCursorPaginationResponse<T> {
   pageInfo: CursorPageInfo;
 }
 
-
 export interface IPaginationRequest {
   page?: number;
   limit?: number;

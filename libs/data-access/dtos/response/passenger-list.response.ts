@@ -38,4 +38,10 @@ export class PassengerListItem {
 }
 
 @ObjectType()
-export class PassengerListResponse extends Paginated(PassengerListItem) {}
+export class PassengerListResponse extends Paginated(PassengerListItem) {
+  @Field(() => Number)
+  totalBlocked: number;
+
+  @Field(() => Number)
+  totalPending: number;
+}

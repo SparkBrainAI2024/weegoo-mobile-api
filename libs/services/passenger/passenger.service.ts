@@ -18,7 +18,10 @@ import {
   RiderRatingsResponse,
   RiderTripsResponse,
 } from "@libs/data-access/dtos/response/passenger-admin.response";
-import { PassengerListItem } from "@libs/data-access/dtos/response/passenger-list.response";
+import {
+  PassengerListItem,
+  PassengerListResponse,
+} from "@libs/data-access/dtos/response/passenger-list.response";
 
 import { UserDetailsRepository } from "@libs/data-access/repositories/user-detail.repository";
 import { UserRepository } from "@libs/data-access/repositories/user.repository";
@@ -36,7 +39,7 @@ export class PassengerService {
 
   async listPassengers(
     input: PassengerListInput,
-  ): Promise<IPaginatedResult<PassengerListItem>> {
+  ): Promise<PassengerListResponse> {
     const { page, limit, search, status } = input;
 
     const result = await this.userRepository.getPassengersList(
@@ -44,6 +47,8 @@ export class PassengerService {
       status,
       search,
     );
+
+    const aggregateData = await this.userRepository.getAggregatePassengerData();
 
     const data: PassengerListItem[] = result.data.map((row: any) => ({
       id: row.id?.toString(),
@@ -60,7 +65,12 @@ export class PassengerService {
       joinedDate: row.createdAt ? new Date(row.createdAt).toDateString() : null,
     }));
 
-    return { data, pagination: result.pagination };
+    return {
+      data,
+      pagination: result.pagination,
+      totalBlocked: aggregateData["BLOCKED"],
+      totalPending: aggregateData["PENDING"],
+    };
   }
 
   async getRiderOverview(riderId: string): Promise<RiderOverviewResponse> {
