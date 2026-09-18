@@ -331,7 +331,7 @@ export class EmailTemplateParserService {
   // Step 4: Wrap content in email-safe HTML
   return this.wrapContent(parsed);
 }
-   * If the given HTML fragment's visible text is exactly one URL, return it.
+   /* If the given HTML fragment's visible text is exactly one URL, return it.
    * Used for `<a href="#">{{verification_url}}</a>` / `<button>{{verification_url}}</button>`
    * patterns where the URL only exists as the element's inner text.
    */
