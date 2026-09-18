@@ -2058,7 +2058,7 @@ input RidesListInput {
   status: RideStatus
   timeRange: RideTimeRange! = LAST_24_HOURS
   search: String
-  page: Int! = 1
+  page: Int! = 0
   limit: Int! = 10
 }
 

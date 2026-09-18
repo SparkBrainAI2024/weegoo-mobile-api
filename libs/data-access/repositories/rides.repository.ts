@@ -21,6 +21,7 @@ import {
 import { CategoryAccessedByRole } from "../enums/issue.enum";
 import { Rating, RatingDocument } from "../entities/rating.entity";
 import { RidesListInput, RideTimeRange } from "../dtos/input/rides-list.input";
+import { ImageStatus } from "../enums/upload.enum";
 interface CancelRideParams {
   rideId: string;
   cancelledBy: Types.ObjectId;
@@ -35,6 +36,41 @@ const TIME_RANGE_MS: Record<RideTimeRange, number> = {
   [RideTimeRange.LAST_7_DAYS]: 7 * 24 * 60 * 60 * 1000,
   [RideTimeRange.LAST_30_DAYS]: 30 * 24 * 60 * 60 * 1000,
 };
+
+/**
+ * Aggregation expression that resolves a user's ACTIVE profile image to a
+ * plain URL string, preferring `socialPicture` and falling back to the S3 key.
+ * Mirrors `getActiveProfileImageUrl` (libs/common/utils/entity.utils.ts) and
+ * the snapshot logic used in rating.repository.ts.
+ *
+ * @param profileImagesPath field path, e.g. "$passengerDetails.profileImages"
+ */
+const activeProfileImageExpr = (profileImagesPath: string) => ({
+  $let: {
+    vars: {
+      activeImage: {
+        $arrayElemAt: [
+          {
+            $filter: {
+              input: { $ifNull: [profileImagesPath, []] },
+              as: "img",
+              cond: { $eq: ["$$img.status", ImageStatus.ACTIVE] },
+            },
+          },
+          0,
+        ],
+      },
+    },
+    in: {
+      $cond: [
+        { $ne: ["$$activeImage", null] },
+        { $ifNull: ["$$activeImage.socialPicture", "$$activeImage.s3Key"] },
+        null,
+      ],
+    },
+  },
+});
+
 @Injectable()
 export class RidesRepository extends BaseRepository<RidesDocument> {
   private readonly logger = new Logger(RidesRepository.name);
@@ -401,10 +437,26 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
   async findRides(input: RidesListInput) {
     const { status, timeRange, search, page, limit } = input;
 
+    // `page` is zero-based, matching every other paginated query in this
+    // repository (`{ $skip: page * limit }`) and GetDriverTripsInput
+    // (defaultValue 0 / @Min(0)). admin-api registers no global ValidationPipe,
+    // so clamp the values here to keep $skip / $limit valid.
+    const currentPage = Math.max(Number(page ?? 0) || 0, 0);
+    const pageSize = Math.max(Number(limit ?? 10) || 10, 1);
+
     const match: Record<string, any> = {
       deleted: { $ne: true },
     };
     if (status) match.rideStatus = status;
+
+    // Restrict the list to rides booked inside the requested window.
+    // bookingTime is the field used by the other ride period filters
+    // (getCompletedRidesChart / getRideStatusChart / getAdminDashboard), so the
+    // list stays consistent with the dashboard charts.
+    const timeRangeMs = timeRange ? TIME_RANGE_MS[timeRange] : undefined;
+    if (timeRangeMs) {
+      match.bookingTime = { $gte: new Date(Date.now() - timeRangeMs) };
+    }
 
     const pipeline: any[] = [
       { $match: match },
@@ -459,9 +511,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
                 fullName: "$passengerDetails.fullName",
                 phone: "$riderUser.phone",
                 rating: "$passengerDetails.rating",
-                profileImage: {
-                  $arrayElemAt: ["$passengerDetails.profileImages", 0],
-                },
+                profileImage: activeProfileImageExpr(
+                  "$passengerDetails.profileImages",
+                ),
               },
               null,
             ],
@@ -474,9 +526,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
                 fullName: "$driverDetails.fullName",
                 phone: "$driverUser.phone",
                 rating: "$driverDetails.rating",
-                profileImage: {
-                  $arrayElemAt: ["$driverDetails.profileImages", 0],
-                },
+                profileImage: activeProfileImageExpr(
+                  "$driverDetails.profileImages",
+                ),
               },
               null,
             ],
@@ -502,42 +554,37 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       $facet: {
         data: [
           { $sort: { createdAt: -1 } },
-          { $skip: (page + 1) * limit },
-          { $limit: limit },
+          { $skip: currentPage * pageSize },
+          { $limit: pageSize },
         ],
         totalCount: [{ $count: "count" }],
       },
     });
 
     const [result] = await this._model.aggregate(pipeline);
-    const resultData = result.data.map((item: any) => {
-      return {
-        ...item,
-        driver: {
-          ...item.driver,
-          profileImage: item?.profileImage?.socialPicture,
-        },
-        passenger: {
-          ...item.passenger,
-          profileImage: item?.profileImage?.socialPicture,
-        },
-      };
-    });
-    const total = result.totalCount[0]?.count ?? 0;
 
-    const totalPages = Math.ceil(total / limit);
-    const hasNextPage = page < totalPages;
-    const hasPreviousPage = page > 1;
+    // `passenger.profileImage` / `driver.profileImage` are already resolved to
+    // plain URL strings by the `$addFields` stage above, so no post-processing
+    // is needed here. The previous `item?.profileImage?.socialPicture` lookup
+    // always resolved to undefined (a ride document has no `profileImage`
+    // object) and wiped the resolved values out again.
+    const resultData = result?.data ?? [];
+    const total = result?.totalCount?.[0]?.count ?? 0;
+
+    // `data` is zero-based (valid pages are 0 .. totalPages - 1). Same idiom as
+    // base.repository.ts / user.repository.ts.
+    const hasNextPage = (currentPage + 1) * pageSize < total;
+    const hasPreviousPage = currentPage > 0;
 
     return {
       rides: resultData,
       pagination: {
-        page,
-        limit,
+        page: currentPage,
+        limit: pageSize,
         hasNextPage,
         hasPreviousPage,
-        nextPage: hasNextPage ? page + 1 : null,
-        previousPage: hasPreviousPage ? page - 1 : null,
+        nextPage: hasNextPage ? currentPage + 1 : null,
+        previousPage: hasPreviousPage ? currentPage - 1 : null,
         total,
       },
     };
