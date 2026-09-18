@@ -1223,7 +1223,7 @@ export class AuthService {
      await this.sendGridMailService.sendEmail({
         to: user.email,
         subject: "Verify Your Email",
-        templateSlug: "verify-email",
+        templateSlug: "verify-your-email-address",
         variables: {
           name: userDetails.fullName || "User",
           verification_url:verificationLink,
