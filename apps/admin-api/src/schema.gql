@@ -1552,6 +1552,8 @@ type PassengerListResponse {
   message: String
   data: [PassengerListItem!]
   pagination: Pagination!
+  totalBlocked: Float!
+  totalPending: Float!
 }
 
 type RiderOverviewResponse {

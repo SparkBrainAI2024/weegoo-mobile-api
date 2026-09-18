@@ -42,7 +42,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
       return this.model.aggregate([
         {
           $match: {
-            role: { $in: [roles.USER] },
+            roles: { $in: [roles.USER] },
           },
         },
         {
