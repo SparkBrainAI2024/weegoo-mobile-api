@@ -1218,7 +1218,7 @@ export class AuthService {
       // Build verification link pointing to the REST API endpoint
       const apiBaseUrl = this.envService.getApiBaseUrl();
       const verificationLink = `${apiBaseUrl}/verify-email?token=${verificationToken}`;
-
+      this.logger.log(`Verification link for ${user.email}: ${verificationLink}`);
       // Fetch email template from database by slug
      await this.sendGridMailService.sendEmail({
         to: user.email,
