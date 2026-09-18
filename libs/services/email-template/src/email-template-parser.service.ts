@@ -145,31 +145,38 @@ export class EmailTemplateParserService {
 
   /**
    * Get the URL for the car icon image.
-   * Priority: EMAIL_CAR_ICON_URL > API_BASE_URL > S3 > PRODUCTION_URL > relative path
+   * Served from the public S3 bucket (AWS_PUBLIC_BUCKET / AWS_PUBLIC_REGION,
+   * same pattern as S3Service.getPublicBucketUrl) so a different public-bucket
+   * region is honoured. Falls back to the primary upload bucket when the
+   * public bucket is not configured. EMAIL_CAR_ICON_URL can override it.
    */
   private getCarIconUrl(): string {
     let carIconUrl: string | undefined;
 
-
-
-
-    const s3Bucket = process.env.S3_BUCKET_NAME;
-    const awsRegion = process.env.AWS_REGION;
-    if (s3Bucket && awsRegion) {
-      carIconUrl = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com/assets/car-icon.svg`;
+    const explicitUrl = process.env.EMAIL_CAR_ICON_URL;
+    if (explicitUrl) {
+      carIconUrl = explicitUrl;
     }
 
+    if (!carIconUrl) {
+      const publicBucket = process.env.AWS_PUBLIC_BUCKET;
+      const publicRegion = process.env.AWS_PUBLIC_REGION;
+      if (publicBucket && publicRegion) {
+        carIconUrl = `https://${publicBucket}.s3.${publicRegion}.amazonaws.com/assets/car-icon.svg`;
+      }
+    }
 
-
-
-
+    // Fall back to the primary upload bucket (bucket's own region)
+    if (!carIconUrl) {
+      const s3Bucket = process.env.S3_BUCKET_NAME;
+      const awsRegion = process.env.AWS_REGION;
+      if (s3Bucket && awsRegion) {
+        carIconUrl = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com/assets/car-icon.svg`;
+      }
+    }
 
     // Log the car icon URL for debugging
     this.logger.log(`Car icon URL: ${carIconUrl}`);
-
-    // Ensure URL is absolute for email clients (emails can't use relative paths)
-    // If it's a relative path, prepend with API_BASE_URL or PRODUCTION_URL if available
-
 
     return carIconUrl;
   }

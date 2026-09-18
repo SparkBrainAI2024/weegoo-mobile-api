@@ -31,6 +31,27 @@ export class S3Service {
     },
   });
 
+  /**
+   * Client for the public bucket (AWS_PUBLIC_BUCKET / AWS_PUBLIC_REGION).
+   * Credentials are shared with the primary client; only the region differs.
+   * Created lazily so we don't build it when the public bucket isn't used.
+   */
+  private publicClient?: S3Client;
+
+  private getPublicBucketClient(): S3Client {
+    if (!this.publicClient) {
+      const publicRegion = process.env.AWS_PUBLIC_REGION || this.region;
+      this.publicClient = new S3Client({
+        region: publicRegion,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+          secretAccessKey: process.env.AWS_S3_SECRET_KEY || "",
+        },
+      });
+    }
+    return this.publicClient;
+  }
+
   // ─── Key builder ─────────────────────────────────────────────────────────────
   buildKey(
     purpose: UploadPurpose,
@@ -102,7 +123,12 @@ export class S3Service {
       ContentType: contentType,
     });
 
-    const uploadUrl = await getSignedUrl(this.client, cmd, { expiresIn });
+    // Sign against a client in the public bucket's region — signing with the
+    // primary client fails with an S3 region mismatch when AWS_PUBLIC_REGION
+    // differs from AWS_REGION.
+    const uploadUrl = await getSignedUrl(this.getPublicBucketClient(), cmd, {
+      expiresIn,
+    });
     return { uploadUrl, s3Key: key, expiresInSeconds: expiresIn };
   }
 
