@@ -42,6 +42,7 @@ export class HealthController {
    *  - "cleanupStaleOfflineDrivers" -> stale-driver sweep
    *  - "handleMidnightCleanup"      -> S3 image/document cleanup
    *  - "handleExpiredAvailabilityCleanup" -> past availability-day cleanup
+   *  - "handleExpiredPromoCodeDeactivation" -> deactivate promo codes past expiry
    */
   @Get('cron/run/:jobName')
   async runCronJob(
@@ -75,9 +76,15 @@ export class HealthController {
           job: jobName,
           result: await this.cronService.transitionScheduledRidesToOngoing(),
         };
+      case 'handleExpiredPromoCodeDeactivation':
+        return {
+          success: true,
+          job: jobName,
+          result: await this.cronService.handleExpiredPromoCodeDeactivation(),
+        };
       default:
         throw new BadRequestException(
-          `Unknown cron job "${jobName}". Supported jobs: cleanupStaleOfflineDrivers, handleMidnightCleanup, handleExpiredAvailabilityCleanup, deleteExpiredBookingScheduleRequests, transitionScheduledRidesToOngoing`,
+          `Unknown cron job "${jobName}". Supported jobs: cleanupStaleOfflineDrivers, handleMidnightCleanup, handleExpiredAvailabilityCleanup, handleExpiredPromoCodeDeactivation, deleteExpiredBookingScheduleRequests, transitionScheduledRidesToOngoing`,
         );
     }
   }

@@ -19,6 +19,8 @@ import {
   Availability,
   AvailabilitySchema,
   AvailabilityRepository,
+  PromoCode,
+  PromoCodeSchema,
 } from '@libs/data-access';
 import { AblyModule } from '@libs/services/ably';
 import { EnvService } from '@libs/common/config/env.service';
@@ -40,6 +42,7 @@ import { HealthController } from './health.controller';
  *  - Rides, UserDetails, UserDailyOnlineStatus  -> stale-driver sweep
  *  - Vehicle, DriverDocument                  -> midnight image/document cleanup
  *  - Availability                           -> midnight past-day cleanup
+ *  - PromoCode                              -> midnight expired-promo deactivation
  */
 @Module({
   imports: [
@@ -53,6 +56,7 @@ import { HealthController } from './health.controller';
       { name: Vehicle.name, schema: VehicleSchema },
       { name: DriverDocument.name, schema: DriverDocumentSchema },
       { name: Availability.name, schema: AvailabilitySchema },
+      { name: PromoCode.name, schema: PromoCodeSchema },
     ]),
   ],
   providers: [

@@ -14,6 +14,9 @@ import {
   UserDocument,
   Vehicle,
   VehicleDocument,
+  PromoCode,
+  PromoCodeDocument,
+  PromoCodeStatusEnum,
 } from '@libs/data-access';
 import { DriverOnlineStatus } from '@libs/data-access/enums/user.enum';
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
@@ -59,6 +62,8 @@ export class CronService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(Vehicle.name)
     private readonly vehicleModel: Model<VehicleDocument>,
+    @InjectModel(PromoCode.name)
+    private readonly promoCodeModel: Model<PromoCodeDocument>,
     private readonly vehicleService: VehicleService,
     private readonly driverDocService: DriverDocumentService,
     private readonly availabilityService: AvailabilityService,
@@ -228,6 +233,50 @@ export class CronService {
     } catch (e: any) {
       this.logger.error('Availability past-day cleanup failed', e?.message || e);
       return { processed: 0, documentsCleaned: 0, removedDays: 0 };
+    }
+  }
+
+  /**
+   * Midnight sweep that deactivates promo codes whose expiry date/time has
+   * passed. Runs daily at 00:00 UTC, the same slot as the other midnight jobs.
+   *
+   * Only promos that are currently ACTIVE are transitioned — DRAFT promos were
+   * never published, and promos already INACTIVE/EXPIRED must be left untouched.
+   * A promo is deactivated only once its exact `expiryDateTime` has passed
+   * (`expiryDateTime < now`), so anything still within its expiry moment is kept.
+   */
+  @Cron('0 0 * * *')
+  async handleExpiredPromoCodeDeactivation(): Promise<{
+    processed: number;
+    deactivated: number;
+  }> {
+    const now = new Date();
+    this.logger.log(
+      `Promo code expiry sweep started (expiryDateTime before ${now.toISOString()})`,
+    );
+
+    try {
+      const result = await this.promoCodeModel
+        .updateMany(
+          {
+            status: PromoCodeStatusEnum.ACTIVE,
+            expiryDateTime: { $lt: now },
+            deleted: { $ne: true },
+          },
+          { $set: { status: PromoCodeStatusEnum.INACTIVE } },
+        )
+        .exec();
+
+      const processed = result.matchedCount ?? 0;
+      const deactivated = result.modifiedCount ?? 0;
+
+      this.logger.log(
+        `Promo code expiry sweep completed: matched=${processed}, deactivated=${deactivated}`,
+      );
+      return { processed, deactivated };
+    } catch (e: any) {
+      this.logger.error('Promo code expiry sweep failed', e?.message || e);
+      return { processed: 0, deactivated: 0 };
     }
   }
 
