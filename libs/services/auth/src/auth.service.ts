@@ -1226,7 +1226,7 @@ export class AuthService {
         templateSlug: "verify-email",
         variables: {
           name: userDetails.fullName || "User",
-          verificationLink,
+          verification_url:verificationLink,
           expiry_hours:5
         },
         

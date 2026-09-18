@@ -9,10 +9,11 @@ import * as Handlebars from "handlebars";
  *
  * Features:
  * - Injects dynamic content from DB into the base template
- * - Detects URLs/links in content and converts them to styled buttons
  * - Converts <button> tags to <a> tags (buttons don't work reliably in email clients)
- * - Styles existing <a> tags as buttons when they contain links
- * - Replaces placeholders like {{currentYear}} and custom variables
+ * - Turns every <a href="..."> link into a styled button
+ * - Adds a styled button for any plain URL found in the content (including URLs
+ *   supplied through variables such as {{verificationLink}})
+ * - Replaces placeholders like {{otp}}, {{name}}, {{currentYear}} and custom variables
  */
 @Injectable()
 export class EmailTemplateParserService {
@@ -81,24 +82,32 @@ export class EmailTemplateParserService {
    */
   parseAndRender(content: string, variables?: Record<string, any>): string {
     try {
-      // 1. Parse the dynamic content - convert links to buttons, fix buttons, etc.
-      const parsedContent = this.parseContent(content);
+      const currentYear = new Date().getFullYear().toString();
+      const carIconUrl = this.getCarIconUrl();
 
-      // 1.b Replace custom placeholders (e.g. {{otp}}, {{name}}) inside the content
-      const renderedContent = this.applyVariables(parsedContent, variables);
+      // 1. Replace placeholders (e.g. {{otp}}, {{name}}, {{verificationLink}}) first so
+      //    any URL supplied through variables already exists in the content before parsing.
+      const contentWithVariables = this.applyVariables(content, {
+        currentYear,
+        carIconUrl,
+        ...variables,
+      });
 
-      // 2. Compile the base template with Handlebars
+      // 2. Parse the dynamic content - convert links/URLs to buttons, fix buttons, etc.
+      const parsedContent = this.parseContent(contentWithVariables);
+
+      // 3. Compile the base template with Handlebars
       const template = Handlebars.compile(this.baseTemplate);
 
-      // 3. Build the context with parsed content and default variables
+      // 4. Build the context with parsed content and default variables
       const context: Record<string, any> = {
-        content: renderedContent,
-        currentYear: new Date().getFullYear().toString(),
-        carIconUrl: this.getCarIconUrl(),
+        content: parsedContent,
+        currentYear,
+        carIconUrl,
         ...variables,
       };
 
-      // 4. Render the final HTML
+      // 5. Render the final HTML
       return template(context);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -122,7 +131,9 @@ export class EmailTemplateParserService {
     }
 
     try {
-      return Handlebars.compile(content)(variables);
+      // noEscape keeps URLs intact (Handlebars would otherwise escape "=" in query
+      // strings, breaking links like https://host/verify-email?token=abc)
+      return Handlebars.compile(content, { noEscape: true })(variables);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(
@@ -165,9 +176,9 @@ export class EmailTemplateParserService {
 
   /**
    * Parse the dynamic content:
-   * 1. Convert <button> tags to <a> tags (buttons don't work in most email clients)
-   * 2. Detect plain URLs and convert them to styled buttons
-   * 3. Style existing <a> tags as buttons
+   * 1. Convert <button> tags to <a> buttons (buttons don't work in most email clients)
+   * 2. Change existing <a href="..."> links into styled buttons
+   * 3. Add a styled button for every plain URL found in the content
    * 4. Wrap content in email-safe HTML
    */
   private parseContent(content: string): string {
@@ -203,26 +214,21 @@ export class EmailTemplateParserService {
       },
     );
 
-    // Step 2: Detect plain URLs in text and convert them to buttons
-    // Only convert URLs that are NOT already inside an <a> tag
-    parsed = parsed.replace(
-      /(^|[^"'>])(https?:\/\/[^\s<>"']+)/g,
-      (match, prefix: string, url: string) => {
-        // Skip if the URL is already part of an anchor tag
-        if (prefix.includes("<a") || prefix.includes("href=")) {
-          return match;
-        }
-        return `${prefix}${this.buildButton(url, "Click Here")}`;
-      },
-    );
-
-    // Step 3: Style existing <a> tags as buttons if they don't have button styling
+    // Step 2: Change existing <a href="..."> links into styled buttons
     parsed = parsed.replace(
       /<a\b([^>]*)>([\s\S]*?)<\/a>/gi,
       (match, attributes: string, innerContent: string) => {
-        // Extract href
+        // Prefer the real URL (data-url/data-href) over a placeholder href
+        const dataUrlMatch = attributes.match(
+          /(?:data-url|data-href)\s*=\s*["']([^"']*)["']/i,
+        );
         const hrefMatch = attributes.match(/href\s*=\s*["']([^"']*)["']/i);
-        const href = hrefMatch ? hrefMatch[1] : "#";
+        const href = (dataUrlMatch?.[1] || hrefMatch?.[1] || "").trim();
+
+        // Anchor without a real URL -> keep it as it is
+        if (!href || href === "#") {
+          return match;
+        }
 
         // Check if the anchor already has button-like styling
         const hasButtonStyle =
@@ -231,7 +237,7 @@ export class EmailTemplateParserService {
           attributes.includes("padding") ||
           attributes.includes("border-radius");
 
-        // If it already has button styling, keep it but ensure it looks good
+        // Already a styled button -> keep it untouched
         if (hasButtonStyle) {
           return match;
         }
@@ -249,8 +255,41 @@ export class EmailTemplateParserService {
       },
     );
 
+    // Step 3: Add a styled button for every plain URL found in the content
+    parsed = this.convertPlainUrlsToButtons(parsed);
+
     // Step 4: Wrap content in email-safe HTML
     return this.wrapContent(parsed);
+  }
+
+  /**
+   * Detect plain (bare) URLs in the content text and convert them into styled buttons.
+   * The content is walked tag by tag, so URLs living inside HTML attributes
+   * (e.g. href/src) are never wrapped a second time.
+   */
+  private convertPlainUrlsToButtons(content: string): string {
+    return content.replace(
+      /(<[^>]*>)|([^<]+)/g,
+      (match: string, tag?: string, text?: string) => {
+        // Keep HTML tags (and the URLs inside their attributes) untouched
+        if (tag || !text) {
+          return match;
+        }
+
+        return text.replace(this.URL_REGEX, (url: string) => {
+          // Keep trailing punctuation (e.g. ".", ",", ")") outside of the button
+          const trailingMatch = url.match(/[.,;:!?)\]]+$/);
+          const trailing = trailingMatch ? trailingMatch[0] : "";
+          const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+
+          if (!cleanUrl) {
+            return url;
+          }
+
+          return `${this.buildButton(cleanUrl, "Click Here")}${trailing}`;
+        });
+      },
+    );
   }
 
   /**
