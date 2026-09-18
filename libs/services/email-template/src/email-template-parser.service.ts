@@ -158,7 +158,7 @@ export class EmailTemplateParserService {
       const publicBucket = process.env.AWS_PUBLIC_BUCKET;
       const publicRegion = process.env.AWS_PUBLIC_REGION;
       if (publicBucket && publicRegion) {
-        carIconUrl = `https://${publicBucket}.s3.${publicRegion}.amazonaws.com/assets/car-icon.svg`;
+        carIconUrl = `https://${publicBucket}.s3.${publicRegion}.amazonaws.com/assets/car-icon.png`;
       }
     }
 
