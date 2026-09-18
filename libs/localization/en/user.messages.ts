@@ -22,6 +22,8 @@ export const USER = {
   USER_CREATED_PHONE:
     "We have sent a otp in your phone, please verify your phone.",
   OTP_SEND: "OTP send successfully.",
+  OTP_ALREADY_SENT:
+    "OTP has already been sent to your email. Please check your inbox.",
   USER_VERIFICATION_SUCCESS: "User verification succeeded.",
   PASSWORD_UPDATED: "Password updated.",
   CHANGED_EMAIL: "Successfully changed email.",

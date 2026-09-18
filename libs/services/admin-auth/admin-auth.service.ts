@@ -10,12 +10,21 @@ import {
   ErrorException,
   GenerateRandomDigit,
   generateToken,
+  getOtpSentResponse,
+  getOtpThrottledResponse,
+  isOtpExpired,
   verifyToken,
 } from "@libs/common";
 import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
+import { SendGridMailService } from "@libs/services/mail";
 
 import { roles, verificationType } from "@libs/data-access/enums/user.enum";
-import { passwordSalt, tokenTypes, userOtpSalt } from "@libs/common/constants";
+import {
+  passwordSalt,
+  tokenTypes,
+  userOtpExpiredTime,
+  userOtpSalt,
+} from "@libs/common/constants";
 import { TokenGrantType } from "@libs/data-access/enums/token.enum";
 import { Types } from "mongoose";
 import { AdminSignUpResponse } from "@libs/data-access/dtos/response/admin-auth.response";
@@ -29,7 +38,28 @@ export class AdminAuthService {
     private readonly userVerificationRepository: UserVerificationRepository,
     private readonly userTokenMetaRepository: UserTokenMetaRepository,
     private readonly envService: EnvService,
+    private readonly sendGridMailService: SendGridMailService,
   ) {}
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  // Helper method to check if admin has a valid non-expired OTP
+  private async hasValidOtp(
+    adminId: Types.ObjectId,
+    type: string,
+  ): Promise<any> {
+    const verification = await this.userVerificationRepository.findOne({
+      adminId,
+      type,
+    });
+    if (
+      verification &&
+      !isOtpExpired(verification.createdAt, userOtpExpiredTime)
+    ) {
+      return verification;
+    }
+    return null;
+  }
 
   // ─── Signup ───────────────────────────────────────────────────────────────
 
@@ -138,6 +168,17 @@ export class AdminAuthService {
     if (!admin) {
       ErrorException(null, "ADMIN_USER.ADMIN_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
+
+    // If the previously sent OTP is still valid (2 minutes expiry),
+    // do not send a new mail — just inform that the OTP was already sent.
+    const validOtp = await this.hasValidOtp(
+      admin._id,
+      verificationType.RESET_PASSWORD,
+    );
+    if (validOtp) {
+      return getOtpThrottledResponse(lang, validOtp.createdAt);
+    }
+
     const otp = GenerateRandomDigit(userOtpSalt);
 
     await this.userVerificationRepository.sendOtp(
@@ -147,9 +188,19 @@ export class AdminAuthService {
       true, //isAdmin
     );
 
-    // TODO: send otp via email (mail service)
+    // Send the OTP using the dynamic "forgot-password" email template,
+    // passing the otp code (and name) as template variables.
+    await this.sendGridMailService.sendEmail({
+      to: admin.email,
+      subject: "Forgot Password OTP",
+      templateSlug: "forgot-password",
+      variables: {
+        name: admin.fullName || "Admin",
+        otp,
+      },
+    });
 
-    return { message: Message(lang, "USER.OTP_SEND"), success: true };
+    return getOtpSentResponse(lang);
   }
 
   async verifyOtp(email: string, otp: number, lang: string): Promise<any> {

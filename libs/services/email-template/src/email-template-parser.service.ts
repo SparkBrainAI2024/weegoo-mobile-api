@@ -84,12 +84,15 @@ export class EmailTemplateParserService {
       // 1. Parse the dynamic content - convert links to buttons, fix buttons, etc.
       const parsedContent = this.parseContent(content);
 
+      // 1.b Replace custom placeholders (e.g. {{otp}}, {{name}}) inside the content
+      const renderedContent = this.applyVariables(parsedContent, variables);
+
       // 2. Compile the base template with Handlebars
       const template = Handlebars.compile(this.baseTemplate);
 
       // 3. Build the context with parsed content and default variables
       const context: Record<string, any> = {
-        content: parsedContent,
+        content: renderedContent,
         currentYear: new Date().getFullYear().toString(),
         carIconUrl: this.getCarIconUrl(),
         ...variables,
@@ -102,6 +105,30 @@ export class EmailTemplateParserService {
       this.logger.error(`Failed to parse and render email template: ${errorMessage}`);
       // Fallback: return content wrapped in basic HTML if parsing fails
       return this.fallbackRender(content, variables);
+    }
+  }
+
+  /**
+   * Replaces custom {{variable}} placeholders inside the dynamic content
+   * (e.g. {{otp}}, {{name}}) using the provided variables.
+   * Falls back to the original content if the placeholders cannot be compiled.
+   */
+  private applyVariables(
+    content: string,
+    variables?: Record<string, any>,
+  ): string {
+    if (!content || !variables || Object.keys(variables).length === 0) {
+      return content;
+    }
+
+    try {
+      return Handlebars.compile(content)(variables);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to replace variables in email template content: ${errorMessage}`,
+      );
+      return content;
     }
   }
 

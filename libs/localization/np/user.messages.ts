@@ -17,6 +17,8 @@ export const USER = {
   INVALID_OTP: "अवैध वा समयम्याद समाप्त OTP।",
   USER_CREATED: "प्रयोगकर्ता सफलतापूर्वक सिर्जना भयो।",
   OTP_SEND: "OTP सफलतापूर्वक पठाइयो।",
+  OTP_ALREADY_SENT:
+    "OTP पहिले नै तपाईंको इमेलमा पठाइएको छ। कृपया आफ्नो इनबक्स जाँच गर्नुहोस्।",
   USER_VERIFICATION_SUCCESS: "प्रयोगकर्ता प्रमाणिकरण सफल भयो।",
   PASSWORD_UPDATED: "पासवर्ड अद्यावधिक भयो।",
   CHANGED_EMAIL: "इमेल सफलतापूर्वक परिवर्तन भयो।",

@@ -1220,32 +1220,16 @@ export class AuthService {
       const verificationLink = `${apiBaseUrl}/verify-email?token=${verificationToken}`;
 
       // Fetch email template from database by slug
-      const emailTemplate = await this.emailTemplateRepository.findBySlug('verify-email');
-      if (!emailTemplate) {
-        // Fallback to default content if template not found
-        const content = `
-          <h2>Verify Your Email</h2>
-          <p>Please click the button below to verify your email address.</p>
-          <p>This link will expire in 2 minutes.</p>
-          <a href="${verificationLink}" style="display:inline-block;padding:14px 32px;background-color:#081329;color:#FFD21F;text-decoration:none;border-radius:8px;font-size:16px;font-weight:700;">Verify Email</a>
-        `;
-        await this.sendGridMailService.sendParsedEmail({
-          to: email,
-          subject: Message(lang, "USER.VERIFY_EMAIL_SUBJECT"),
-          content,
-        });
-      } else {
-        // Use template from database
-        const content = emailTemplate.pageContent
-          .replace(/{{verificationLink}}/g, verificationLink)
-          .replace(/{{email}}/g, email);
-
-        await this.sendGridMailService.sendParsedEmail({
-          to: email,
-          subject: Message(lang, "USER.VERIFY_EMAIL_SUBJECT"),
-          content,
-        });
-      }
+     await this.sendGridMailService.sendEmail({
+        to: user.email,
+        subject: "Verify Your Email",
+        templateSlug: "verify-email",
+        variables: {
+          name: userDetails.fullName || "User",
+          verificationLink,
+        },
+        
+     })
 
       const currentTime = Math.floor(Date.now() / 1000);
       const expiresBy = this.getTokenExpiryFromJwt(verificationToken as string);
