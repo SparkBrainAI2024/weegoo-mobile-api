@@ -372,7 +372,9 @@ export class RideQueryService {
     };
   }
 
-  private enrichRideDetailsForAdmin(rideDocument: RidesDocument): any {
+  private async enrichRideDetailsForAdmin(
+    rideDocument: RidesDocument,
+  ): Promise<any> {
     const ride = rideDocument.toObject() as any;
 
     const formatAdminSnapshot = (userDoc: any, role: "driver" | "passenger") => {
@@ -404,6 +406,33 @@ export class RideQueryService {
     const driver = formatAdminSnapshot(ride.driverId, "driver");
     const passenger = formatAdminSnapshot(ride.passengerId, "passenger");
 
+    // Resolve the vehicle used for this ride.
+    //
+    // `ride.vehicleId` is only a booking-time placeholder — a random vehicle of
+    // the requested type for INSTANT rides, and a freshly generated ObjectId for
+    // SCHEDULED ones — and it is never re-pointed at the driver that accepts the
+    // ride. It therefore either resolves to `null` (missing ref) or to a vehicle
+    // that has nothing to do with the assigned driver. Since a confirmed ride
+    // always has a driver, prefer that driver's registered vehicle and only fall
+    // back to the populated `vehicleId` when the driver (or their vehicle) is
+    // unavailable.
+    const populatedVehicle =
+      ride.vehicleId && typeof ride.vehicleId === "object" && ride.vehicleId._id
+        ? ride.vehicleId
+        : null;
+
+    const driverId = ride.driverId?._id
+      ? ride.driverId._id.toString()
+      : ride.driverId?.toString() ?? null;
+
+    const assignedDriverVehicle = driverId
+      ? await this.vehicleModel
+          .findOne({ driverId: toMongoId(driverId), deleted: false })
+          .exec()
+      : null;
+
+    const resolvedVehicle = assignedDriverVehicle ?? populatedVehicle;
+
     const totalAmount = ride.paymentDetails?.totalAmount ?? 0;
     const commissionRate = ride.paymentDetails?.driverCommission ?? 0.2;
     const platformCommissionAmount = totalAmount * commissionRate;
@@ -426,7 +455,11 @@ export class RideQueryService {
       paymentDetails: ride.paymentDetails,
       platformCommissionAmount,
       driverEarningsAmount: totalAmount - platformCommissionAmount,
-      vehicle: typeof ride.vehicleId === "object" ? ride.vehicleId : undefined,
+      vehicle: resolvedVehicle
+        ? typeof (resolvedVehicle as any).toObject === "function"
+          ? (resolvedVehicle as any).toObject()
+          : resolvedVehicle
+        : null,
       driver,
       passenger,
     };
