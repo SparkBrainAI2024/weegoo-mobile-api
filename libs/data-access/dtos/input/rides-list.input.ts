@@ -31,9 +31,11 @@ export class RidesListInput {
   @IsString()
   search?: string;
 
-  @Field(() => Int, { defaultValue: 1 })
+  // Zero-based, matching GetDriverTripsInput and the rest of the repositories
+  // (which all paginate with `{ $skip: page * limit }`).
+  @Field(() => Int, { defaultValue: 0 })
   @Type(() => Number)
-  @Min(1)
+  @Min(0)
   page: number;
 
   @Field(() => Int, { defaultValue: 10 })
