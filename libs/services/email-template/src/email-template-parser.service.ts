@@ -137,10 +137,46 @@ export class EmailTemplateParserService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Failed to replace variables in email template content: ${errorMessage}`,
+        `Failed to replace variables in email template content using Handlebars (${errorMessage}). Falling back to regex replacement.`,
       );
-      return content;
+      // Fallback: replace known {{variable}} placeholders with a plain regex.
+      // Handlebars.compile throws on ANY invalid expression in the DB content
+      // (e.g. "{{50% off}}" -> parse error, "{{discount rate}}" -> missing
+      // helper) and previously we returned the raw content, leaving EVERY
+      // variable ({{name}}, {{verification_url}}, ...) unreplaced in the email.
+      return this.regexReplaceVariables(content, variables);
     }
+  }
+
+  /**
+   * Plain regex replacement of known {{variable}} placeholders.
+   * Used when Handlebars cannot compile the DB content. Unknown/invalid
+   * expressions (e.g. "{{50% off}}") are left untouched.
+   */
+  private regexReplaceVariables(
+    content: string,
+    variables: Record<string, any>,
+  ): string {
+    let result = content;
+    for (const [key, value] of Object.entries(variables)) {
+      if (value === undefined || value === null) {
+        continue;
+      }
+      // Function replacer avoids "$" special-pattern expansion in the value
+      // (important for URLs/tokens), escaped key avoids regex injection.
+      result = result.replace(
+        new RegExp(`{{${this.escapeRegExp(key)}}}`, "g"),
+        () => String(value),
+      );
+    }
+    return result;
+  }
+
+  /**
+   * Escape a string for safe use inside a RegExp.
+   */
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   /**
@@ -386,7 +422,13 @@ export class EmailTemplateParserService {
 
     if (variables) {
       for (const [key, value] of Object.entries(variables)) {
-        html = html.replace(new RegExp(`{{${key}}}`, "g"), String(value));
+        if (value === undefined || value === null) {
+          continue;
+        }
+        html = html.replace(
+          new RegExp(`{{${this.escapeRegExp(key)}}}`, "g"),
+          () => String(value),
+        );
       }
     }
 
