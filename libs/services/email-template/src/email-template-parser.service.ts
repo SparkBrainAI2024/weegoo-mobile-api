@@ -150,8 +150,9 @@ export class EmailTemplateParserService {
 
   /**
    * Plain regex replacement of known {{variable}} placeholders.
-   * Used when Handlebars cannot compile the DB content. Unknown/invalid
-   * expressions (e.g. "{{50% off}}") are left untouched.
+   * Used when Handlebars cannot compile the DB content. Strict,
+   * space-free {{key}} expressions that came from Handlebars parsing
+   * (e.g. "{{ 50% off }}") are stripped so they never render literally.
    */
   private regexReplaceVariables(
     content: string,
@@ -164,11 +165,24 @@ export class EmailTemplateParserService {
       }
       // Function replacer avoids "$" special-pattern expansion in the value
       // (important for URLs/tokens), escaped key avoids regex injection.
+      // Optional whitespace around the key mirrors Handlebars semantics
+      // (both "{{key}}" and "{{ key }}" are valid there).
       result = result.replace(
-        new RegExp(`{{${this.escapeRegExp(key)}}}`, "g"),
+        new RegExp(`{{\\s*${this.escapeRegExp(key)}\\s*}}`, "g"),
         () => String(value),
       );
     }
+    // Strip any remaining strict {{...}} / {{{...}}} tokens Handlebars would
+    // have treated as mustaches, so they never render as literal "{{".
+    // (Runs repeatedly to catch "{{ {{x}} }}" style nesting; already-replaced
+    // real values no longer contain "{{" so they are never touched.)
+    let previous: string;
+    do {
+      previous = result;
+      result = result
+        .replace(/{{{\s*[^{}]*?}}}/g, "")
+        .replace(/{{\s*[^{}]*?}}/g, "");
+    } while (result !== previous);
     return result;
   }
 
@@ -236,7 +250,7 @@ export class EmailTemplateParserService {
         const hrefMatch = attributes.match(
           /(?:data-url|data-href|onclick)\s*=\s*["']([^"']+)["']/i,
         );
-        let href = hrefMatch ? hrefMatch[1] : "#";
+        let href = hrefMatch ? hrefMatch[1] : "";
 
         // Clean up onclick handlers (e.g., window.location.href='...')
         if (href.startsWith("window.") || href.includes("location")) {
@@ -246,10 +260,18 @@ export class EmailTemplateParserService {
           }
         }
 
-        // Extract button text
+        // Button without a real URL (e.g. <button>{{verification_url}}</button>):
+        // if the button text IS the URL, use it as the link target.
         const buttonText = this.extractText(innerContent);
+        if (!href || href === "#") {
+          const innerUrl = this.extractExactUrl(innerContent);
+          href = innerUrl || "#";
+        }
 
-        return this.buildButton(href, buttonText);
+        // Don't display a raw URL as the button label - use "Click Here".
+        const finalText = buttonText === href ? "Click Here" : buttonText;
+
+        return this.buildButton(href, finalText);
       },
     );
 
@@ -262,7 +284,17 @@ export class EmailTemplateParserService {
           /(?:data-url|data-href)\s*=\s*["']([^"']*)["']/i,
         );
         const hrefMatch = attributes.match(/href\s*=\s*["']([^"']*)["']/i);
-        const href = (dataUrlMatch?.[1] || hrefMatch?.[1] || "").trim();
+        let href = (dataUrlMatch?.[1] || hrefMatch?.[1] || "").trim();
+
+        // Anchor without a real URL (e.g. <a href="#">{{verification_url}}</a>):
+        // if the link text IS the URL, use it as the link target instead of
+        // leaving a dead "#" button with a nested button inside it.
+        if (!href || href === "#") {
+          const innerUrl = this.extractExactUrl(innerContent);
+          if (innerUrl) {
+            href = innerUrl;
+          }
+        }
 
         // Anchor without a real URL -> keep it as it is
         if (!href || href === "#") {
@@ -299,6 +331,17 @@ export class EmailTemplateParserService {
 
     // Step 4: Wrap content in email-safe HTML
     return this.wrapContent(parsed);
+  }
+
+  /**
+   * If the given HTML fragment's visible text is exactly one URL, return it.
+   * Used for `<a href="#">{{verification_url}}</a>` / `<button>{{verification_url}}</button>`
+   * patterns where the URL only exists as the element's inner text.
+   */
+  private extractExactUrl(innerHtml: string): string | null {
+    const text = this.extractText(innerHtml).trim();
+    const match = text.match(/^(https?:\/\/[^\s<>"']+?)[.,;:!?)\]]*$/);
+    return match ? match[1] : null;
   }
 
   /**
@@ -426,7 +469,7 @@ export class EmailTemplateParserService {
           continue;
         }
         html = html.replace(
-          new RegExp(`{{${this.escapeRegExp(key)}}}`, "g"),
+          new RegExp(`{{\\s*${this.escapeRegExp(key)}\\s*}}`, "g"),
           () => String(value),
         );
       }
