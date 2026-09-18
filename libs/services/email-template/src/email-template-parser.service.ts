@@ -234,7 +234,7 @@ export class EmailTemplateParserService {
    * 3. Add a styled button for every plain URL found in the content
    * 4. Wrap content in email-safe HTML
    */
-  private parseContent(content: string): string {
+ private parseContent(content: string): string {
   if (!content || content.trim().length === 0) {
     return "";
   }
@@ -244,9 +244,14 @@ export class EmailTemplateParserService {
   // Step 0: Fix split curly-brace placeholders like {{verification_url}}
   // Handles cases where {{ and }} end up in separate HTML elements/text nodes,
   // e.g. "<p>{{</p>\nhttps://...\n<p>}}</p>"
+  //
+  // Instead of returning a bare URL (which Step 3 would turn into a generic
+  // "Click Here" button), we emit an <a> with a meaningful label. Step 2 then
+  // converts that anchor into the styled button, and because the URL is now
+  // inside an href attribute, Step 3 will NOT create a duplicate button.
   parsed = parsed.replace(
     /\{\{\s*(?:<[^>]+>\s*)*\s*(https?:\/\/[^\s<"']+)\s*(?:\s*<[^>]+>)*\s*\}\}/gi,
-    (_match, url: string) => url,
+    (_match, url: string) => `<a href="${url}">Verify My Email Address</a>`,
   );
 
   // Step 1: Convert <button> tags to <a> tags
@@ -254,13 +259,11 @@ export class EmailTemplateParserService {
   parsed = parsed.replace(
     /<button\b([^>]*)>([\s\S]*?)<\/button>/gi,
     (match, attributes: string, innerContent: string) => {
-      // Extract onclick or data-url attributes that might contain a link
       const hrefMatch = attributes.match(
         /(?:data-url|data-href|onclick)\s*=\s*["']([^"']+)["']/i,
       );
       let href = hrefMatch ? hrefMatch[1] : "";
 
-      // Clean up onclick handlers (e.g. window.location.href='...')
       if (href.startsWith("window.") || href.includes("location")) {
         const urlMatch = href.match(/['"](https?:\/\/[^'"]+)['"]/);
         if (urlMatch) {
@@ -268,15 +271,12 @@ export class EmailTemplateParserService {
         }
       }
 
-      // Button without a real URL (e.g. <button>{{verification_url}}</button>):
-      // if the button text IS the URL, use it as the link target.
       const buttonText = this.extractText(innerContent);
       if (!href || href === "#") {
         const innerUrl = this.extractExactUrl(innerContent);
         href = innerUrl || "#";
       }
 
-      // Don't display a raw URL as the button label - use "Click Here".
       const finalText = buttonText === href ? "Click Here" : buttonText;
 
       return this.buildButton(href, finalText);
@@ -287,16 +287,12 @@ export class EmailTemplateParserService {
   parsed = parsed.replace(
     /<a\b([^>]*)>([\s\S]*?)<\/a>/gi,
     (match, attributes: string, innerContent: string) => {
-      // Prefer the real URL (data-url/data-href) over a placeholder href
       const dataUrlMatch = attributes.match(
         /(?:data-url|data-href)\s*=\s*["']([^"']*)["']/i,
       );
       const hrefMatch = attributes.match(/href\s*=\s*["']([^"']*)["']/i);
       let href = (dataUrlMatch?.[1] || hrefMatch?.[1] || "").trim();
 
-      // Anchor without a real URL (e.g. <a href="#">{{verification_url}}</a>):
-      // if the link text IS the URL, use it as the link target instead of
-      // leaving a dead "#" button with a nested button inside it.
       if (!href || href === "#") {
         const innerUrl = this.extractExactUrl(innerContent);
         if (innerUrl) {
@@ -304,27 +300,22 @@ export class EmailTemplateParserService {
         }
       }
 
-      // Anchor without a real URL -> keep it as it is
       if (!href || href === "#") {
         return match;
       }
 
-      // Check if the anchor already has button-like styling
       const hasButtonStyle =
         attributes.includes("background-color") ||
         attributes.includes("background") ||
         attributes.includes("padding") ||
         attributes.includes("border-radius");
 
-      // Already a styled button -> keep it untouched
       if (hasButtonStyle) {
         return match;
       }
 
-      // Extract link text
       const linkText = this.extractText(innerContent);
 
-      // If the link text is just the URL itself, use "Click Here" as button text
       const buttonText =
         linkText === href || linkText.trim().length === 0
           ? "Click Here"
@@ -340,7 +331,6 @@ export class EmailTemplateParserService {
   // Step 4: Wrap content in email-safe HTML
   return this.wrapContent(parsed);
 }
-  /**
    * If the given HTML fragment's visible text is exactly one URL, return it.
    * Used for `<a href="#">{{verification_url}}</a>` / `<button>{{verification_url}}</button>`
    * patterns where the URL only exists as the element's inner text.
