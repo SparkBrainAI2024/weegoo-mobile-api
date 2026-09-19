@@ -28,6 +28,7 @@ import {
 import { S3Service } from "@libs/s3";
 import { HttpStatus, Injectable, Logger } from "@nestjs/common";
 import { RideChannelService } from "@libs/services/ably";
+import { SendGridMailService } from "@libs/services/mail";
 import axios from "axios";
 
 @Injectable()
@@ -41,6 +42,7 @@ export class UserDetailsService {
     private readonly envService: EnvService,
     private readonly userDailyOnlineStatusRepository: UserDailyOnlineStatusRepository,
     private readonly walletRepository: WalletRepository,
+    private readonly sendGridMailService: SendGridMailService,
   ) { }
 
   async update(userId: string, input: CreateUserDetailsInput, lang: string) {
@@ -76,12 +78,19 @@ export class UserDetailsService {
           ]
           : [];
         delete input.profileImage;
-        return await this.userDetailsRepository.create({
+        const createdDetails = await this.userDetailsRepository.create({
           userId: toMongoId(userId),
           ...input,
           profileImages: profileImagesArr,
           notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
         });
+
+        // First time the user enters their full name → send the welcome email.
+        if (input.fullName) {
+          await this.sendWelcomeEmail(user, createdDetails);
+        }
+
+        return createdDetails;
       }
 
       if (
@@ -128,6 +137,13 @@ export class UserDetailsService {
       const updatedUserDetails = await this.userDetailsRepository.findOne({
         userId: toMongoId(userId),
       });
+
+      // First time the user enters their full name (it was previously empty) →
+      // send the one-time role-specific welcome email. Best-effort by design —
+      // a template or SendGrid problem must never fail the profile update.
+      if (!details.fullName && input.fullName) {
+        await this.sendWelcomeEmail(updatedCoreUser, updatedUserDetails);
+      }
       const userDetailsObj: UserDetails & { profileImage?: string } =
         updatedUserDetails.toObject();
       userDetailsObj.profileImage = getActiveProfileImageUrl(
@@ -566,5 +582,55 @@ export class UserDetailsService {
       locationChannelId,
       location,
     );
+  }
+
+  /**
+   * Send the one-time role-specific welcome email once a user enters their
+   * full name in user-details for the first time (this is the moment
+   * first-time onboarding is considered complete for both drivers and
+   * passengers).
+   *
+   * The template slug is derived from the role the user is logged in as:
+   *  - driver    (roles.RIDER) → "welcome-email-for-a-driver"
+   *  - passenger (roles.USER)  → "welcome-email-for-passenger"
+   *
+   * The template's `name` variable is the user's full name from user-details.
+   *
+   * Best-effort: a missing template or a SendGrid failure must never fail the
+   * profile update, so errors are only logged.
+   */
+  private async sendWelcomeEmail(
+    user: any,
+    userDetails: UserDetails,
+  ): Promise<void> {
+    const isDriver = user?.loginAs === roles.RIDER;
+    const templateSlug = isDriver
+      ? 'welcome-email-for-a-driver'
+      : 'welcome-email-for-passenger';
+
+    if (!user?.email) {
+      this.logger.log(
+        `sendWelcomeEmail ~ skipped "${templateSlug}": user ${user?._id} has no email`,
+      );
+      return;
+    }
+
+    try {
+      await this.sendGridMailService.sendEmail({
+        to: user.email,
+        subject: isDriver ? 'Welcome to WeeGoo Driver' : 'Welcome to WeeGoo',
+        templateSlug,
+        variables: {
+          // `name` is the full name saved in user-details (template variable).
+          name: userDetails?.fullName || 'User',
+        },
+      });
+    } catch (e: any) {
+      // Best-effort: the welcome email must never fail the profile update.
+      this.logger.warn(
+        `sendWelcomeEmail ~ ${templateSlug} to ${user.email}:`,
+        e?.message || e,
+      );
+    }
   }
 }

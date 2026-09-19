@@ -4,9 +4,10 @@ import { UserService } from "./user.service";
 import { UserDetailsService } from "./user.details.services";
 import { EnvService } from "@libs/common/config/env.service";
 import { S3Module } from "@libs/s3";
+import { SendGridMailModule } from "@libs/services/mail";
 
 @Module({
-  imports: [UserPersistenceModule,S3Module],
+  imports: [UserPersistenceModule,S3Module,SendGridMailModule],
   providers: [UserService, UserDetailsService, EnvService],
   exports: [UserService, UserDetailsService, EnvService],
 })

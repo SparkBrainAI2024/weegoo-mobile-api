@@ -982,12 +982,9 @@ export class AuthService {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
 
-      // First-time onboarding complete (profile updated → password set): send the
-      // one-time role-specific welcome email. Best-effort by design — a template
-      // or SendGrid problem must never fail the password setup.
-      // if (isFirstTimePasswordSetup) {
-      //   await this.sendWelcomeEmail(user, userDetails);
-      // }
+      // First-time onboarding email is now handled by UserDetailsService:
+      // the welcome email is sent when the user enters their fullName in
+      // user-details for the first time.
 
       return await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
     } catch (e) {
@@ -1079,10 +1076,8 @@ export class AuthService {
         });
       }
 
-      // First-time Google sign-up completes onboarding in one step, so send the
-      // one-time role-specific welcome email. Best-effort by design — a template
-      // or SendGrid problem must never fail the sign-up.
-      // await this.sendWelcomeEmail(user, userDetails);
+      // The welcome email is now handled by UserDetailsService: it is sent
+      // when the user enters their fullName in user-details for the first time.
 
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
       return {
@@ -1267,61 +1262,6 @@ export class AuthService {
         e,
         "COMMON.INTERNAL_SERVER_ERROR",
         HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
-   * Send the one-time welcome email once a user finishes first-time onboarding
-   * (update profile → set password).
-   *
-   * `setPassword` is the only place a first password is ever created (sign-up
-   * never sets one), so it is the single point at which both onboarding paths —
-   * fresh sign-up and first-time sign-in — are complete. Google sign-up is the
-   * other trigger: the account is created (and onboarding finished) in one step,
-   * so the welcome email is sent right after the user record is created.
-   *
-   * The template slug is derived from the app the user onboarded through, which
-   * is exactly the injected default role:
-   *  - driver    (driver-api, roles.RIDER) → "welcome-email-for-a-driver"
-   *  - passenger (api, roles.USER)         → "welcome-email-for-passenger"
-   *
-   * The template's `name` variable is the user's full name from user-details.
-   *
-   * Best-effort: a missing template or a SendGrid failure must never fail the
-   * user's password setup, so errors are only logged.
-   */
-  private async sendWelcomeEmail(
-    user: UserDocument,
-    userDetails: UserDetailsDocument,
-  ): Promise<void> {
-    const isDriver = this.defaultRole === roles.RIDER;
-    const templateSlug = isDriver
-      ? 'welcome-email-for-a-driver'
-      : 'welcome-email-for-passenger';
-
-    if (!user?.email) {
-      console.log(
-        ` ~ file: auth.service.ts ~ AuthService ~ sendWelcomeEmail ~ skipped "${templateSlug}": user ${user?._id} has no email`,
-      );
-      return;
-    }
-
-    try {
-      await this.sendGridMailService.sendEmail({
-        to: user.email,
-        subject: isDriver ? 'Welcome to WeeGoo Driver' : 'Welcome to WeeGoo',
-        templateSlug,
-        variables: {
-          // `name` is the full name saved in user-details (template variable).
-          name: userDetails?.fullName || 'User',
-        },
-      });
-    } catch (e: any) {
-      // Best-effort: the welcome email must never fail password setup.
-      console.log(
-        `🚀 ~ file: auth.service.ts ~ AuthService ~ sendWelcomeEmail ~ ${templateSlug} to ${user.email}:`,
-        e?.message || e,
       );
     }
   }
