@@ -50,8 +50,8 @@ export enum bookingStatus {
 
 export enum ridePreference {
   SCHEDULED = "SCHEDULED",
-  INSTANT = "INSTANT",
-  BOTH = "BOTH",
+  // INSTANT = "INSTANT",
+  // BOTH = "BOTH",
 }
 
 export enum DriverOnlineStatus {
@@ -114,9 +114,9 @@ registerEnumType(ridePreference, {
     SCHEDULED: {
       description: "The ride is scheduled for a later time",
     },
-    INSTANT: {
-      description: "The ride is requested for immediate pickup",
-    },
+    // INSTANT: {
+    //   description: "The ride is requested for immediate pickup",
+    // },
   },
 });
 
