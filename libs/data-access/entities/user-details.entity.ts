@@ -77,7 +77,7 @@ export class UserDetails extends BaseEntity {
   @Prop({
     type: String,
     enum: ridePreference,
-    default: ridePreference.BOTH, // Default to SCHEDULED for now, as INSTANT is not supported
+    default: ridePreference.BOTH, // Default to BOTH for now
   })
   ridePreference?: string;
 
