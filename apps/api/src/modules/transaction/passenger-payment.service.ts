@@ -1184,6 +1184,28 @@ export class PassengerPaymentService {
       { session },
     );
 
+    const passenger = await this.userDetailsModel
+      .findOneAndUpdate(
+        { userId: ride.passengerId },
+        {
+          $inc: {
+            totalTripsAsPassenger: 1,
+          },
+        },
+        { new: true },
+      )
+      .exec();
+
+    if (!passenger) {
+      this.logger.debug(`Passenger not found: ${ride.passengerId}`);
+    } else {
+      this.logger.debug(
+        `Driver stats updated | ` +
+          `driverId=${ride.passengerId} | ` +
+          `rides: ${passenger.totalTripsAsPassenger - 1} → ${passenger.totalTripsAsPassenger} `,
+      );
+    }
+
     // Store transactions for response
     (this as any)._transactions = transactions;
   }
