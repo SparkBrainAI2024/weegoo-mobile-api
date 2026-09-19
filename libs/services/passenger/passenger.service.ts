@@ -49,7 +49,6 @@ export class PassengerService {
     );
 
     const aggregateData = await this.userRepository.getAggregatePassengerData();
-    console.log(aggregateData, "gg");
 
     const data: PassengerListItem[] = result.data.map((row: any) => ({
       id: row.id?.toString(),
