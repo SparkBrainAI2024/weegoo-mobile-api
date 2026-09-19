@@ -1149,7 +1149,7 @@ export class AuthService {
   }
 
   /**
-   * Send a verification email with a link that expires in 2 minutes.
+   * Send a verification email with a link that expires in 5 hours.
    * The email template is fetched from the email template API (database) by slug.
    */
   async sendVerifyEmail(email: string, lang: string) {
@@ -1191,7 +1191,7 @@ export class AuthService {
         await this.userTokenMetaRepository.deleteByAccessTokenJti(existingVerification.accessTokenJti);
       }
 
-      // Generate verification token with 2 minutes expiry
+      // Generate verification token with 5 hours expiry
       const verificationTokenJti = generateMongoDbId();
       const verificationToken = await generateToken(
         {
@@ -1201,7 +1201,7 @@ export class AuthService {
           type: tokenTypes.verifyEmailToken,
         },
         this.envService.getJwtSecretKey(),
-        { expiresIn: '5h' }, // 2 minutes expiry
+        { expiresIn: '5h' }, // 5 hours expiry
       );
 
       // Store the verification token JTI in user-token-meta for server-side validation
@@ -1254,7 +1254,7 @@ export class AuthService {
 
   /**
    * Verify email using the verification token from the email link.
-   * The token expires in 2 minutes.
+   * The token expires in 5 hours.
    */
   async verifyEmail(input: VerifyEmailTokenInput, lang: string) {
     try {
@@ -1266,6 +1266,16 @@ export class AuthService {
         this.envService.getJwtSecretKey(),
       );
       if (!verifiedToken) {
+        // Distinguish expired vs invalid for a clearer message
+        // (verifyToken returns false on expiry as well)
+        const decodedExpired: any = Jwt.decode(token);
+        if (decodedExpired?.exp && decodedExpired.exp < Math.floor(Date.now() / 1000)) {
+          // Clean up the stale server-side entry if it still exists
+          if (decodedExpired?.jti) {
+            await this.userTokenMetaRepository.deleteByAccessTokenJti(decodedExpired.jti);
+          }
+          ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_EXPIRED"), HttpStatus.BAD_REQUEST);
+        }
         ErrorException(null,Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
       }
       if (verifiedToken.type !== tokenTypes.verifyEmailToken) {
@@ -1280,6 +1290,10 @@ export class AuthService {
       // Verify the JTI exists in user-token-meta (server-side check)
       const storedToken = await this.userTokenMetaRepository.findByAccessTokenJti(verifiedToken.jti);
       if (!storedToken) {
+        ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
+      }
+      // Ensure the stored entry is actually a verify-email token
+      if (storedToken.grant && storedToken.grant !== TokenGrantType.VERIFY_EMAIL) {
         ErrorException(null, Message(lang, "USER.EMAIL_VERIFICATION_TOKEN_INVALID"), HttpStatus.BAD_REQUEST);
       }
 
@@ -1297,8 +1311,13 @@ export class AuthService {
         ErrorException(null, Message(lang, "USER.NOT_FOUND"), HttpStatus.NOT_FOUND);
       }
 
-      // If email is already verified
+      // If email is already verified, clean up any leftover
+      // verify-email token(s) so they cannot be reused later
       if (userDetails.emailVerified) {
+        await this.userTokenMetaRepository.deleteMany({
+          userId: user._id,
+          grant: TokenGrantType.VERIFY_EMAIL,
+        } as any);
         ErrorException(null, Message(lang, "USER.EMAIL_ALREADY_VERIFIED"), HttpStatus.BAD_REQUEST);
       }
 
@@ -1308,8 +1327,13 @@ export class AuthService {
         { emailVerified: true },
       );
 
-      // Delete the stored JTI after successful validation (one-time use)
-      await this.userTokenMetaRepository.deleteByAccessTokenJti(verifiedToken.jti);
+      // Remove ALL verify-email token(s) for this user after successful
+      // verification (one-time use). Using deleteMany covers stale/duplicate
+      // entries if multiple links were issued.
+      await this.userTokenMetaRepository.deleteMany({
+        userId: user._id,
+        grant: TokenGrantType.VERIFY_EMAIL,
+      } as any);
 
       return {
         message: Message(lang, "USER.EMAIL_VERIFIED_SUCCESS"),
