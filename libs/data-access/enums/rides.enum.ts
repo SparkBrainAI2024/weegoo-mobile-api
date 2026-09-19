@@ -1,7 +1,7 @@
 import { registerEnumType } from "@nestjs/graphql";
 
 export enum RideTypes {
-    // INSTANT = 'INSTANT',
+    INSTANT = 'INSTANT',
     SCHEDULED = 'SCHEDULED'
 }
 
@@ -19,9 +19,9 @@ registerEnumType(RideTypes, {
     name: 'RideTypes',
     description: 'Types of rides',
     valuesMap: {
-        // INSTANT: {
-        //     description: 'Instant ride',
-        // },
+        INSTANT: {
+            description: 'Instant ride',
+        },
         SCHEDULED: {
             description: 'Scheduled ride',
         },
