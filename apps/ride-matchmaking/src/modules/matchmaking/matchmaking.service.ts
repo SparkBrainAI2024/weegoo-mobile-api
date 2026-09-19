@@ -910,8 +910,8 @@ export class MatchmakingService {
         continue;
       if (
         userDetails?.ridePreference &&
-        userDetails.ridePreference !== rideType &&
-        userDetails.ridePreference !== ridePreference.BOTH
+        userDetails.ridePreference !== rideType //&&
+        // userDetails.ridePreference !== ridePreference.BOTH
       )
         continue;
       if (activeRideDriverIdSet.has(driver._id.toString())) continue;
@@ -1225,8 +1225,8 @@ export class MatchmakingService {
       const userDetails = userDetailsMap.get(driver._id.toString());
       if (!userDetails) continue;
       if (
-        userDetails.ridePreference !== ridePreference.SCHEDULED &&
-        userDetails.ridePreference !== ridePreference.BOTH
+        userDetails.ridePreference !== ridePreference.SCHEDULED /*&&
+        userDetails.ridePreference !== ridePreference.BOTH*/
       )
         continue;
       const driverRating = userDetails.rating ?? 0;

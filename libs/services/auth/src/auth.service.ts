@@ -1146,13 +1146,13 @@ export class AuthService {
       let instantVehicleTypes: VehicleType[] = [];
       let scheduledVehicleTypes: ScheduledVehicleType[] = [];
 
-      if (preference === ridePreference.INSTANT || preference === ridePreference.BOTH) {
-        instantVehicleTypes = [VehicleType.CAR /*, VehicleType.MOTORBIKE, VehicleType.SCOOTER*/];
-      }
+      // if (preference === ridePreference.INSTANT || preference === ridePreference.BOTH) {
+      //   instantVehicleTypes = [VehicleType.CAR /*, VehicleType.MOTORBIKE, VehicleType.SCOOTER*/];
+      // }
 
-      if (preference === ridePreference.SCHEDULED || preference === ridePreference.BOTH) {
+      /*if (preference === ridePreference.SCHEDULED || preference === ridePreference.BOTH) {*/
         scheduledVehicleTypes = [ScheduledVehicleType.JEEP, ScheduledVehicleType.CAR, ScheduledVehicleType.MICRO];
-      }
+      /*}*/
 
       return {
         instantVehicleTypes,
