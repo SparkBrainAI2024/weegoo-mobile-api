@@ -446,6 +446,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
 
     const match: Record<string, any> = {
       deleted: { $ne: true },
+      rideStatus: { $ne: RideStatus.BOOKING }, // exclude rides still in BOOKING state
     };
     if (status) match.rideStatus = status;
 
