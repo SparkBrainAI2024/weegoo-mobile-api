@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
-import { MATCHMAKING_CONFIG, parseSlotStartTime } from '@libs/common';
+import { MATCHMAKING_CONFIG, nepalSlotToInstant } from '@libs/common';
 import {
   Rides,
   RidesDocument,
@@ -384,10 +384,47 @@ export class CronService {
           // connected to Ably, so it must not publish or subscribe here (that
           // is what caused the earlier "Ably not initialized" / AggregateError
           // warnings during the scheduled-ride sweep).
-          const didTransition = await this.notifyMatchmakingScheduledRideOngoing(
-            ride._id.toString(),
-          );
-          if (didTransition) transitioned++;
+          const didTransition =
+            await this.notifyMatchmakingScheduledRideOngoing(
+              ride._id.toString(),
+            );
+          if (didTransition) {
+            transitioned++;
+            continue;
+          }
+
+          // Fallback: the matchmaking HTTP call can fail (wrong URL, service
+          // down, GraphQL prefix mismatch). Never leave a ride stuck in
+          // CONFIRMED after its start slot has crossed — flip the DB status
+          // directly here and publish best-effort (publish is a no-op when
+          // Ably is not configured in the cron process).
+          const fallback = await this.ridesModel
+            .findOneAndUpdate(
+              {
+                _id: ride._id,
+                rideStatus: RideStatus.CONFIRMED,
+                deleted: false,
+              },
+              {
+                $set: {
+                  rideStatus: RideStatus.ONGOING,
+                  rideStartedAt: new Date(),
+                },
+              },
+              { new: true },
+            )
+            .exec();
+          if (fallback) {
+            transitioned++;
+            try {
+              await this.publishOngoingRideDetails(fallback);
+              published++;
+            } catch (publishErr: any) {
+              this.logger.warn(
+                `Fallback ONGOING publish failed for ride ${ride.rideUUId}: ${publishErr?.message || publishErr}`,
+              );
+            }
+          }
         } catch (err: any) {
           errors++;
           this.logger.warn(
@@ -408,7 +445,6 @@ export class CronService {
     }
   }
 
-
   /**
    * Ask the ride-matchmaking service to transition a CONFIRMED scheduled ride
    * to ONGOING. The matchmaking process owns the Ably connection, so it does
@@ -416,38 +452,63 @@ export class CronService {
    * driver's personal location channel — all in one call. The cron process is
    * not connected to Ably, so it must NOT publish/subscribe here itself.
    *
+   * NOTE: the ride-matchmaking app registers `app.setGlobalPrefix("driver-api")`
+   * (see apps/ride-matchmaking/src/main.ts), so its GraphQL endpoint is served
+   * under the prefix (`/driver-api/graphql`), NOT bare `/graphql`. Every other
+   * caller in the repo posts to `${matchmakingUrl}/graphql`, which 404s when
+   * the prefix is enabled. We therefore try both paths here.
+   *
    * Returns true only if the ride-matchmaking service actually transitioned
    * the ride (i.e. it was CONFIRMED). Best-effort: failures are logged as
-   * warnings and never fail the sweep.
+   * warnings and never fail the sweep (the caller falls back to a direct DB
+   * update).
    */
   private async notifyMatchmakingScheduledRideOngoing(
     rideId: string,
   ): Promise<boolean> {
-    const matchmakingUrl = this.envService.getString(
+    const rawUrl = this.envService.getString(
       'RIDE_MATCHMAKING_URL',
       'http://localhost:3004',
     );
+    const matchmakingUrl = String(rawUrl || '').replace(/\/+$/, '');
     const mutation = `mutation MarkScheduledRideOngoing($rideId: String!) { markScheduledRideOngoing(rideId: $rideId) { success message } }`;
 
-    try {
-      const response = await axios.post(
-        `${matchmakingUrl}/graphql`,
-        { query: mutation, variables: { rideId } },
-        { timeout: 10000 },
-      );
-      const ok =
-        response.data?.data?.markScheduledRideOngoing?.success === true;
-      this.logger.log(
-        `markScheduledRideOngoing for ride ${rideId}: ${response.data?.data?.markScheduledRideOngoing?.message ||
-        (ok ? 'OK' : 'not transitioned (already ONGOING or missing)')}`,
-      );
-      return ok;
-    } catch (error: any) {
-      this.logger.warn(
-        `Failed to mark scheduled ride ${rideId} ONGOING via matchmaking: ${error?.message || error}`,
-      );
-      return false;
+    const candidateUrls = [
+      `${matchmakingUrl}/driver-api/graphql`,
+      `${matchmakingUrl}/graphql`,
+    ];
+    for (const url of candidateUrls) {
+      try {
+        const response = await axios.post(
+          url,
+          { query: mutation, variables: { rideId } },
+          { timeout: 10000 },
+        );
+        const errors = response.data?.errors;
+        if (errors?.length) {
+          this.logger.warn(
+            `markScheduledRideOngoing for ride ${rideId} via ${url} returned GraphQL errors: ${JSON.stringify(errors).slice(0, 300)}`,
+          );
+          continue;
+        }
+        const ok =
+          response.data?.data?.markScheduledRideOngoing?.success === true;
+        this.logger.log(
+          `markScheduledRideOngoing for ride ${rideId}: ${
+            response.data?.data?.markScheduledRideOngoing?.message ||
+            (ok ? 'OK' : 'not transitioned (already ONGOING or missing)')
+          }`,
+        );
+        if (ok) return true;
+        // Definitive "not CONFIRMED" answer — no point trying the other path.
+        return false;
+      } catch (error: any) {
+        this.logger.warn(
+          `Failed to mark scheduled ride ${rideId} ONGOING via ${url}: ${error?.message || error}`,
+        );
+      }
     }
+    return false;
   }
 
   /**
@@ -457,51 +518,62 @@ export class CronService {
    * EXACTLY at that start time (no pickup-buffer offset added), so the sweep
    * flips it the moment the current time crosses or equals it.
    *
+   * TIMEZONE: availability slot `startTime`s are stored using NEPAL wall-clock
+   * semantics (naive "2026-09-19T10:00:00.000" means 10:00 in Kathmandu, and
+   * legacy "HH:mm" means that wall time on the booking day). The old code fed
+   * these into `parseSlotStartTime`, which does `new Date(naiveIso)` (parsed as
+   * UTC) and `setUTCHours` — i.e. it treated Nepal wall time as UTC and pushed
+   * every trigger ~5h45 into the future, so rides stayed CONFIRMED long after
+   * their slot had crossed. Every stored slot is now resolved through the shared
+   * `nepalSlotToInstant` helper, which returns the REAL instant to compare with
+   * `now`.
+   *
    * Falls back to the concrete booking time for flexible bookings with no
    * time slots.
    */
   private resolveOngoingTriggerTime(ride: RidesDocument): Date | null {
     const schedule = ride.schedule;
-    const bookingDate = schedule?.bookingDate
-      ? new Date(schedule.bookingDate)
-      : ride.bookingTime
-        ? new Date(ride.bookingTime)
-        : null;
-    if (!bookingDate) return null;
-
-    // Base date at UTC midnight (bookingDate is stored as UTC start of day) —
-    // used to anchor legacy "HH:mm" slots to the booking day.
-    const base = new Date(
-      Date.UTC(
-        bookingDate.getUTCFullYear(),
-        bookingDate.getUTCMonth(),
-        bookingDate.getUTCDate(),
-        0,
-        0,
-        0,
-        0,
-      ),
-    );
 
     const slots =
       schedule?.timeSlots?.map((s) => s.startTime).filter(Boolean) || [];
     if (slots.length === 0) {
       // Flexible / whole-day booking: no concrete slot to anchor to — use the
       // actual booking time as the ride's start time.
-      return ride.bookingTime ? new Date(ride.bookingTime) : base;
+      if (ride.bookingTime) return new Date(ride.bookingTime);
+      if (schedule?.bookingDate) return new Date(schedule.bookingDate);
+      return null;
     }
+
+    // Concrete booking instant. Legacy "HH:mm" slots are anchored to this
+    // instant's NEPAL calendar day — a booking made late-evening UTC lands on
+    // the NEXT Nepal day, so the day must be derived from the instant rather
+    // than from the UTC-midnight `bookingDate` anchor.
+    const bookingInstant = schedule?.bookingTime
+      ? new Date(schedule.bookingTime)
+      : ride.bookingTime
+        ? new Date(ride.bookingTime)
+        : schedule?.bookingDate
+          ? new Date(schedule.bookingDate)
+          : null;
+    const hasValidBookingInstant =
+      !!bookingInstant && !isNaN(bookingInstant.getTime());
 
     // Use the exact booked start time. Since the schedule stores only the booked
     // slot, the single parsed start time IS the ride's start time (the "earliest"
-    // fallback simply handles any defensive duplicates).
+    // guard simply handles any defensive duplicates). Absolute-timestamp slots
+    // still resolve when no booking instant is available.
     let start: Date | null = null;
     for (const slot of slots) {
-      const slotStart = parseSlotStartTime(String(slot), base);
+      const slotStart = nepalSlotToInstant(
+        String(slot),
+        hasValidBookingInstant ? bookingInstant : null,
+      );
       if (!slotStart) continue;
       if (!start || slotStart < start) start = slotStart;
     }
-    if (!start) return ride.bookingTime ? new Date(ride.bookingTime) : base;
-    return start;
+    if (start) return start;
+
+    return hasValidBookingInstant ? bookingInstant : null;
   }
 
   /**
@@ -515,28 +587,33 @@ export class CronService {
     const driverId = ride.driverId?.toString();
     const passengerId = ride.passengerId?.toString();
 
-    const [driverUser, passengerUser, driverDetails, passengerDetails, vehicle] =
-      await Promise.all([
-        driverId
-          ? this.userModel.findById(new Types.ObjectId(driverId)).exec()
-          : Promise.resolve(null),
-        passengerId
-          ? this.userModel.findById(new Types.ObjectId(passengerId)).exec()
-          : Promise.resolve(null),
-        driverId
-          ? this.userDetailsModel
-              .findOne({ userId: new Types.ObjectId(driverId) })
-              .exec()
-          : Promise.resolve(null),
-        passengerId
-          ? this.userDetailsModel
-              .findOne({ userId: new Types.ObjectId(passengerId) })
-              .exec()
-          : Promise.resolve(null),
-        ride.vehicleId
-          ? this.vehicleModel.findById(ride.vehicleId).exec()
-          : Promise.resolve(null),
-      ]);
+    const [
+      driverUser,
+      passengerUser,
+      driverDetails,
+      passengerDetails,
+      vehicle,
+    ] = await Promise.all([
+      driverId
+        ? this.userModel.findById(new Types.ObjectId(driverId)).exec()
+        : Promise.resolve(null),
+      passengerId
+        ? this.userModel.findById(new Types.ObjectId(passengerId)).exec()
+        : Promise.resolve(null),
+      driverId
+        ? this.userDetailsModel
+            .findOne({ userId: new Types.ObjectId(driverId) })
+            .exec()
+        : Promise.resolve(null),
+      passengerId
+        ? this.userDetailsModel
+            .findOne({ userId: new Types.ObjectId(passengerId) })
+            .exec()
+        : Promise.resolve(null),
+      ride.vehicleId
+        ? this.vehicleModel.findById(ride.vehicleId).exec()
+        : Promise.resolve(null),
+    ]);
 
     const driverImage = getActiveProfileImageUrl(
       driverDetails?.profileImages,
@@ -680,7 +757,6 @@ export class CronService {
       },
     };
   }
-
 
   /**
    * When a driver is force-marked offline (no location updates), reconcile the

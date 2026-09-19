@@ -9,8 +9,10 @@ export const getDatePeriods = (startDate, endDate) => {
   const finalStartDate = new Date(startDate);
   const finalEndDate = new Date(endDate);
 
-  const duration = Math.round((finalEndDate.getTime() - finalStartDate.getTime()) / ONE_DAY) + 1;
-  console.log('Duration:', duration);
+  const duration =
+    Math.round((finalEndDate.getTime() - finalStartDate.getTime()) / ONE_DAY) +
+    1;
+  console.log("Duration:", duration);
   const previousEndDate = new Date(finalStartDate);
   previousEndDate.setDate(previousEndDate.getDate() - 1);
 
@@ -84,7 +86,15 @@ export const nepalWallClockOfSlot = (startTime: string): Date | null => {
     const mi = Number(m[5] || 0);
     const se = Number(m[6] || 0);
     const ms = Number((m[7] || "").padEnd(3, "0") || "0");
-    if (mo < 1 || mo > 12 || da < 1 || da > 31 || h > 23 || mi > 59 || se > 59) {
+    if (
+      mo < 1 ||
+      mo > 12 ||
+      da < 1 ||
+      da > 31 ||
+      h > 23 ||
+      mi > 59 ||
+      se > 59
+    ) {
       return null;
     }
     return new Date(Date.UTC(y, mo - 1, da, h, mi, se, ms));
@@ -93,6 +103,96 @@ export const nepalWallClockOfSlot = (startTime: string): Date | null => {
   return null;
 };
 
+/**
+ * Converts ONE stored slot `startTime` into a REAL instant (UTC Date), using the
+ * Nepal wall-clock convention that availability slots are stored with:
+ *
+ * - Naive ISO ("2026-09-19T10:00:00.000", "2026-09-19 10:00") → the literal
+ *   fields ARE Nepal wall time (10:00 in Kathmandu) → shifted to its instant
+ *   (04:15Z). The slot's OWN date wins, so multi-day / return-leg slots land on
+ *   the correct calendar day.
+ * - Legacy "HH:mm" / "HH:mm:ss" → that wall time on the NEPAL calendar day of
+ *   `bookingInstant` (a real instant). Returns null when no valid
+ *   `bookingInstant` is available to anchor to.
+ * - Anything carrying a timezone designator ("...Z", "...+05:45", "...+0545") is
+ *   an absolute instant and is trusted verbatim.
+ *
+ * Returns null for unparseable / out-of-range values.
+ *
+ * NOTE: this is the Nepal-aware sibling of `parseSlotStartTime`. Prefer this
+ * wherever a value must agree with the availability wall-clock used when a
+ * booking is created (`nepalWallClockOfSlot`); the older `parseSlotStartTime`
+ * interprets a naive ISO string as UTC and is only kept for legacy comparisons.
+ */
+export const nepalSlotToInstant = (
+  startTime: string,
+  bookingInstant: Date | null,
+): Date | null => {
+  const raw = String(startTime ?? "").trim();
+  if (!raw) return null;
+
+  // Absolute instant — carries its own timezone, trust it as-is.
+  if (/[zZ]$/.test(raw) || /[+-]\d{2}:?\d{2}$/.test(raw)) {
+    const abs = new Date(raw);
+    return isNaN(abs.getTime()) ? null : abs;
+  }
+
+  // Naive ISO datetime → the fields are Nepal wall-clock time.
+  const m =
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.(\d{1,3}))?)?$/.exec(
+      raw,
+    );
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const da = Number(m[3]);
+    const h = Number(m[4] || 0);
+    const mi = Number(m[5] || 0);
+    const se = Number(m[6] || 0);
+    const ms = Number((m[7] || "").padEnd(3, "0") || "0");
+    if (
+      mo < 1 ||
+      mo > 12 ||
+      da < 1 ||
+      da > 31 ||
+      h > 23 ||
+      mi > 59 ||
+      se > 59
+    ) {
+      return null;
+    }
+    return fromNepalWallClock(new Date(Date.UTC(y, mo - 1, da, h, mi, se, ms)));
+  }
+
+  // Legacy "HH:mm" → that wall time on the booking's Nepal calendar day.
+  const hm = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(raw);
+  if (hm) {
+    if (!bookingInstant) return null;
+    const booking = new Date(bookingInstant);
+    if (isNaN(booking.getTime())) return null;
+    const h = parseInt(hm[1], 10);
+    const mi = parseInt(hm[2], 10);
+    if (h > 23 || mi > 59) return null;
+    const nepalDay = toNepalWallClock(booking);
+    return fromNepalWallClock(
+      new Date(
+        Date.UTC(
+          nepalDay.getUTCFullYear(),
+          nepalDay.getUTCMonth(),
+          nepalDay.getUTCDate(),
+          h,
+          mi,
+          0,
+          0,
+        ),
+      ),
+    );
+  }
+
+  // Last resort: let Date try; keep an instant if it yields one.
+  const fallback = new Date(raw);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
 /**
  * Parses a time-slot start value ("HH:mm" or any parseable date string)
  * into a comparable millisecond value. NaN when unparseable.
