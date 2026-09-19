@@ -40,6 +40,73 @@ export class UserRepository extends BaseRepository<UserDocument> {
     return ["fullName", "phone", "email"];
   }
 
+  async getAggregatePassengerData() {
+    try {
+      return this.model.aggregate([
+        {
+          $match: {
+            roles: { $in: [roles.USER] },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+
+            BLOCKED: {
+              $sum: {
+                $cond: [{ $eq: ["$suspended", true] }, 1, 0],
+              },
+            },
+
+            ACTIVE: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$verified", true] },
+                      { $eq: ["$suspended", false] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            PENDING: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$verified", false] },
+                      { $eq: ["$suspended", false] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            BLOCKED: 1,
+            ACTIVE: 1,
+            PENDING: 1,
+          },
+        },
+      ]);
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async getDriverList(
     pageInput: { page?: number; limit?: number },
     status?: string,

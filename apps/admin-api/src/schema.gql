@@ -165,7 +165,6 @@ type RideSchedule {
   isFlexible: Boolean
   pickupBufferTimeMinutes: Int
   timeSlots: [RideScheduleTimeSlot!]
-  availabilityDayId: String
 }
 
 type VehicleImage {
@@ -711,6 +710,7 @@ type AvailabilityDay {
   isAvailableForBookings: Boolean!
   isOneWay: Boolean!
   availableSeats: Float!
+  returnAvailableSeats: Float!
   useSystemFare: Boolean!
   amount: Float!
   timeSlots: [AvailabilityTimeSlot!]!
@@ -1552,6 +1552,8 @@ type PassengerListResponse {
   message: String
   data: [PassengerListItem!]
   pagination: Pagination!
+  totalBlocked: Float!
+  totalPending: Float!
 }
 
 type RiderOverviewResponse {
