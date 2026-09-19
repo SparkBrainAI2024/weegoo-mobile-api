@@ -73,11 +73,11 @@ export class UserDetails extends BaseEntity {
   })
   gender?: GenderEnum;
 
-  @Field(() => ridePreference, { defaultValue: ridePreference.SCHEDULED })
+  @Field(() => ridePreference, { defaultValue: ridePreference.BOTH })
   @Prop({
     type: String,
     enum: ridePreference,
-    default: ridePreference.SCHEDULED, // Default to SCHEDULED for now, as INSTANT is not supported
+    default: ridePreference.BOTH, // Default to SCHEDULED for now, as INSTANT is not supported
   })
   ridePreference?: string;
 
