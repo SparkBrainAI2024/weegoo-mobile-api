@@ -30,6 +30,24 @@ import { getActiveProfileImageUrl } from '@libs/common/utils/entity.utils';
 import axios from 'axios';
 
 /**
+ * Outcome of asking the ride-matchmaking service to flip a scheduled ride from
+ * CONFIRMED to ONGOING.
+ *
+ * - `TRANSITIONED`  → matchmaking flipped the ride, published the ride details
+ *                     and subscribed the driver's location channel.
+ * - `NOT_CONFIRMED` → definitive answer: the ride is NOT CONFIRMED any more
+ *                     (already ONGOING, CANCELLED, or missing). Its status must
+ *                     be left exactly as it is — never re-transitioned.
+ * - `UNREACHABLE`   → every HTTP attempt failed, so the ride's real status is
+ *                     unknown. Only this case may attempt the guarded DB
+ *                     fallback.
+ */
+type ScheduledRideTransitionOutcome =
+  | 'TRANSITIONED'
+  | 'NOT_CONFIRMED'
+  | 'UNREACHABLE';
+
+/**
  * CronService
  *
  * Central scheduler for all background/cron jobs in the platform. This lives in
@@ -339,23 +357,29 @@ export class CronService {
     }
   }
 
-  // ─── Scheduled-ride ONGOING transition (runs every minute) ──────────────────
+  // ─── Scheduled-ride ONGOING transition (runs every minute) ─────────────────
   //
   // CONFIRMED SCHEDULED rides become ONGOING exactly when the current time has
   // reached (crossed or equals) the ride's start time — the availability-day
   // start-time slot the passenger booked, with no pickup-buffer offset added.
   // Each transitioned ride's details are published on the ride's Ably channel
   // (`ride-details` event).
+  //
+  // IDEMPOTENT / NON-DESTRUCTIVE: a ride is only ever moved CONFIRMED→ONGOING.
+  // A ride that is already ONGOING (or CANCELLED / COMPLETED) is never touched,
+  // and any status that is not CONFIRMED is left exactly as it is.
   @Cron('* * * * *')
   async transitionScheduledRidesToOngoing(): Promise<{
     processed: number;
     transitioned: number;
     published: number;
+    skipped: number;
     errors: number;
   }> {
     let processed = 0;
     let transitioned = 0;
     let published = 0;
+    let skipped = 0;
     let errors = 0;
 
     try {
@@ -373,6 +397,17 @@ export class CronService {
       for (const ride of rides) {
         processed++;
         try {
+          // Never re-transition a ride that is not CONFIRMED. The query above
+          // already filters on CONFIRMED, but those documents are a snapshot: by
+          // the time we reach an individual ride, another flow (driver
+          // acceptance, an overlapping sweep run, an operator action) may have
+          // moved it to ONGOING or CANCELLED. Re-check the in-memory status and
+          // bail out so an already-ONGOING ride is left completely untouched.
+          if (ride.rideStatus !== RideStatus.CONFIRMED) {
+            skipped++;
+            continue;
+          }
+
           // Start-time check: has `now` crossed the availability-day start-time
           // slot stored on the ride's schedule? Only then does the ride become
           // ONGOING (Nepal wall-clock aware — see hasStartTimeSlotCrossed).
@@ -386,20 +421,32 @@ export class CronService {
           // connected to Ably, so it must not publish or subscribe here (that
           // is what caused the earlier "Ably not initialized" / AggregateError
           // warnings during the scheduled-ride sweep).
-          const didTransition =
+          const outcome =
             await this.notifyMatchmakingScheduledRideOngoing(
               ride._id.toString(),
             );
-          if (didTransition) {
+          if (outcome === 'TRANSITIONED') {
             transitioned++;
             continue;
           }
 
-          // Fallback: the matchmaking HTTP call can fail (wrong URL, service
-          // down, GraphQL prefix mismatch). Never leave a ride stuck in
-          // CONFIRMED after its start slot has crossed — flip the DB status
-          // directly here and publish best-effort (publish is a no-op when
-          // Ably is not configured in the cron process).
+          // Definitive "not CONFIRMED" answer from matchmaking: the ride is
+          // already ONGOING / CANCELLED / missing. Leave its status exactly as
+          // it is — no fallback update, no re-publish.
+          if (outcome === 'NOT_CONFIRMED') {
+            skipped++;
+            this.logger.log(
+              `Scheduled ride ${ride.rideUUId} left unchanged (no longer CONFIRMED)`,
+            );
+            continue;
+          }
+
+          // Fallback (UNREACHABLE only): the matchmaking HTTP call could not be
+          // reached (wrong URL, service down, GraphQL prefix mismatch), so the
+          // ride's real status is unknown. Never leave a ride stuck in CONFIRMED
+          // after its start slot has crossed — attempt a guarded DB update.
+          // The filter still requires CONFIRMED, so a ride that is (or has
+          // become) ONGOING/CANCELLED is never modified.
           const fallback = await this.ridesModel
             .findOneAndUpdate(
               {
@@ -426,6 +473,14 @@ export class CronService {
                 `Fallback ONGOING publish failed for ride ${ride.rideUUId}: ${publishErr?.message || publishErr}`,
               );
             }
+          } else {
+            // The guarded update matched nothing: the ride was no longer
+            // CONFIRMED (already ONGOING / CANCELLED / deleted) by the time we
+            // tried. Its status is intentionally left as-is.
+            skipped++;
+            this.logger.log(
+              `Fallback skipped for ride ${ride.rideUUId} (no longer CONFIRMED)`,
+            );
           }
         } catch (err: any) {
           errors++;
@@ -437,13 +492,19 @@ export class CronService {
 
       if (processed > 0) {
         this.logger.log(
-          `Scheduled-ride ONGOING sweep: processed=${processed}, transitioned=${transitioned}, published=${published}, errors=${errors}`,
+          `Scheduled-ride ONGOING sweep: processed=${processed}, transitioned=${transitioned}, published=${published}, skipped=${skipped}, errors=${errors}`,
         );
       }
-      return { processed, transitioned, published, errors };
+      return { processed, transitioned, published, skipped, errors };
     } catch (e: any) {
       this.logger.error('Scheduled-ride ONGOING sweep failed', e?.message || e);
-      return { processed, transitioned, published, errors: errors + 1 };
+      return {
+        processed,
+        transitioned,
+        published,
+        skipped,
+        errors: errors + 1,
+      };
     }
   }
 
@@ -460,14 +521,18 @@ export class CronService {
    * caller in the repo posts to `${matchmakingUrl}/graphql`, which 404s when
    * the prefix is enabled. We therefore try both paths here.
    *
-   * Returns true only if the ride-matchmaking service actually transitioned
-   * the ride (i.e. it was CONFIRMED). Best-effort: failures are logged as
-   * warnings and never fail the sweep (the caller falls back to a direct DB
-   * update).
+   * Returns:
+   * - `TRANSITIONED`  → matchmaking actually flipped the ride (it was CONFIRMED).
+   * - `NOT_CONFIRMED` → definitive "not CONFIRMED" answer (already ONGOING /
+   *                     CANCELLED / missing) — the caller must NOT touch the
+   *                     ride's status.
+   * - `UNREACHABLE`   → all attempts failed; the caller may use the DB fallback.
+   *
+   * Best-effort: HTTP failures are logged as warnings and never fail the sweep.
    */
   private async notifyMatchmakingScheduledRideOngoing(
     rideId: string,
-  ): Promise<boolean> {
+  ): Promise<ScheduledRideTransitionOutcome> {
     const rawUrl = this.envService.getString(
       'RIDE_MATCHMAKING_URL',
       'http://localhost:3004',
@@ -500,16 +565,16 @@ export class CronService {
             (ok ? 'OK' : 'not transitioned (already ONGOING or missing)')
           }`,
         );
-        if (ok) return true;
+        if (ok) return 'TRANSITIONED';
         // Definitive "not CONFIRMED" answer — no point trying the other path.
-        return false;
+        return 'NOT_CONFIRMED';
       } catch (error: any) {
         this.logger.warn(
           `Failed to mark scheduled ride ${rideId} ONGOING via ${url}: ${error?.message || error}`,
         );
       }
     }
-    return false;
+    return 'UNREACHABLE';
   }
 
   /**
