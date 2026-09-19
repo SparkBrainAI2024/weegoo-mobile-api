@@ -455,7 +455,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     // list stays consistent with the dashboard charts.
     const timeRangeMs = timeRange ? TIME_RANGE_MS[timeRange] : undefined;
     if (timeRangeMs) {
-      match.bookingTime = { $gte: new Date(Date.now() - timeRangeMs) };
+      match.createdAt = { $gte: new Date(Date.now() - timeRangeMs) };
     }
 
     const pipeline: any[] = [
