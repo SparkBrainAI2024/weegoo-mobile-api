@@ -373,8 +373,10 @@ export class CronService {
       for (const ride of rides) {
         processed++;
         try {
-          const triggerAt = this.resolveOngoingTriggerTime(ride);
-          if (triggerAt === null || now < triggerAt) continue;
+          // Start-time check: has `now` crossed the availability-day start-time
+          // slot stored on the ride's schedule? Only then does the ride become
+          // ONGOING (Nepal wall-clock aware — see hasStartTimeSlotCrossed).
+          if (!this.hasStartTimeSlotCrossed(ride, now)) continue;
 
           // Delegate the whole ONGOING transition to the ride-matchmaking
           // service. That process owns the Ably connection, so it performs the
@@ -512,26 +514,48 @@ export class CronService {
   }
 
   /**
-   * Resolve the timestamp at which a scheduled ride should flip to ONGOING.
-   * This is the ride's start time — the availability-day start-time slot the
-   * passenger booked (on the ride's booking date). The transition is scheduled
-   * EXACTLY at that start time (no pickup-buffer offset added), so the sweep
-   * flips it the moment the current time crosses or equals it.
+   * Whether the scheduled ride's booked start-time slot has ALREADY been
+   * reached/crossed by `now` — i.e. the ride is due to flip to ONGOING.
+   *
+   * This is the check the sweep keys off: the ride's schedule stores the
+   * availability-day start-time slot the passenger booked, and the ride must
+   * become ONGOING the moment `now` crosses (or equals) that slot — with no
+   * pickup-buffer offset added.
+   *
+   * The slot is a Nepal wall-clock value, so it is first resolved to a REAL
+   * instant (see `resolveScheduledRideStartTime`) before being compared with
+   * `now`. Comparing the raw slot string — or parsing a naive value as UTC, as
+   * the sweep used to — pushed every trigger ~5h45 into the future and left
+   * rides sitting in CONFIRMED long after their slot had crossed.
+   *
+   * Returns false when the ride carries no usable time at all, so a ride whose
+   * start time cannot be determined is never force-started.
+   */
+  private hasStartTimeSlotCrossed(
+    ride: RidesDocument,
+    now: Date = new Date(),
+  ): boolean {
+    const startTime = this.resolveScheduledRideStartTime(ride);
+    if (startTime === null) return false;
+    return now.getTime() >= startTime.getTime();
+  }
+
+  /**
+   * Resolve the REAL instant at which a scheduled ride's start-time slot begins.
+   * This is the availability-day start-time slot the passenger booked (on the
+   * ride's booking date), with no pickup-buffer offset applied.
    *
    * TIMEZONE: availability slot `startTime`s are stored using NEPAL wall-clock
    * semantics (naive "2026-09-19T10:00:00.000" means 10:00 in Kathmandu, and
-   * legacy "HH:mm" means that wall time on the booking day). The old code fed
-   * these into `parseSlotStartTime`, which does `new Date(naiveIso)` (parsed as
-   * UTC) and `setUTCHours` — i.e. it treated Nepal wall time as UTC and pushed
-   * every trigger ~5h45 into the future, so rides stayed CONFIRMED long after
-   * their slot had crossed. Every stored slot is now resolved through the shared
-   * `nepalSlotToInstant` helper, which returns the REAL instant to compare with
-   * `now`.
+   * legacy "HH:mm" means that wall time on the booking day). Every stored slot
+   * is resolved through the shared `nepalSlotToInstant` helper, which returns the
+   * REAL instant to compare with `now`; absolute values ("...Z" / "...+05:45"),
+   * which `resolveBookedTimeSlots` falls back to, are honored verbatim.
    *
    * Falls back to the concrete booking time for flexible bookings with no
-   * time slots.
+   * time slots. Returns null when nothing usable is present.
    */
-  private resolveOngoingTriggerTime(ride: RidesDocument): Date | null {
+  private resolveScheduledRideStartTime(ride: RidesDocument): Date | null {
     const schedule = ride.schedule;
 
     const slots =
