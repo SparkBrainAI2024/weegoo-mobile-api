@@ -2117,7 +2117,7 @@ input PaymentsOverviewInput {
 """Date-range filter for payment dashboard analytics"""
 enum TimeRangeFilter {
   LAST_7_DAYS
-  LAST_MONTH
+  LAST_30_DAYS
   LAST_6_MONTHS
   THIS_YEAR
 }

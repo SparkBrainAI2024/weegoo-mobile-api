@@ -62,8 +62,18 @@ function formatMonth(d: Date): string {
 }
 
 const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 /** Format a date as "MMM D" (e.g. "Jan 5") in local time. */
@@ -160,35 +170,43 @@ export function buildDateBuckets(filter: TimeRangeFilter): DateBucketConfig {
 
   switch (filter) {
     case TimeRangeFilter.LAST_7_DAYS: {
-      const end = addDays(today, -1);
-      const start = addDays(end, -6);
-      const keys: string[] = [],
-        labels: string[] = [];
-      for (let d = start; isDayBeforeOrSame(d, end); d = addDays(d, 1)) {
+      const now = new Date();
+      const today = startOfDay(now);
+      const start = addDays(today, -6);
+
+      const keys: string[] = [];
+      const labels: string[] = [];
+
+      for (let d = start; isDayBeforeOrSame(d, today); d = addDays(d, 1)) {
         keys.push(formatDay(d));
         labels.push(formatLabelDay(d));
       }
+
       return {
-        start: startOfDay(start),
-        end: endOfDay(end),
+        start,
+        end: now,
         granularity: "day",
         labels,
         keys,
       };
     }
 
-    case TimeRangeFilter.LAST_MONTH: {
-      const start = startOfMonth(addMonths(today, -1));
-      const end = endOfMonth(start);
-      const keys: string[] = [],
-        labels: string[] = [];
-      for (let d = start; isDayBeforeOrSame(d, end); d = addDays(d, 1)) {
+    case TimeRangeFilter.LAST_30_DAYS: {
+      const now = new Date();
+      const today = startOfDay(now);
+      const start = addDays(today, -29);
+
+      const keys: string[] = [];
+      const labels: string[] = [];
+
+      for (let d = start; isDayBeforeOrSame(d, today); d = addDays(d, 1)) {
         keys.push(formatDay(d));
         labels.push(formatLabelDay(d));
       }
+
       return {
-        start: start,
-        end: end,
+        start,
+        end: now,
         granularity: "day",
         labels,
         keys,
@@ -196,17 +214,21 @@ export function buildDateBuckets(filter: TimeRangeFilter): DateBucketConfig {
     }
 
     case TimeRangeFilter.LAST_6_MONTHS: {
+      const now = new Date();
+      const today = startOfDay(now);
       const start = startOfMonth(addMonths(today, -5));
-      const end = endOfMonth(today);
-      const keys: string[] = [],
-        labels: string[] = [];
-      for (let d = start; isMonthBeforeOrSame(d, end); d = addMonths(d, 1)) {
+
+      const keys: string[] = [];
+      const labels: string[] = [];
+
+      for (let d = start; isMonthBeforeOrSame(d, today); d = addMonths(d, 1)) {
         keys.push(formatMonth(d));
         labels.push(MONTH_NAMES[d.getMonth()]);
       }
+
       return {
-        start: start,
-        end: end,
+        start,
+        end: now,
         granularity: "month",
         labels,
         keys,
@@ -214,17 +236,23 @@ export function buildDateBuckets(filter: TimeRangeFilter): DateBucketConfig {
     }
 
     case TimeRangeFilter.THIS_YEAR: {
+      const now = new Date();
+      const today = startOfDay(now);
       const start = new Date(today.getFullYear(), 0, 1);
-      const keys: string[] = [],
-        labels: string[] = [];
-      for (let m = 0; m < 12; m++) {
+
+      const keys: string[] = [];
+      const labels: string[] = [];
+
+      for (let m = 0; m <= today.getMonth(); m++) {
         const d = new Date(today.getFullYear(), m, 1);
+
         keys.push(formatMonth(d));
         labels.push(MONTH_NAMES[m]);
       }
+
       return {
-        start: start,
-        end: new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999),
+        start,
+        end: now,
         granularity: "month",
         labels,
         keys,
