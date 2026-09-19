@@ -476,7 +476,6 @@ export class CronService {
     const mutation = `mutation MarkScheduledRideOngoing($rideId: String!) { markScheduledRideOngoing(rideId: $rideId) { success message } }`;
 
     const candidateUrls = [
-      `${matchmakingUrl}/driver-api/graphql`,
       `${matchmakingUrl}/graphql`,
     ];
     for (const url of candidateUrls) {
