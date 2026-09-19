@@ -3865,7 +3865,7 @@ export class MatchmakingService {
     let vehicleTypes = [
       VehicleType.CAR,
     ];
-    if (params.noOfPassengers > 1) vehicleTypes = [VehicleType.CAR];
+    vehicleTypes = [VehicleType.CAR];
 
     // Resolve the promo code once (shared across all vehicle types) so we can
     // re-use the same validation result, usage counts, and discount amounts.
@@ -4168,48 +4168,72 @@ export class MatchmakingService {
     vehicleType: VehicleType,
   ): Promise<{ distanceKm: number; durationMinutes: number } | null> {
     try {
-      const vehicles = await this.vehicleModel
-        .find({ vehicleType: vehicleType as VehicleType, deleted: false })
-        .populate("driverId")
-        .limit(MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING)
+      // Step 1: spatially query the ONLINE drivers near the pickup using the
+      // 2dsphere index on user-details.geoLocation. Coordinates are stored as
+      // [latitude, longitude] by the live location updates (see
+      // subscribeToDriverLocationChannel), so the query point uses the same
+      // order to stay self-consistent with the stored data. This mirrors the
+      // working pattern used by nearby-drivers.service in the api app.
+      const maxRadiusKm = Math.max(...MATCHMAKING_CONFIG.FALLBACK_RADII_KM);
+      const geoNearResults = await this.userDetailsModel
+        .aggregate([
+          {
+            $geoNear: {
+              near: {
+                type: "Point",
+                coordinates: [pickupLat, pickupLng],
+              },
+              distanceField: "distanceInMeters",
+              maxDistance: maxRadiusKm * 1000,
+              spherical: true,
+              query: {
+                driverOnlineStatus: DriverOnlineStatus.ONLINE,
+                deleted: { $ne: true },
+              },
+            },
+          },
+          { $limit: MATCHMAKING_CONFIG.MAX_DRIVERS_PER_RING },
+        ])
         .exec();
       this.logger.warn(
-        `Found ${vehicles.length} vehicles of type ${vehicleType} for nearest-driver search`,
+        `Found ${geoNearResults.length} online drivers within ${maxRadiusKm} km of pickup for nearest-driver search (${vehicleType})`,
       );
+      if (geoNearResults.length === 0) return null;
+
+      // Results come back sorted by distance ascending; build the online map.
+      const onlineMap = new Map<string, UserDetailsDocument>();
+      for (const ud of geoNearResults) {
+        onlineMap.set(ud.userId.toString(), ud);
+      }
+      const nearbyOnlineDriverIds = [...onlineMap.keys()].map(
+        (id) => new Types.ObjectId(id),
+      );
+      this.logger.log(
+        `Found ${nearbyOnlineDriverIds.length} online drivers near pickup for vehicle type ${vehicleType}`,
+      );
+
+      // Step 2: among those nearby online drivers, find the ones that own a
+      // vehicle of the requested type. No limit is needed here — the candidate
+      // set is already bounded by the geo query above.
+      const vehicles = await this.vehicleModel
+        .find({
+          driverId: { $in: nearbyOnlineDriverIds },
+          vehicleType: vehicleType as VehicleType,
+          deleted: false,
+        })
+        .populate("driverId")
+        .exec();
       const validVehicles = vehicles.filter(
         (v) => v.driverId && (v.driverId as any as UserDocument)._id,
       );
       this.logger.warn(
-        `Filtered to ${validVehicles.length} valid vehicles of type ${vehicleType} with associated drivers`,
+        `Filtered to ${validVehicles.length} valid vehicles of type ${vehicleType} with nearby online drivers`,
       );
       if (validVehicles.length === 0) return null;
 
-      const driverIds = validVehicles
-        .map((v) => (v.driverId as any as UserDocument)._id)
-        .filter(Boolean);
-      const userDetailsDocs = await this.userDetailsModel
-        .find({
-          userId: { $in: driverIds },
-          driverOnlineStatus: DriverOnlineStatus.ONLINE,
-          deleted: { $ne: true },
-        })
-        .exec();
-      this.logger.warn(
-        `Found ${userDetailsDocs.length} online driver details for vehicle type ${vehicleType}`,
-      );
-      const onlineMap = new Map<string, UserDetailsDocument>();
-      for (const ud of userDetailsDocs) onlineMap.set(ud.userId.toString(), ud);
-      if (onlineMap.size === 0) return null;
-
-      const onlineDriverIds = [...onlineMap.keys()].map(
-        (id) => new Types.ObjectId(id),
-      );
-      this.logger.log(
-        `Found ${onlineDriverIds.length} online drivers for vehicle type ${vehicleType}`,
-      );
       const activeRides = await this.ridesModel
         .find({
-          driverId: { $in: onlineDriverIds },
+          driverId: { $in: nearbyOnlineDriverIds },
           rideStatus: {
             $in: [RideStatus.CONFIRMED, RideStatus.ONGOING, RideStatus.PICKUP],
           },
@@ -4233,7 +4257,7 @@ export class MatchmakingService {
 
         const coords = ud.geoLocation?.coordinates;
         if (!coords || coords.length < 2) continue;
-        // GeoJSON: [lat, lng]
+        // Stored order: [latitude, longitude]
         const driverLat = coords[0];
         const driverLng = coords[1];
         const dist = await this.distanceCalculator.calculateDriverDistance(
