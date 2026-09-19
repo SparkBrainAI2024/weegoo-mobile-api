@@ -3864,8 +3864,6 @@ export class MatchmakingService {
   }): Promise<VehicleEstimateGraphQL[]> {
     let vehicleTypes = [
       VehicleType.CAR,
-      VehicleType.MOTORBIKE,
-      VehicleType.SCOOTER,
     ];
     if (params.noOfPassengers > 1) vehicleTypes = [VehicleType.CAR];
 

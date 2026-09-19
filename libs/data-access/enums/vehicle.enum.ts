@@ -2,8 +2,8 @@ import { registerEnumType } from "@nestjs/graphql";
 
 export enum VehicleType {
   CAR = "CAR",
-  MOTORBIKE = "MOTORBIKE",
-  SCOOTER = "SCOOTER",
+  // MOTORBIKE = "MOTORBIKE",
+  // SCOOTER = "SCOOTER",
 }
 export enum VehicleModelType {
   EV='EV',
@@ -41,8 +41,8 @@ export enum AnyVehicleType {
   JEEP = "JEEP",
   MICRO = "MICRO",
   CAR = "CAR",
-  MOTORBIKE = "MOTORBIKE",
-  SCOOTER = "SCOOTER",
+  // MOTORBIKE = "MOTORBIKE",
+  // SCOOTER = "SCOOTER",
 }
 registerEnumType(AnyVehicleType, {
   name: "AnyVehicleType",
