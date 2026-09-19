@@ -47,7 +47,7 @@ export class DistanceCalculatorService {
       params.append('key', `${apiKey}`);
       params.append('points[]', `${originLat},${originLng}`);
       params.append('points[]', `${destLat},${destLng}`);
-      params.append('mode', requestedType === VehicleType.CAR.toLocaleLowerCase() ? 'car' : requestedType.toLocaleLowerCase() === VehicleType.MOTORBIKE ? 'bike' : 'bike');
+      params.append('mode', requestedType === VehicleType.CAR.toLocaleLowerCase() ? 'car' : /*requestedType.toLocaleLowerCase() === VehicleType.MOTORBIKE ? 'bike' : 'bike')*/ 'car'); // Default to car for non-car types
       // Baato API format: points[]=lat,lng
       this.logger.debug(`Baato API request params: ${params.toString()}`);
       const queryString = params.toString();

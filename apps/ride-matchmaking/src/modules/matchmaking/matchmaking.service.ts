@@ -3954,16 +3954,16 @@ export class MatchmakingService {
 
           let comfortType = "";
           let hasAC: boolean | undefined = undefined;
-          if (type === VehicleType.CAR) {
+          //if (type === VehicleType.CAR) {
             comfortType = "Comfortable city ride with fast pickup";
             hasAC = true;
-          } else if (type === VehicleType.MOTORBIKE) {
-            comfortType = "Affordable and quick";
-            hasAC = false;
-          } else if (type === VehicleType.SCOOTER) {
-            comfortType = "Short and quick ride";
-            hasAC = false;
-          }
+          // } else if (type === VehicleType.MOTORBIKE) {
+          //   comfortType = "Affordable and quick";
+          //   hasAC = false;
+          // } else if (type === VehicleType.SCOOTER) {
+          //   comfortType = "Short and quick ride";
+          //   hasAC = false;
+          // }
 
           // Apply promo discount if the promo code is valid for this fare.
           const discountInfo = this.applyPromoDiscountToFare(
