@@ -941,7 +941,7 @@ export class AuthService {
       // First-time onboarding: the user has never had a password, so this call is
       // the moment they finish setting up their account (profile already
       // updated). Only then do they get the welcome email.
-      const isFirstTimePasswordSetup = !user.password;
+      // const isFirstTimePasswordSetup = !user.password;
 
       // Verify the JTI from the token exists in user-token-meta (server-side check)
       if (verificationTokenData?.jti) {
@@ -985,9 +985,9 @@ export class AuthService {
       // First-time onboarding complete (profile updated → password set): send the
       // one-time role-specific welcome email. Best-effort by design — a template
       // or SendGrid problem must never fail the password setup.
-      if (isFirstTimePasswordSetup) {
-        await this.sendWelcomeEmail(user, userDetails);
-      }
+      // if (isFirstTimePasswordSetup) {
+      //   await this.sendWelcomeEmail(user, userDetails);
+      // }
 
       return await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
     } catch (e) {
@@ -1082,7 +1082,7 @@ export class AuthService {
       // First-time Google sign-up completes onboarding in one step, so send the
       // one-time role-specific welcome email. Best-effort by design — a template
       // or SendGrid problem must never fail the sign-up.
-      await this.sendWelcomeEmail(user, userDetails);
+      // await this.sendWelcomeEmail(user, userDetails);
 
       await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
       return {
