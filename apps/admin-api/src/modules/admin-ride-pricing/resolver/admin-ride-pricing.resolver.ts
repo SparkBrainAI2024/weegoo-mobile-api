@@ -2,7 +2,10 @@ import { UseGuards } from "@nestjs/common";
 import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
 import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 import { AdminRidePricing } from "@libs/data-access/entities/admin-ride-pricing.entity";
-import { UpsertAdminRidePricingInput } from "@libs/data-access/dtos/input/upsert-admin-ride-pricing.input";
+import {
+  BulkUpsertAdminRidePricingInput,
+  UpsertAdminRidePricingInput,
+} from "@libs/data-access/dtos/input/upsert-admin-ride-pricing.input";
 import { AdminRidePricingService } from "@libs/services/admin-ride-pricing/admin-ride-pricing.service";
 import { VehicleType } from "@libs/data-access/enums/vehicle.enum";
 
@@ -25,10 +28,11 @@ export class AdminRidePricingResolver {
     return this.adminRidePricingService.findByVehicleType(vehicleType);
   }
 
-  @Mutation(() => AdminRidePricing)
-  async upsertAdminRidePricing(
-    @Args("input") input: UpsertAdminRidePricingInput,
-  ): Promise<AdminRidePricing> {
-    return this.adminRidePricingService.upsert(input);
+  @Mutation(() => [AdminRidePricing])
+  async upsertAdminRidePricings(
+    @Args("input", { type: () => BulkUpsertAdminRidePricingInput })
+    input: BulkUpsertAdminRidePricingInput,
+  ): Promise<AdminRidePricing[]> {
+    return this.adminRidePricingService.bulkUpsert(input.pricingList);
   }
 }

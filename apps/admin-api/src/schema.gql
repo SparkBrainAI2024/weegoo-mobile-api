@@ -677,17 +677,12 @@ type AdminRidePricing {
   updatedAt: DateTime
   deletedAt: DateTime
   deleted: Boolean
-  vehicleType: VehicleType!
+  vehicleType: AnyVehicleType!
   commission: Float!
   baseFare: Float!
   amountPerKm: Float!
   amountPerMinute: Float!
-}
-
-enum VehicleType {
-  CAR
-  MOTORBIKE
-  SCOOTER
+  isEnabled: Boolean!
 }
 
 type MaintenanceInfo {
@@ -811,6 +806,8 @@ enum RidePreference {
 
   """The ride is requested for immediate pickup"""
   INSTANT
+
+  """The ride can be either scheduled or instant"""
   BOTH
 }
 
@@ -2110,6 +2107,10 @@ input IssueDetailInput {
   id: ID!
 }
 
+enum VehicleType {
+  CAR
+}
+
 input PaymentsOverviewInput {
   period: TimeRangeFilter = LAST_7_DAYS
 }
@@ -2172,7 +2173,7 @@ type Mutation {
   bulkResolveIssues(ids: [ID!]!, resolvedBy: ID!): BulkResolveIssuesResponse!
   updateIssueStatus(input: UpdateIssueStatusInput!): CreateIssueResponse!
   upsertAdminCompanyInfo(input: UpsertAdminCompanyInfoInput!): AdminCompanyInfo!
-  upsertAdminRidePricing(input: UpsertAdminRidePricingInput!): AdminRidePricing!
+  upsertAdminRidePricings(input: BulkUpsertAdminRidePricingInput!): [AdminRidePricing!]!
   upsertMaintenanceInfo(input: UpsertMaintenanceInfoInput!): MaintenanceInfo!
   sendPushNotification(input: SendPushNotificationInput!): SendPushNotificationResponse!
 }
@@ -2448,12 +2449,17 @@ input UpsertAdminCompanyInfoInput {
   supportEmail: String!
 }
 
+input BulkUpsertAdminRidePricingInput {
+  pricingList: [UpsertAdminRidePricingInput!]!
+}
+
 input UpsertAdminRidePricingInput {
-  vehicleType: VehicleType!
+  vehicleType: AnyVehicleType!
   commission: Float!
   baseFare: Float!
   amountPerKm: Float!
   amountPerMinute: Float!
+  isEnabled: Boolean!
 }
 
 input UpsertMaintenanceInfoInput {

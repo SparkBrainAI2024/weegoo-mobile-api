@@ -6,7 +6,7 @@ import {
   AdminRidePricing,
   AdminRidePricingDocument,
 } from "../entities/admin-ride-pricing.entity";
-import { VehicleType } from "../enums/vehicle.enum";
+import { AnyVehicleType, VehicleType } from "../enums/vehicle.enum";
 
 @Injectable()
 export class AdminRidePricingRepository extends BaseRepository<AdminRidePricingDocument> {
@@ -28,7 +28,7 @@ export class AdminRidePricingRepository extends BaseRepository<AdminRidePricingD
   }
 
   async upsertByVehicleType(
-    vehicleType: VehicleType,
+    vehicleType: AnyVehicleType,
     data: Partial<AdminRidePricing>,
   ): Promise<AdminRidePricingDocument> {
     return this._model
