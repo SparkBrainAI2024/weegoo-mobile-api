@@ -6,8 +6,8 @@ export enum VehicleType {
   // SCOOTER = "SCOOTER",
 }
 export enum VehicleModelType {
-  EV='EV',
-  PETROL='PETROL'
+  EV = "EV",
+  PETROL = "PETROL",
 }
 
 registerEnumType(VehicleType, {
@@ -41,9 +41,10 @@ export enum AnyVehicleType {
   JEEP = "JEEP",
   MICRO = "MICRO",
   CAR = "CAR",
-  // MOTORBIKE = "MOTORBIKE",
-  // SCOOTER = "SCOOTER",
+  MOTORBIKE = "MOTORBIKE",
+  SCOOTER = "SCOOTER",
 }
+
 registerEnumType(AnyVehicleType, {
   name: "AnyVehicleType",
   description:
