@@ -98,6 +98,7 @@
   "devDependencies": {
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.8",
+    "@swc/core": "^1.16.2",
     "@types/express": "^5.0.4",
     "@types/helmet": "^0.0.48",
     "@types/jest": "30.0.0",

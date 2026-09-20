@@ -264,14 +264,12 @@ export class UserDetailsService {
       if (!details)
         ErrorException(null, "USER.DETAILS_NOT_FOUND", HttpStatus.NOT_FOUND);
       const toObjectDetails: Record<string, any> = details.toObject();
-      const profileImages = details.profileImages.filter((img) => {
-        return img.status === ImageStatus.ACTIVE;
-      });
-      if (profileImages.length > 0) {
-        toObjectDetails.profileImage = this.s3.getPublicBucketUrl(
-          profileImages[0].s3Key,
-        );
-      }
+      // Prefer the third-party (e.g. Google) image stored in `socialPicture`;
+      // fall back to the public S3 image resolved from `s3Key`.
+      toObjectDetails.profileImage = getActiveProfileImageUrl(
+        details.profileImages,
+        (key) => this.s3.getPublicBucketUrl(key),
+      );
       delete toObjectDetails.profileImages;
 
       // Fetch wallet information
