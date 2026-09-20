@@ -56,6 +56,7 @@ import { S3Service } from "@libs/s3/s3.service";
 import { EmailTemplateRepository } from "@libs/data-access/repositories/email-template.repository";
 import { EmailTemplateParserService } from "@libs/services/email-template/src/email-template-parser.service";
 import { SendGridMailService } from "@libs/services/mail";
+import { SparrowSmsService } from "@libs/services/sms";
 import { VerifyEmailTokenInput } from "@libs/data-access";
 
 export interface SignInResult {
@@ -118,6 +119,7 @@ export class AuthService {
     private readonly walletRepository: WalletRepository,
     private readonly emailTemplateRepository: EmailTemplateRepository,
     private readonly sendGridMailService: SendGridMailService,
+    private readonly sparrowSmsService: SparrowSmsService,
   ) { }
 
   // Helper method to check if user has valid non-expired OTP
@@ -436,6 +438,10 @@ export class AuthService {
               userExistWithThisPhone._id,
               verificationCode,
             );
+            await this.sparrowSmsService.sendVerificationSms(
+              phone,
+              verificationCode,
+            );
             return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
           }
 
@@ -466,6 +472,10 @@ export class AuthService {
           userExistWithThisPhone._id,
           verificationCode,
         );
+        await this.sparrowSmsService.sendVerificationSms(
+          phone,
+          verificationCode,
+        );
         return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
       }
 
@@ -486,6 +496,10 @@ export class AuthService {
       }
       await this.userVerificationRepository.sendPhoneVerificationOtp(
         user._id,
+        verificationCode,
+      );
+      await this.sparrowSmsService.sendVerificationSms(
+        phone,
         verificationCode,
       );
       return getOtpSentResponse(lang, "USER.USER_CREATED_PHONE");
@@ -562,10 +576,8 @@ export class AuthService {
         { phone, phoneUpdateCount: currentUpdateCount + 1 },
       );
       const verificationCode = GenerateRandomDigit(userOtpSalt);
-
-      // TODO: Implement phone SMS sending in later phase
-      await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
-
+     await this.userVerificationRepository.sendPhoneVerificationOtp(user._id, verificationCode);
+     await this.sparrowSmsService.sendVerificationSms(phone, verificationCode);
       return getOtpSentResponse(lang, 'USER.OTP_SEND')
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -774,8 +786,7 @@ export class AuthService {
 
       // OTP expired or doesn't exist, send new code
       const verificationCode = GenerateRandomDigit(userOtpSalt);
-      // TODO: Implement phone SMS sending in later phase
-      // await this.smsService.sendVerificationSms(phone, verificationCode);
+      await this.sparrowSmsService.sendVerificationSms(phone, verificationCode);
       await this.userVerificationRepository.sendOtp(
         user._id,
         verificationCode,

@@ -298,6 +298,43 @@ export class EnvService {
   getSendGridFromName(): string {
     return this.getString('SENDGRID_FROM_NAME', 'WeeGoo');
   }
+
+  // ==========================================
+  // Sparrow SMS helper methods
+  // ==========================================
+
+  /**
+   * Sparrow SMS token. Also supports the legacy key name used in
+   * driver-api .env (SPARROW-SMS_API_KEY).
+   */
+  getSparrowSmsToken(): string {
+    return (
+      this.getString('SPARROW_SMS_TOKEN') ||
+      this.getString('SPARROW-SMS_API_KEY') ||
+      this.getString('SPARROW_SMS_API_KEY')
+    );
+  }
+
+  /**
+   * Sparrow SMS sender identity ("from") provided by Sparrow.
+   */
+  getSparrowSmsIdentity(): string {
+    return (
+      this.getString('SPARROW_SMS_IDENTITY') ||
+      this.getString('SPARROW_SMS_FROM')
+    );
+  }
+
+  /**
+   * Sparrow SMS Push (MT) API endpoint.
+   */
+  getSparrowSmsApiUrl(): string {
+    return this.getString(
+      'SPARROW_SMS_API_URL',
+      'https://api.sparrowsms.com/v2/sms/',
+    );
+  }
+
   getFirebaseProjectId(): string {
     return this.getString('FIREBASE_PROJECT_ID', '');
   }
