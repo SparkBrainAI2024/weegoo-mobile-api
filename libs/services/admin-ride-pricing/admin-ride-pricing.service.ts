@@ -17,9 +17,8 @@ export class AdminRidePricingService {
   }
 
   async findByVehicleType(vehicleType: VehicleType): Promise<AdminRidePricing> {
-    const pricing = await this.adminRidePricingRepository.findByVehicleType(
-      vehicleType,
-    );
+    const pricing =
+      await this.adminRidePricingRepository.findByVehicleType(vehicleType);
     if (!pricing) {
       ErrorException(
         null,
@@ -30,17 +29,21 @@ export class AdminRidePricingService {
     return pricing.toObject() as AdminRidePricing;
   }
 
-  async upsert(input: UpsertAdminRidePricingInput): Promise<AdminRidePricing> {
-    const pricing = await this.adminRidePricingRepository.upsertByVehicleType(
-      input.vehicleType,
-      {
-        vehicleType: input.vehicleType,
-        commission: input.commission,
-        baseFare: input.baseFare,
-        amountPerKm: input.amountPerKm,
-        amountPerMinute: input.amountPerMinute,
-      },
+  async bulkUpsert(
+    inputs: UpsertAdminRidePricingInput[],
+  ): Promise<AdminRidePricing[]> {
+    const results = await Promise.all(
+      inputs.map((input) =>
+        this.adminRidePricingRepository.upsertByVehicleType(input.vehicleType, {
+          vehicleType: input.vehicleType,
+          commission: input.commission,
+          baseFare: input.baseFare,
+          amountPerKm: input.amountPerKm,
+          amountPerMinute: input.amountPerMinute,
+          isEnabled: input.isEnabled,
+        }),
+      ),
     );
-    return pricing.toObject() as AdminRidePricing;
+    return results.map((doc) => doc.toObject() as AdminRidePricing);
   }
 }
