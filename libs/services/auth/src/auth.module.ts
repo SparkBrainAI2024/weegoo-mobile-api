@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './controller/auth.controller';
 import { SetPasswordGuard } from '@libs/guards/set-password.guard';
 import { MailService, SendGridMailModule } from '@libs/services/mail';
+import { SparrowSmsModule } from '@libs/services/sms';
 import { EnvService } from '@libs/common/config/env.service';
 import { SocialAuthModule } from '@libs/services/social-auth';
 import { AuthGuard } from '@libs/guards/guard';
@@ -62,6 +63,7 @@ export class UserAuthModule {
         ]),
         S3Module,
         SendGridMailModule,
+        SparrowSmsModule,
         EmailTemplatePersistenceModule,
 
         // ✅ SocialAuthModule with provided config
