@@ -639,6 +639,7 @@ export class MatchmakingService {
             await this.notificationService.createNotification(
               notificationInput,
               driverUser,
+              true
             );
           } catch (err) {
             this.logger.error(
@@ -1826,6 +1827,7 @@ export class MatchmakingService {
           this.notificationService.createNotification(
             notificationInput,
             passengerUser,
+            true
           );
         }
 
@@ -2105,6 +2107,7 @@ export class MatchmakingService {
             },
           },
           passenger,
+          true
         );
       }
 
@@ -2792,6 +2795,7 @@ export class MatchmakingService {
             },
           },
           passenger,
+          true
         );
       }
 
@@ -2985,6 +2989,7 @@ export class MatchmakingService {
             },
           },
           passenger,
+          true
         );
       }
 
@@ -4363,6 +4368,7 @@ export class MatchmakingService {
             driverSnapshot: userSnapShot,
           },
           passenger,
+          true
         );
       } else {
         const driver = await this.userModel.findById(ride.passengerId).exec();
@@ -4377,6 +4383,7 @@ export class MatchmakingService {
             passengerSnapshot: userSnapShot,
           },
           driver,
+          true
         );
       }
       await this;
