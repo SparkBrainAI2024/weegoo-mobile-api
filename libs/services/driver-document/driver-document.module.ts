@@ -11,6 +11,9 @@ import {
 import { UserPersistenceModule } from "@libs/services/user/user-persistent.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { S3 } from "@libs/localization/en/s3.messages";
+import { NotificationPersistentModule } from "@libs/services/notification/notification-persistent.module";
+import { NotificationService } from "@libs/services/notification/notification.service";
+import { FirebaseMessagingService } from "@libs/services/firebase-messaging/firebase-messaging.service";
 
 @Module({
   imports: [
@@ -19,12 +22,15 @@ import { S3 } from "@libs/localization/en/s3.messages";
       { name: DriverDocument.name, schema: DriverDocumentSchema },
     ]),
     UserPersistenceModule,
+    NotificationPersistentModule,
   ],
   providers: [
     DriverDocumentResolver,
     DriverDocumentService,
     DriverDocumentRepository,
     EnvService,
+    NotificationService,
+    FirebaseMessagingService,
   ],
   exports: [DriverDocumentService, DriverDocumentRepository, S3Module],
 })

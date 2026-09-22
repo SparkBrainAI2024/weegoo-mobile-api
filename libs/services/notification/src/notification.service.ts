@@ -252,6 +252,19 @@ export class NotificationService {
               if (payload.rideUUId) {
                 firebaseData.rideUUId = String(payload.rideUUId);
             }
+            // Include driver document review context (rejected vehicle/driver documents)
+            if (payload.driverDocumentId) {
+                firebaseData.driverDocumentId = String(payload.driverDocumentId);
+            }
+            if (payload.documentType) {
+                firebaseData.documentType = String(payload.documentType);
+            }
+            if (payload.documentSide) {
+                firebaseData.documentSide = String(payload.documentSide);
+            }
+            if (payload.rejectionReason) {
+                firebaseData.rejectionReason = String(payload.rejectionReason);
+            }
             console.log("payload", payload)
             // Silent push: data-only message with no `notification` block and no sound,
             // so the OS does not display anything and the app handles the payload
