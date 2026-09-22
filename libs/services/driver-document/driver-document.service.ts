@@ -3,6 +3,7 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { Types } from "mongoose";
 
@@ -39,6 +40,25 @@ import {
   DriverDocumentDocument,
 } from "@libs/data-access";
 import { InjectModel } from "@nestjs/mongoose";
+import { DocumentFile } from "@libs/data-access/entities/document-file.embedded";
+import { CreateNotificationInput } from "@libs/data-access/dtos/input/create-notification.input";
+import { NotificationType } from "@libs/data-access/enums/notification.enum";
+import { roles } from "@libs/data-access/enums/user.enum";
+import { NotificationService } from "@libs/services/notification/notification.service";
+
+/** Readable labels for the driver-facing rejection notification text. */
+const DOCUMENT_TYPE_LABELS: Record<DriverDocumentType, string> = {
+  [DriverDocumentType.NATIONAL_ID]: "National ID",
+  [DriverDocumentType.DRIVING_LICENSE]: "Driving License",
+  [DriverDocumentType.BLUEBOOK]: "Vehicle Bluebook",
+};
+
+const DOCUMENT_SIDE_LABELS: Record<DriverDocumentSide, string> = {
+  [DriverDocumentSide.FRONT]: "Front",
+  [DriverDocumentSide.BACK]: "Back",
+  [DriverDocumentSide.VEHICLE_INFO_PAGE]: "Vehicle Info Page",
+  [DriverDocumentSide.TAX_CLEARANCE_PAGE]: "Tax Clearance Page",
+};
 
 @Injectable()
 export class DriverDocumentService {
@@ -47,6 +67,12 @@ export class DriverDocumentService {
     private readonly s3: S3Service,
     @InjectModel(DriverDocument.name)
     private readonly _model: BaseModel<DriverDocumentDocument>,
+    /**
+     * Optional so that consumers which only reuse this service for S3 cleanup
+     * (the cron app) don't need the notification/firebase modules wired up.
+     */
+    @Optional()
+    private readonly notificationService?: NotificationService,
   ) {}
 
   // ─── Upsert document ──────────────────────────────────────────────────────────
@@ -289,8 +315,65 @@ export class DriverDocumentService {
     bundle.reviewedAt = new Date();
 
     await bundle.save();
+
+    await this.notifyDriverDocumentRejected(bundle, file, rejectionReason);
+
     return bundle;
   }
+
+  /**
+   * Notifies the driver that one of their uploaded documents was rejected.
+   *
+   * The notification (with the admin's note/remarks) is persisted through
+   * `NotificationService.createNotification` and the FCM push is fired
+   * afterwards, so the rejection also shows up in the driver's notification
+   * list even when the device has no firebase token.
+   *
+   * Notification failures are swallowed on purpose — they must never fail the
+   * admin's review action.
+   */
+  private async notifyDriverDocumentRejected(
+    bundle: DriverDocumentDocument,
+    file: DocumentFile,
+    rejectionReason: string,
+  ): Promise<void> {
+    // Not wired in consumers that only use this service for cleanup (cron app).
+    if (!this.notificationService) return;
+
+    const documentLabel = [
+      DOCUMENT_TYPE_LABELS[bundle.type] ?? bundle.type,
+      file?.side ? DOCUMENT_SIDE_LABELS[file.side] ?? file.side : null,
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    const remarks = rejectionReason?.trim();
+
+    const payload: CreateNotificationInput = {
+      title: "Document Rejected",
+      description: remarks
+        ? `Your ${documentLabel} document has been rejected by admin. Remarks: ${remarks}`
+        : `Your ${documentLabel} document has been rejected by admin.`,
+      notificationType: NotificationType.DRIVER_DOCUMENT_REJECTED,
+      driverDocumentId: bundle._id?.toString(),
+      documentType: bundle.type,
+      documentSide: file?.side,
+      rejectionReason: remarks,
+    };
+
+    try {
+      await this.notificationService.createNotification(payload, {
+        loginAs: roles.RIDER,
+        _id: bundle.driverId,
+      });
+    } catch (e) {
+      console.error(
+        `Failed to notify driver ${bundle.driverId} about rejected ${documentLabel} document:`,
+        e,
+      );
+    }
+  }
+
   async getDriverDocuments(driverId: string) {
     const myDocs = await this.repository.getDriverDocuments(driverId);
 

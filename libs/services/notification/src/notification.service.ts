@@ -125,11 +125,14 @@ export class NotificationService {
      * @param favouriteData - Partial data for creating a favourite entry
      * @returns The created FavouritesDocument
      */
-    async createNotification(notificationPayload: CreateNotificationInput, user: { loginAs: string; _id: Types.ObjectId }): Promise<Notification> {
+    async createNotification(notificationPayload: CreateNotificationInput, user: { loginAs: string; _id: Types.ObjectId },notSaveNotification?:Boolean): Promise<Notification> {
         const roles = user.loginAs;
         const userId = user._id;
         const newNotificationPayload = { ...notificationPayload, roles, userId };
-        const notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
+        let notification: Notification | null = newNotificationPayload as any;
+        if(!notSaveNotification) {
+            notification = await this.notificationRepository.create({ ...newNotificationPayload as any });
+        }
 
         // Check if user has this notification type enabled in their settings
         const shouldSend = await this.shouldSendNotification(userId, user.loginAs, notificationPayload.notificationType);
@@ -248,6 +251,19 @@ export class NotificationService {
             }
               if (payload.rideUUId) {
                 firebaseData.rideUUId = String(payload.rideUUId);
+            }
+            // Include driver document review context (rejected vehicle/driver documents)
+            if (payload.driverDocumentId) {
+                firebaseData.driverDocumentId = String(payload.driverDocumentId);
+            }
+            if (payload.documentType) {
+                firebaseData.documentType = String(payload.documentType);
+            }
+            if (payload.documentSide) {
+                firebaseData.documentSide = String(payload.documentSide);
+            }
+            if (payload.rejectionReason) {
+                firebaseData.rejectionReason = String(payload.rejectionReason);
             }
             console.log("payload", payload)
             // Silent push: data-only message with no `notification` block and no sound,

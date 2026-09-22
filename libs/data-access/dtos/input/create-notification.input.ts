@@ -180,6 +180,31 @@ export class CreateNotificationInput {
   @Type(() => RideUserInputSnapshot)
   driverSnapshot?: RideUserInputSnapshot;
 
+  /**
+   * Driver document review context (e.g. a rejected vehicle BLUEBOOK).
+   * Sent along in the FCM data payload so the driver app can deep-link to the
+   * rejected document and show the admin's note/remarks.
+   */
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  driverDocumentId?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  documentType?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  documentSide?: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string;
+
   @Field(() => Number, { nullable: true })
   @IsOptional()
   noOfPassengers?: number;
