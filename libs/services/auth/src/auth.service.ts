@@ -140,6 +140,25 @@ export class AuthService {
   }
 
   /**
+   * Send an OTP by SMS using the message that matches the OTP purpose:
+   * - RESET_PASSWORD  -> "Your <brand> password reset code is <otp>. Enter this code to continue."
+   * - anything else   -> "Your <brand> verification code is <otp>. Enter this code to verify your phone number."
+   *
+   * Sending is best-effort (SparrowSmsService swallows gateway errors) so a
+   * failed SMS never breaks the OTP flow.
+   */
+  private async sendPhoneOtpSms(
+    phone: string,
+    otp: number | string,
+    type: string = verificationType.VERIFICATION_PHONE,
+  ): Promise<void> {
+    if (type === verificationType.RESET_PASSWORD) {
+      return this.sparrowSmsService.sendPasswordResetSms(phone, otp);
+    }
+    return this.sparrowSmsService.sendVerificationSms(phone, otp);
+  }
+
+  /**
    * Set a driver's online status to OFFLINE.
    * Used when a driver logs out or is auto-logged out (expired token).
    */
@@ -786,7 +805,7 @@ export class AuthService {
 
       // OTP expired or doesn't exist, send new code
       const verificationCode = GenerateRandomDigit(userOtpSalt);
-      await this.sparrowSmsService.sendVerificationSms(phone, verificationCode);
+      await this.sendPhoneOtpSms(phone, verificationCode, type);
       await this.userVerificationRepository.sendOtp(
         user._id,
         verificationCode,

@@ -134,6 +134,13 @@ All apps enable **CORS** and expose a `/graphql` endpoint with the Apollo Sandbo
   - Welcome / email confirmation with OTP
   - Password reset with OTP
 
+### `@libs/services/sms`
+- Sends transactional SMS via the **Sparrow SMS** Push (MT) API (`SparrowSmsService.sendSms`):
+  - `sendVerificationSms` — `"Your eYatra verification code is <otp>. Enter this code to verify your phone number."`
+  - `sendPasswordResetSms` — `"Your eYatra password reset code is <otp>. Enter this code to continue."`
+  - The brand name comes from `SMS_BRAND_NAME` (falls back to `APP_NAME`, then `eYatra`)
+  - Sending is best-effort: a gateway failure is logged and never breaks the OTP flow
+
 ### `@libs/s3`
 - Generates **presigned upload URLs** and **view URLs** for AWS S3 file storage.
 
@@ -147,6 +154,7 @@ All apps enable **CORS** and expose a `/graphql` endpoint with the Apollo Sandbo
 - **GraphQL API** with auto-generated schema (`schema.gql`) per app
 - **JWT Authentication** — access tokens & refresh tokens with configurable expiry
 - **OTP Email Verification** — secure email confirmation and password reset flows
+- **OTP SMS Verification** — phone verification and password reset codes delivered via Sparrow SMS
 - **Password Management** — bcrypt-hashed passwords with salt, change & reset capabilities
 - **Device Management** — track user devices and Firebase tokens
 - **Multi-language Support** — localized API responses based on `lang` header or user preference
@@ -214,6 +222,10 @@ cp apps/driver-api/.env.example apps/driver-api/.env
 | `AWS_PUBLIC_REGION` | AWS region for the public S3 bucket | `eu-west-2` |
 | `AWS_S3_UPLOAD_PREFIX` | Path prefix for uploads | `uploads/` |
 | `PRODUCTION_URL` | Public app URL | `https://ride-hailing.com` |
+| `SPARROW_SMS_TOKEN` | Sparrow SMS API token (`SPARROW-SMS_API_KEY` also supported) | `v2_xxxxxxxx` |
+| `SPARROW_SMS_IDENTITY` | Sparrow SMS sender identity / "from" (`SPARROW_SMS_FROM` also supported) | `Demo` |
+| `SPARROW_SMS_API_URL` | Sparrow SMS Push (MT) endpoint | `https://api.sparrowsms.com/v2/sms/` |
+| `SMS_BRAND_NAME` | Brand shown in SMS text (defaults to `APP_NAME`, then `eYatra`) | `eYatra` |
 
 ---
 

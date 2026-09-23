@@ -73,11 +73,25 @@ export class SparrowSmsService {
 
   /**
    * Send the phone verification OTP to a user's phone.
+   *
+   * Example: "Your eYatra verification code is 12345. Enter this code to verify your phone number."
    */
   async sendVerificationSms(phone: string, otp: number | string): Promise<void> {
     return this.sendSms(
       phone,
-      `Your verification OTP is: ${otp}. Please use this code to verify your phone number.`,
+      `Your ${this.envService.getSmsBrandName()} verification code is ${otp}. Enter this code to verify your phone number.`,
+    );
+  }
+
+  /**
+   * Send the password reset OTP to a user's phone.
+   *
+   * Example: "Your eYatra password reset code is 12345. Enter this code to continue."
+   */
+  async sendPasswordResetSms(phone: string, otp: number | string): Promise<void> {
+    return this.sendSms(
+      phone,
+      `Your ${this.envService.getSmsBrandName()} password reset code is ${otp}. Enter this code to continue.`,
     );
   }
 

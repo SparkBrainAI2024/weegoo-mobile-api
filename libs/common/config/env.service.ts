@@ -335,6 +335,18 @@ export class EnvService {
     );
   }
 
+  /**
+   * Brand name used in transactional SMS bodies (e.g. "eYatra").
+   * Overridable per deployment via SMS_BRAND_NAME (or APP_NAME).
+   */
+  getSmsBrandName(): string {
+    return (
+      this.getString('SMS_BRAND_NAME') ||
+      this.getString('APP_NAME') ||
+      'eYatra'
+    );
+  }
+
   getFirebaseProjectId(): string {
     return this.getString('FIREBASE_PROJECT_ID', '');
   }
