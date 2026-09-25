@@ -145,6 +145,7 @@ export class DriverService {
         address: 1,
         dateOfBirth: 1,
         amountDueToCompany: 1,
+        displayIdAsDriver: 1,
       },
     );
     const vehicle = userDoc?.vehicle;
@@ -180,6 +181,7 @@ export class DriverService {
       email: userDoc.email || "",
       suspended: userDoc.suspended || false,
       status: status,
+      displayIdAsDriver: details.displayIdAsDriver,
       address: details?.address || "",
       locationChannelId: details?.locationChannelId ?? null,
       documents: documents ?? [],

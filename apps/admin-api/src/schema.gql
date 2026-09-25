@@ -1395,6 +1395,7 @@ type DriverWDocuments {
   id: String!
   userId: String!
   fullName: String
+  displayIdAsDriver: String
   profileImage: String
   rating: Float
   email: String
