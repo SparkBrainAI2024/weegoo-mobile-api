@@ -100,7 +100,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     const match: Record<string, any> = { passengerId };
     if (filters.status) match.rideStatus = filters.status;
     if (filters.paymentMethod)
-      match["paymentDetails.method"] = filters.paymentMethod;
+      match["paymentDetails.paymentMethod"] = filters.paymentMethod;
     if (filters.search) {
       match.$or = [
         { rideUUId: { $regex: filters.search, $options: "i" } },
@@ -130,8 +130,8 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           },
           pickupLocation: "$pickupLocation.address",
           dropoffLocation: "$dropoffLocation.address",
-          fare: { $ifNull: ["$fare.totalFare", 0] },
-          paymentMethod: "$paymentDetails.method",
+          fare: { $ifNull: ["$fare.totalAmount", 0] },
+          paymentMethod: "$paymentDetails.paymentMethod",
           status: "$rideStatus",
         },
       },
