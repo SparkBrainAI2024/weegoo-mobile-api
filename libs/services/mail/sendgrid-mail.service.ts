@@ -100,7 +100,7 @@ export class SendGridMailService {
       const html = this.emailTemplateParserService.parseAndRender(
         emailTemplate.pageContent,
         {...variables,
-          app_name:'WeeGoo',
+          app_name:this.envService.getSmsBrandName(),
           support_email:this.envService.getSupportEmail(),
         },
       );

@@ -52,7 +52,7 @@ export class UserDetailsService {
       if (!user) {
         ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
       }
-      if (input.email && input.email !== user.email) {
+      if (input?.email && input?.email !== user?.email) {
         if (await this.userRepository.findByEmail(input.email)) {
           ErrorException(
             null,
@@ -141,7 +141,7 @@ export class UserDetailsService {
       // First time the user enters their full name (it was previously empty) →
       // send the one-time role-specific welcome email. Best-effort by design —
       // a template or SendGrid problem must never fail the profile update.
-      if (!details.fullName && input.fullName) {
+      if (!details.fullName && input.fullName && input.email) {
         await this.sendWelcomeEmail(updatedCoreUser, updatedUserDetails);
       }
       const userDetailsObj: UserDetails & { profileImage?: string } =
