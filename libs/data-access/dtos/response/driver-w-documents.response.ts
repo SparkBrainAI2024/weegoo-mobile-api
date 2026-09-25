@@ -14,6 +14,9 @@ export class DriverWDocuments {
   fullName?: string;
 
   @Field({ nullable: true })
+  displayIdAsDriver?: string;
+
+  @Field({ nullable: true })
   profileImage?: string;
 
   @Field({ nullable: true })
