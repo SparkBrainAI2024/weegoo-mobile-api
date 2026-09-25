@@ -55,5 +55,8 @@ export const DocumentFileSchema = {
   },
   verifiedBy: { type: String, default: null },
   verifiedAt: { type: Date, default: null },
+  // Declared explicitly, otherwise mongoose strict mode drops the value set in
+  // DriverDocumentService.rejectDocumentFile (admin's rejection note).
+  rejectionReason: { type: String, default: null },
   createdAt: { type: Date, default: () => new Date() },
 };

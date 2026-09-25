@@ -144,9 +144,11 @@ export class DriverDocumentService {
       });
 
       // If the document was previously rejected, reset to DRAFT so it
-      // re-enters the admin review queue.
+      // re-enters the admin review queue. The old rejection note no longer
+      // applies to the freshly uploaded file, so clear it.
       if (doc.status === DriverDocumentBundleStatus.REJECTED) {
         doc.status = DriverDocumentBundleStatus.PENDING;
+        doc.rejectionReason = null;
       }
 
       const document = await this.repository.save(doc);
@@ -313,6 +315,9 @@ export class DriverDocumentService {
     bundle.status = DriverDocumentBundleStatus.REJECTED;
     bundle.reviewedBy = this.toObjectId(adminId, "adminId");
     bundle.reviewedAt = new Date();
+    // Kept alongside the per-file note so the driver home dashboard can show
+    // the admin's reason (the per-file note covers only the rejected side).
+    bundle.rejectionReason = rejectionReason;
 
     await bundle.save();
 

@@ -10,6 +10,15 @@ export class DocumentStatus {
 
   @Field(() => DriverDocumentBundleStatus)
   status: DriverDocumentBundleStatus;
+
+  /**
+   * Admin's note explaining why this document was rejected.
+   *
+   * Only surfaced on the driver home dashboard (`dashboardHomeApi`) and only
+   * while the document bundle is REJECTED — it is null for every other status.
+   */
+  @Field(() => String, { nullable: true })
+  rejectedReason?: string;
 }
 
 @ObjectType()

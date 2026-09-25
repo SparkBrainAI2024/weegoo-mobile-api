@@ -144,8 +144,25 @@ export class RideQueryService {
     const documentStatuses = requiredTypes.map((type: any) => {
       const doc = docs.find((d) => d.type === type);
       if (!doc)
-        return { type, status: DriverDocumentBundleStatus.NOT_SUBMITTED };
-      return { type, status: doc.status };
+        return {
+          type,
+          status: DriverDocumentBundleStatus.NOT_SUBMITTED,
+          rejectedReason: null,
+        };
+      return {
+        type,
+        status: doc.status,
+        // Admin's rejection note — returned on the home dashboard only, and
+        // only while the bundle is REJECTED (the note is cleared once the
+        // document is approved or the driver re-uploads a corrected file).
+        rejectedReason:
+          doc.status === DriverDocumentBundleStatus.REJECTED
+            ? doc.rejectionReason ??
+              doc.files?.find((file) => file.isActive && file.rejectionReason)
+                ?.rejectionReason ??
+              null
+            : null,
+      };
     });
 
     const verificationRequired = documentStatuses.some(
