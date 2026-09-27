@@ -554,7 +554,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     pipeline.push({
       $facet: {
         data: [
-          { $sort: { createdAt: -1 } },
+          { $sort: { bookingTime: -1 } },
           { $skip: currentPage * pageSize },
           { $limit: pageSize },
         ],
