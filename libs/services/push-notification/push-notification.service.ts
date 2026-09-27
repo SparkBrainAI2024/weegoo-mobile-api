@@ -6,6 +6,7 @@ import {
   PushNotificationTarget,
   SendPushNotificationInput,
 } from "@libs/data-access/dtos/input/send-push-notification.input";
+import { NotificationType } from "@libs/data-access";
 
 @Injectable()
 export class PushNotificationService {
@@ -37,7 +38,7 @@ export class PushNotificationService {
         data: {
           title: input.title,
           body: input.message,
-          notificationType: "ADMIN_PUSH_NOTIFICATION",
+          notificationType: NotificationType.ADMIN_PUSH_NOTIFICATION,
         },
         android: {
           priority: "high",
