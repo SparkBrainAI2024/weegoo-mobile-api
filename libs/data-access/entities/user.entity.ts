@@ -32,7 +32,7 @@ export class User extends BaseEntity {
   password: string;
 
   @Prop({ required: false, unique: true, sparse: true, type: String })
-  @Field(() => String)
+  @Field(() => String,{nullable:true})
   email?: string;
 
   @Prop({ type: Date, default: null })
