@@ -135,29 +135,17 @@ export class PassengerService {
   ): Promise<RiderRatingsResponse> {
     const { riderId, page, limit } = input;
 
-    // average + star breakdown are denormalized counters on UserDetails —
-    // update them wherever a rating actually gets written, never compute here
-    const details = await this.userDetailsRepository.findOne(
-      { userId: toMongoId(riderId) },
-      null,
-      { rating: 1, ratingBreakdown: 1, totalReviews: 1 } as any,
-    );
-
-    const { data, pagination } = await this.ridesRepository.getRiderReviews(
-      toMongoId(riderId),
-      { page, limit },
-    );
+    const passengerId = toMongoId(riderId);
+    const [summary, { data, pagination }] = await Promise.all([
+      this.ridesRepository.getPassengerRatingSummary(passengerId),
+      this.ridesRepository.getRiderReviews(passengerId, { page, limit }),
+    ]);
+    console.log(summary, "summary", data, "data");
 
     return {
-      averageRating: details?.rating ?? 0,
-      totalReviews: (details as any)?.totalReviews ?? 0,
-      breakdown: (details as any)?.ratingBreakdown ?? {
-        fiveStar: 0,
-        fourStar: 0,
-        threeStar: 0,
-        twoStar: 0,
-        oneStar: 0,
-      },
+      averageRating: summary.averageRating,
+      totalReviews: summary.totalReviews,
+      breakdown: summary.breakdown,
       data,
       pagination: { ...pagination, hasNextPage: true, hasPreviousPage: false },
     };

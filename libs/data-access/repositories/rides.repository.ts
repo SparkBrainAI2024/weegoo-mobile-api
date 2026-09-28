@@ -385,6 +385,9 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
         },
       },
       { $unwind: { path: "$ride", preserveNullAndEmptyArrays: true } },
+      // ratedTo identifies the user; the linked ride identifies their role.
+      // Only include ratings from rides where this user was the passenger.
+      { $match: { "ride.passengerId": riderId } },
       {
         $lookup: {
           from: "remarks",
@@ -431,6 +434,62 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
     return {
       data: result?.paginatedResults ?? [],
       pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getPassengerRatingSummary(passengerId: Types.ObjectId) {
+    const [summary] = await this.ratingModel.aggregate([
+      { $match: { ratedTo: passengerId } },
+      {
+        $lookup: {
+          from: "rides",
+          localField: "rideId",
+          foreignField: "_id",
+          as: "ride",
+        },
+      },
+      { $unwind: "$ride" },
+      { $match: { "ride.passengerId": passengerId } },
+      {
+        $group: {
+          _id: null,
+          totalReviews: { $sum: 1 },
+          totalRating: { $sum: "$rating" },
+          fiveStar: { $sum: { $cond: [{ $eq: ["$rating", 5] }, 1, 0] } },
+          fourStar: { $sum: { $cond: [{ $eq: ["$rating", 4] }, 1, 0] } },
+          threeStar: { $sum: { $cond: [{ $eq: ["$rating", 3] }, 1, 0] } },
+          twoStar: { $sum: { $cond: [{ $eq: ["$rating", 2] }, 1, 0] } },
+          oneStar: { $sum: { $cond: [{ $eq: ["$rating", 1] }, 1, 0] } },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalReviews: 1,
+          averageRating: {
+            $round: [{ $divide: ["$totalRating", "$totalReviews"] }, 1],
+          },
+          breakdown: {
+            fiveStar: "$fiveStar",
+            fourStar: "$fourStar",
+            threeStar: "$threeStar",
+            twoStar: "$twoStar",
+            oneStar: "$oneStar",
+          },
+        },
+      },
+    ]);
+
+    return summary ?? {
+      averageRating: 0,
+      totalReviews: 0,
+      breakdown: {
+        fiveStar: 0,
+        fourStar: 0,
+        threeStar: 0,
+        twoStar: 0,
+        oneStar: 0,
+      },
     };
   }
 
