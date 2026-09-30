@@ -48,7 +48,11 @@ export const AVAILABILITY = {
   DAY_BOOKED:
     "Availability for this day cannot be updated because a ride has already been booked (confirmed or ongoing) for that day.",
   INVALID_SEAT_COUNT:
-    "Seat count must be between 0 and the vehicle's seat capacity.",
+    "Please enter a seat count between 1 and your vehicle's seat capacity.",
   RETURN_SEATS_NOT_ALLOWED:
     "A one-way trip cannot have a return-trip seat count.",
+  VEHICLE_CAPACITY_NOT_SET:
+    "Seat capacity is not set for your vehicle. Please update your vehicle capacity before setting availability.",
+  FARE_LOCATION_REQUIRED:
+    "Both pickup and drop-off locations with latitude and longitude are required to calculate the system fare.",
 };

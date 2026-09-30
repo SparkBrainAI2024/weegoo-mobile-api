@@ -46,4 +46,20 @@ export class EditVehicleInput {
   @IsNotEmpty()
   @IsString()
   name: string;
+
+  /**
+   * Seat capacity for scheduled (carpool) bookings. Optional, but it must be
+   * configured before availability seat counts can be set — availability is
+   * validated against this value.
+   */
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      "Seat capacity for scheduled (carpool) bookings — availability seat counts cannot exceed it.",
+  })
+  @IsOptional()
+  @IsInt({ message: "VEHICLE.SEAT_CAPACITY_INVALID" })
+  @Min(1, { message: "VEHICLE.SEAT_CAPACITY_INVALID" })
+  @Max(100, { message: "VEHICLE.SEAT_CAPACITY_INVALID" })
+  seatCapacity?: number | null;
 }

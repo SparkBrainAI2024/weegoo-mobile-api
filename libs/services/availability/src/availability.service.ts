@@ -11,7 +11,8 @@ import {
   AvailabilityDayInput,
   UpdateAvailabilityInput,
 } from "@libs/data-access/dtos/input/availability.input";
-import { AvailabilityDayDetail } from "@libs/data-access/dtos/response/availability.response";
+import { SystemFareInput } from "@libs/data-access/dtos/input/system-fare.input";
+import { AvailabilityDayDetail, SystemFareEstimate } from "@libs/data-access/dtos/response/availability.response";
 import { BasicResponse } from "@libs/data-access/dtos/response/basic.response";
 import {
   AvailabilityDay,
@@ -144,6 +145,21 @@ interface AvailabilityDayLike {
   pickupBufferTimeMinutes?: number | null;
 }
 
+/**
+ * Internal fare breakdown. The GraphQL response deliberately exposes only the
+ * final `amount`; the rates/distance/duration stay here for logging.
+ */
+interface SystemFareBreakdown {
+  amount: number;
+  basePickupCost: number;
+  perKmRate: number;
+  perMinuteRate: number;
+  rideTypeMultiplier: number;
+  distanceKm: number;
+  durationMinutes: number;
+  isEstimatedDistance: boolean;
+}
+
 /** Minimum gap between two time-slot start times: 3 hours. */
 const TIME_SLOT_MIN_GAP_MS = 3 * 60 * 60 * 1000;
 
@@ -200,22 +216,55 @@ export class AvailabilityService {
   }
 
   /**
-   * Validates the independent seat-count controls for an availability day:
+   * Validates the independent seat-count controls for an availability day
+   * against the seat capacity configured on the driver's VEHICLE:
    * - outbound seats (`availableSeats`) and return seats (`returnAvailableSeats`)
    *   must never be negative;
-   * - neither may exceed the vehicle-type capacity.
+   * - neither may exceed the vehicle's seat capacity.
    * One-way days must not carry a return-trip seat count.
    */
-  private assertSeatCapacities(day: { isOneWay?: boolean | null; availableSeats?: number | null; returnAvailableSeats?: number | null; vehicleType?: ScheduledVehicleType | VehicleType | null }): void {
-    const capacity = VEHICLE_SEAT_CAPACITY[(day.vehicleType || ScheduledVehicleType.CAR) as ScheduledVehicleType] || 1;
+  private assertSeatCapacities(
+    day: { isOneWay?: boolean | null; availableSeats?: number | null; returnAvailableSeats?: number | null; vehicleType?: ScheduledVehicleType | VehicleType | null },
+    vehicleCapacity: number,
+  ): void {
     const outbound = day.availableSeats ?? -1;
     const returnSeats = day.returnAvailableSeats ?? 0;
-    if (outbound < 0 || outbound > capacity || returnSeats < 0 || returnSeats > capacity) {
+    if (outbound < 0 || outbound > vehicleCapacity || returnSeats < 0 || returnSeats > vehicleCapacity) {
       ErrorException(null, "AVAILABILITY.INVALID_SEAT_COUNT", HttpStatus.BAD_REQUEST);
     }
     if ((day.isOneWay ?? false) && returnSeats > 0) {
       ErrorException(null, "AVAILABILITY.RETURN_SEATS_NOT_ALLOWED", HttpStatus.BAD_REQUEST);
     }
+  }
+
+  /**
+   * Seat capacity configured on the driver's vehicle, or null when it has never
+   * been set (or holds an unusable value).
+   */
+  private configuredSeatCapacity(vehicle?: { seatCapacity?: number | null } | null): number | null {
+    const capacity = Number(vehicle?.seatCapacity);
+    return Number.isFinite(capacity) && capacity >= 1 ? Math.floor(capacity) : null;
+  }
+
+  /**
+   * Seat capacity of the driver's vehicle — the single source of truth for how
+   * many seats an availability day may offer.
+   *
+   * When the driver never configured it, the request is rejected with
+   * AVAILABILITY.VEHICLE_CAPACITY_NOT_SET (instead of silently falling back to
+   * the vehicle-type default) so the driver can update the vehicle capacity.
+   */
+  private async getVehicleCapacity(driverId: string | Types.ObjectId): Promise<number> {
+    const vehicle = await this.getDriverVehicle(driverId);
+    const capacity = this.configuredSeatCapacity(vehicle);
+    if (capacity === null) {
+      ErrorException(
+        null,
+        "AVAILABILITY.VEHICLE_CAPACITY_NOT_SET",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return capacity;
   }
 
   async addWeeklyAvailability(
@@ -228,6 +277,9 @@ export class AvailabilityService {
     }
 
     const driverVehicleType = await this.getDriverVehicleType(driverId);
+    // Seats are capped by the VEHICLE's configured capacity — fail early with an
+    // actionable message when the driver never set it.
+    const vehicleCapacity = await this.getVehicleCapacity(driverId);
 
     // Validate each requested date: must be today up to 6 days from today,
     // and the weekday enum must match the supplied date's weekday.
@@ -244,7 +296,11 @@ export class AvailabilityService {
     }
 
     // Normalize stored days — each day carries its concrete date.
-    const days = await this.toStoredDays(input.days, driverVehicleType);
+    const days = await this.toStoredDays(
+      input.days,
+      driverVehicleType,
+      vehicleCapacity,
+    );
 
     let existing = await this.availabilityRepository.findByDriver(driverId);
     if (!existing) {
@@ -297,13 +353,19 @@ export class AvailabilityService {
     if (!found) {
       ErrorException(null, "AVAILABILITY.DAY_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
+    // Reads never fail on a missing capacity: fall back to the vehicle-type
+    // default so the driver can still see what is already stored.
+    const vehicle = await this.getDriverVehicle(driverId);
+    const defaultSeats =
+      this.configuredSeatCapacity(vehicle) ??
+      VEHICLE_SEAT_CAPACITY[found.vehicleType];
     return {
       date: dayDate,
       day: found.day,
       vehicleType: found.vehicleType,
       isAvailableForBookings: found.isAvailableForBookings ?? true,
       isOneWay: found.isOneWay ?? false,
-      availableSeats: found.availableSeats ?? VEHICLE_SEAT_CAPACITY[found.vehicleType],
+      availableSeats: found.availableSeats ?? defaultSeats,
       returnAvailableSeats: found.returnAvailableSeats ?? 0,
       useSystemFare: found.useSystemFare ?? true,
             amount: found.amount ?? 0,
@@ -395,8 +457,13 @@ export class AvailabilityService {
     // One-way → exactly 1 slot; round trip → exactly 2 slots,
     // no duplicates and at least 3 hours between start times.
     this.assertTimeSlotRules(updatedDay.isOneWay ?? false, updatedDay.timeSlots);
-    // Independent seat counts: 0 <= outbound/return <= vehicle capacity.
-    this.assertSeatCapacities(updatedDay);
+    // Independent seat counts: 0 <= outbound/return <= the vehicle's seat capacity.
+    // Missing capacity on the vehicle is reported before the count is checked,
+    // so the driver knows what to fix.
+    this.assertSeatCapacities(
+      updatedDay,
+      await this.getVehicleCapacity(driverId),
+    );
     if (
       updatedDay.useSystemFare === false &&
       (updatedDay.amount === undefined ||
@@ -525,7 +592,8 @@ export class AvailabilityService {
 
   private async toStoredDays(
     days: AvailabilityDayInput[],
-    driverVehicleType: AnyVehicleType ,
+    driverVehicleType: ScheduledVehicleType,
+    vehicleCapacity: number,
   ): Promise<AvailabilityDay[]> {
     const stored: AvailabilityDay[] = [];
     for (const day of days) {
@@ -533,8 +601,8 @@ export class AvailabilityService {
       // One-way → exactly 1 slot; round trip → exactly 2 slots,
       // no duplicates and at least 3 hours between start times.
       this.assertTimeSlotRules(day.isOneWay ?? false, day.timeSlots);
-      // Independent seat counts: 0 <= outbound/return <= vehicle capacity.
-      this.assertSeatCapacities(day);
+      // Independent seat counts: 0 <= outbound/return <= vehicle seat capacity.
+      this.assertSeatCapacities({...day,vehicleType:driverVehicleType as ScheduledVehicleType}, vehicleCapacity);
       if (
         day.useSystemFare === false &&
         (day.amount === undefined || day.amount === null || day.amount <= 0)
@@ -553,7 +621,7 @@ export class AvailabilityService {
         vehicleType: day.vehicleType,
         isAvailableForBookings: day.isAvailableForBookings ?? true,
         isOneWay: day.isOneWay ?? false,
-        availableSeats: day.availableSeats ?? VEHICLE_SEAT_CAPACITY[day.vehicleType],
+        availableSeats: day.availableSeats ?? vehicleCapacity,
         returnAvailableSeats: day.returnAvailableSeats ?? 0,
         useSystemFare: day.useSystemFare ?? true,
         amount: await this.resolveDayAmount(day, driverVehicleType),
@@ -602,7 +670,7 @@ export class AvailabilityService {
    */
   private async resolveDayAmount(
     day: AvailabilityDayLike,
-    driverVehicleType: AnyVehicleType ,
+    driverVehicleType: ScheduledVehicleType,
   ): Promise<number> {
     const useSystemFare = day.useSystemFare ?? true;
     if (!useSystemFare) {
@@ -621,10 +689,22 @@ export class AvailabilityService {
    * amount = (basePickupCost + perKm * distanceKm + perMinute * durationMinutes) * multiplier
    */
   private async calculateSystemFare(
-    vehicle: AnyVehicleType ,
+    vehicle: ScheduledVehicleType ,
     pickup?: SavedLocation | null,
     dropoff?: SavedLocation | null,
   ): Promise<number> {
+    return (await this.computeSystemFare(vehicle, pickup, dropoff)).amount;
+  }
+
+  /**
+   * Same calculation as {@link calculateSystemFare}, but returns the internal
+   * breakdown so callers can log exactly how the fare was derived.
+   */
+  private async computeSystemFare(
+    vehicle: ScheduledVehicleType,
+    pickup?: SavedLocation | null,
+    dropoff?: SavedLocation | null,
+  ): Promise<SystemFareBreakdown> {
     const config = MATCHMAKING_CONFIG.SCHEDULED_FARE;
     const basePickupCost = config.BASE_PICKUP_COST[vehicle] ?? config.BASE_PICKUP_COST.CAR;
     const perKmRate = config.PER_KM_RATE[vehicle] ?? config.PER_KM_RATE.CAR;
@@ -633,6 +713,7 @@ export class AvailabilityService {
 
     let distanceKm = 0;
     let durationMinutes = 0;
+    let isEstimatedDistance = false;
     if (
       pickup?.latitude != null &&
       pickup?.longitude != null &&
@@ -642,27 +723,101 @@ export class AvailabilityService {
       const route = await this.getBaatoRoute(pickup, dropoff, vehicle);
       distanceKm = route.distanceKm;
       durationMinutes = route.durationMinutes;
+      isEstimatedDistance = route.isEstimatedDistance;
     }
 
     const baseFare =
       basePickupCost + perKmRate * distanceKm + perMinuteRate * durationMinutes;
     const amount = Math.round(baseFare * multiplier);
     this.logger.debug(
-      `calculateSystemFare: vehicle=${vehicle} distanceKm=${distanceKm} durationMinutes=${durationMinutes} -> amount=${amount}`,
+      `computeSystemFare: vehicle=${vehicle} distanceKm=${distanceKm} durationMinutes=${durationMinutes} -> amount=${amount}`,
     );
-    return amount;
+    return {
+      amount,
+      basePickupCost,
+      perKmRate,
+      perMinuteRate,
+      rideTypeMultiplier: multiplier,
+      distanceKm,
+      durationMinutes,
+      isEstimatedDistance,
+    };
+  }
+
+  /**
+   * System fare for a pickup/drop-off pair, calculated for the AUTHENTICATED
+   * driver: the vehicle type is read from their registered vehicle (never from
+   * the request), so the amount is exactly the one stored on an availability
+   * day that keeps the system fare.
+   *
+   * Pickup and drop-off are required — a missing end (or a missing coordinate)
+   * is rejected with AVAILABILITY.FARE_LOCATION_REQUIRED instead of silently
+   * returning a fare for a zero-length trip.
+   *
+   * Only the resulting amount is returned; the breakdown is logged.
+   */
+  async calculateSystemFareForDriver(
+    driverId: string | Types.ObjectId,
+    input: SystemFareInput,
+  ): Promise<SystemFareEstimate> {
+    this.assertFareLocations(input?.pickupLocation, input?.dropOffLocation);
+
+    const vehicleType = await this.getDriverVehicleType(driverId);
+    const breakdown = await this.computeSystemFare(
+      vehicleType,
+      input.pickupLocation,
+      input.dropOffLocation,
+    );
+
+    this.logger.log(
+      `calculateSystemFareForDriver: driver=${driverId} vehicle=${vehicleType} ` +
+        `${input.pickupLocation.latitude},${input.pickupLocation.longitude} → ` +
+        `${input.dropOffLocation.latitude},${input.dropOffLocation.longitude} ` +
+        `-> distanceKm=${breakdown.distanceKm} durationMinutes=${breakdown.durationMinutes} ` +
+        `estimatedDistance=${breakdown.isEstimatedDistance} amount=${breakdown.amount}`,
+    );
+    return { amount: breakdown.amount };
+  }
+
+  /** Both ends of a fare estimation must carry usable coordinates. */
+  private assertFareLocations(
+    pickup?: { latitude?: number | null; longitude?: number | null } | null,
+    dropoff?: { latitude?: number | null; longitude?: number | null } | null,
+  ): void {
+    const hasCoordinates = (location?: {
+      latitude?: number | null;
+      longitude?: number | null;
+    } | null): boolean =>
+      location != null &&
+      typeof location.latitude === "number" &&
+      typeof location.longitude === "number" &&
+      Number.isFinite(location.latitude) &&
+      Number.isFinite(location.longitude);
+
+    if (!hasCoordinates(pickup) || !hasCoordinates(dropoff)) {
+      ErrorException(
+        null,
+        "AVAILABILITY.FARE_LOCATION_REQUIRED",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   /**
    * Fetches road distance & duration between pickup and drop-off via the Baato
    * directions API. Falls back to the haversine estimate when the API key is
-   * missing or the request fails.
+   * missing or the request fails — `isEstimatedDistance` tells the caller which
+   * of the two produced the numbers.
    */
   private async getBaatoRoute(
     pickup: SavedLocation,
     dropoff: SavedLocation,
-    vehicle: AnyVehicleType,
-  ): Promise<{ distanceKm: number; durationMinutes: number }> {
+    vehicle: ScheduledVehicleType,
+  ): Promise<{
+    distanceKm: number;
+    durationMinutes: number;
+    isEstimatedDistance: boolean;
+  }> {
     const apiKey = this.envService.getBaatoApiKey();
     const baseUrl = this.envService.getBaatoApiUrl();
 
@@ -679,7 +834,7 @@ export class AvailabilityService {
             `${pickup.latitude},${pickup.longitude}`,
             `${dropoff.latitude},${dropoff.longitude}`,
           ],
-          mode: vehicle === AnyVehicleType.CAR ? "car" : "car",
+          mode: vehicle === ScheduledVehicleType.CAR ? "car" : "car",
         },
       });
       const route = response.data?.data?.[0];
@@ -687,6 +842,7 @@ export class AvailabilityService {
         return {
           distanceKm: Number((route.distanceInMeters / 1000).toFixed(2)),
           durationMinutes: Math.round(route.timeInMs / 1000 / 60),
+          isEstimatedDistance: false,
         };
       }
       this.logger.warn(
@@ -706,7 +862,7 @@ export class AvailabilityService {
   private haversineEstimate(
     pickup: SavedLocation,
     dropoff: SavedLocation,
-  ): { distanceKm: number; durationMinutes: number } {
+  ): { distanceKm: number; durationMinutes: number; isEstimatedDistance: boolean } {
     const distanceKm = Number(
       this.haversineDistanceKm(
         pickup.latitude!,
@@ -716,19 +872,23 @@ export class AvailabilityService {
       ).toFixed(2),
     );
     const durationMinutes = Math.round((distanceKm / ESTIMATED_AVG_SPEED_KMPH) * 60);
-    return { distanceKm, durationMinutes };
+    return { distanceKm, durationMinutes, isEstimatedDistance: true };
+  }
+
+  /** Looks up the driver's registered vehicle document. */
+  private async getDriverVehicle(driverId: string | Types.ObjectId) {
+    return this.vehicleRepository.findOne({
+      driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
+    });
   }
 
   /** Looks up the driver's registered vehicle type (CAR / JEEP / MICRO). */
   private async getDriverVehicleType(
     driverId: string | Types.ObjectId,
-  ): Promise<AnyVehicleType > {
-    const vehicle = await this.vehicleRepository.findOne({
-      driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
-      deleted: false,
-    });
-     return (vehicle?.vehicleType as AnyVehicleType) ??
-    AnyVehicleType.CAR;
+  ): Promise<ScheduledVehicleType>  {
+    const vehicle = await this.getDriverVehicle(driverId);
+     return (vehicle?.vehicleType as unknown as ScheduledVehicleType) ??
+    ScheduledVehicleType.CAR;
   }
 
   /** Great-circle distance between two coordinates in kilometres (haversine). */

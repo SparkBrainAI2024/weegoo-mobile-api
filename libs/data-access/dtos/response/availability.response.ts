@@ -71,3 +71,19 @@ export class ScheduledVehicleSeatCapacity {
   @Field(() => Number)
   maxSeats: number;
 }
+
+/**
+ * System fare for one pickup/drop-off pair.
+ *
+ * Only the final amount is exposed: the rate/distance/duration breakdown it was
+ * derived from stays internal (see the availability service), and the vehicle
+ * type used is the authenticated driver's own — never a client-supplied value.
+ */
+@ObjectType()
+export class SystemFareEstimate {
+  @Field(() => Number, {
+    description:
+      "System fare amount, calculated for the driver's own vehicle type from the given pickup and drop-off.",
+  })
+  amount: number;
+}
