@@ -1,5 +1,6 @@
 import { Field, Float, InputType } from "@nestjs/graphql";
 import {
+  IsArray,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -8,12 +9,19 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
 import { LocationStatus } from "../../enums/location.enum";
+import { AddSubLocationInput } from "./sub-location.input";
 
 /**
- * Creates a location on its own — without any sub-location.
- * Sub-locations are added afterwards, one by one, through `addSubLocation`.
+ * Creates a location, optionally together with its sub-locations: every entry
+ * of `subLocations` is created in the same call. More sub-locations can still
+ * be added afterwards, one by one, through `addSubLocation`.
+ *
+ * Sub-locations of one location must be unique — neither the address nor the
+ * latitude/longitude pair may be used twice.
  */
 @InputType()
 export class CreateLocationInput {
@@ -45,4 +53,15 @@ export class CreateLocationInput {
   @IsOptional()
   @IsEnum(LocationStatus)
   status?: LocationStatus;
+
+  @Field(() => [AddSubLocationInput], {
+    nullable: "itemsAndList",
+    description:
+      "Nullable: the list and its entries may be omitted or null. Sub-locations to create together with the location; each one is validated (unique address and unique latitude/longitude).",
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddSubLocationInput)
+  subLocations?: AddSubLocationInput[];
 }

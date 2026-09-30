@@ -42,6 +42,29 @@ export class LocationRepository extends BaseRepository<LocationDocument> {
     }
   }
 
+  /**
+   * Finds a location by its exact coordinates (latitude + longitude), so two
+   * locations can never end up on the same spot.
+   */
+  async findByCoordinates(
+    latitude: number,
+    longitude: number,
+  ): Promise<LocationDocument | null> {
+    try {
+      return await this.findOne({
+        latitude,
+        longitude,
+        deleted: false,
+      });
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /** Paginated locations, optionally filtered by status. */
   async findAll(
     input: PaginationInput,

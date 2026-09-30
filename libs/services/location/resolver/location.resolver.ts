@@ -63,7 +63,7 @@ export class LocationResolver {
   @Mutation(() => Location, {
     name: "createLocation",
     description:
-      "Creates one location without any sub-location. Sub-locations are added one by one with addSubLocation.",
+      "Creates one location together with the sub-locations given in input.subLocations (optional). More sub-locations can be added later with addSubLocation. The name and the latitude/longitude pair must both be unused (LOCATION.DUPLICATE_COORDINATES).",
   })
   async createLocation(
     @Args("input") input: CreateLocationInput,
@@ -73,7 +73,8 @@ export class LocationResolver {
 
   @Mutation(() => Location, {
     name: "updateLocation",
-    description: "Updates the location's own name / coordinates.",
+    description:
+      "Updates the location's own name / coordinates and/or creates new sub-locations for it (input.subLocations). Changed coordinates must not belong to another location.",
   })
   async updateLocation(
     @Args("id", { type: () => ID }) id: string,
@@ -96,7 +97,7 @@ export class LocationResolver {
   @Mutation(() => Location, {
     name: "addSubLocation",
     description:
-      "Adds ONE sub-location (address + latitude + longitude) to an existing location.",
+      "Adds ONE sub-location (address + latitude + longitude) to an existing location. Fails with LOCATION.SUB_LOCATION_ALREADY_EXISTS when the address exists and with LOCATION.SUB_LOCATION_DUPLICATE_COORDINATES when the latitude/longitude pair is already used by another sub-location of the same location.",
   })
   async addSubLocation(
     @Args("locationId", { type: () => ID }) locationId: string,
@@ -108,7 +109,7 @@ export class LocationResolver {
   @Mutation(() => Location, {
     name: "addSubLocations",
     description:
-      "Adds multiple sub-locations to one location in a single call.",
+      "Adds multiple sub-locations to one location in a single call. Every entry is validated: no address and no latitude/longitude pair may be duplicated inside the location or inside the request itself.",
   })
   async addSubLocations(
     @Args("locationId", { type: () => ID }) locationId: string,
@@ -121,7 +122,7 @@ export class LocationResolver {
   @Mutation(() => Location, {
     name: "updateSubLocation",
     description:
-      "Updates one sub-location of a location (address / latitude / longitude).",
+      "Updates one sub-location of a location (address / latitude / longitude). The resulting address and latitude/longitude pair must stay unique inside the location.",
   })
   async updateSubLocation(
     @Args("locationId", { type: () => ID }) locationId: string,
