@@ -525,7 +525,7 @@ export class AvailabilityService {
 
   private async toStoredDays(
     days: AvailabilityDayInput[],
-    driverVehicleType: AnyVehicleType ,
+    driverVehicleType: ScheduledVehicleType,
   ): Promise<AvailabilityDay[]> {
     const stored: AvailabilityDay[] = [];
     for (const day of days) {
@@ -534,7 +534,7 @@ export class AvailabilityService {
       // no duplicates and at least 3 hours between start times.
       this.assertTimeSlotRules(day.isOneWay ?? false, day.timeSlots);
       // Independent seat counts: 0 <= outbound/return <= vehicle capacity.
-      this.assertSeatCapacities(day);
+      this.assertSeatCapacities({...day,vehicleType:driverVehicleType as ScheduledVehicleType});
       if (
         day.useSystemFare === false &&
         (day.amount === undefined || day.amount === null || day.amount <= 0)
@@ -602,7 +602,7 @@ export class AvailabilityService {
    */
   private async resolveDayAmount(
     day: AvailabilityDayLike,
-    driverVehicleType: AnyVehicleType ,
+    driverVehicleType: ScheduledVehicleType,
   ): Promise<number> {
     const useSystemFare = day.useSystemFare ?? true;
     if (!useSystemFare) {
@@ -621,7 +621,7 @@ export class AvailabilityService {
    * amount = (basePickupCost + perKm * distanceKm + perMinute * durationMinutes) * multiplier
    */
   private async calculateSystemFare(
-    vehicle: AnyVehicleType ,
+    vehicle: ScheduledVehicleType ,
     pickup?: SavedLocation | null,
     dropoff?: SavedLocation | null,
   ): Promise<number> {
@@ -661,7 +661,7 @@ export class AvailabilityService {
   private async getBaatoRoute(
     pickup: SavedLocation,
     dropoff: SavedLocation,
-    vehicle: AnyVehicleType,
+    vehicle: ScheduledVehicleType,
   ): Promise<{ distanceKm: number; durationMinutes: number }> {
     const apiKey = this.envService.getBaatoApiKey();
     const baseUrl = this.envService.getBaatoApiUrl();
@@ -679,7 +679,7 @@ export class AvailabilityService {
             `${pickup.latitude},${pickup.longitude}`,
             `${dropoff.latitude},${dropoff.longitude}`,
           ],
-          mode: vehicle === AnyVehicleType.CAR ? "car" : "car",
+          mode: vehicle === ScheduledVehicleType.CAR ? "car" : "car",
         },
       });
       const route = response.data?.data?.[0];
@@ -722,13 +722,12 @@ export class AvailabilityService {
   /** Looks up the driver's registered vehicle type (CAR / JEEP / MICRO). */
   private async getDriverVehicleType(
     driverId: string | Types.ObjectId,
-  ): Promise<AnyVehicleType > {
+  ): Promise<ScheduledVehicleType>  {
     const vehicle = await this.vehicleRepository.findOne({
       driverId: driverId instanceof Types.ObjectId ? driverId : toMongoId(driverId),
-      deleted: false,
     });
-     return (vehicle?.vehicleType as AnyVehicleType) ??
-    AnyVehicleType.CAR;
+     return (vehicle?.vehicleType as unknown as ScheduledVehicleType) ??
+    ScheduledVehicleType.CAR;
   }
 
   /** Great-circle distance between two coordinates in kilometres (haversine). */

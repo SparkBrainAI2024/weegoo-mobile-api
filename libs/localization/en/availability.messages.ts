@@ -48,7 +48,7 @@ export const AVAILABILITY = {
   DAY_BOOKED:
     "Availability for this day cannot be updated because a ride has already been booked (confirmed or ongoing) for that day.",
   INVALID_SEAT_COUNT:
-    "Seat count must be between 0 and the vehicle's seat capacity.",
+    "Please enter a seat count between 1 and the vehicle's maximum seat capacity.",
   RETURN_SEATS_NOT_ALLOWED:
     "A one-way trip cannot have a return-trip seat count.",
 };
