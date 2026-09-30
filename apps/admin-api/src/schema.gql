@@ -2520,6 +2520,11 @@ input EditVehicleInput {
   """Vehicle model Type type: EV or PETROL."""
   vehicleModelType: VehicleModelType
   name: String!
+
+  """
+  Seat capacity for scheduled (carpool) bookings — availability seat counts cannot exceed it.
+  """
+  seatCapacity: Int
 }
 
 input DeletePassengerInput {

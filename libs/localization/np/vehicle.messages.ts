@@ -12,4 +12,6 @@ export const VEHICLE = {
   COLOR_REQUIRED: "सवारी साधनको रंग आवश्यक छ।",
   COLOR_INVALID: "सवारी साधनको रंग अमान्य छ।",
   INVALID_MODEL_TYPE:"सवारी साधनको मोडेल प्रकार अमान्य छ।",
+  SEAT_CAPACITY_INVALID:
+    "सिट क्षमता १ देखि १०० सम्मको पूर्ण अङ्क हुनुपर्छ।",
 };

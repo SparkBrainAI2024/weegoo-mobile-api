@@ -14,5 +14,7 @@ export const VEHICLE = {
   NOT_FOUND: "Vehicle not found.",
   UPDATED: "Vehicle updated successfully.",
   DELETED: "Vehicle deleted successfully.",
-  INVALID_MODEL_TYPE:"Invalid model type."
+  INVALID_MODEL_TYPE:"Invalid model type.",
+  SEAT_CAPACITY_INVALID:
+    "Seat capacity must be a whole number between 1 and 100.",
 };
