@@ -191,6 +191,7 @@ export * from './dtos/response/send-push-notification.response';
 export * from './dtos/response/get-vehicle-type.response';
 export * from './dtos/response/availability.response';
 export * from './dtos/response/location-list-with-pagination.response';
+export * from './dtos/response/location-dropdown.response';
 
 //interfaces
 export * from './interfaces/location.interface'

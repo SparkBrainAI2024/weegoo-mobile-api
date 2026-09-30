@@ -421,6 +421,8 @@ enum NotificationType {
   WALLET_TOPUP
   WALLET_TOPUP_FAILED
   PROMOCODE_PROMOTION
+  DRIVER_DOCUMENT_REJECTED
+  ADMIN_PUSH_NOTIFICATION
 }
 
 type Occasion {
@@ -733,6 +735,36 @@ enum ScheduledVehicleType {
   JEEP
   MICRO
   CAR
+}
+
+type SubLocation {
+  _id: String
+  address: String!
+  latitude: Float!
+  longitude: Float!
+  status: LocationStatus!
+}
+
+"""Active/inactive status of a location"""
+enum LocationStatus {
+  """The location is active and selectable"""
+  ACTIVE
+
+  """The location is deactivated and hidden"""
+  INACTIVE
+}
+
+type Location {
+  _id: String!
+  createdAt: DateTime
+  updatedAt: DateTime
+  deletedAt: DateTime
+  deleted: Boolean
+  name: String!
+  latitude: Float!
+  longitude: Float!
+  status: LocationStatus!
+  subLocations: [SubLocation!]!
 }
 
 type NotificationSettings {
@@ -1172,6 +1204,7 @@ type RideWithoutRelations {
 type DocumentStatus {
   type: DriverDocumentType!
   status: DriverDocumentBundleStatus!
+  rejectedReason: String
 }
 
 type VerificationInfo {
@@ -1317,6 +1350,12 @@ enum DriverTripCommissionFilter {
 type SendPushNotificationResponse {
   success: Boolean!
   notifiedCount: Float!
+}
+
+type LocationListWithPaginationResponse {
+  message: String
+  data: [Location!]
+  pagination: Pagination!
 }
 
 type AdminUserResponse {
@@ -1987,6 +2026,24 @@ type Query {
   topupVsWithdrawals(input: PaymentsOverviewInput): TopupWithdrawalResponse!
   recentTransactions(input: RecentTransactionsInput): PaginatedTransactionsResponse!
   pendingWithdrawals: PendingWithdrawalsResponse!
+
+  """
+  Paginated list of locations, optionally filtered by status (ACTIVE | INACTIVE).
+  """
+  locations(
+    paginationInput: PaginationInput!
+
+    """Optional status filter"""
+    status: LocationStatus
+  ): LocationListWithPaginationResponse!
+
+  """Returns one location with its sub-locations."""
+  location(id: ID!): Location!
+
+  """
+  Returns the sub-locations of one location, optionally filtered by status.
+  """
+  locationSubLocations(locationId: ID!, status: LocationStatus): [SubLocation!]!
 }
 
 input PaginationInputOnly {
@@ -2132,6 +2189,15 @@ input RecentTransactionsInput {
   searchText: String
 }
 
+input PaginationInput {
+  page: Int! = 0
+  limit: Int! = 5
+  orderBy: String
+  order: SortBy! = desc
+  searchText: String
+  filter: JSON
+}
+
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
@@ -2176,6 +2242,39 @@ type Mutation {
   upsertAdminRidePricings(input: BulkUpsertAdminRidePricingInput!): [AdminRidePricing!]!
   upsertMaintenanceInfo(input: UpsertMaintenanceInfoInput!): MaintenanceInfo!
   sendPushNotification(input: SendPushNotificationInput!): SendPushNotificationResponse!
+
+  """
+  Creates one location without any sub-location. Sub-locations are added one by one with addSubLocation.
+  """
+  createLocation(input: CreateLocationInput!): Location!
+
+  """Updates the location's own name / coordinates."""
+  updateLocation(id: ID!, input: UpdateLocationMasterInput!): Location!
+
+  """Activates or deactivates a whole location."""
+  updateLocationStatus(id: ID!, status: LocationStatus!): Location!
+
+  """
+  Adds ONE sub-location (address + latitude + longitude) to an existing location.
+  """
+  addSubLocation(locationId: ID!, input: AddSubLocationInput!): Location!
+
+  """Adds multiple sub-locations to one location in a single call."""
+  addSubLocations(locationId: ID!, inputs: [AddSubLocationInput!]!): Location!
+
+  """
+  Updates one sub-location of a location (address / latitude / longitude).
+  """
+  updateSubLocation(locationId: ID!, subLocationId: ID!, input: UpdateSubLocationInput!): Location!
+
+  """Activates or deactivates ONE sub-location of a location."""
+  updateSubLocationStatus(locationId: ID!, subLocationId: ID!, status: LocationStatus!): Location!
+
+  """Deletes ONE sub-location from the location's sub-location array."""
+  removeSubLocation(locationId: ID!, subLocationId: ID!): Location!
+
+  """Soft deletes a whole location."""
+  removeLocation(id: ID!): Boolean!
 }
 
 input AdminSignUpInput {
@@ -2329,6 +2428,10 @@ input CreateNotificationInput {
   vehicleNumberPlate: String
   passengerSnapshot: RideUserInputSnapshot
   driverSnapshot: RideUserInputSnapshot
+  driverDocumentId: String
+  documentType: String
+  documentSide: String
+  rejectionReason: String
   noOfPassengers: Float
   rideUUId: String
   silent: Boolean
@@ -2477,4 +2580,44 @@ enum PushNotificationTarget {
   USER
   DRIVER
   ALL
+}
+
+input CreateLocationInput {
+  """Display name of the location (must be unique)"""
+  name: String!
+
+  """Latitude of the location"""
+  latitude: Float!
+
+  """Longitude of the location"""
+  longitude: Float!
+
+  """Status of the location; defaults to ACTIVE"""
+  status: LocationStatus = ACTIVE
+}
+
+input UpdateLocationMasterInput {
+  name: String
+  latitude: Float
+  longitude: Float
+}
+
+input AddSubLocationInput {
+  """Address of the sub-location"""
+  address: String!
+
+  """Latitude of the sub-location"""
+  latitude: Float!
+
+  """Longitude of the sub-location"""
+  longitude: Float!
+
+  """Status of the sub-location; defaults to ACTIVE"""
+  status: LocationStatus = ACTIVE
+}
+
+input UpdateSubLocationInput {
+  address: String
+  latitude: Float
+  longitude: Float
 }

@@ -10,6 +10,10 @@ import {
 } from "@libs/data-access/dtos/input/sub-location.input";
 import { UpdateLocationMasterInput } from "@libs/data-access/dtos/input/update-location.input";
 import {
+  LocationDropdownResponse,
+  SubLocationDropdownResponse,
+} from "@libs/data-access/dtos/response/location-dropdown.response";
+import {
   Location,
   LocationDocument,
 } from "@libs/data-access/entities/location.entity";
@@ -69,6 +73,48 @@ export class LocationService {
     return status
       ? subLocations.filter((subLocation) => subLocation.status === status)
       : subLocations;
+  }
+
+  /**
+   * ACTIVE locations only, sorted by name — the list the driver app uses to
+   * build its location dropdown. Sub-locations are NOT included here; they are
+   * fetched with `findActiveSubLocations` once a location is selected.
+   */
+  async findActiveLocations(): Promise<LocationDropdownResponse[]> {
+    const locations = await this.locationRepository.findActiveLocations();
+    return locations.map((location) => ({
+      _id: location._id.toString(),
+      name: location.name,
+      latitude: location.latitude,
+      longitude: location.longitude,
+    }));
+  }
+
+  /**
+   * All ACTIVE sub-locations of the location selected from the dropdown.
+   *
+   * The parent location must exist (otherwise `LOCATION.NOT_FOUND`) and still be
+   * ACTIVE (otherwise `LOCATION.INACTIVE`) — an INACTIVE location must not be
+   * offered for selection. INACTIVE sub-locations are filtered out.
+   */
+  async findActiveSubLocations(
+    locationId: string,
+  ): Promise<SubLocationDropdownResponse[]> {
+    const location = await this.getLocationOrThrow(locationId);
+    if (location.status !== LocationStatus.ACTIVE) {
+      throw ErrorException(null, "LOCATION.INACTIVE", HttpStatus.BAD_REQUEST);
+    }
+
+    const subLocations = await this.findSubLocations(
+      locationId,
+      LocationStatus.ACTIVE,
+    );
+    return subLocations.map((subLocation) => ({
+      _id: subLocation._id?.toString(),
+      address: subLocation.address,
+      latitude: subLocation.latitude,
+      longitude: subLocation.longitude,
+    }));
   }
 
   async update(

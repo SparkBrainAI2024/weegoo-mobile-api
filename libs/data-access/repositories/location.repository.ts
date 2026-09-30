@@ -65,6 +65,28 @@ export class LocationRepository extends BaseRepository<LocationDocument> {
     }
   }
 
+  /**
+   * ACTIVE (and not soft-deleted) locations only, sorted alphabetically by
+   * name. This is the source of the driver app's location dropdown, so no
+   * pagination is applied.
+   */
+  async findActiveLocations(): Promise<LocationDocument[]> {
+    try {
+      return await this.find(
+        { status: LocationStatus.ACTIVE, deleted: false },
+        undefined,
+        undefined,
+        { sort: { name: 1 } },
+      );
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   /** Updates the location's own fields (name / coordinates). */
   async updateLocation(
     id: string,
