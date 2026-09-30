@@ -11,7 +11,8 @@ import {
   AvailabilityDayInput,
   UpdateAvailabilityInput,
 } from "@libs/data-access/dtos/input/availability.input";
-import { AvailabilityDayDetail } from "@libs/data-access/dtos/response/availability.response";
+import { SystemFareInput } from "@libs/data-access/dtos/input/system-fare.input";
+import { AvailabilityDayDetail, SystemFareEstimate } from "@libs/data-access/dtos/response/availability.response";
 import { BasicResponse } from "@libs/data-access/dtos/response/basic.response";
 import {
   AvailabilityDay,
@@ -142,6 +143,21 @@ interface AvailabilityDayLike {
   timeSlots?: { startTime: string }[];
   majorStops?: string[] | null;
   pickupBufferTimeMinutes?: number | null;
+}
+
+/**
+ * Internal fare breakdown. The GraphQL response deliberately exposes only the
+ * final `amount`; the rates/distance/duration stay here for logging.
+ */
+interface SystemFareBreakdown {
+  amount: number;
+  basePickupCost: number;
+  perKmRate: number;
+  perMinuteRate: number;
+  rideTypeMultiplier: number;
+  distanceKm: number;
+  durationMinutes: number;
+  isEstimatedDistance: boolean;
 }
 
 /** Minimum gap between two time-slot start times: 3 hours. */
@@ -677,6 +693,18 @@ export class AvailabilityService {
     pickup?: SavedLocation | null,
     dropoff?: SavedLocation | null,
   ): Promise<number> {
+    return (await this.computeSystemFare(vehicle, pickup, dropoff)).amount;
+  }
+
+  /**
+   * Same calculation as {@link calculateSystemFare}, but returns the internal
+   * breakdown so callers can log exactly how the fare was derived.
+   */
+  private async computeSystemFare(
+    vehicle: ScheduledVehicleType,
+    pickup?: SavedLocation | null,
+    dropoff?: SavedLocation | null,
+  ): Promise<SystemFareBreakdown> {
     const config = MATCHMAKING_CONFIG.SCHEDULED_FARE;
     const basePickupCost = config.BASE_PICKUP_COST[vehicle] ?? config.BASE_PICKUP_COST.CAR;
     const perKmRate = config.PER_KM_RATE[vehicle] ?? config.PER_KM_RATE.CAR;
@@ -685,6 +713,7 @@ export class AvailabilityService {
 
     let distanceKm = 0;
     let durationMinutes = 0;
+    let isEstimatedDistance = false;
     if (
       pickup?.latitude != null &&
       pickup?.longitude != null &&
@@ -694,27 +723,101 @@ export class AvailabilityService {
       const route = await this.getBaatoRoute(pickup, dropoff, vehicle);
       distanceKm = route.distanceKm;
       durationMinutes = route.durationMinutes;
+      isEstimatedDistance = route.isEstimatedDistance;
     }
 
     const baseFare =
       basePickupCost + perKmRate * distanceKm + perMinuteRate * durationMinutes;
     const amount = Math.round(baseFare * multiplier);
     this.logger.debug(
-      `calculateSystemFare: vehicle=${vehicle} distanceKm=${distanceKm} durationMinutes=${durationMinutes} -> amount=${amount}`,
+      `computeSystemFare: vehicle=${vehicle} distanceKm=${distanceKm} durationMinutes=${durationMinutes} -> amount=${amount}`,
     );
-    return amount;
+    return {
+      amount,
+      basePickupCost,
+      perKmRate,
+      perMinuteRate,
+      rideTypeMultiplier: multiplier,
+      distanceKm,
+      durationMinutes,
+      isEstimatedDistance,
+    };
+  }
+
+  /**
+   * System fare for a pickup/drop-off pair, calculated for the AUTHENTICATED
+   * driver: the vehicle type is read from their registered vehicle (never from
+   * the request), so the amount is exactly the one stored on an availability
+   * day that keeps the system fare.
+   *
+   * Pickup and drop-off are required — a missing end (or a missing coordinate)
+   * is rejected with AVAILABILITY.FARE_LOCATION_REQUIRED instead of silently
+   * returning a fare for a zero-length trip.
+   *
+   * Only the resulting amount is returned; the breakdown is logged.
+   */
+  async calculateSystemFareForDriver(
+    driverId: string | Types.ObjectId,
+    input: SystemFareInput,
+  ): Promise<SystemFareEstimate> {
+    this.assertFareLocations(input?.pickupLocation, input?.dropOffLocation);
+
+    const vehicleType = await this.getDriverVehicleType(driverId);
+    const breakdown = await this.computeSystemFare(
+      vehicleType,
+      input.pickupLocation,
+      input.dropOffLocation,
+    );
+
+    this.logger.log(
+      `calculateSystemFareForDriver: driver=${driverId} vehicle=${vehicleType} ` +
+        `${input.pickupLocation.latitude},${input.pickupLocation.longitude} → ` +
+        `${input.dropOffLocation.latitude},${input.dropOffLocation.longitude} ` +
+        `-> distanceKm=${breakdown.distanceKm} durationMinutes=${breakdown.durationMinutes} ` +
+        `estimatedDistance=${breakdown.isEstimatedDistance} amount=${breakdown.amount}`,
+    );
+    return { amount: breakdown.amount };
+  }
+
+  /** Both ends of a fare estimation must carry usable coordinates. */
+  private assertFareLocations(
+    pickup?: { latitude?: number | null; longitude?: number | null } | null,
+    dropoff?: { latitude?: number | null; longitude?: number | null } | null,
+  ): void {
+    const hasCoordinates = (location?: {
+      latitude?: number | null;
+      longitude?: number | null;
+    } | null): boolean =>
+      location != null &&
+      typeof location.latitude === "number" &&
+      typeof location.longitude === "number" &&
+      Number.isFinite(location.latitude) &&
+      Number.isFinite(location.longitude);
+
+    if (!hasCoordinates(pickup) || !hasCoordinates(dropoff)) {
+      ErrorException(
+        null,
+        "AVAILABILITY.FARE_LOCATION_REQUIRED",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   /**
    * Fetches road distance & duration between pickup and drop-off via the Baato
    * directions API. Falls back to the haversine estimate when the API key is
-   * missing or the request fails.
+   * missing or the request fails — `isEstimatedDistance` tells the caller which
+   * of the two produced the numbers.
    */
   private async getBaatoRoute(
     pickup: SavedLocation,
     dropoff: SavedLocation,
     vehicle: ScheduledVehicleType,
-  ): Promise<{ distanceKm: number; durationMinutes: number }> {
+  ): Promise<{
+    distanceKm: number;
+    durationMinutes: number;
+    isEstimatedDistance: boolean;
+  }> {
     const apiKey = this.envService.getBaatoApiKey();
     const baseUrl = this.envService.getBaatoApiUrl();
 
@@ -739,6 +842,7 @@ export class AvailabilityService {
         return {
           distanceKm: Number((route.distanceInMeters / 1000).toFixed(2)),
           durationMinutes: Math.round(route.timeInMs / 1000 / 60),
+          isEstimatedDistance: false,
         };
       }
       this.logger.warn(
@@ -758,7 +862,7 @@ export class AvailabilityService {
   private haversineEstimate(
     pickup: SavedLocation,
     dropoff: SavedLocation,
-  ): { distanceKm: number; durationMinutes: number } {
+  ): { distanceKm: number; durationMinutes: number; isEstimatedDistance: boolean } {
     const distanceKm = Number(
       this.haversineDistanceKm(
         pickup.latitude!,
@@ -768,7 +872,7 @@ export class AvailabilityService {
       ).toFixed(2),
     );
     const durationMinutes = Math.round((distanceKm / ESTIMATED_AVG_SPEED_KMPH) * 60);
-    return { distanceKm, durationMinutes };
+    return { distanceKm, durationMinutes, isEstimatedDistance: true };
   }
 
   /** Looks up the driver's registered vehicle document. */

@@ -150,6 +150,7 @@ export * from './dtos/input/saved-location.input';
 export * from './dtos/input/create-location.input';
 export * from './dtos/input/update-location.input';
 export * from './dtos/input/sub-location.input';
+export * from './dtos/input/system-fare.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';

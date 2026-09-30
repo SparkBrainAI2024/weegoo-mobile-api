@@ -6,9 +6,11 @@ import {
   AddAvailabilityInput,
   UpdateAvailabilityInput,
 } from "@libs/data-access/dtos/input/availability.input";
+import { SystemFareInput } from "@libs/data-access/dtos/input/system-fare.input";
 import {
   AvailabilityDayDetail,
   ScheduledVehicleSeatCapacity,
+  SystemFareEstimate,
 } from "@libs/data-access/dtos/response/availability.response";
 import { ScheduledVehicleType } from "@libs/data-access/enums/vehicle.enum";
 import { VEHICLE_SEAT_CAPACITY } from "@libs/data-access/entities/availability.entity";
@@ -58,6 +60,22 @@ export class AvailabilityResolver {
     @Args("date", { type: () => Date }) date: Date,
   ) {
     return this.availabilityService.getAvailabilityByDate(user._id, date);
+  }
+
+  @Roles(roles.RIDER)
+  @Query(() => SystemFareEstimate, {
+    name: "systemFare",
+    description:
+      "Calculates the exact system fare between a pickup and a drop-off location for the authenticated driver. Both locations (with latitude/longitude) are required, and the vehicle type is taken from the driver's own vehicle — it is never read from the request.",
+  })
+  systemFare(
+    @CurrentUser() user: User,
+    @Args("input") input: SystemFareInput,
+  ): Promise<SystemFareEstimate> {
+    return this.availabilityService.calculateSystemFareForDriver(
+      user._id,
+      input,
+    );
   }
 
   @Roles(roles.RIDER)

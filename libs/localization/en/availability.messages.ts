@@ -53,4 +53,6 @@ export const AVAILABILITY = {
     "A one-way trip cannot have a return-trip seat count.",
   VEHICLE_CAPACITY_NOT_SET:
     "Seat capacity is not set for your vehicle. Please update your vehicle capacity before setting availability.",
+  FARE_LOCATION_REQUIRED:
+    "Both pickup and drop-off locations with latitude and longitude are required to calculate the system fare.",
 };
