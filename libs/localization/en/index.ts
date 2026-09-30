@@ -13,6 +13,7 @@ import { PROMO_CODE } from "./promocode.messages";
 import { EMAIL_TEMPLATE } from "./email-template.messages";
 import { ADMIN_COMPANY_INFO } from "./admin-company-info.messages";
 import { ADMIN_RIDE_PRICING } from "./admin-ride-pricing.messages";
+import { LOCATION } from "./location.messages";
 import { MAINTENANCE_INFO } from "./maintenance-info.messages";
 import { AVAILABILITY } from "./availability.messages";
 
@@ -34,4 +35,5 @@ export const en_messages = {
   ADMIN_RIDE_PRICING,
   MAINTENANCE_INFO,
   AVAILABILITY,
+  LOCATION,
 };

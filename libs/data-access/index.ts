@@ -32,6 +32,8 @@ export * from './entities/admin-company-info.entity';
 export * from './entities/admin-ride-pricing.entity';
 export * from './entities/maintenance-info.entity';
 export * from './entities/availability.entity';
+export * from './entities/location.entity';
+export * from './entities/location-sublocation.embedded';
 //repositories
 export * from './repositories/user.repository';
 export * from './repositories/user-verfication.repository';
@@ -54,6 +56,7 @@ export * from './repositories/admin-company-info.repository';
 export * from './repositories/admin-ride-pricing.repository';
 export * from './repositories/maintenance-info.repository';
 export * from './repositories/availability.repository';
+export * from './repositories/location.repository';
 //enums
 export * from './enums/user.enum';
 export * from './enums/token.enum';
@@ -66,6 +69,7 @@ export * from './enums/issue.enum';
 export * from './enums/promo-code.enum';
 export * from './enums/transaction.enum';
 export * from './enums/contact-us.enum';
+export * from './enums/location.enum';
 
 //interfaces
 export * from './interfaces/pagination.interface';
@@ -143,6 +147,9 @@ export * from './dtos/input/send-push-notification.input';
 export * from './dtos/input/get-vehicle-type.input';
 export * from './dtos/input/availability.input';
 export * from './dtos/input/saved-location.input';
+export * from './dtos/input/create-location.input';
+export * from './dtos/input/update-location.input';
+export * from './dtos/input/sub-location.input';
 
 // dtos - response
 export * from './dtos/response/basic.response';
@@ -183,6 +190,8 @@ export * from './dtos/response/saved-locations.response';
 export * from './dtos/response/send-push-notification.response';
 export * from './dtos/response/get-vehicle-type.response';
 export * from './dtos/response/availability.response';
+export * from './dtos/response/location-list-with-pagination.response';
+export * from './dtos/response/location-dropdown.response';
 
 //interfaces
 export * from './interfaces/location.interface'

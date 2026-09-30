@@ -25,6 +25,7 @@ import { MaintenanceInfoModule } from "./modules/maintenance-info/maintenance-in
 import { AdminPushNotificationModule } from "./modules/push-notification/push-notification.module";
 import { SendGridMailModule } from "@libs/services/mail";
 import { PaymentsModule } from "./modules/payments/payments.module";
+import { LocationModule } from "@libs/services/location/location.module";
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { PaymentsModule } from "./modules/payments/payments.module";
     AdminPushNotificationModule,
     SendGridMailModule,
     PaymentsModule,
+    LocationModule,
   ],
   providers: [HealthResolver],
 })
