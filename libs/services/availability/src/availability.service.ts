@@ -513,6 +513,7 @@ export class AvailabilityService {
     if (days.length === (doc.days || []).length) {
       ErrorException(null, "AVAILABILITY.DAY_NOT_FOUND", HttpStatus.NOT_FOUND);
     }
+     await this.assertDayNotBooked(driverId, dayDate);
     await this.availabilityRepository.updateById(doc._id, { days });
     return { success: true, message: "AVAILABILITY.AVAILABILITY_REMOVED" };
   }
