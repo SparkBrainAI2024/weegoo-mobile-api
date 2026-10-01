@@ -28,7 +28,7 @@ import { DriverModule } from "./modules/driver/driver.module";
 import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 import { SendGridMailModule } from "@libs/services/mail";
 import { AvailabilityModule } from "@libs/services/availability";
-import { DriverLocationModule } from "./modules/location/driver-location.module";
+import { AppLocationModule } from "@libs/services/location/app-location.module";
 
 @Module({
   imports: [
@@ -77,7 +77,7 @@ import { DriverLocationModule } from "./modules/location/driver-location.module"
     ContactUsModule,
     SendGridMailModule,
     AvailabilityModule,
-    DriverLocationModule,
+    AppLocationModule,
   ],
   providers: [HealthResolver],
 })

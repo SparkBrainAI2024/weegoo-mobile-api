@@ -90,9 +90,9 @@ export class LocationService {
   }
 
   /**
-   * ACTIVE locations only, sorted by name — the list the driver app uses to
-   * build its location dropdown. Sub-locations are NOT included here; they are
-   * fetched with `findActiveSubLocations` once a location is selected.
+   * ACTIVE locations only, sorted by name — the list the rider and driver apps
+   * use to build their location dropdown. Sub-locations are NOT included here;
+   * they are fetched with `findActiveSubLocations` once a location is selected.
    */
   async findActiveLocations(): Promise<LocationDropdownResponse[]> {
     const locations = await this.locationRepository.findActiveLocations();
