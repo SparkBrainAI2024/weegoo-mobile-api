@@ -1,9 +1,9 @@
 import { Field, Float, ObjectType } from "@nestjs/graphql";
 
 /**
- * Lean location payload for the driver app's location dropdown.
+ * Lean location payload for the rider and driver apps' location dropdown.
  * It intentionally does NOT carry the embedded sub-locations — those are
- * fetched separately (per selected location) with `driverLocationSubLocations`.
+ * fetched separately (per selected location) with `locationSubLocations`.
  */
 @ObjectType()
 export class LocationDropdownResponse {
@@ -21,8 +21,8 @@ export class LocationDropdownResponse {
 }
 
 /**
- * Lean sub-location payload for the driver app's sub-location dropdown.
- * Only ACTIVE sub-locations of the selected location are returned.
+ * Lean sub-location payload for the rider and driver apps' sub-location
+ * dropdown. Only ACTIVE sub-locations of the selected location are returned.
  */
 @ObjectType()
 export class SubLocationDropdownResponse {

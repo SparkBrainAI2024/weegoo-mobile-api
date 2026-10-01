@@ -24,7 +24,7 @@ import { TransactionModule } from "./modules/transaction/transaction.module";
 import { UploadCenterModule } from "@libs/services/upload-center/src";
 import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 import { SendGridMailModule } from "@libs/services/mail";
-import { PassengerLocationModule } from "./modules/location/passenger-location.module";
+import { AppLocationModule } from "@libs/services/location/app-location.module";
 
 @Module({
   imports: [
@@ -69,7 +69,7 @@ import { PassengerLocationModule } from "./modules/location/passenger-location.m
     TransactionModule,
     ContactUsModule,
     SendGridMailModule,
-    PassengerLocationModule,
+    AppLocationModule,
   ],
   providers: [HealthResolver],
 })
