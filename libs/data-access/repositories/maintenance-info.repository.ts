@@ -20,6 +20,17 @@ export class MaintenanceInfoRepository extends BaseRepository<MaintenanceInfoDoc
     return this._model.findOne().sort({ createdAt: -1 }).exec();
   }
 
+  /**
+   * Returns the maintenance document that is currently switched on, if any.
+   * Sorted by newest first so the latest saved message always wins.
+   */
+  async findActive(): Promise<MaintenanceInfoDocument | null> {
+    return this._model
+      .findOne({ isActive: true })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
   async upsert(data: Partial<MaintenanceInfo>): Promise<MaintenanceInfoDocument> {
     const existing = await this._model.findOne().exec();
     if (existing) {

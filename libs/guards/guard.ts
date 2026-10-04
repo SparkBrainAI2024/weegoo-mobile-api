@@ -13,6 +13,7 @@ import { verifyToken } from "@libs/common";
 import { GqlExecutionContext } from "@nestjs/graphql";
 import { EnvService } from "@libs/common/config/env.service";
 import { language } from "@libs/data-access";
+import { MaintenanceInfoService } from "@libs/services/maintenance-info/maintenance-info.service";
 
 function extractBearerToken(request: any): string | null {
   const authorization = request?.headers?.[AUTHORIZATION_HEADER];
@@ -35,6 +36,7 @@ export class AuthGuard implements CanActivate {
     private readonly userModel: Model<UserDocument>,
     private readonly userTokenMetaRepository: UserTokenMetaRepository,
     private readonly envService: EnvService,
+    private readonly maintenanceInfoService: MaintenanceInfoService,
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -48,6 +50,10 @@ export class AuthGuard implements CanActivate {
           ? language.NP
           : language.EN;
     }
+
+    // Maintenance mode: reject every authenticated user with 503 + message
+    // before doing any other work.
+    await this.maintenanceInfoService.assertNotInMaintenance(request?.lang);
     if (token) {
       const isVerifiedToken: any = await verifyToken(token, this.envService.getJwtSecretKey());
       if (!isVerifiedToken) {

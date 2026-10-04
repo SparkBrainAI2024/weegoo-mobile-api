@@ -8,6 +8,7 @@ import { ISSUE } from "./issue.messages";
 import { RIDES } from "./ride.messages";
 import { AVAILABILITY } from "./availability.messages";
 import { LOCATION } from "./location.messages";
+import { MAINTENANCE_INFO } from "./maintenance-info.messages";
 
 export const np_messages = {
   COMMON,
@@ -20,4 +21,5 @@ export const np_messages = {
   RIDES,
   AVAILABILITY,
   LOCATION,
+  MAINTENANCE_INFO,
 };

@@ -9,6 +9,8 @@ import { SparrowSmsModule } from '@libs/services/sms';
 import { EnvService } from '@libs/common/config/env.service';
 import { SocialAuthModule } from '@libs/services/social-auth';
 import { AuthGuard } from '@libs/guards/guard';
+import { MaintenanceGuard } from '@libs/guards/maintenance.guard';
+import { MaintenanceInfoPersistenceModule } from '@libs/services/maintenance-info/maintenance-info.persistence.module';
 import { UserService } from '@libs/services/user/user.service';
 import { SocialAuthConfig } from '@libs/common/config/env.config.interface';
 
@@ -65,6 +67,8 @@ export class UserAuthModule {
         SendGridMailModule,
         SparrowSmsModule,
         EmailTemplatePersistenceModule,
+        // Provides MaintenanceInfoService globally (503 maintenance responses)
+        MaintenanceInfoPersistenceModule,
 
         // ✅ SocialAuthModule with provided config
         socialAuthConfig
@@ -97,6 +101,7 @@ export class UserAuthModule {
       providers: [
         AuthService,
         AuthGuard,
+        MaintenanceGuard,
         {
           provide: 'AUTH_DEFAULT_ROLE',
           useValue: defaultRole || roles.USER,
@@ -118,6 +123,7 @@ export class UserAuthModule {
       exports: [
         AuthService,
         AuthGuard,
+        MaintenanceGuard,
         'AUTH_DEFAULT_ROLE',
         UserService,
         MailService,
