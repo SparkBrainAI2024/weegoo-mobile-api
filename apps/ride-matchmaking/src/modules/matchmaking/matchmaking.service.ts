@@ -3310,13 +3310,13 @@ export class MatchmakingService {
             "This mutation is only for SCHEDULED rides. Use startRide for instant rides.",
         };
       }
-      const allowedStatuses = [RideStatus.ONGOING];
-      if (!allowedStatuses.includes(ride.rideStatus)) {
-        return {
-          success: false,
-          message: `Scheduled ride must be ONGOING to start. Current: ${ride.rideStatus}`,
-        };
-      }
+      // const allowedStatuses = [RideStatus.ONGOING];
+      // if (!allowedStatuses.includes(ride.rideStatus)) {
+      //   return {
+      //     success: false,
+      //     message: `Scheduled ride must be ONGOING to start. Current: ${ride.rideStatus}`,
+      //   };
+      // }
       if (ride.rideStartedAt) {
         return {
           success: false,
