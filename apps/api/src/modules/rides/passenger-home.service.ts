@@ -111,8 +111,8 @@ export class PassengerHomeService {
 
     const vehicleTypes = [
       { type: 'CAR', comfortType: 'Standard', hasAC: true },
-      { type: 'MOTORBIKE', comfortType: 'Economy', hasAC: false },
-      { type: 'SCOOTER', comfortType: 'Economy', hasAC: false },
+      // { type: 'MOTORBIKE', comfortType: 'Economy', hasAC: false },
+      // { type: 'SCOOTER', comfortType: 'Economy', hasAC: false },
     ];
 
     return vehicleTypes.map(({ type, comfortType, hasAC }) => {
