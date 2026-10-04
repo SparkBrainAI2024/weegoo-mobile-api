@@ -1,5 +1,5 @@
 import { Field, InputType } from "@nestjs/graphql";
-import { IsNotEmpty, IsString, MinLength } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsOptional, IsString, MinLength } from "class-validator";
 
 @InputType()
 export class UpsertMaintenanceInfoInput {
@@ -8,4 +8,13 @@ export class UpsertMaintenanceInfoInput {
   @IsNotEmpty()
   @MinLength(1)
   message: string;
+
+  /**
+   * Toggle maintenance mode on/off. Defaults to `true` when omitted so the
+   * existing admin flow (just saving a message) puts the app in maintenance.
+   */
+  @Field(() => Boolean, { nullable: true, defaultValue: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

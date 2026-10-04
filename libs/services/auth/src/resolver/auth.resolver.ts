@@ -2,6 +2,7 @@ import { Resolver, Mutation, Query, Args } from "@nestjs/graphql";
 import { UseGuards } from "@nestjs/common";
 import { LangGuard } from "@libs/guards/guard";
 import { SetPasswordGuard } from "@libs/guards/set-password.guard";
+import { MaintenanceGuard } from "@libs/guards/maintenance.guard";
 import {
   CurrentLang,
   CurrentVerificationUser,
@@ -32,11 +33,11 @@ import {
 } from "@libs/data-access";
 
 @Resolver()
-@UseGuards(LangGuard)
+@UseGuards(LangGuard,MaintenanceGuard)
 export class AuthResolver {
   constructor(
     private readonly authService: AuthService,
-    private readonly userService: UserService
+    private readonly userService: UserService,
   ) { }
 
   @Mutation(() => SignInResponse)
@@ -70,6 +71,7 @@ export class AuthResolver {
     return this.authService.googleSignIn(input);
   }
 
+  @UseGuards(MaintenanceGuard)
   @Mutation(() => SignUpResponse)
   phoneSignUp(
     @Args("input") input: PhoneSignUpInput,

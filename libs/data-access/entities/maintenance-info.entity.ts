@@ -9,6 +9,14 @@ export class MaintenanceInfo extends BaseEntity {
   @Field(() => String)
   @Prop({ required: true, type: String, trim: true })
   message: string;
+
+  /**
+   * When true the whole app is under maintenance and every user request
+   * (authenticated or not) must be rejected with HTTP 503 + `message`.
+   */
+  @Field(() => Boolean)
+  @Prop({ required: true, type: Boolean, default: false })
+  isActive: boolean;
 }
 
 export type MaintenanceInfoDocument = HydratedDocument<MaintenanceInfo>;

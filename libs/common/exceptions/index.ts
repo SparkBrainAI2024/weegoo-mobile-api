@@ -83,13 +83,26 @@ export class HttpExceptionFilter implements ExceptionFilter {
       rawMessage,
     );
 
-    const errorResponse = {
+    const errorResponse: any = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request?.url,
       message: translatedMessage,
       code: this.getErrorCode(status),
     };
+
+    // Surface the maintenance flag so mobile clients can show a dedicated
+    // maintenance screen instead of a generic error.
+    const isMaintenance =
+      (typeof exceptionResponse === "object" &&
+        exceptionResponse !== null &&
+        (exceptionResponse as any).isMaintenance) ||
+      status === HttpStatus.SERVICE_UNAVAILABLE;
+
+    if (isMaintenance) {
+      errorResponse.isMaintenance = true;
+      errorResponse.statusCode = HttpStatus.SERVICE_UNAVAILABLE;
+    }
 
     if (isGql) {
       throw new GraphQLError(translatedMessage, {
@@ -99,7 +112,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (isHttp) {
       const response = host.switchToHttp().getResponse();
-      return response.status(status).json(errorResponse);
+      return response
+        .status(errorResponse.statusCode)
+        .json(errorResponse);
     }
 
     return exception;
@@ -112,6 +127,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       [HttpStatus.FORBIDDEN]: 'FORBIDDEN',
       [HttpStatus.NOT_FOUND]: 'NOT_FOUND',
       [HttpStatus.UNPROCESSABLE_ENTITY]: 'BAD_USER_INPUT',
+      [HttpStatus.SERVICE_UNAVAILABLE]: 'SERVICE_UNAVAILABLE',
     };
     return map[status] || 'INTERNAL_SERVER_ERROR';
   }

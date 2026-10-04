@@ -8,7 +8,7 @@ import { EnvService } from "@libs/common/config/env.service";
 
 @Module({
   imports: [MaintenanceInfoPersistenceModule, AdminAuthModule,UserPersistenceModule],
-  providers: [MaintenanceInfoService, MaintenanceInfoResolver,EnvService],
+  providers: [MaintenanceInfoResolver,EnvService],
   exports: [MaintenanceInfoService],
 })
 export class MaintenanceInfoModule {}

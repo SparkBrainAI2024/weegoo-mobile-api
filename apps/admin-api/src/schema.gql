@@ -694,6 +694,7 @@ type MaintenanceInfo {
   deletedAt: DateTime
   deleted: Boolean
   message: String!
+  isActive: Boolean!
 }
 
 type AvailabilityTimeSlot {
@@ -2577,6 +2578,7 @@ input UpsertAdminRidePricingInput {
 
 input UpsertMaintenanceInfoInput {
   message: String!
+  isActive: Boolean
 }
 
 input SendPushNotificationInput {
