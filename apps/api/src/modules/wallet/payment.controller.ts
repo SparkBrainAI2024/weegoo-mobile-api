@@ -45,7 +45,7 @@ export class PaymentController {
       return {
         success: true,
         message: 'Topup completed successfully',
-        redirectUrl: this.getRedirectUrl('success'),
+        redirectUrl: this.getRedirectUrl('success', 'esewa'),
       };
     } catch (error: any) {
       this.logger.error(`eSewa success callback error: ${error.message}`);
@@ -58,7 +58,7 @@ export class PaymentController {
       return {
         success: false,
         message: error.message,
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure', 'esewa'),
       };
     }
   }
@@ -81,14 +81,14 @@ export class PaymentController {
       return {
         success: true,
         message: 'Transaction marked as failed',
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure', 'esewa'),
       };
     } catch (error: any) {
       this.logger.error(`eSewa failure callback error: ${error.message}`);
       return {
         success: false,
         message: error.message,
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure', 'esewa'),
       };
     }
   }
@@ -123,20 +123,20 @@ export class PaymentController {
         return {
           success: true,
           message: 'Topup completed successfully',
-          redirectUrl: this.getRedirectUrl('success'),
+          redirectUrl: this.getRedirectUrl('success', 'khalti'),
         };
       }
       return {
         success: false,
         message: lookupResult.message || 'Khalti verification failed',
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure','khalti'),
       };
     } catch (error: any) {
       this.logger.error(`Khalti success callback error: ${error.message}`);
       return {
         success: false,
         message: error.message,
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure','khalti'),
       };
     }
   }
@@ -167,14 +167,14 @@ export class PaymentController {
       return {
         success: true,
         message: 'Transaction marked as failed',
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure', 'khalti'),
       };
     } catch (error: any) {
       this.logger.error(`Khalti failure callback error: ${error.message}`);
       return {
         success: false,
         message: error.message,
-        redirectUrl: this.getRedirectUrl('failure'),
+        redirectUrl: this.getRedirectUrl('failure', 'khalti'),
       };
     }
   }
@@ -184,10 +184,10 @@ export class PaymentController {
    * Reads from API_BASE_URL env or defaults to localhost.
    * User payments redirect to the API base URL.
    */
-  private getRedirectUrl(type: 'success' | 'failure'): string {
+  private getRedirectUrl(type: 'success' | 'failure',paymentMethod:string): string {
     const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
     return type === 'success'
-      ? `${baseUrl}/payment/success`
-      : `${baseUrl}/payment/failure`;
+      ? `${baseUrl}/${paymentMethod}/payment/success`
+      : `${baseUrl}/${paymentMethod}/payment/failure`;
   }
 }

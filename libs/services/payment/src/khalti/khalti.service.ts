@@ -105,7 +105,7 @@ export class KhaltiService {
     const publicKey = this.envService.getString('KHALTI_PUBLIC_KEY', 'test_public_key');
     console.log('Khalti public key:', publicKey);
     
-    const websiteUrl = params.websiteUrl || this.envService.getString('WEBSITE_URL', 'http://localhost:3000');
+    const websiteUrl = params.websiteUrl || this.envService.getString('API_BASE_URL', 'http://localhost:3000');
     const isProduction = this.envService.isProduction();
     const initiateUrl = isProduction
       ? 'https://khalti.com/api/v2/epayment/initiate/'
