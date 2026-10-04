@@ -117,51 +117,13 @@ export class MatchedPassengerInfo {
   gender?: string;
 }
 
-@ObjectType()
-export class AcceptedDetailsResponse {
-  @Field(() => String)
-  rideId: string;
-
-  @Field(() => String)
-  rideUUId: string;
-
-  @Field(() => MatchedDriverInfo, { nullable: true })
-  driver?: MatchedDriverInfo;
-
-  @Field(() => MatchedVehicleInfo, { nullable: true })
-  vehicle?: MatchedVehicleInfo;
-
-  @Field(() => MatchedPassengerInfo, { nullable: true })
-  passenger?: MatchedPassengerInfo;
-
-  @Field(() => PickupDropoffLocationInfo, { nullable: true })
-  pickupLocation?: PickupDropoffLocationInfo;
-
-  @Field(() => PickupDropoffLocationInfo, { nullable: true })
-  dropoffLocation?: PickupDropoffLocationInfo;
-
-  @Field(() => Float, { nullable: true })
-  estimatedFare?: number;
-
-  @Field(() => Float, { nullable: true })
-  estimatedTimeInMinutes?: number;
-
-  @Field(() => Float, { nullable: true })
-  distanceInKm?: number;
-
-  @Field(() => String, { nullable: true })
-  acceptedAt?: string;
-
-  @Field(() => String, { nullable: true })
-  ablyChannelId?: string;
-
-  @Field(() => String, { nullable: true })
-  driverLocationChannel?: string;
-
-  @Field(() => ScheduledDriverAvailabilityInfo, { nullable: true })
-  availability?: ScheduledDriverAvailabilityInfo | null;
-}
-
+/**
+ * Declared before `AcceptedDetailsResponse` / `ScheduledAvailableDriverInfo`
+ * because both reference it in a `@Field(() => ...)` decorator. Decorator
+ * metadata is evaluated eagerly at class-definition time, so referencing a
+ * class declared further down the file throws a temporal-dead-zone error under
+ * plain `tsc` / `ts-node`.
+ */
 @ObjectType()
 export class ScheduledDriverAvailabilityInfo {
   @Field(() => String, { nullable: true })
@@ -207,6 +169,50 @@ export class ScheduledDriverAvailabilityInfo {
 
   @Field(() => [String], { nullable: true })
   majorStops?: string[];
+}
+@ObjectType()
+export class AcceptedDetailsResponse {
+  @Field(() => String)
+  rideId: string;
+
+  @Field(() => String)
+  rideUUId: string;
+
+  @Field(() => MatchedDriverInfo, { nullable: true })
+  driver?: MatchedDriverInfo;
+
+  @Field(() => MatchedVehicleInfo, { nullable: true })
+  vehicle?: MatchedVehicleInfo;
+
+  @Field(() => MatchedPassengerInfo, { nullable: true })
+  passenger?: MatchedPassengerInfo;
+
+  @Field(() => PickupDropoffLocationInfo, { nullable: true })
+  pickupLocation?: PickupDropoffLocationInfo;
+
+  @Field(() => PickupDropoffLocationInfo, { nullable: true })
+  dropoffLocation?: PickupDropoffLocationInfo;
+
+  @Field(() => Float, { nullable: true })
+  estimatedFare?: number;
+
+  @Field(() => Float, { nullable: true })
+  estimatedTimeInMinutes?: number;
+
+  @Field(() => Float, { nullable: true })
+  distanceInKm?: number;
+
+  @Field(() => String, { nullable: true })
+  acceptedAt?: string;
+
+  @Field(() => String, { nullable: true })
+  ablyChannelId?: string;
+
+  @Field(() => String, { nullable: true })
+  driverLocationChannel?: string;
+
+  @Field(() => ScheduledDriverAvailabilityInfo, { nullable: true })
+  availability?: ScheduledDriverAvailabilityInfo | null;
 }
 
 @ObjectType()

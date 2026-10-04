@@ -998,23 +998,6 @@ type MatchedPassengerInfo {
   gender: String
 }
 
-type AcceptedDetailsResponse {
-  rideId: String!
-  rideUUId: String!
-  driver: MatchedDriverInfo
-  vehicle: MatchedVehicleInfo
-  passenger: MatchedPassengerInfo
-  pickupLocation: PickupDropoffLocationInfo
-  dropoffLocation: PickupDropoffLocationInfo
-  estimatedFare: Float
-  estimatedTimeInMinutes: Float
-  distanceInKm: Float
-  acceptedAt: String
-  ablyChannelId: String
-  driverLocationChannel: String
-  availability: ScheduledDriverAvailabilityInfo
-}
-
 type ScheduledDriverAvailabilityInfo {
   day: String
   date: String
@@ -1030,6 +1013,23 @@ type ScheduledDriverAvailabilityInfo {
   dropOffLocation: PickupDropoffLocationInfo
   notes: String
   majorStops: [String!]
+}
+
+type AcceptedDetailsResponse {
+  rideId: String!
+  rideUUId: String!
+  driver: MatchedDriverInfo
+  vehicle: MatchedVehicleInfo
+  passenger: MatchedPassengerInfo
+  pickupLocation: PickupDropoffLocationInfo
+  dropoffLocation: PickupDropoffLocationInfo
+  estimatedFare: Float
+  estimatedTimeInMinutes: Float
+  distanceInKm: Float
+  acceptedAt: String
+  ablyChannelId: String
+  driverLocationChannel: String
+  availability: ScheduledDriverAvailabilityInfo
 }
 
 type ScheduledAvailableDriverInfo {
@@ -2578,7 +2578,7 @@ input UpsertAdminRidePricingInput {
 
 input UpsertMaintenanceInfoInput {
   message: String!
-  isActive: Boolean
+  isActive: Boolean = true
 }
 
 input SendPushNotificationInput {
