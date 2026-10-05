@@ -54,6 +54,7 @@ import {
 import { getActiveProfileImageUrl } from "@libs/common/utils/entity.utils";
 import { S3Service } from "@libs/s3/s3.service";
 import { EmailTemplateRepository } from "@libs/data-access/repositories/email-template.repository";
+import { AdminRidePricingRepository } from "@libs/data-access/repositories/admin-ride-pricing.repository";
 import { EmailTemplateParserService } from "@libs/services/email-template/src/email-template-parser.service";
 import { SendGridMailService } from "@libs/services/mail";
 import { SparrowSmsService } from "@libs/services/sms";
@@ -120,6 +121,7 @@ export class AuthService {
     private readonly emailTemplateRepository: EmailTemplateRepository,
     private readonly sendGridMailService: SendGridMailService,
     private readonly sparrowSmsService: SparrowSmsService,
+    private readonly adminRidePricingRepository: AdminRidePricingRepository,
   ) { }
 
   // Helper method to check if user has valid non-expired OTP
@@ -1160,6 +1162,10 @@ export class AuthService {
   /**
    * Returns the vehicle types available for the given ride preference.
    *
+   * Only vehicle types that are enabled (`isEnabled === true`) in the
+   * admin-pricings entity are returned; vehicles disabled by the admin are
+   * filtered out of both lists.
+   *
    * - INSTANT   -> instant vehicle types: CAR, MOTORBIKE, SCOOTER
    * - SCHEDULED -> scheduled vehicle types: JEEP, CAR, MICRO
    * - BOTH      -> both sets of vehicle types
@@ -1175,9 +1181,18 @@ export class AuthService {
         instantVehicleTypes = [VehicleType.CAR /*, VehicleType.MOTORBIKE, VehicleType.SCOOTER*/];
       }
 
-    if (preference === ridePreference.SCHEDULED || preference === ridePreference.BOTH) {
+      if (preference === ridePreference.SCHEDULED || preference === ridePreference.BOTH) {
         scheduledVehicleTypes = [ScheduledVehicleType.JEEP, ScheduledVehicleType.CAR, ScheduledVehicleType.MICRO];
       }
+
+      // Only expose vehicle types enabled in the admin-pricings entity.
+      const enabledVehicleTypes = await this.getEnabledVehicleTypes();
+      instantVehicleTypes = instantVehicleTypes.filter((type) =>
+        enabledVehicleTypes.has(type),
+      );
+      scheduledVehicleTypes = scheduledVehicleTypes.filter((type) =>
+        enabledVehicleTypes.has(type),
+      );
 
       return {
         instantVehicleTypes,
@@ -1190,6 +1205,23 @@ export class AuthService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * Loads the admin-pricings entities and returns the set of vehicle type
+   * values that are enabled (`isEnabled === true`).
+   *
+   * Vehicle type values are shared across the `VehicleType`,
+   * `ScheduledVehicleType`, and `AnyVehicleType` string enums, so the raw
+   * string values can be compared directly against any of them.
+   */
+  private async getEnabledVehicleTypes(): Promise<Set<string>> {
+    const pricingList = await this.adminRidePricingRepository.findAllPricing();
+    return new Set(
+      pricingList
+        .filter((pricing) => pricing.isEnabled)
+        .map((pricing) => pricing.vehicleType as string),
+    );
   }
 
   /**

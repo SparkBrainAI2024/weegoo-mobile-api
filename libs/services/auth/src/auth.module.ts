@@ -38,6 +38,7 @@ import {
 import { S3Module } from '@libs/s3';
 import { EmailTemplatePersistenceModule } from '@libs/services/email-template/src/email-template.persistence.module';
 import { EmailTemplateRepository } from '@libs/data-access/repositories/email-template.repository';
+import { AdminRidePricingPersistenceModule } from '@libs/services/admin-ride-pricing/admin-ride-pricing.persistence.module';
 
 export interface AuthModuleOptions {
   imports?: any[];
@@ -67,6 +68,8 @@ export class UserAuthModule {
         SendGridMailModule,
         SparrowSmsModule,
         EmailTemplatePersistenceModule,
+        // Provides AdminRidePricingRepository (enabled vehicle types for getVehicleTypes)
+        AdminRidePricingPersistenceModule,
         // Provides MaintenanceInfoService globally (503 maintenance responses)
         MaintenanceInfoPersistenceModule,
 
