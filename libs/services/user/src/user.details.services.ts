@@ -67,6 +67,13 @@ export class UserDetailsService {
       const details = await this.userDetailsRepository.findOne({
         userId: toMongoId(userId),
       });
+      const updatedCoreUser = await this.userRepository.findOne({
+        _id: toMongoId(userId),
+      });
+
+      const updatedUserDetails = await this.userDetailsRepository.findOne({
+        userId: toMongoId(userId),
+      });
       if (!details) {
         const profileImagesArr = input.profileImage
           ? [
@@ -86,9 +93,9 @@ export class UserDetailsService {
         });
 
         // First time the user enters their full name → send the welcome email.
-        if (input.fullName) {
-          await this.sendWelcomeEmail(user, createdDetails);
-        }
+          if (!details.fullName && input.fullName && input.email) {
+          await this.sendWelcomeEmail(updatedCoreUser, updatedUserDetails);
+      }
 
         return createdDetails;
       }
@@ -130,13 +137,7 @@ export class UserDetailsService {
         { profileCompleted: true },
       );
 
-      const updatedCoreUser = await this.userRepository.findOne({
-        _id: toMongoId(userId),
-      });
-
-      const updatedUserDetails = await this.userDetailsRepository.findOne({
-        userId: toMongoId(userId),
-      });
+    
 
       // First time the user enters their full name (it was previously empty) →
       // send the one-time role-specific welcome email. Best-effort by design —
