@@ -22,12 +22,12 @@ export class Location extends BaseEntity {
   @Prop({ required: true, type: String, trim: true })
   name: string;
 
-  @Field(() => Float)
-  @Prop({ required: true, type: Number, min: -90, max: 90 })
+  @Field(() => Float, { nullable: true })
+  @Prop({ required: false, type: Number, min: -90, max: 90 })
   latitude: number;
 
-  @Field(() => Float)
-  @Prop({ required: true, type: Number, min: -180, max: 180 })
+  @Field(() => Float, { nullable: true })
+  @Prop({ required: false, type: Number, min: -180, max: 180 })
   longitude: number;
 
   /** ACTIVE | INACTIVE — inactive locations must not be offered to users. */
