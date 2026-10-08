@@ -47,16 +47,12 @@ export class LocationService {
       );
     }
 
-    await this.assertCoordinatesAreAvailable(input.latitude, input.longitude);
-
     // No sub-location exists yet, so only the entries of this request can
     // duplicate each other.
     const subLocations = this.buildNewSubLocations(input.subLocations ?? []);
 
     const created = await this.locationRepository.create({
       name: input.name.trim(),
-      latitude: input.latitude,
-      longitude: input.longitude,
       status: input.status ?? LocationStatus.ACTIVE,
       subLocations,
     });
@@ -159,6 +155,9 @@ export class LocationService {
         }
       }
       data.name = name;
+    }
+    if (input.status != undefined) {
+      data.status = input.status;
     }
 
     if (input.latitude !== undefined || input.longitude !== undefined) {
@@ -507,10 +506,7 @@ export class LocationService {
     return `${latitude}:${longitude}`;
   }
 
-  private assertAddressIsUnique(
-    addresses: Set<string>,
-    address: string,
-  ): void {
+  private assertAddressIsUnique(addresses: Set<string>, address: string): void {
     if (addresses.has(address)) {
       throw ErrorException(
         null,

@@ -33,13 +33,19 @@ export class CreateLocationInput {
   @MaxLength(150)
   name: string;
 
-  @Field(() => Float, { description: "Latitude of the location" })
+  @Field(() => Float, {
+    description: "Latitude of the location",
+    nullable: true,
+  })
   @IsNumber()
   @Min(-90)
   @Max(90)
   latitude: number;
 
-  @Field(() => Float, { description: "Longitude of the location" })
+  @Field(() => Float, {
+    description: "Longitude of the location",
+    nullable: true,
+  })
   @IsNumber()
   @Min(-180)
   @Max(180)
