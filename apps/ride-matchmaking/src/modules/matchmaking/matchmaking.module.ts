@@ -21,6 +21,7 @@ import { AblyModule } from '@libs/services/ably';
 import { TransactionModule } from '@libs/services/payment/src/transaction/transaction.module';
 import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
 import { UserPersistenceModule } from '@libs/services/user/user-persistent.module';
+import { AdminRidePricingPersistenceModule } from '@libs/services/admin-ride-pricing/admin-ride-pricing.persistence.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { UserPersistenceModule } from '@libs/services/user/user-persistent.modul
     AblyModule,
     TransactionModule,
     WalletModule,
+    AdminRidePricingPersistenceModule,
   ],
   providers: [
     MatchmakingResolver,

@@ -23,6 +23,7 @@ import {
   PromoCodeUsed,
   PromoCodeUsedDocument,
 } from "@libs/data-access/entities/promo-code-used.entity";
+import { AdminRidePricing } from "@libs/data-access/entities/admin-ride-pricing.entity";
 import {
   Availability,
   AvailabilityDay,
@@ -62,6 +63,7 @@ import {
 } from "@libs/data-access";
 import { DistanceCalculatorService } from "./services/distance-calculator.service";
 import { DynamicPricingService } from "./services/dynamic-pricing.service";
+import { AdminRidePricingService } from "@libs/services/admin-ride-pricing/admin-ride-pricing.service";
 import {
   MATCHMAKING_CONFIG,
   toMongoId,
@@ -151,6 +153,13 @@ const haversineKm = (
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
+/**
+ * On-demand vehicle types eligible for INSTANT estimates/pricing. The actual
+ * offer list is derived from the ACTIVE admin pricings (isEnabled = true).
+ * JEEP/MICRO are scheduled-only and therefore excluded here.
+ */
+const ON_DEMAND_VEHICLE_TYPES: string[] = ["CAR", "MOTORBIKE", "SCOOTER"];
+
 @Injectable()
 export class MatchmakingService {
   private readonly logger = new Logger(MatchmakingService.name);
@@ -177,6 +186,7 @@ export class MatchmakingService {
     private readonly rideChannelService: RideChannelService,
     private readonly distanceCalculator: DistanceCalculatorService,
     private readonly pricingService: DynamicPricingService,
+    private readonly adminRidePricingService: AdminRidePricingService,
     private readonly notificationService: NotificationService,
     private readonly s3: S3Service,
     private readonly walletService: WalletService,
@@ -3867,10 +3877,24 @@ export class MatchmakingService {
     promoCodeId?: string;
     passengerId?: string;
   }): Promise<VehicleEstimateGraphQL[]> {
-    let vehicleTypes = [
-      VehicleType.CAR,
-    ];
-    vehicleTypes = [VehicleType.CAR];
+    // The vehicle list comes ONLY from the admin pricings: a vehicle is
+    // offered (and estimated) only when its pricing row exists and is enabled.
+    // Scheduled-only types (JEEP, MICRO) are excluded from instant estimates.
+    const activePricings =
+      await this.adminRidePricingService.findActivePricings();
+    const pricingByType = new Map<string, AdminRidePricing>();
+    for (const pricing of activePricings) {
+      const type = pricing.vehicleType as string;
+      if (!ON_DEMAND_VEHICLE_TYPES.includes(type)) continue;
+      pricingByType.set(type, pricing);
+    }
+    const vehicleTypes = [...pricingByType.keys()];
+    if (vehicleTypes.length === 0) {
+      this.logger.log(
+        "getVehicleEstimates: no enabled admin ride pricings for on-demand vehicles; returning no estimates",
+      );
+      return [];
+    }
 
     // Resolve the promo code once (shared across all vehicle types) so we can
     // re-use the same validation result, usage counts, and discount amounts.
@@ -3927,7 +3951,7 @@ export class MatchmakingService {
           const nearestDriver = await this.findNearestDriverDistance(
             params.pickupLat,
             params.pickupLng,
-            type as VehicleType,
+            type,
           );
           // If no active/available driver exists for this vehicle type, skip it
           // so the client doesn't show an estimate for an unavailable service.
@@ -3947,28 +3971,40 @@ export class MatchmakingService {
           // is currently available (mirrors the pattern used elsewhere in this file).
           const effectiveDurationMinutes = driverEtaMinutes;
 
-          // Use the pre-calculated pickup→dropoff route for the FARE.
+          // Use the pre-calculated pickup→dropoff route for the FARE, computed
+          // from this vehicle's ACTIVE admin pricing:
+          // total = baseFare + amountPerKm × distanceKm + amountPerMinute × durationMinutes.
           // (distanceKm and estimatedTimeInMinutes returned below still reflect the
           // nearest driver's distance/ETA to the pickup location.)
-          const fare = this.pricingService.calculateFare({
-            distanceKm: routeDistanceKm,
-            durationMinutes: routeDurationMinutes,
-            vehicleType: type as VehicleType,
-          });
-          const originalFare = Math.round(fare.total);
+          const pricing = pricingByType.get(type);
+          if (!pricing) {
+            // Pricing was disabled after the fetch above — skip this vehicle.
+            return null;
+          }
+          const pickupCost = Number(pricing.baseFare) || 0;
+          const distanceCost =
+            routeDistanceKm * (Number(pricing.amountPerKm) || 0);
+          const durationCost =
+            routeDurationMinutes * (Number(pricing.amountPerMinute) || 0);
+          const originalFare = Math.round(
+            pickupCost + distanceCost + durationCost,
+          );
 
           let comfortType = "";
           let hasAC: boolean | undefined = undefined;
-          //if (type === VehicleType.CAR) {
+          if (type === "CAR") {
             comfortType = "Comfortable city ride with fast pickup";
             hasAC = true;
-          // } else if (type === VehicleType.MOTORBIKE) {
-          //   comfortType = "Affordable and quick";
-          //   hasAC = false;
-          // } else if (type === VehicleType.SCOOTER) {
-          //   comfortType = "Short and quick ride";
-          //   hasAC = false;
-          // }
+          } else if (type === "MOTORBIKE") {
+            comfortType = "Affordable and quick";
+            hasAC = false;
+          } else if (type === "SCOOTER") {
+            comfortType = "Short and quick ride";
+            hasAC = false;
+          } else {
+            comfortType = "Comfortable city ride with fast pickup";
+            hasAC = true;
+          }
 
           // Apply promo discount if the promo code is valid for this fare.
           const discountInfo = this.applyPromoDiscountToFare(
@@ -3989,7 +4025,7 @@ export class MatchmakingService {
           }
 
           return {
-            vehicleType: type as VehicleType,
+            vehicleType: type,
             estimatedFare: Math.round(
               originalFare - (discountInfo?.discountAmount || 0),
             ),
@@ -4170,7 +4206,7 @@ export class MatchmakingService {
   private async findNearestDriverDistance(
     pickupLat: number,
     pickupLng: number,
-    vehicleType: VehicleType,
+    vehicleType: string,
   ): Promise<{ distanceKm: number; durationMinutes: number } | null> {
     try {
       // Step 1: spatially query the ONLINE drivers near the pickup using the
