@@ -156,6 +156,9 @@ export class LocationService {
       }
       data.name = name;
     }
+    if (input.status != undefined) {
+      data.status = input.status;
+    }
 
     // if (input.latitude !== undefined || input.longitude !== undefined) {
     //   // Only the pair that will actually be stored has to be free.
@@ -503,10 +506,7 @@ export class LocationService {
     return `${latitude}:${longitude}`;
   }
 
-  private assertAddressIsUnique(
-    addresses: Set<string>,
-    address: string,
-  ): void {
+  private assertAddressIsUnique(addresses: Set<string>, address: string): void {
     if (addresses.has(address)) {
       throw ErrorException(
         null,

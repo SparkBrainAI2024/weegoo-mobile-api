@@ -2622,6 +2622,9 @@ input AddSubLocationInput {
 input UpdateLocationMasterInput {
   name: String
 
+  """Status of the location; defaults to ACTIVE"""
+  status: LocationStatus = ACTIVE
+
   """
   Nullable: the list and its entries may be omitted or null. New sub-locations to create for this location while updating it; each one is validated (unique address and unique latitude/longitude).
   """
