@@ -211,12 +211,12 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
           },
           pickupLocation: "$pickupLocation.address",
           dropoffLocation: "$dropoffLocation.address",
-          fare: { $ifNull: ["$fare.totalFare", 0] },
+          fare: { $ifNull: ["$fare.totalAmount", 0] },
           paymentMethod: "$paymentDetails.paymentMethod",
           driverCommission: "$paymentDetails.driverCommission",
           driverGets: {
             $subtract: [
-              { $ifNull: ["$fare.totalFare", 0] },
+              { $ifNull: ["$fare.totalAmount", 0] },
               { $ifNull: ["$paymentDetails.driverCommission", 0] },
             ],
           },
@@ -480,17 +480,19 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       },
     ]);
 
-    return summary ?? {
-      averageRating: 0,
-      totalReviews: 0,
-      breakdown: {
-        fiveStar: 0,
-        fourStar: 0,
-        threeStar: 0,
-        twoStar: 0,
-        oneStar: 0,
-      },
-    };
+    return (
+      summary ?? {
+        averageRating: 0,
+        totalReviews: 0,
+        breakdown: {
+          fiveStar: 0,
+          fourStar: 0,
+          threeStar: 0,
+          twoStar: 0,
+          oneStar: 0,
+        },
+      }
+    );
   }
 
   async findRides(input: RidesListInput) {
