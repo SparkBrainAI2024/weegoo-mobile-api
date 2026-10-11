@@ -1,6 +1,7 @@
 import { Field, Float, InputType } from "@nestjs/graphql";
 import {
   IsArray,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -12,6 +13,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { AddSubLocationInput } from "./sub-location.input";
+import { LocationStatus } from "@libs/data-access/enums/location.enum";
 
 /**
  * Updates the location's own fields and/or creates new sub-locations for it.
@@ -31,19 +33,28 @@ export class UpdateLocationMasterInput {
   @MaxLength(150)
   name?: string;
 
-  @Field(() => Float, { nullable: true })
-  @IsOptional()
-  @IsNumber()
-  @Min(-90)
-  @Max(90)
-  latitude?: number;
+  // @Field(() => Float, { nullable: true })
+  // @IsOptional()
+  // @IsNumber()
+  // @Min(-90)
+  // @Max(90)
+  // latitude?: number;
 
-  @Field(() => Float, { nullable: true })
+  // @Field(() => Float, { nullable: true })
+  // @IsOptional()
+  // @IsNumber()
+  // @Min(-180)
+  // @Max(180)
+  // longitude?: number;
+
+  @Field(() => LocationStatus, {
+    nullable: true,
+    defaultValue: LocationStatus.ACTIVE,
+    description: "Status of the location; defaults to ACTIVE",
+  })
   @IsOptional()
-  @IsNumber()
-  @Min(-180)
-  @Max(180)
-  longitude?: number;
+  @IsEnum(LocationStatus)
+  status?: LocationStatus;
 
   @Field(() => [AddSubLocationInput], {
     nullable: "itemsAndList",

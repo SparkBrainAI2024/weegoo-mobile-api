@@ -762,8 +762,6 @@ type Location {
   deletedAt: DateTime
   deleted: Boolean
   name: String!
-  latitude: Float!
-  longitude: Float!
   status: LocationStatus!
   subLocations: [SubLocation!]!
 }
@@ -2598,12 +2596,6 @@ input CreateLocationInput {
   """Display name of the location (must be unique)"""
   name: String!
 
-  """Latitude of the location"""
-  latitude: Float!
-
-  """Longitude of the location"""
-  longitude: Float!
-
   """Status of the location; defaults to ACTIVE"""
   status: LocationStatus = ACTIVE
 
@@ -2629,8 +2621,9 @@ input AddSubLocationInput {
 
 input UpdateLocationMasterInput {
   name: String
-  latitude: Float
-  longitude: Float
+
+  """Status of the location; defaults to ACTIVE"""
+  status: LocationStatus = ACTIVE
 
   """
   Nullable: the list and its entries may be omitted or null. New sub-locations to create for this location while updating it; each one is validated (unique address and unique latitude/longitude).

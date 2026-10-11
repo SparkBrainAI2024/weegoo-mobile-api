@@ -13,11 +13,11 @@ export class LocationDropdownResponse {
   @Field(() => String, { description: "Display name of the location" })
   name: string;
 
-  @Field(() => Float, { description: "Latitude of the location" })
-  latitude: number;
+  // @Field(() => Float, { description: "Latitude of the location" })
+  // latitude: number;
 
-  @Field(() => Float, { description: "Longitude of the location" })
-  longitude: number;
+  // @Field(() => Float, { description: "Longitude of the location" })
+  // longitude: number;
 }
 
 /**

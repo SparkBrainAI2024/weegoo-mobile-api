@@ -47,7 +47,7 @@ export class LocationService {
       );
     }
 
-    await this.assertCoordinatesAreAvailable(input.latitude, input.longitude);
+    //await this.assertCoordinatesAreAvailable(input.latitude, input.longitude);
 
     // No sub-location exists yet, so only the entries of this request can
     // duplicate each other.
@@ -55,8 +55,6 @@ export class LocationService {
 
     const created = await this.locationRepository.create({
       name: input.name.trim(),
-      latitude: input.latitude,
-      longitude: input.longitude,
       status: input.status ?? LocationStatus.ACTIVE,
       subLocations,
     });
@@ -99,8 +97,6 @@ export class LocationService {
     return locations.map((location) => ({
       _id: location._id.toString(),
       name: location.name,
-      latitude: location.latitude,
-      longitude: location.longitude,
     }));
   }
 
@@ -160,21 +156,24 @@ export class LocationService {
       }
       data.name = name;
     }
-
-    if (input.latitude !== undefined || input.longitude !== undefined) {
-      // Only the pair that will actually be stored has to be free.
-      const latitude = input.latitude ?? location.latitude;
-      const longitude = input.longitude ?? location.longitude;
-
-      await this.assertCoordinatesAreAvailable(
-        latitude,
-        longitude,
-        location._id.toString(),
-      );
-
-      data.latitude = latitude;
-      data.longitude = longitude;
+    if (input.status != undefined) {
+      data.status = input.status;
     }
+
+    // if (input.latitude !== undefined || input.longitude !== undefined) {
+    //   // Only the pair that will actually be stored has to be free.
+    //   const latitude = input.latitude ?? location.latitude;
+    //   const longitude = input.longitude ?? location.longitude;
+
+    //   await this.assertCoordinatesAreAvailable(
+    //     latitude,
+    //     longitude,
+    //     location._id.toString(),
+    //   );
+
+    //   data.latitude = latitude;
+    //   data.longitude = longitude;
+    // }
 
     // Validated against the sub-locations the location already carries, so a
     // request can neither duplicate an existing address nor its coordinates.
@@ -507,10 +506,7 @@ export class LocationService {
     return `${latitude}:${longitude}`;
   }
 
-  private assertAddressIsUnique(
-    addresses: Set<string>,
-    address: string,
-  ): void {
+  private assertAddressIsUnique(addresses: Set<string>, address: string): void {
     if (addresses.has(address)) {
       throw ErrorException(
         null,
