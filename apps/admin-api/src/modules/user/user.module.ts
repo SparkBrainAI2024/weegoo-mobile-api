@@ -11,12 +11,15 @@ import { AdminUserRepository } from "../../../../../libs/data-access/repositorie
 import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 import { AdminAuthService } from "@libs/services/admin-auth";
 import { UserDetailsResolver } from "./resolver/user.details.resolver";
+import { UserServiceModule } from "@libs/services/user/user.module";
+import { AdminProfileService } from "@libs/services/admin-profile/admin-profile.service";
 
 @Module({
   imports: [
     MongooseModule.forFeature([adminUserModel, userVerificationModel]),
     UserAuthModule.forRoot({ defaultRole: roles.ADMIN }), // Import UserAuthModule to reuse its services and models
     SendGridMailModule,
+    UserServiceModule,
   ],
   providers: [
     UserDetailsResolver,
@@ -24,7 +27,8 @@ import { UserDetailsResolver } from "./resolver/user.details.resolver";
     AdminUserRepository,
     MailService,
     AdminAuthGuard,
+    AdminProfileService,
   ],
   exports: [AdminAuthService, AdminAuthGuard, AdminUserRepository],
 })
-export class AdminAuthModule {}
+export class AdminUserModule {}

@@ -11,13 +11,14 @@ import {
 import { AdminProfileResponse } from "@libs/data-access/dtos/response/admin-profile.response";
 import { AdminUserDocument } from "@libs/data-access/entities/admin-user.entity";
 import { AuthGuard, LangGuard } from "@libs/guards";
+import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 import { AdminProfileService } from "@libs/services/admin-profile/admin-profile.service";
 import { UserDetailsService } from "@libs/services/user/user.details.services";
 import { UseGuards } from "@nestjs/common";
 import { Resolver, Query, Mutation, Args } from "@nestjs/graphql";
 
 @Resolver(() => UserDetailsResponse)
-@UseGuards(AuthGuard, LangGuard)
+@UseGuards(AdminAuthGuard, LangGuard)
 export class UserDetailsResolver {
   constructor(
     private readonly userDetailsService: UserDetailsService,

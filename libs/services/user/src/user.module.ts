@@ -7,7 +7,7 @@ import { S3Module } from "@libs/s3";
 import { SendGridMailModule } from "@libs/services/mail";
 
 @Module({
-  imports: [UserPersistenceModule,S3Module,SendGridMailModule],
+  imports: [UserPersistenceModule, S3Module, SendGridMailModule],
   providers: [UserService, UserDetailsService, EnvService],
   exports: [UserService, UserDetailsService, EnvService],
 })

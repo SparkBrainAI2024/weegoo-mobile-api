@@ -4,6 +4,14 @@ import { comparePassword, hashPassword } from "@libs/common/utils/bcrypt";
 import { passwordSalt } from "@libs/common/constants";
 import { Message } from "@libs/localization";
 import { AdminUserRepository } from "@libs/data-access/repositories/admin-user.repository";
+import { AdminUserDocument } from "@libs/data-access/entities/admin-user.entity";
+import { AdminProfileResponse } from "@libs/data-access/dtos/response/admin-profile.response";
+import { Types } from "mongoose";
+import {
+  ChangeAdminPasswordInput,
+  UpdateAdminProfileInput,
+} from "@libs/data-access/dtos/input/update-admin-profile.input";
+import { BasicResponse } from "@libs/data-access";
 // plus imports for AdminUserDocument, the DTOs above
 
 @Injectable()
@@ -41,7 +49,7 @@ export class AdminProfileService {
     admin: AdminUserDocument,
     input: ChangeAdminPasswordInput,
     lang: string,
-  ): Promise<AdminMessageResponse> {
+  ): Promise<BasicResponse> {
     const matches = await comparePassword(
       input.currentPassword,
       admin.password,
