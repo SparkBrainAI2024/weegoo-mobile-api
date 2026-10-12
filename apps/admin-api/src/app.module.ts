@@ -26,6 +26,7 @@ import { AdminPushNotificationModule } from "./modules/push-notification/push-no
 import { SendGridMailModule } from "@libs/services/mail";
 import { PaymentsModule } from "./modules/payments/payments.module";
 import { LocationModule } from "@libs/services/location/location.module";
+import { AdminUserModule } from "./modules/user/user.module";
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { LocationModule } from "@libs/services/location/location.module";
     SendGridMailModule,
     PaymentsModule,
     LocationModule,
+    AdminUserModule,
   ],
   providers: [HealthResolver],
 })
