@@ -8,10 +8,12 @@ import {
     ProvinceEnum,
     PaginationInputOnly,
     CreateFavouriteInput,
+    AnyVehicleType,
 } from "@libs/data-access";
 import { Types } from "mongoose";
 import { Injectable } from "@nestjs/common";
 import { FavouritesRepository } from "@libs/data-access/repositories/favourites.repository";
+import { VehicleRepository } from "@libs/data-access/repositories/vehicle.repository";
 import { FavouritesDocument } from "@libs/data-access/entities/favourites.entity";
 import { ErrorException } from "@libs/common/exceptions";
 import { toMongoId } from "@libs/common";
@@ -21,6 +23,7 @@ export class FavouriteService {
     constructor(
         private readonly favouriteRepository: FavouritesRepository,
         private readonly ridesRepository: RidesRepository,
+        private readonly vehicleRepository: VehicleRepository,
     ) { }
 
     /**
@@ -68,12 +71,37 @@ export class FavouriteService {
             rideType: ride.rideType,
             passengerId: ride.passengerId,
             noOfPassengers: ride?.fare?.noOfPassengers || 1,
-            vehicleType: ride.vehicle?.vehicleType || null,
+            vehicleType: await this.resolveVehicleType(ride),
             rideId: ride._id,
-            estimatedFare: ride.estimatedFare
+            estimatedFare: ride.estimatedFare,
+            cityName: ride?.pickupLocation?.city ?? null,
         });
         await this.ridesRepository.updateById(ride._id, { isFavourite: true });
         return favorites;
+    }
+
+    /**
+     * Resolves the vehicle type for a favourite entry.
+     * Prefers the vehicle attached to the ride; when the ride carries no
+     * vehicle (or no vehicle type), falls back to the vehicle document
+     * associated with the ride's driver.
+     * @param ride - The ride being turned into a favourite
+     * @returns The resolved vehicle type, or null when it cannot be resolved
+     */
+    private async resolveVehicleType(
+        ride: RidesDocument,
+    ): Promise<AnyVehicleType | null> {
+        const rideVehicleType = ride.vehicle?.vehicleType;
+        if (rideVehicleType) {
+            return rideVehicleType;
+        }
+        if (!ride.driverId) {
+            return null;
+        }
+        const driverVehicle = await this.vehicleRepository.findOne({
+            driverId: toMongoId(ride.driverId.toString()),
+        });
+        return driverVehicle?.vehicleType ?? null;
     }
 
     /** get rides by favourite id and passenger Id */
