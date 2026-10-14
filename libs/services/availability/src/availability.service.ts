@@ -269,6 +269,51 @@ export class AvailabilityService {
     return capacity;
   }
 
+  /**
+   * Asserts that the vehicle type of an availability day is ENABLED in the
+   * admin pricings (`adminRidePricing`) — the same source of truth used by the
+   * passenger home screen, matchmaking estimates and the driver's vehicle-type
+   * list to decide which vehicles are currently offered.
+   *
+   * Vehicle type resolution order:
+   * 1. the vehicle type carried by the request (add/update input) or already
+   *    stored on the availability day being updated;
+   * 2. when none is present, the vehicle type of the driver's OWN associated
+   *    vehicle (`getDriverVehicleType`).
+   *
+   * The request is rejected with AVAILABILITY.VEHICLE_TYPE_DISABLED when no
+   * (non-deleted) admin pricing row exists for that type, or the row exists
+   * with `isEnabled = false`.
+   */
+  private async assertVehicleTypeEnabled(
+    vehicleType: ScheduledVehicleType | VehicleType | null | undefined,
+    driverId: string | Types.ObjectId,
+  ): Promise<void> {
+    const effectiveType =
+      vehicleType ?? (await this.getDriverVehicleType(driverId));
+
+    const pricings = await this.adminRidePricingService.findAll();
+    const pricing = pricings.find(
+      (row) =>
+        (row.vehicleType as string) === (effectiveType as string) &&
+        row.deleted !== true,
+    );
+    if (pricing?.isEnabled === true) {
+      return;
+    }
+
+    this.logger.warn(
+      `Vehicle type ${effectiveType} is not enabled in the admin pricings ` +
+        `(found=${Boolean(pricing)}, isEnabled=${pricing?.isEnabled ?? "n/a"}) — ` +
+        `rejecting availability for driver ${driverId}.`,
+    );
+    ErrorException(
+      null,
+      "AVAILABILITY.VEHICLE_TYPE_DISABLED",
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+
   async addWeeklyAvailability(
     driverId: string | Types.ObjectId,
     input: AddAvailabilityInput,
@@ -286,6 +331,13 @@ export class AvailabilityService {
     // Validate each requested date: must be today up to 6 days from today,
     // and the weekday enum must match the supplied date's weekday.
     for (const d of input.days) {
+      // The day's vehicle type must be ENABLED in the admin pricings. When the
+      // day carries no vehicle type, the driver's associated vehicle type is
+      // checked instead.
+      await this.assertVehicleTypeEnabled(
+        d.vehicleType ?? driverVehicleType,
+        driverId,
+      );
       if (!d.date || isNaN(new Date(d.date).getTime())) {
         ErrorException(null, "AVAILABILITY.INVALID_DAY", HttpStatus.BAD_REQUEST);
       }
@@ -454,6 +506,14 @@ export class AvailabilityService {
     if (input.useSystemFare === true) {
       updatedDay.amount = undefined;
     }
+    // The vehicle type that will end up on this day (the request's vehicle
+    // type, or the one already stored on the day) must be ENABLED in the admin
+    // pricings. When neither carries a vehicle type, the driver's associated
+    // vehicle type is checked instead.
+    await this.assertVehicleTypeEnabled(
+      updatedDay.vehicleType ?? input.vehicleType ?? null,
+      driverId,
+    );
     // Validate slots: valid date, within window, not passed, matching weekday.
     this.assertValidTimeSlots(day, updatedDay.timeSlots || []);
     // One-way → exactly 1 slot; round trip → exactly 2 slots,
