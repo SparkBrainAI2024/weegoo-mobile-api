@@ -1945,6 +1945,13 @@ type PendingWithdrawalsResponse {
   totalPending: Float!
 }
 
+type AdminProfileResponse {
+  _id: ID!
+  fullName: String!
+  email: String!
+  phone: String
+}
+
 input NotificationSettingsInput {
   earnings: Boolean! = true
   appUpdates: Boolean! = true
@@ -2044,6 +2051,8 @@ type Query {
   Returns the sub-locations of one location, optionally filtered by status.
   """
   locationSubLocations(locationId: ID!, status: LocationStatus): [SubLocation!]!
+  getUserDetails: UserDetailsResponse!
+  getAdminProfile: AdminProfileResponse!
 }
 
 input PaginationInputOnly {
@@ -2279,6 +2288,9 @@ type Mutation {
 
   """Soft deletes a whole location."""
   removeLocation(id: ID!): Boolean!
+  updateUserDetails(input: CreateUserDetailsInput!): UserDetailsResponse!
+  updateAdminProfile(input: UpdateAdminProfileInput!): AdminProfileResponse!
+  changeAdminPassword(input: ChangeAdminPasswordInput!): BasicResponse!
 }
 
 input AdminSignUpInput {
@@ -2635,4 +2647,34 @@ input UpdateSubLocationInput {
   address: String
   latitude: Float
   longitude: Float
+}
+
+input CreateUserDetailsInput {
+  fullName: String!
+  address: String
+  profileImage: String
+  email: String
+  dateOfBirth: DateTime
+  bio: String
+  geoLocation: GeoLocationInput
+  gender: String
+  ridePreference: RidePreference
+  district: String
+  streetName: String
+  province: ProvinceEnum
+}
+
+input GeoLocationInput {
+  type: String!
+  coordinates: [Float!]!
+}
+
+input UpdateAdminProfileInput {
+  fullName: String!
+  phone: String
+}
+
+input ChangeAdminPasswordInput {
+  currentPassword: String!
+  newPassword: String!
 }

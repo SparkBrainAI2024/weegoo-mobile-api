@@ -11,6 +11,10 @@ export class AdminUser extends BaseEntity {
   @Field(() => String)
   fullName: string;
 
+  @Prop({ required: false, type: String, default: null })
+  @Field(() => String, { nullable: true })
+  phone?: string;
+
   @Prop({ required: true, unique: true, type: String, index: true })
   @Field(() => String)
   email: string;
