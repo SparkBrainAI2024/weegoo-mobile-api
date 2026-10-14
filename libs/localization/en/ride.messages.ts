@@ -35,4 +35,6 @@ export const RIDES = {
   FAVOURITE_NOT_FOUND: "Favourite ride not found",
   FAVOURITE_ALREADY_EXISTS: "This ride is already in your favourites.",
   FAVOURITE_CREATION_FAILED: "Failed to add ride to favourites. Please try again.",
+  INVALID_VEHICLE_TYPE:
+    "Invalid scheduled vehicle type. Allowed values are JEEP, MICRO, and CAR.",
 }

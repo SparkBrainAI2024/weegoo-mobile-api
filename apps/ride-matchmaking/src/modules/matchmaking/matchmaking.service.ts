@@ -65,6 +65,11 @@ import { DistanceCalculatorService } from "./services/distance-calculator.servic
 import { DynamicPricingService } from "./services/dynamic-pricing.service";
 import { AdminRidePricingService } from "@libs/services/admin-ride-pricing/admin-ride-pricing.service";
 import {
+  isVehicleTypeAllowed,
+  resolveScheduledVehicleTypeFilter,
+  ScheduledVehicleTypeFilter,
+} from "./scheduled-vehicle-type.util";
+import {
   MATCHMAKING_CONFIG,
   toMongoId,
   resolveBookedTimeSlots,
@@ -234,7 +239,11 @@ export class MatchmakingService {
     };
   }
 
-  async matchScheduledDrivers(params: { rideId: string }): Promise<{
+  async matchScheduledDrivers(params: {
+    rideId: string;
+    /** Optional SCHEDULED vehicle type requested by the passenger. */
+    vehicleType?: ScheduledVehicleType | null;
+  }): Promise<{
     matched: boolean;
     rideId: string;
     rideUUId: string;
@@ -248,7 +257,7 @@ export class MatchmakingService {
     availableDrivers?: any[];
     rideStatus?: string;
   }> {
-    const { rideId } = params;
+    const { rideId, vehicleType } = params;
     const ride = await this.ridesModel
       .findById(new Types.ObjectId(rideId))
       .populate("vehicleId")
@@ -313,6 +322,34 @@ export class MatchmakingService {
     const dropoffLat = dropoffCoords?.[1];
     const dropoffLng = dropoffCoords?.[0];
 
+    // ─── VEHICLE TYPE (admin pricings) ──────────────────────────────────────
+    // The ACTIVE admin pricings decide which vehicle types are offered:
+    //  - a requested type must be ENABLED, otherwise the search is rejected;
+    //  - without a requested type, only ENABLED vehicle types are searched and
+    //    only availabilities of an enabled type are returned.
+    const activePricings =
+      await this.adminRidePricingService.findActivePricings();
+    const vehicleTypeFilter = resolveScheduledVehicleTypeFilter(
+      activePricings.map((p) => p.vehicleType as string),
+      vehicleType ?? null,
+    );
+    if (!vehicleTypeFilter.ok) {
+      this.logger.warn(
+        `SCHEDULED matchmaking for ride ${rideId} rejected: ${vehicleTypeFilter.message}`,
+      );
+      return {
+        matched: false,
+        rideId,
+        rideUUId: ride.rideUUId,
+        passengerId: ride.passengerId.toString(),
+        attempts: [],
+        message: vehicleTypeFilter.message,
+        rideStatus: RideStatus.BOOKING,
+        ablyChannelId:
+          ride.ablyChannelId || `WG-RIDE-${ride.rideUUId}-ride-details`,
+      };
+    }
+
     const drivers = await this.findAvailableScheduledDrivers(
       pickupLat,
       pickupLng,
@@ -321,6 +358,7 @@ export class MatchmakingService {
       ride.bookingTime,
       ride.passengerId.toString(),
       ride.noOfPassengers || 1,
+      vehicleTypeFilter,
     );
 
     const availableDrivers = drivers.map((d) => ({
@@ -1118,14 +1156,18 @@ export class MatchmakingService {
     bookingTime?: Date,
     passengerId?: string,
     noOfPassengers: number = 1,
+    vehicleTypeFilter?: ScheduledVehicleTypeFilter,
   ): Promise<DriverScore[]> {
-    // Search across ALL scheduled vehicle types (JEEP, CAR, MICRO), then narrow
-    // down to drivers whose availability route matches the requested destination.
-    const scheduledVehicleTypes = [
-      ScheduledVehicleType.JEEP,
-      ScheduledVehicleType.CAR,
-      ScheduledVehicleType.MICRO,
-    ];
+    // Search across the scheduled vehicle types (JEEP, CAR, MICRO) that are
+    // ENABLED in the admin pricings — narrowed to the passenger's requested
+    // type when one was provided — then narrow down to drivers whose
+    // availability route matches the requested destination.
+    const scheduledVehicleTypes =
+      vehicleTypeFilter?.vehicleTypes ?? [
+        ScheduledVehicleType.JEEP,
+        ScheduledVehicleType.CAR,
+        ScheduledVehicleType.MICRO,
+      ];
     const vehicles = await this.vehicleModel
       .find({
         vehicleType: { $in: scheduledVehicleTypes as string[] },
@@ -1256,6 +1298,13 @@ export class MatchmakingService {
       this.logger.log(`resolved day: ${JSON.stringify(resolvedDay)}`);
       if (!resolvedDay) continue;
       const day = resolvedDay.day;
+
+      // VEHICLE TYPE (admin pricings): the day is only usable when its vehicle
+      // type is ENABLED — and, when the passenger requested a type, when it is
+      // exactly that type. Days of disabled types are filtered out here.
+      const dayVehicleType =
+        (day.vehicleType as string) || (v.vehicleType as string) || null;
+      if (!isVehicleTypeAllowed(dayVehicleType, vehicleTypeFilter)) continue;
 
       // Shared seat capacity: the matching pool (outbound `availableSeats` or
       // return `returnAvailableSeats`) is the living remaining counter,

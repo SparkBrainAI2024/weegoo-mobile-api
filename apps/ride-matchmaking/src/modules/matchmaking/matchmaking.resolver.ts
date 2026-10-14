@@ -199,6 +199,7 @@ export class MatchmakingResolver {
     );
     const result = await this.matchmakingService.matchScheduledDrivers({
       rideId: input.rideId,
+      vehicleType: input.vehicleType,
     });
 
     return {
