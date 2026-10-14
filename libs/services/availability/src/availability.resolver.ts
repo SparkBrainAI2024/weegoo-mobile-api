@@ -41,7 +41,7 @@ export class AvailabilityResolver {
   @Mutation(() => Availability, {
     name: "addAvailability",
     description:
-      "Adds the driver's availability for one day. The day must be today up to 6 days from today and must not already exist (duplicate dates are rejected).",
+      "Adds the driver's availability for one day. The day must be today up to 6 days from today and must not already exist (duplicate dates are rejected). The day's vehicle type (or, when absent, the driver's associated vehicle's type) must be enabled in the admin pricings.",
   })
   addAvailability(
     @CurrentUser() user: User,
@@ -66,7 +66,7 @@ export class AvailabilityResolver {
   @Query(() => SystemFareEstimate, {
     name: "systemFare",
     description:
-      "Calculates the exact system fare between a pickup and a drop-off location for the authenticated driver. Both locations (with latitude/longitude) are required, and the vehicle type is taken from the driver's own vehicle — it is never read from the request.",
+      "Calculates the exact system fare between a pickup and a drop-off location for the authenticated driver. Both locations (with latitude/longitude) are required, the vehicle type is taken from the driver's own vehicle — it is never read from the request — and the rates come from the admin-configured ride pricings for that vehicle type.",
   })
   systemFare(
     @CurrentUser() user: User,
@@ -95,7 +95,8 @@ export class AvailabilityResolver {
   @Roles(roles.RIDER)
   @Mutation(() => Availability, {
     name: "updateAvailability",
-    description: "Updates the driver's availability info for a specific date.",
+    description:
+      "Updates the driver's availability info for a specific date. The day's vehicle type (or, when absent, the driver's associated vehicle's type) must be enabled in the admin pricings.",
   })
   updateAvailability(
     @CurrentUser() user: User,

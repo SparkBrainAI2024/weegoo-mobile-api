@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import { UserDetails, UserDetailsDocument } from '@libs/data-access/entities/user-details.entity';
 import { PromoCode, PromoCodeDocument } from '@libs/data-access/entities/promo-code.entity';
 import { PromoCodeStatusEnum } from '@libs/data-access/enums/promo-code.enum';
-import { MATCHMAKING_CONFIG } from '@libs/common';
+import { AdminRidePricingService } from '@libs/services/admin-ride-pricing/admin-ride-pricing.service';
 import {
   PassengerHomeResponse,
   PassengerLocationResponse,
@@ -21,6 +21,7 @@ export class PassengerHomeService {
     private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(PromoCode.name)
     private readonly promoCodeModel: Model<PromoCodeDocument>,
+    private readonly adminRidePricingService: AdminRidePricingService,
   ) {}
 
   async getPassengerHomeData(userId: string): Promise<PassengerHomeResponse> {
@@ -53,7 +54,7 @@ export class PassengerHomeService {
     const promoCode = await this.getMostRecentActivePromoCode();
 
     // 5. Get basic vehicle estimates (base fare for 1km, no pickup/dropoff needed)
-    const vehicleEstimates = this.getBasicVehicleEstimates();
+    const vehicleEstimates = await this.getBasicVehicleEstimates();
 
     return {
       homeLocation,
@@ -106,27 +107,45 @@ export class PassengerHomeService {
     }
   }
 
-  private getBasicVehicleEstimates(): BasicVehicleEstimateResponse[] {
-    const { FARE } = MATCHMAKING_CONFIG;
+  /**
+   * Basic vehicle estimates for the passenger home screen (base fare for 1km).
+   *
+   * The vehicle list comes ONLY from the admin pricings: a vehicle is shown
+   * when its admin pricing row exists, is enabled (isEnabled = true) and is not
+   * deleted. Scheduled-only types (JEEP, MICRO) are excluded.
+   * Fare = admin baseFare + amountPerKm x 1km (no duration is available here).
+   */
+  private async getBasicVehicleEstimates(): Promise<BasicVehicleEstimateResponse[]> {
+    try {
+      const activePricings = await this.adminRidePricingService.findActivePricings();
 
-    const vehicleTypes = [
-      { type: 'CAR', comfortType: 'Standard', hasAC: true },
-      // { type: 'MOTORBIKE', comfortType: 'Economy', hasAC: false },
-      // { type: 'SCOOTER', comfortType: 'Economy', hasAC: false },
-    ];
-
-    return vehicleTypes.map(({ type, comfortType, hasAC }) => {
-      const basePickupCost = FARE.BASE_PICKUP_COST[type] || FARE.BASE_PICKUP_COST['CAR'];
-      const perKmRate = FARE.PER_KM_RATE[type] || FARE.PER_KM_RATE['CAR'];
-      // Base estimated fare for 1km = pickup cost + 1km rate
-      const estimatedFare = basePickupCost + perKmRate * 1;
-
-      return {
-        vehicleType: type,
-        estimatedFare: Math.round(estimatedFare * 100) / 100,
-        comfortType,
-        hasAC,
+      // On-demand vehicles only, with their home-screen presentation copy.
+      const presentationByType: Record<string, { comfortType: string; hasAC: boolean }> = {
+        CAR: { comfortType: 'Standard', hasAC: true },
+        MOTORBIKE: { comfortType: 'Economy', hasAC: false },
+        SCOOTER: { comfortType: 'Economy', hasAC: false },
       };
-    });
+
+      return activePricings
+        .filter((pricing) => Boolean(presentationByType[pricing.vehicleType as string]))
+        .map((pricing) => {
+          const type = pricing.vehicleType as string;
+          const baseFare = Number(pricing.baseFare) || 0;
+          const perKmRate = Number(pricing.amountPerKm) || 0;
+          // Base estimated fare for 1km = admin baseFare + 1km rate
+          const estimatedFare = baseFare + perKmRate * 1;
+          const { comfortType, hasAC } = presentationByType[type];
+
+          return {
+            vehicleType: type,
+            estimatedFare: Math.round(estimatedFare * 100) / 100,
+            comfortType,
+            hasAC,
+          };
+        });
+    } catch (error: any) {
+      this.logger.error(`Failed to load admin ride pricings for basic estimates: ${error?.message}`);
+      return [];
+    }
   }
 }

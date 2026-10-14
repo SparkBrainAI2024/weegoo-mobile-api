@@ -1,4 +1,5 @@
 import { DriverActionEnum, HistoricalTrafficEnum, RainConditionEnum } from '@libs/data-access/enums/matchmaking.enum';
+import { ScheduledVehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { Field, InputType, Float } from '@nestjs/graphql';
 import { IsString, IsOptional, IsEnum } from 'class-validator';
 
@@ -14,6 +15,17 @@ export class MatchScheduledDriversInput {
   @Field(() => String)
   @IsString()
   rideId: string;
+
+  /**
+   * Optional SCHEDULED vehicle type (JEEP / MICRO / CAR) requested by the
+   * passenger. When provided it must be ENABLED in the admin pricings and only
+   * availabilities of that type are returned; when omitted, only availabilities
+   * whose vehicle type is enabled in the admin pricings are returned.
+   */
+  @Field(() => ScheduledVehicleType, { nullable: true })
+  @IsOptional()
+  @IsEnum(ScheduledVehicleType, { message: 'RIDES.INVALID_VEHICLE_TYPE' })
+  vehicleType?: ScheduledVehicleType;
 
   @Field(() => RainConditionEnum, { nullable: true, defaultValue: RainConditionEnum.NONE })
   @IsOptional()

@@ -22,6 +22,7 @@ import {
 } from "@libs/data-access/entities/availability.entity";
 import { AvailabilityRepository } from "@libs/data-access/repositories/availability.repository";
 import { VehicleRepository } from "@libs/data-access/repositories/vehicle.repository";
+import { AdminRidePricingService } from "@libs/services/admin-ride-pricing/admin-ride-pricing.service";
 import { AnyVehicleType, ScheduledVehicleType, VehicleType } from "@libs/data-access/enums/vehicle.enum";
 import { SavedLocation } from "@libs/data-access/common/saved-location";
 
@@ -171,6 +172,7 @@ export class AvailabilityService {
     private readonly availabilityRepository: AvailabilityRepository,
     private readonly vehicleRepository: VehicleRepository,
     private readonly envService: EnvService,
+    private readonly adminRidePricingService: AdminRidePricingService,
     @InjectModel(Rides.name)
     private readonly ridesModel: Model<any>,
   ) {}
@@ -267,6 +269,51 @@ export class AvailabilityService {
     return capacity;
   }
 
+  /**
+   * Asserts that the vehicle type of an availability day is ENABLED in the
+   * admin pricings (`adminRidePricing`) — the same source of truth used by the
+   * passenger home screen, matchmaking estimates and the driver's vehicle-type
+   * list to decide which vehicles are currently offered.
+   *
+   * Vehicle type resolution order:
+   * 1. the vehicle type carried by the request (add/update input) or already
+   *    stored on the availability day being updated;
+   * 2. when none is present, the vehicle type of the driver's OWN associated
+   *    vehicle (`getDriverVehicleType`).
+   *
+   * The request is rejected with AVAILABILITY.VEHICLE_TYPE_DISABLED when no
+   * (non-deleted) admin pricing row exists for that type, or the row exists
+   * with `isEnabled = false`.
+   */
+  private async assertVehicleTypeEnabled(
+    vehicleType: ScheduledVehicleType | VehicleType | null | undefined,
+    driverId: string | Types.ObjectId,
+  ): Promise<void> {
+    const effectiveType =
+      vehicleType ?? (await this.getDriverVehicleType(driverId));
+
+    const pricings = await this.adminRidePricingService.findAll();
+    const pricing = pricings.find(
+      (row) =>
+        (row.vehicleType as string) === (effectiveType as string) &&
+        row.deleted !== true,
+    );
+    if (pricing?.isEnabled === true) {
+      return;
+    }
+
+    this.logger.warn(
+      `Vehicle type ${effectiveType} is not enabled in the admin pricings ` +
+        `(found=${Boolean(pricing)}, isEnabled=${pricing?.isEnabled ?? "n/a"}) — ` +
+        `rejecting availability for driver ${driverId}.`,
+    );
+    ErrorException(
+      null,
+      "AVAILABILITY.VEHICLE_TYPE_DISABLED",
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+
   async addWeeklyAvailability(
     driverId: string | Types.ObjectId,
     input: AddAvailabilityInput,
@@ -284,6 +331,13 @@ export class AvailabilityService {
     // Validate each requested date: must be today up to 6 days from today,
     // and the weekday enum must match the supplied date's weekday.
     for (const d of input.days) {
+      // The day's vehicle type must be ENABLED in the admin pricings. When the
+      // day carries no vehicle type, the driver's associated vehicle type is
+      // checked instead.
+      await this.assertVehicleTypeEnabled(
+        d.vehicleType ?? driverVehicleType,
+        driverId,
+      );
       if (!d.date || isNaN(new Date(d.date).getTime())) {
         ErrorException(null, "AVAILABILITY.INVALID_DAY", HttpStatus.BAD_REQUEST);
       }
@@ -452,6 +506,14 @@ export class AvailabilityService {
     if (input.useSystemFare === true) {
       updatedDay.amount = undefined;
     }
+    // The vehicle type that will end up on this day (the request's vehicle
+    // type, or the one already stored on the day) must be ENABLED in the admin
+    // pricings. When neither carries a vehicle type, the driver's associated
+    // vehicle type is checked instead.
+    await this.assertVehicleTypeEnabled(
+      updatedDay.vehicleType ?? input.vehicleType ?? null,
+      driverId,
+    );
     // Validate slots: valid date, within window, not passed, matching weekday.
     this.assertValidTimeSlots(day, updatedDay.timeSlots || []);
     // One-way → exactly 1 slot; round trip → exactly 2 slots,
@@ -664,9 +726,10 @@ export class AvailabilityService {
 
   /**
    * Resolves the fare amount for a single availability day.
-   * - When useSystemFare is true  → computed from MATCHMAKING_CONFIG.SCHEDULED_FARE
-   *   using the driver's actual registered vehicle type and the road distance
-   *   between pickup & dropoff points from the Baato routing API.
+   * - When useSystemFare is true  → computed from the ADMIN pricings
+   *   (baseFare / amountPerKm / amountPerMinute for the driver's actual
+   *   registered vehicle type) and the road distance between pickup & dropoff
+   *   points from the Baato routing API.
    * - When useSystemFare is false → amount equals the driver's supplied amount.
    */
   private async resolveDayAmount(
@@ -685,9 +748,67 @@ export class AvailabilityService {
   }
 
   /**
-   * Calculates the system fare from MATCHMAKING_CONFIG.SCHEDULED_FARE.
+   * Rates used by the system fare — i.e. the scheduled availability-day amount
+   * (useSystemFare = true) and the `systemFare` resolver.
+   *
+   * The ADMIN pricings are the source of truth: `baseFare`, `amountPerKm` and
+   * `amountPerMinute` of the pricing row matching the driver's vehicle type.
+   * Admin pricing carries no ride-type multiplier, so none is applied (1).
+   *
+   * Only when no (non-deleted) admin pricing row exists for the vehicle type
+   * do the legacy MATCHMAKING_CONFIG.SCHEDULED_FARE rates act as a safety net
+   * (logged as a warning) so a fare can still be produced.
+   */
+  private async getSystemFareRates(vehicle: ScheduledVehicleType): Promise<{
+    basePickupCost: number;
+    perKmRate: number;
+    perMinuteRate: number;
+    rideTypeMultiplier: number;
+    rateSource: "admin-pricing" | "config-fallback";
+  }> {
+    try {
+      const pricings = await this.adminRidePricingService.findAll();
+      const pricing = pricings.find(
+        (row) =>
+          (row.vehicleType as string) === (vehicle as string) &&
+          row.deleted !== true,
+      );
+      if (pricing) {
+        return {
+          basePickupCost: Number(pricing.baseFare) || 0,
+          perKmRate: Number(pricing.amountPerKm) || 0,
+          perMinuteRate: Number(pricing.amountPerMinute) || 0,
+          rideTypeMultiplier: 1,
+          rateSource: "admin-pricing",
+        };
+      }
+      this.logger.warn(
+        `getSystemFareRates: no admin pricing row for vehicle=${vehicle} — falling back to MATCHMAKING_CONFIG.SCHEDULED_FARE`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `getSystemFareRates: failed to read admin pricings (${message}) — falling back to MATCHMAKING_CONFIG.SCHEDULED_FARE`,
+      );
+    }
+
+    const config = MATCHMAKING_CONFIG.SCHEDULED_FARE;
+    return {
+      basePickupCost:
+        config.BASE_PICKUP_COST[vehicle] ?? config.BASE_PICKUP_COST.CAR,
+      perKmRate: config.PER_KM_RATE[vehicle] ?? config.PER_KM_RATE.CAR,
+      perMinuteRate:
+        config.PER_MINUTE_RATE[vehicle] ?? config.PER_MINUTE_RATE.CAR,
+      rideTypeMultiplier: config.RIDE_TYPE_MULTIPLIER[vehicle] ?? 1,
+      rateSource: "config-fallback",
+    };
+  }
+
+  /**
+   * Calculates the system fare from the ADMIN pricings (see
+   * {@link getSystemFareRates}).
    * Distance/duration come from the Baato routing API (haversine fallback).
-   * amount = (basePickupCost + perKm * distanceKm + perMinute * durationMinutes) * multiplier
+   * amount = (baseFare + amountPerKm * distanceKm + amountPerMinute * durationMinutes) * multiplier
    */
   private async calculateSystemFare(
     vehicle: ScheduledVehicleType ,
@@ -706,11 +827,13 @@ export class AvailabilityService {
     pickup?: SavedLocation | null,
     dropoff?: SavedLocation | null,
   ): Promise<SystemFareBreakdown> {
-    const config = MATCHMAKING_CONFIG.SCHEDULED_FARE;
-    const basePickupCost = config.BASE_PICKUP_COST[vehicle] ?? config.BASE_PICKUP_COST.CAR;
-    const perKmRate = config.PER_KM_RATE[vehicle] ?? config.PER_KM_RATE.CAR;
-    const perMinuteRate = config.PER_MINUTE_RATE[vehicle] ?? config.PER_MINUTE_RATE.CAR;
-    const multiplier = config.RIDE_TYPE_MULTIPLIER[vehicle] ?? 1;
+    const {
+      basePickupCost,
+      perKmRate,
+      perMinuteRate,
+      rideTypeMultiplier: multiplier,
+      rateSource,
+    } = await this.getSystemFareRates(vehicle);
 
     let distanceKm = 0;
     let durationMinutes = 0;
@@ -731,7 +854,7 @@ export class AvailabilityService {
       basePickupCost + perKmRate * distanceKm + perMinuteRate * durationMinutes;
     const amount = Math.round(baseFare * multiplier);
     this.logger.debug(
-      `computeSystemFare: vehicle=${vehicle} distanceKm=${distanceKm} durationMinutes=${durationMinutes} -> amount=${amount}`,
+      `computeSystemFare: vehicle=${vehicle} rates=${rateSource} distanceKm=${distanceKm} durationMinutes=${durationMinutes} -> amount=${amount}`,
     );
     return {
       amount,
@@ -748,8 +871,9 @@ export class AvailabilityService {
   /**
    * System fare for a pickup/drop-off pair, calculated for the AUTHENTICATED
    * driver: the vehicle type is read from their registered vehicle (never from
-   * the request), so the amount is exactly the one stored on an availability
-   * day that keeps the system fare.
+   * the request) and the rates come from the ADMIN pricings for that vehicle
+   * type, so the amount is exactly the one stored on an availability day that
+   * keeps the system fare.
    *
    * Pickup and drop-off are required — a missing end (or a missing coordinate)
    * is rejected with AVAILABILITY.FARE_LOCATION_REQUIRED instead of silently

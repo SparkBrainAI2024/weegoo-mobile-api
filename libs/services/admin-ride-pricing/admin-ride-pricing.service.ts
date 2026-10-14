@@ -16,6 +16,17 @@ export class AdminRidePricingService {
     return pricingList.map((pricing) => pricing.toObject() as AdminRidePricing);
   }
 
+  /**
+   * ACTIVE pricings only (isEnabled = true and not deleted).
+   * Used by passenger-facing estimate endpoints to determine which vehicles
+   * are currently offered and how their fares are calculated.
+   */
+  async findActivePricings(): Promise<AdminRidePricing[]> {
+    const pricingList =
+      await this.adminRidePricingRepository.findActivePricings();
+    return pricingList.map((pricing) => pricing.toObject() as AdminRidePricing);
+  }
+
   async findByVehicleType(vehicleType: VehicleType): Promise<AdminRidePricing> {
     const pricing =
       await this.adminRidePricingRepository.findByVehicleType(vehicleType);

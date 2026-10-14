@@ -45,6 +45,11 @@ export class Favourites extends BaseEntity {
   @Prop({ type: Number, default: 1, required: true })
   noOfPassengers?: Number;
 
+  /** City name of the ride's pickup location — nullable. */
+  @Field(() => String, { nullable: true })
+  @Prop({ type: String, required: false, default: null })
+  cityName?: string | null;
+
   @Field(() => Number, { defaultValue: 0 })
   @Prop({ type: Number, default: 0, required: true })
   estimatedFare?: Number;

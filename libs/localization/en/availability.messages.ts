@@ -55,4 +55,6 @@ export const AVAILABILITY = {
     "Seat capacity is not set for your vehicle. Please update your vehicle capacity before setting availability.",
   FARE_LOCATION_REQUIRED:
     "Both pickup and drop-off locations with latitude and longitude are required to calculate the system fare.",
+  VEHICLE_TYPE_DISABLED:
+    "This vehicle type is currently disabled. Availability cannot be added or updated for it.",
 };

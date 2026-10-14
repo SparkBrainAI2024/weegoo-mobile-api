@@ -75,7 +75,7 @@ export class MatchmakingResolver {
    */
   @Mutation(() => ScheduledRideResultResponse, {
     name: 'requestScheduledRide',
-    description: 'Create a scheduled ride with pickup/dropoff and booking time, then match drivers via expanding-ring algorithm',
+    description: 'Create a scheduled ride with pickup/dropoff and booking time, then match drivers via expanding-ring algorithm. An optional vehicleType (JEEP/MICRO/CAR) narrows the results to that type — it must be enabled in the admin pricings; when omitted, only availabilities whose vehicle type is enabled are offered.',
   })
   async requestScheduledRide(
     @CurrentUser() user: User,
@@ -88,6 +88,7 @@ export class MatchmakingResolver {
       input.dropoffLocation,
       input.bookingTime,
       input.noOfPassengers || 1,
+      input.vehicleType,
     );
   }
 

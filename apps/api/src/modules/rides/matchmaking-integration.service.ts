@@ -7,6 +7,7 @@ import { Vehicle, VehicleDocument } from '@libs/data-access/entities/vehicle.ent
 import { RideStatus, RideTypes } from '@libs/data-access/enums/rides.enum';
 import { EnvService } from '@libs/common/config/env.service';
 import { RideLocationInput, RideSchedule, TriggerMatchmakingResult, UpdateLocationResult, VehicleEstimateGraphQL } from '@libs/data-access';
+import { ScheduledVehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { UserDetailsService } from '@libs/services/user';
 import { BadRequestError } from '@libs/common';
 
@@ -407,13 +408,16 @@ export class MatchmakingIntegrationService {
     return baseResponse;
   }
 
-  async triggerScheduledMatchmaking(rideId: string): Promise<TriggerMatchmakingResult> {
+  async triggerScheduledMatchmaking(
+    rideId: string,
+    vehicleType?: ScheduledVehicleType,
+  ): Promise<TriggerMatchmakingResult> {
     try {
       this.logger.log(`Triggering scheduled matchmaking for ride: ${rideId}`);
 
       const data = await this.callMatchmakingGraphql(
         this.MATCH_SCHEDULED_QUERY,
-        { input: { rideId } },
+        { input: { rideId, vehicleType: vehicleType ?? null } },
         120000,
       );
       const result = data?.matchScheduledDrivers;
@@ -448,6 +452,7 @@ export class MatchmakingIntegrationService {
     dropoffLocation: RideLocationInput,
     bookingTime: Date,
     noOfPassengers: number = 1,
+    vehicleType?: ScheduledVehicleType,
   ): Promise<TriggerMatchmakingResult> {
     // Validate & normalize the booking time up front. The GraphQL Date scalar
     // can hand us an already-invalid Date object (e.g. from an unparsable
@@ -483,7 +488,7 @@ export class MatchmakingIntegrationService {
     try {
       const data = await this.callMatchmakingGraphql(
         this.MATCH_SCHEDULED_QUERY,
-        { input: { rideId: ride._id.toString() } },
+        { input: { rideId: ride._id.toString(), vehicleType: vehicleType ?? null } },
         120000,
       );
       const result = data?.matchScheduledDrivers;

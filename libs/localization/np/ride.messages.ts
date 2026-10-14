@@ -45,4 +45,6 @@ export const RIDES = {
   FAVOURITE_NOT_FOUND: "फेवरिट राइड फेला परेन",
   FAVOURITE_ALREADY_EXISTS: "यो राइड पहिले नै तपाईंको फेवरिटमा छ",
   FAVOURITE_CREATION_FAILED: "राइडलाई फेवरिटमा थप्न असफल। कृपया फेरि प्रयास गर्नुहोस्。",
+  INVALID_VEHICLE_TYPE:
+    "अवैध अनुसूचित सवारी प्रकार। अनुमति प्राप्त मानहरू JEEP, MICRO र CAR हुन्।",
 };

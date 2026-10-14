@@ -27,6 +27,18 @@ export class AdminRidePricingRepository extends BaseRepository<AdminRidePricingD
     return this._model.find().sort({ vehicleType: 1 }).exec();
   }
 
+  /**
+   * Only the ACTIVE pricings: enabled (isEnabled = true) and not soft-deleted.
+   * Passenger-facing estimates use this list to decide which vehicles are
+   * currently offered and how their fares are calculated.
+   */
+  async findActivePricings(): Promise<AdminRidePricingDocument[]> {
+    return this._model
+      .find({ isEnabled: true, deleted: { $ne: true } })
+      .sort({ vehicleType: 1 })
+      .exec();
+  }
+
   async upsertByVehicleType(
     vehicleType: AnyVehicleType,
     data: Partial<AdminRidePricing>,
