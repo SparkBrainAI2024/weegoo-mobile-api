@@ -625,6 +625,7 @@ export class PassengerPaymentService {
     const driverAmount = Number((amount - commissionAmount).toFixed(2));
 
     //TODO totalridesas passenger
+    //TODO-RECHECK
     const passenger = await this.userDetailsModel
       .findOneAndUpdate(
         { userId: toMongoId(passengerId) },
@@ -646,6 +647,7 @@ export class PassengerPaymentService {
       );
     }
 
+    //TODO-RECHECK
     const driver = await this.userDetailsModel
       .findOneAndUpdate(
         { userId: ride.driverId },
@@ -838,8 +840,10 @@ export class PassengerPaymentService {
         );
       } else {
         this.logger.log(`Updated total earnings by ${transaction.amount}`);
+
         // $inc handles the case where totalEarnings field doesn't exist in the document -
         // MongoDB will create it with the increment value (e.g. if field is missing, it's treated as 0)
+        //TODO-RECHECK
         const userDetails = await this.userDetailsRepository.findOneAndUpdate(
           { driverId: ride.driverId },
           {
@@ -1184,6 +1188,7 @@ export class PassengerPaymentService {
       { session },
     );
 
+    //TODO-RECHECK
     const passenger = await this.userDetailsModel
       .findOneAndUpdate(
         { userId: ride.passengerId },
