@@ -66,7 +66,7 @@ export class AvailabilityResolver {
   @Query(() => SystemFareEstimate, {
     name: "systemFare",
     description:
-      "Calculates the exact system fare between a pickup and a drop-off location for the authenticated driver. Both locations (with latitude/longitude) are required, and the vehicle type is taken from the driver's own vehicle — it is never read from the request.",
+      "Calculates the exact system fare between a pickup and a drop-off location for the authenticated driver. Both locations (with latitude/longitude) are required, the vehicle type is taken from the driver's own vehicle — it is never read from the request — and the rates come from the admin-configured ride pricings for that vehicle type.",
   })
   systemFare(
     @CurrentUser() user: User,
