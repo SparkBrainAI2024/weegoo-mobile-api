@@ -231,7 +231,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
                 suspended: 1,
               },
             },
-            { $sort: { totalRidesAsDriver: -1 } },
+            { $sort: { createdAt: -1 } },
             { $skip: page * limit },
             { $limit: limit },
           ] as PipelineStage.FacetPipelineStage[],
@@ -343,7 +343,7 @@ export class UserRepository extends BaseRepository<UserDocument> {
     ];
 
     const data = await this.aggregatePaginate(basePipeline, pageInput, {
-      totalTripsAsPassenger: -1,
+      createdAt: -1,
     });
 
     return data;
