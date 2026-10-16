@@ -50,6 +50,14 @@ import {
   Availability,
   AvailabilityDocument,
 } from "@libs/data-access/entities/availability.entity";
+import {
+  Vehicle,
+  VehicleDocument,
+} from "@libs/data-access/entities/vehicle.entity";
+import {
+  AdminRidePricing,
+  AdminRidePricingDocument,
+} from "@libs/data-access/entities/admin-ride-pricing.entity";
 import { RideTypes, RideStatus } from "@libs/data-access/enums/rides.enum";
 
 export interface PassengerPaymentResult {
@@ -99,6 +107,10 @@ export class PassengerPaymentService {
     private readonly userDetailsModel: Model<UserDetailsDocument>,
     @InjectModel(Availability.name)
     private readonly availabilityModel: Model<AvailabilityDocument>,
+    @InjectModel(Vehicle.name)
+    private readonly vehicleModel: Model<VehicleDocument>,
+    @InjectModel(AdminRidePricing.name)
+    private readonly adminRidePricingModel: Model<AdminRidePricingDocument>,
   ) {
     this.matchmakingUrl = this.envService.getString(
       "RIDE_MATCHMAKING_URL",
@@ -202,6 +214,94 @@ export class PassengerPaymentService {
     const x = new Date(d);
     x.setUTCHours(0, 0, 0, 0);
     return x;
+  }
+
+  /**
+   * Fallback platform commission rate (20%) used when the admin pricings
+   * have no matching entry for the booking's vehicle type.
+   */
+  private static readonly DEFAULT_COMMISSION_RATE = 0.2;
+
+  /**
+   * Resolve the platform commission RATE for a scheduled booking from the
+   * ADMIN PRICINGS (AdminRidePricing.commission) based on vehicle type.
+   *
+   * The vehicle type is resolved in this order:
+   *   1. The BOOKED RIDE itself — the schedule's requested vehicle type
+   *      (`ride.schedule.vehicleType`).
+   *   2. The matched availability day's vehicle type (`day.vehicleType`),
+   *      which is the concrete schedule context the booking is drawn from.
+   *   3. The VEHICLE ASSOCIATED WITH THE BOOKING'S DRIVER — the vehicle
+   *      registered against `driverId` in the vehicles schema.
+   *
+   * The matching ACTIVE admin pricing row supplies the commission. When no
+   * vehicle type can be resolved, or no active pricing exists for it, the
+   * legacy default rate is used so bookings never fail on commission lookup.
+   *
+   * NOTE: `AdminRidePricing.commission` has no unit constraint in the schema,
+   * so both a rate (0.2) and a percentage (20) are tolerated: values > 1 are
+   * interpreted as percentages and divided by 100. The result is clamped to
+   * [0, 1].
+   */
+  private async resolveScheduledCommissionRate(
+    ride: RidesDocument,
+    day: any,
+    driverId: string,
+  ): Promise<number> {
+    const fallback = PassengerPaymentService.DEFAULT_COMMISSION_RATE;
+
+    // ── 1/2. Vehicle type from the booked ride (or its matched day) ──
+    let vehicleType: string | null =
+      (ride.schedule?.vehicleType as string) ||
+      ((day?.vehicleType as string) || null);
+
+    // ── 3. Otherwise the vehicle associated with the driver ──────────
+    if (!vehicleType) {
+      const driverVehicle = await this.vehicleModel
+        .findOne({
+          driverId: new Types.ObjectId(driverId),
+          deleted: { $ne: true },
+        })
+        .sort({ createdAt: -1 })
+        .exec();
+      vehicleType = (driverVehicle?.vehicleType as string) || null;
+    }
+
+    if (!vehicleType) {
+      this.logger.warn(
+        `No vehicle type found for scheduled ride ${ride.rideUUId} ` +
+          `(driver ${driverId}). Using default commission rate ${fallback}.`,
+      );
+      return fallback;
+    }
+
+    // ── Admin pricing commission for the resolved vehicle type ───────
+    const pricing = await this.adminRidePricingModel
+      .findOne({
+        vehicleType,
+        isEnabled: true,
+        deleted: { $ne: true },
+      })
+      .exec();
+
+    const rawCommission = Number(pricing?.commission);
+    if (!pricing || !Number.isFinite(rawCommission)) {
+      this.logger.warn(
+        `No active admin pricing found for vehicle type ${vehicleType} ` +
+          `(scheduled ride ${ride.rideUUId}). Using default commission rate ${fallback}.`,
+      );
+      return fallback;
+    }
+
+    // Tolerate both representations: 0.2 (rate) and 20 (percent).
+    const normalized = rawCommission > 1 ? rawCommission / 100 : rawCommission;
+    const commissionRate = Math.min(Math.max(normalized, 0), 1);
+    this.logger.log(
+      `Commission rate ${commissionRate} resolved from admin pricings ` +
+        `for vehicle type ${vehicleType} (scheduled ride ${ride.rideUUId}, ` +
+        `raw value ${rawCommission}).`,
+    );
+    return commissionRate;
   }
 
   /**
@@ -413,7 +513,14 @@ export class PassengerPaymentService {
       estimatedTimeInMinutes = route.durationMinutes;
     }
 
-    const commissionRate = 0.2;
+    // Platform commission from the ADMIN PRICINGS for the booking's vehicle
+    // type (ride schedule → availability day → driver's vehicle), falling
+    // back to the legacy default when no pricing is configured.
+    const commissionRate = await this.resolveScheduledCommissionRate(
+      ride,
+      day,
+      driverId,
+    );
     const commissionAmount = Number((amount * commissionRate).toFixed(2));
     const driverAmount = Number((amount - commissionAmount).toFixed(2));
 

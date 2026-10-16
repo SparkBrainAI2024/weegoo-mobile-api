@@ -7,6 +7,8 @@ import { EnvService } from '@libs/common/config/env.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AdminUser, AdminUserSchema } from '@libs/data-access/entities/admin-user.entity';
 import { Availability, AvailabilitySchema } from '@libs/data-access/entities/availability.entity';
+import { Vehicle, VehicleSchema } from '@libs/data-access/entities/vehicle.entity';
+import { AdminRidePricing, AdminRidePricingSchema } from '@libs/data-access/entities/admin-ride-pricing.entity';
 import { PassengerPaymentService } from './passenger-payment.service';
 import { PassengerPaymentResolver } from './resolver/passenger-payment.resolver';
 import { RidePersistentModule } from '@libs/services/rides/rides-persistent.module';
@@ -22,6 +24,8 @@ import { PromoCodePersistenceModule } from '@libs/services/promocode/src/promoco
     MongooseModule.forFeature([
       { name: AdminUser.name, schema: AdminUserSchema },
       { name: Availability.name, schema: AvailabilitySchema },
+      { name: Vehicle.name, schema: VehicleSchema },
+      { name: AdminRidePricing.name, schema: AdminRidePricingSchema },
     ]),
   ],
   providers: [TransactionService, EnvService, PassengerPaymentService, PassengerPaymentResolver],
