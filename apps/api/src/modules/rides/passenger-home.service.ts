@@ -11,6 +11,7 @@ import {
   PassengerPromoCodeResponse,
   BasicVehicleEstimateResponse,
 } from '@libs/data-access/dtos/response/passenger-home.response';
+import { AnyVehicleType } from '@libs/data-access';
 
 @Injectable()
 export class PassengerHomeService {
@@ -139,7 +140,7 @@ export class PassengerHomeService {
           const { comfortType, hasAC } = presentationByType[type];
 
           return {
-            vehicleType: type,
+            vehicleType: type as AnyVehicleType,
             estimatedFare: Math.round(estimatedFare * 100) / 100,
             comfortType,
             hasAC,

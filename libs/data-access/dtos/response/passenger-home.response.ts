@@ -1,5 +1,5 @@
 import { DiscountTypeEnum } from '@libs/data-access/enums/promo-code.enum';
-import { ScheduledVehicleType } from '@libs/data-access/enums/vehicle.enum';
+import { AnyVehicleType, ScheduledVehicleType } from '@libs/data-access/enums/vehicle.enum';
 import { Field, ObjectType, Float, Int } from '@nestjs/graphql';
 
 @ObjectType()
@@ -42,8 +42,8 @@ export class PassengerPromoCodeResponse {
 
 @ObjectType()
 export class BasicVehicleEstimateResponse {
-  @Field(() => String)
-  vehicleType: string;
+  @Field(() => AnyVehicleType)
+  vehicleType: AnyVehicleType;
 
   @Field(() => Float)
   estimatedFare: number;
