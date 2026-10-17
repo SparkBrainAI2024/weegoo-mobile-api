@@ -23,6 +23,7 @@ import {
   PromoCodeSchema,
 } from '@libs/data-access';
 import { AblyModule } from '@libs/services/ably';
+import { AdminRidePricingPersistenceModule } from '@libs/services/admin-ride-pricing/admin-ride-pricing.persistence.module';
 import { EnvService } from '@libs/common/config/env.service';
 import { VehicleService } from '@libs/services/vehicle/vehicle.service';
 import { DriverDocumentService } from '@libs/services/driver-document/driver-document.service';
@@ -48,6 +49,10 @@ import { HealthController } from './health.controller';
   imports: [
     S3Module,
     AblyModule,
+    // Provides AdminRidePricingService — required by AvailabilityService
+    // (scheduled-availability fare amounts). It also registers the
+    // AdminRidePricing Mongoose schema itself.
+    AdminRidePricingPersistenceModule,
     MongooseModule.forFeature([
       { name: Rides.name, schema: RidesSchema },
       { name: UserDetails.name, schema: UserDetailsSchema },
