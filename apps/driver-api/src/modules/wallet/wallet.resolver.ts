@@ -47,6 +47,9 @@ export class WithdrawInitiateResponse {
 
   @Field(() => String)
   status: string;
+
+  @Field(() => String, { nullable: true })
+  message?: string;
 }
 
 @Resolver()
@@ -115,7 +118,7 @@ export class WalletResolver {
   @Mutation(() => WithdrawInitiateResponse, {
     name: 'initiateWithdraw',
     description:
-      'Initiate a wallet withdrawal to eSewa or Khalti. Provide paymentMedium (ESEWA or KHALTI) and accountIdentifier (eSewa phone/email or Khalti phone). The payout is processed immediately via the gateway.',
+      'Initiate a wallet withdrawal to eSewa or Khalti. Provide paymentMedium (ESEWA or KHALTI) and accountIdentifier (eSewa phone/email or Khalti phone). The transaction is created in PENDING state and requires admin approval; it will be completed within 24 hours.',
   })
   async initiateWithdraw(
     @CurrentUser() user: User,

@@ -441,12 +441,20 @@ export class WalletService {
     status: TransactionStatus;
     /** The payment medium (ESEWA or KHALTI) for the withdrawal */
     paymentMedium: PaymentMediumEnum;
-    /** The account identifier where funds were sent */
+    /** The account identifier that will receive the payout */
     accountIdentifier: string;
+    /** User-facing message describing the withdrawal state */
+    message: string;
   }> {
-    // Check sufficient balance first
+    // Check sufficient balance first. PENDING withdrawals are treated as
+    // already-reserved funds so the same balance cannot be withdrawn multiple
+    // times while earlier requests await admin approval.
     const balance = await this.walletRepo.getBalance(input.userId);
-    if (balance < input.amount) {
+    const pendingWithdrawalsTotal = await this.getPendingWithdrawalsTotalForUser(
+      input.userId,
+      input.loginAs === 'RIDER',
+    );
+    if (balance - pendingWithdrawalsTotal < input.amount) {
       throw new BadRequestException('Insufficient wallet balance');
     }
 
@@ -478,79 +486,52 @@ export class WalletService {
 
     const txnId = txn._id.toString();
 
-    // ── Process actual payout to eSewa/Khalti ──
-    // We attempt the payout immediately. If it fails, we mark the transaction as failed.
-    let payoutResult: { success: boolean; message: string; referenceId?: string };
+    const paymentMediumName = input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti';
+    const message =
+      'Your withdrawal request has been submitted successfully. It is pending admin approval and will be processed within 24 hours.';
 
-    if (input.paymentMedium === PaymentMediumEnum.ESEWA) {
-      payoutResult = await this.esewaService.initiatePayoutV2Esewa({
-        receiverAccount: input.accountIdentifier,
-        amount: input.amount,
-        transactionId: transactionUuid,
-        remarks: 'Wallet withdrawal',
-      });
-    } else if (input.paymentMedium === PaymentMediumEnum.KHALTI) {
-      payoutResult = await this.khaltiService.initiatePayoutV2({
-        receiverAccount: input.accountIdentifier,
-        amount: input.amount,
-        transactionId: transactionUuid,
-        remarks: 'Wallet withdrawal',
-      });
-    } else {
-      throw new BadRequestException(`Unsupported payment medium: ${input.paymentMedium}`);
-    }
-
-    if (payoutResult.success) {
-      // Payout succeeded - debit wallet and mark as completed
-      await this.debitWallet(input.userId, input.amount);
-      await this.transactionRepo['model'].findByIdAndUpdate(txnId, {
-        $set: {
-          status: TransactionStatus.COMPLETED,
-          reference: payoutResult.referenceId || input.accountIdentifier,
-          remarks: `Payout completed via ${input.paymentMedium} to ${input.accountIdentifier}`,
-        },
-      });
-
-      // Send success notification
-       this.notificationService.createNotification(
-        {
-          title: 'Withdrawal Successful',
-          description: `NPR ${input.amount} has been sent to your ${input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti'} account (${input.accountIdentifier}).`,
-          notificationType: NotificationType.PAYMENT_RECEIPT as any,
-          rideId: undefined,
-        },
-        { _id: new Types.ObjectId(input.userId), loginAs: isDriver ? 'RIDER' : 'USER' } as any,
-      );
-    } else {
-      // Payout failed - mark transaction as failed
-      await this.transactionRepo['model'].findByIdAndUpdate(txnId, {
-        $set: {
-          status: TransactionStatus.FAILED,
-          remarks: payoutResult.message || `${input.paymentMedium} payout failed`,
-        },
-      });
-
-      // Send failure notification
-       this.notificationService.createNotification(
-        {
-          title: 'Withdrawal Failed',
-          description: `Your NPR ${input.amount} withdrawal to ${input.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti'} (${input.accountIdentifier}) could not be completed. ${payoutResult.message || 'Please try again or contact support.'}`,
-          notificationType: NotificationType.PAYMENT_FAILURE as any,
-          rideId: undefined,
-        },
-        { _id: new Types.ObjectId(input.userId), loginAs: isDriver ? 'RIDER' : 'USER' } as any,
-      );
-
-      throw new BadRequestException(payoutResult.message || `${input.paymentMedium} payout failed. Please try again.`);
-    }
+    // Send "request submitted" notification — the payout is executed only
+    // after the admin approves the withdrawal.
+    this.notificationService.createNotification(
+      {
+        title: 'Withdrawal Request Submitted',
+        description: message,
+        notificationType: NotificationType.PAYMENT_RECEIPT as any,
+        rideId: undefined,
+      },
+      { _id: new Types.ObjectId(input.userId), loginAs: isDriver ? 'RIDER' : 'USER' } as any,
+    );
 
     return {
       transactionId: txnId,
       amount: input.amount,
-      status: TransactionStatus.COMPLETED,
+      status: TransactionStatus.PENDING,
       paymentMedium: input.paymentMedium,
       accountIdentifier: input.accountIdentifier,
+      message,
     };
+  }
+
+  /**
+   * Sum of the user's PENDING withdrawal transactions. Used at initiation time
+   * so funds already requested for withdrawal cannot be spent or withdrawn
+   * again before the admin approves/rejects them.
+   */
+  private async getPendingWithdrawalsTotalForUser(
+    userId: string,
+    isDriver: boolean,
+  ): Promise<number> {
+    const result = await this.transactionRepo['model'].aggregate([
+      {
+        $match: {
+          ...(isDriver ? { driverId: userId } : { riderId: userId }),
+          type: TransactionType.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    return result[0]?.total ?? 0;
   }
 
   // ── Withdraw: Complete (admin approves & processes) ──────────
@@ -570,10 +551,27 @@ export class WalletService {
     // Debit wallet
     await this.debitWallet(txn.riderId || txn.driverId, txn.amount);
 
-    // Mark transaction COMPLETED
+    // Mark transaction COMPLETED. The payout destination account is kept in
+    // `reference` so admins/users can still see where the funds were sent.
+    const paymentMediumName =
+      txn.paymentMedium === PaymentMediumEnum.ESEWA ? 'eSewa' : 'Khalti';
     txn.status = TransactionStatus.COMPLETED;
-    txn.reference = 'withdraw-approved';
+    txn.remarks = `Withdrawal approved by admin and sent to ${paymentMediumName} (${txn.reference})`;
     await txn.save();
+
+    // Notify the user that the withdrawal has been completed
+    const approvedById = txn.riderId || txn.driverId;
+    if (approvedById) {
+      this.notificationService.createNotification(
+        {
+          title: 'Withdrawal Approved',
+          description: `Your NPR ${txn.amount} withdrawal to ${paymentMediumName} (${txn.reference}) has been approved by admin and will be completed shortly.`,
+          notificationType: NotificationType.PAYMENT_RECEIPT as any,
+          rideId: undefined,
+        },
+        { _id: new Types.ObjectId(approvedById), loginAs: txn.riderId ? 'USER' : 'RIDER' } as any,
+      );
+    }
   }
 
   // ── Withdraw: Fail (admin rejects) ───────────────────────────
@@ -590,6 +588,22 @@ export class WalletService {
     txn.status = TransactionStatus.FAILED;
     txn.remarks = remarks || 'Withdrawal rejected by admin';
     await txn.save();
+
+    // Notify the user that the withdrawal has been rejected. The wallet was
+    // never debited (funds are only debited on approval), so the amount stays
+    // available in the wallet.
+    const rejectedById = txn.riderId || txn.driverId;
+    if (rejectedById) {
+      this.notificationService.createNotification(
+        {
+          title: 'Withdrawal Rejected',
+          description: `Your NPR ${txn.amount} withdrawal request has been rejected. ${txn.remarks} The amount remains available in your wallet.`,
+          notificationType: NotificationType.PAYMENT_FAILURE as any,
+          rideId: undefined,
+        },
+        { _id: new Types.ObjectId(rejectedById), loginAs: txn.riderId ? 'USER' : 'RIDER' } as any,
+      );
+    }
   }
 
   // ── After ride completion: process wallet payments (no MongoDB transaction) ──
