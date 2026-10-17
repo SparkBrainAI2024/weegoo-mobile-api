@@ -150,7 +150,7 @@ export class DriverService {
     );
     const vehicle = userDoc?.vehicle;
     if (vehicle != null && vehicle?.images?.[0]?.s3Key) {
-      const s3Key = await this.s3.getPublicUrl(vehicle.images[0].s3Key);
+      const s3Key = await this.s3.getPublicBucketUrl(vehicle.images[0].s3Key);
 
       vehicle.images[0].s3Key = s3Key;
       userDoc.vehicle = vehicle;
