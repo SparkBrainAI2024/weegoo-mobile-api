@@ -124,6 +124,8 @@ export class PassengerHomeService {
         CAR: { comfortType: 'Standard', hasAC: true },
         MOTORBIKE: { comfortType: 'Economy', hasAC: false },
         SCOOTER: { comfortType: 'Economy', hasAC: false },
+        JEEP: { comfortType: 'Comfort', hasAC: true },
+        MICRO: { comfortType: 'Comfort', hasAC: true },
       };
 
       return activePricings
