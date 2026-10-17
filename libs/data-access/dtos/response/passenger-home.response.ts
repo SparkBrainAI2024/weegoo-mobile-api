@@ -42,8 +42,8 @@ export class PassengerPromoCodeResponse {
 
 @ObjectType()
 export class BasicVehicleEstimateResponse {
-  @Field(() => AnyVehicleType)
-  vehicleType: AnyVehicleType;
+  @Field(() => String)
+  vehicleType: string;
 
   @Field(() => Float)
   estimatedFare: number;

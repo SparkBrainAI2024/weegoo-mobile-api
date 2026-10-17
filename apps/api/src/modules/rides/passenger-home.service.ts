@@ -140,7 +140,7 @@ export class PassengerHomeService {
           const { comfortType, hasAC } = presentationByType[type];
 
           return {
-            vehicleType: type as AnyVehicleType,
+            vehicleType: type,
             estimatedFare: Math.round(estimatedFare * 100) / 100,
             comfortType,
             hasAC,
