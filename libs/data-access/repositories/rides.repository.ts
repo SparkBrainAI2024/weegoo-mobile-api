@@ -480,21 +480,23 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       },
     ]);
 
-    return summary ?? {
-      averageRating: 0,
-      totalReviews: 0,
-      breakdown: {
-        fiveStar: 0,
-        fourStar: 0,
-        threeStar: 0,
-        twoStar: 0,
-        oneStar: 0,
-      },
-    };
+    return (
+      summary ?? {
+        averageRating: 0,
+        totalReviews: 0,
+        breakdown: {
+          fiveStar: 0,
+          fourStar: 0,
+          threeStar: 0,
+          twoStar: 0,
+          oneStar: 0,
+        },
+      }
+    );
   }
 
   async findRides(input: RidesListInput) {
-    const { status, timeRange, search, page, limit } = input;
+    const { status, timeRange, search, page, limit, type } = input;
 
     // `page` is zero-based, matching every other paginated query in this
     // repository (`{ $skip: page * limit }`) and GetDriverTripsInput
@@ -508,6 +510,7 @@ export class RidesRepository extends BaseRepository<RidesDocument> {
       rideStatus: { $ne: RideStatus.BOOKING }, // exclude rides still in BOOKING state
     };
     if (status) match.rideStatus = status;
+    if (type) match.rideType = type;
 
     // Restrict the list to rides booked inside the requested window.
     // bookingTime is the field used by the other ride period filters

@@ -1,6 +1,6 @@
 // dtos/request/rides-list.input.ts
 import { Field, InputType, Int, registerEnumType } from "@nestjs/graphql";
-import { RideStatus } from "../../enums/rides.enum";
+import { RideStatus, RideTypes } from "../../enums/rides.enum";
 import { IsEnum, IsOptional, IsString, Min } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -30,6 +30,11 @@ export class RidesListInput {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @Field(() => RideTypes, { nullable: true })
+  @IsOptional()
+  @IsEnum(RideTypes)
+  type?: RideTypes;
 
   // Zero-based, matching GetDriverTripsInput and the rest of the repositories
   // (which all paginate with `{ $skip: page * limit }`).
