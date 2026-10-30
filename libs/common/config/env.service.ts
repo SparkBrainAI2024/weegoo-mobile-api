@@ -156,6 +156,16 @@ export class EnvService {
     return this.getString('GOOGLE_CLIENT_SECRET', '');
   }
 
+  /** Get Apple Sign In client ID (Services ID) */
+  getAppleClientId(): string {
+    return this.getString('APPLE_CLIENT_ID', '');
+  }
+
+  /** Get Apple Sign In client secret */
+  getAppleClientSecret(): string {
+    return this.getString('APPLE_CLIENT_SECRET', '');
+  }
+
   // ==========================================
   // AWS-specific helper methods
   // ==========================================

@@ -1,5 +1,6 @@
 import { SocialAuthConfig,ErrorException } from '@libs/common';
 import { GoogleAuthService } from './services/google-auth.service';
+import { AppleAuthService } from './services/apple-auth.service';
 import { HttpModule } from '@nestjs/axios';
 import { DynamicModule, HttpStatus, Module } from '@nestjs/common';
 import { APPLE_SERVICE, GOOGLE_SERVICE, SOCIAL_AUTH_CONFIG } from './constants';
@@ -35,6 +36,22 @@ export class SocialAuthModule {
       inject: [SOCIAL_AUTH_CONFIG, EnvService],
     };
 
+    const appleProvider = {
+      provide: APPLE_SERVICE,
+      useFactory: (config: SocialAuthConfig, envService: EnvService) => {
+        const appleConfig = config.apple;
+        if (!appleConfig) {
+          throw  ErrorException(
+            null,
+            'SOCIAL_AUTH.AUTH_CONFIG_NOT_FOUND',
+            HttpStatus.INTERNAL_SERVER_ERROR
+          );
+        }
+        return new AppleAuthService(config, envService);
+      },
+      inject: [SOCIAL_AUTH_CONFIG, EnvService],
+    };
+
     return {
       module: SocialAuthModule,
       imports: [
@@ -44,7 +61,7 @@ export class SocialAuthModule {
         }),
         ...(options.imports || []),
       ],
-      providers: [SocialAuthService, configProvider, googleProvider, EnvService],
+      providers: [SocialAuthService, configProvider, googleProvider, appleProvider, EnvService],
       exports: [SocialAuthService],
     };
   }

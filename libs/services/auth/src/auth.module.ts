@@ -93,6 +93,12 @@ export class UserAuthModule {
                   redirectUri: process.env.FACEBOOK_REDIRECT_URI || '',
                   scope: [],
                 },
+                apple: {
+                  clientId: process.env.APPLE_CLIENT_ID || '',
+                  clientSecret: process.env.APPLE_CLIENT_SECRET || '',
+                  redirectUri: process.env.APPLE_REDIRECT_URI || '',
+                  scope: [],
+                },
               }),
               inject: [],
             }),

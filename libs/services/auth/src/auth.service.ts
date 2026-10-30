@@ -26,6 +26,8 @@ import {
   PhoneInput,
   GoogleSignInInput,
   GoogleSignUpInput,
+  AppleSignInInput,
+  AppleSignUpInput,
   AuthProvider,
   PhoneSignUpInput,
   PhoneSignInInput,
@@ -1131,6 +1133,103 @@ export class AuthService {
       const { token, device } = googleSignInInput;
 
       const socialUser = await this.socialAuthService.verifyToken(token, 'google');
+      if (!socialUser.email) {
+        ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+      }
+      const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
+
+      // Add role if not present and set loginAs
+      const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
+
+      // Clear previous token meta
+      await this.clearAllUserSession(user._id.toString());
+
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        {
+          lastLogin: UTCTime(),
+          loginAs: this.defaultRole,
+          roles: updatedRoles,
+        },
+      );
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId, device?.firebaseToken);
+      await this.registerDeviceIfProvided(user._id, device);
+      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+      return result;
+    } catch (e) {
+      ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async appleSignUp(appleSignUpInput: AppleSignUpInput, lang: string): Promise<BasicResponse> {
+    try {
+      const { token, deviceId, firebaseToken, deviceType } = appleSignUpInput;
+      const socialUser = await this.socialAuthService.verifyToken(token, 'apple');
+      if (!socialUser.email) {
+        ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+      }
+      const existingUser = await this.userRepository.findByEmail(socialUser.email);
+      if (existingUser) {
+        if (existingUser.verified && !existingUser.roles.includes(this.defaultRole)) {
+          ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
+        } else if (!existingUser.verified) {
+          const validOtp = await this.hasValidOtp(existingUser._id, verificationType.VERIFICATION_PHONE);
+          if (validOtp) {
+            return getOtpThrottledResponse(lang, validOtp.createdAt) as any;
+          } else {
+            return {
+              message: Message(lang, "USER.APPLE_SIGNUP_SUCCESS"),
+              success: true,
+            };
+          }
+        } else {
+          ErrorException(null, "USER.USED_EMAIL", HttpStatus.BAD_REQUEST);
+        }
+      }
+      const user = await this.userRepository.create({
+        email: socialUser.email,
+        verified: false,
+        authProvider: AuthProvider.APPLE,
+        authProviderId: socialUser.providerId,
+        roles: getUpdatedRoles(existingUser?.roles, this.defaultRole),
+        loginAs: this.defaultRole,
+      });
+      const existingAppleDetails = await this.userDetailsRepository.findOne({ userId: user._id });
+      let userDetails: UserDetailsDocument = existingAppleDetails;
+      if (!existingAppleDetails) {
+        userDetails = await this.userDetailsRepository.create({
+          userId: user._id,
+          fullName: socialUser.name || '',
+          profileImages: [{
+            socialPicture: socialUser.picture || '',
+          }],
+          notificationSettings: { RIDER: { earnings: true, appUpdates: true }, USER: { appUpdates: true, offersAndPromotion: true, ridesUpdate: true } },
+        });
+      }
+
+      // The welcome email is now handled by UserDetailsService: it is sent
+      // when the user enters their fullName in user-details for the first time.
+
+      await this.registerDeviceIfProvided(user._id, { deviceId, firebaseToken, deviceType });
+      return {
+        message: Message(lang, "USER.APPLE_SIGNUP_SUCCESS"),
+        success: true,
+      };
+    } catch (e) {
+      console.log("🚀 ~ file: auth.service.ts ~ AuthService ~ appleSignUp ~ e:", e);
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async appleSignIn(appleSignInInput: AppleSignInInput) {
+    try {
+      const { token, device } = appleSignInInput;
+
+      const socialUser = await this.socialAuthService.verifyToken(token, 'apple');
       if (!socialUser.email) {
         ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }

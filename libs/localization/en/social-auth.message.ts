@@ -4,4 +4,8 @@ export const SOCIAL_AUTH = {
     TOKEN_ISSUE_PROVIDER_MISMATCH: "Token issue provider mismatch. Expected Google.",
     EXPIRED_GOOGLE_TOKEN: "Google token has expired.",
     EMAIL_NOT_PROVIDED: "Email not provided by Google authentication.",
+    EXPIRED_APPLE_TOKEN: "Apple token has expired.",
+    INVALID_APPLE_TOKEN: "Invalid Apple token.",
+    APPLE_PUBLIC_KEY_NOT_FOUND: "Apple public key not found.",
+    APPLE_TOKEN_VERIFICATION_FAILED: "Apple token verification failed.",
 };

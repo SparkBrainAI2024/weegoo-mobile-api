@@ -23,6 +23,12 @@ export interface AppEnv {
   GOOGLE_SCOPE: string[];
   GOOGLE_MAP_API_KEY: string;
 
+  // Apple OAuth
+  APPLE_CLIENT_ID: string;
+  APPLE_CLIENT_SECRET: string;
+  APPLE_REDIRECT_URI: string;
+  APPLE_SCOPE: string[];
+
   // AWS S3
   AWS_ACCESS_KEY_ID: string;
   AWS_S3_SECRET_KEY: string;
@@ -82,6 +88,12 @@ export default (): AppEnv => ({
   GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || '',
   GOOGLE_SCOPE: process.env.GOOGLE_SCOPE ? process.env.GOOGLE_SCOPE.split(',') : ['email', 'profile'],
   GOOGLE_MAP_API_KEY: process.env.GOOGLE_MAP_API_KEY || '',
+
+  // Apple OAuth
+  APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID || '',
+  APPLE_CLIENT_SECRET: process.env.APPLE_CLIENT_SECRET || '',
+  APPLE_REDIRECT_URI: process.env.APPLE_REDIRECT_URI || '',
+  APPLE_SCOPE: process.env.APPLE_SCOPE ? process.env.APPLE_SCOPE.split(',') : ['email', 'name'],
 
   // AWS S3
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID || '',

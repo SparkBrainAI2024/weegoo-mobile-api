@@ -23,6 +23,8 @@ import {
   BasicResponse,
   GoogleSignInInput,
   GoogleSignUpInput,
+  AppleSignInInput,
+  AppleSignUpInput,
   PhoneSignUpInput,
   PhoneSignInInput,
   VerifyPhoneInput,
@@ -69,6 +71,16 @@ export class AuthResolver {
   @Mutation(() => SignInResponse)
   googleSignIn(@Args("input") input: GoogleSignInInput) {
     return this.authService.googleSignIn(input);
+  }
+
+  @Mutation(() => BasicResponse)
+  appleSignUp(@Args("input") input: AppleSignUpInput, @CurrentLang() lang: string) {
+    return this.authService.appleSignUp(input, lang);
+  }
+
+  @Mutation(() => SignInResponse)
+  appleSignIn(@Args("input") input: AppleSignInInput) {
+    return this.authService.appleSignIn(input);
   }
 
   @UseGuards(MaintenanceGuard)

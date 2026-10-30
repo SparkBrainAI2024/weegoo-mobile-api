@@ -205,7 +205,18 @@ export interface SocialAuthConfig {
     /** Facebook OAuth scopes */
     scope: string[];
   };
-}
+  /** Apple Sign In configuration */
+  apple: {
+    /** Apple Services ID (client ID) */
+    clientId: string;
+    /** Apple private key / secret */
+    clientSecret: string;
+    /** Apple redirect URI */
+    redirectUri: string;
+    /** Apple OAuth scopes */
+    scope: string[];
+  };
+};
 
 /** Shared Configs */
 export interface ISharedConfig {
@@ -316,6 +327,18 @@ export interface EnvConfig {
 
   /** Google OAuth scopes */
   GOOGLE_SCOPE: string[];
+
+  /** Apple Sign In client ID (Services ID) */
+  APPLE_CLIENT_ID: string;
+
+  /** Apple Sign In client secret */
+  APPLE_CLIENT_SECRET: string;
+
+  /** Apple Sign In redirect URI */
+  APPLE_REDIRECT_URI: string;
+
+  /** Apple Sign In scopes */
+  APPLE_SCOPE: string[];
 
   /** Google Maps API key */
   GOOGLE_MAP_API_KEY: string;
