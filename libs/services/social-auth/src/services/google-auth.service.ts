@@ -40,13 +40,13 @@ export class GoogleAuthService implements ISocialAuthService {
           HttpStatus.INTERNAL_SERVER_ERROR
         );
       }
-      // if (this.envService.getGoogleClientId() !== aud) {
-      //   throw ErrorException(
-      //     null,
-      //     "SOCIAL-AUTH.CLIENT_ID_NOT_FOUND",
-      //     HttpStatus.INTERNAL_SERVER_ERROR
-      //   );
-      // }
+      if (this.envService.getGoogleClientId() !== aud) {
+        throw ErrorException(
+          null,
+          "SOCIAL-AUTH.CLIENT_ID_NOT_FOUND",
+          HttpStatus.INTERNAL_SERVER_ERROR
+        );
+      }
       if (currentTimeInSeconds > parseInt(exp)) {
         throw ErrorException(
           null,

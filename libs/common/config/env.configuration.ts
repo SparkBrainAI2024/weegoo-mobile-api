@@ -25,7 +25,6 @@ export interface AppEnv {
 
   // Apple OAuth
   APPLE_CLIENT_ID: string;
-  APPLE_CLIENT_SECRET: string;
   APPLE_REDIRECT_URI: string;
   APPLE_SCOPE: string[];
 
@@ -91,7 +90,6 @@ export default (): AppEnv => ({
 
   // Apple OAuth
   APPLE_CLIENT_ID: process.env.APPLE_CLIENT_ID || '',
-  APPLE_CLIENT_SECRET: process.env.APPLE_CLIENT_SECRET || '',
   APPLE_REDIRECT_URI: process.env.APPLE_REDIRECT_URI || '',
   APPLE_SCOPE: process.env.APPLE_SCOPE ? process.env.APPLE_SCOPE.split(',') : ['email', 'name'],
 
@@ -131,4 +129,5 @@ export default (): AppEnv => ({
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID || '',
   FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL || '',
   FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY || '',
+  
 });

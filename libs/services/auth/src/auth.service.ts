@@ -1165,10 +1165,23 @@ export class AuthService {
     try {
       const { token, deviceId, firebaseToken, deviceType } = appleSignUpInput;
       const socialUser = await this.socialAuthService.verifyToken(token, 'apple');
-      if (!socialUser.email) {
-        ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+
+      // Apple may omit email on subsequent authorizations; check by stable providerId first.
+      let existingUser: UserDocument | null = null;
+      if (socialUser.providerId) {
+        existingUser = await this.userRepository.findOne({
+          authProvider: AuthProvider.APPLE,
+          authProviderId: socialUser.providerId,
+        });
       }
-      const existingUser = await this.userRepository.findByEmail(socialUser.email);
+
+      if (!existingUser) {
+        if (!socialUser.email) {
+          ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+        }
+        existingUser = await this.userRepository.findByEmail(socialUser.email);
+      }
+
       if (existingUser) {
         if (existingUser.verified && !existingUser.roles.includes(this.defaultRole)) {
           ErrorException(null, "USER.USER_ALREADY_REGISTERED_AS_CUSTOMER", HttpStatus.BAD_REQUEST);
@@ -1230,10 +1243,21 @@ export class AuthService {
       const { token, device } = appleSignInInput;
 
       const socialUser = await this.socialAuthService.verifyToken(token, 'apple');
-      if (!socialUser.email) {
-        ErrorException(null, "SOCIAL_AUTH.EMAIL_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
+
+      if (!socialUser.providerId) {
+        ErrorException(null, "SOCIAL_AUTH.APPLE_USER_ID_NOT_PROVIDED", HttpStatus.BAD_REQUEST);
       }
-      const { user, userDetails } = await this.validateUserForSignIn(socialUser.email);
+
+      const user = await this.userRepository.findOne({
+        authProvider: AuthProvider.APPLE,
+        authProviderId: socialUser.providerId,
+      });
+
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      this.checkUserSuspended(user, HttpStatus.UNAUTHORIZED);
 
       // Add role if not present and set loginAs
       const updatedRoles = getUpdatedRoles(user.roles, this.defaultRole);
@@ -1249,10 +1273,11 @@ export class AuthService {
           roles: updatedRoles,
         },
       );
+
+      const userDetails = await this.userDetailsRepository.findOne({ userId: user._id });
       const { accessToken, refreshToken } = await this.createAuthTokens(user._id, user.email, user.roles, device?.deviceId, device?.firebaseToken);
       await this.registerDeviceIfProvided(user._id, device);
-      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
-      return result;
+      return await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
     } catch (e) {
       ErrorException(e, "COMMON.INTERNAL_SERVER_ERROR", HttpStatus.INTERNAL_SERVER_ERROR);
     }

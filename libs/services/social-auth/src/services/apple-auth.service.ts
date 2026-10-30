@@ -60,12 +60,24 @@ export class AppleAuthService implements ISocialAuthService {
 
       const publicKey = createPublicKey({ key, format: 'jwk' });
 
-      const appleClientId =
-        this.envService.getAppleClientId() || this.config.apple?.clientId || '';
+      const appleClientIds: string[] = (
+        this.envService.getAppleClientId() || this.config.apple?.clientId || ''
+      )
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean);
+
+      if (appleClientIds.length === 0) {
+        throw ErrorException(
+          null,
+          'SOCIAL-AUTH.APPLE_CLIENT_ID_NOT_CONFIGURED',
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
 
       const payload: any = jwt.verify(token, publicKey, {
         issuer: APPLE_TOKEN_ISS,
-        audience: appleClientId,
+        audience: appleClientIds as [string, ...string[]],
       });
 
       return {
