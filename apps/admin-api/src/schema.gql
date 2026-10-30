@@ -382,6 +382,7 @@ type Favourites {
   dropoffLocation: RideLocation
   vehicleType: String!
   noOfPassengers: Float!
+  cityName: String
   estimatedFare: Float!
 }
 
@@ -2123,6 +2124,7 @@ input RidesListInput {
   status: RideStatus
   timeRange: RideTimeRange! = LAST_24_HOURS
   search: String
+  type: RideTypes
   page: Int! = 0
   limit: Int! = 10
 }
