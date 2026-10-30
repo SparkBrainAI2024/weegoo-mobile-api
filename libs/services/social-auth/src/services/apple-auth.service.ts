@@ -115,12 +115,12 @@ export class AppleAuthService implements ISocialAuthService {
   private async fetchApplePublicKeys() {
     const now = Date.now();
     if (this.keysCache && now - this.keysCache.fetchedAt < 24 * 60 * 60 * 1000) {
-      return this.keysCache.keys;
+      return this.keysCache;
     }
     const response: any = await this.httpService.axiosRef.get(APPLE_KEYS_URL, {
       timeout: 5000,
     });
     this.keysCache = { keys: response.data.keys, fetchedAt: now };
-    return response.data.keys;
+    return this.keysCache;
   }
 }
