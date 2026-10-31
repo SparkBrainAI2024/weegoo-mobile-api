@@ -16,6 +16,7 @@ import {
   SetPasswordResponse,
   SetPasswordInput,
   VerifyGooglePhoneResponse,
+  VerifyApplePhoneResponse,
   VerifyResetPasswordOtpResponse,
   RefreshTokenInput,
   ResetPasswordInput,
@@ -114,6 +115,14 @@ export class AuthResolver {
     @CurrentLang() lang: string,
   ) {
     return this.authService.verifyGooglePhone(input, lang);
+  }
+
+  @Mutation(() => VerifyApplePhoneResponse)
+  verifyApplePhone(
+    @Args("input") input: VerifyPhoneInput,
+    @CurrentLang() lang: string,
+  ) {
+    return this.authService.verifyApplePhone(input, lang);
   }
 
   @UseGuards(SetPasswordGuard)

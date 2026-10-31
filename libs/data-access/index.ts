@@ -161,6 +161,7 @@ export * from './dtos/response/signup.response';
 export * from './dtos/response/user-detail.response';
 export * from './dtos/response/set-password.response';
 export * from './dtos/response/verify-google-phone.response';
+export * from './dtos/response/verify-apple-phone.response';
 export * from './dtos/response/verify-password-reset.repsonse';
 export * from './dtos/response/user-detail-response-v2';
 export * from './dtos/response/expiration.response';

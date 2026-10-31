@@ -791,6 +791,64 @@ export class AuthService {
     }
   }
 
+  // Verify Apple Phone OTP - only for Apple auth provider users
+  async verifyApplePhone(verifyPhoneInput: VerifyPhoneInput, lang: string) {
+    try {
+      const { phone, otp } = verifyPhoneInput;
+      const user: UserDocument = await this.userRepository.findByPhone(phone);
+      if (!user) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      // Only allow Apple auth provider users
+      if (user.authProvider !== AuthProvider.APPLE) {
+        ErrorException(null, "COMMON.VERIFY_PHONE_UNKNOWN_PROVIDER", HttpStatus.FORBIDDEN);
+      }
+
+      if (user.verified) {
+        ErrorException(null, "USER.USER_ALREADY_VERIFIED", HttpStatus.BAD_REQUEST);
+      }
+
+      const verification = await this.userVerificationRepository.findOne({
+        userId: user._id,
+        otp,
+        type: verificationType.VERIFICATION_PHONE,
+      });
+      if (!verification) {
+        ErrorException(null, "USER.INVALID_OTP", HttpStatus.BAD_REQUEST);
+      }
+
+      await this.userRepository.updateOne(
+        { _id: user._id },
+        { verified: true },
+      );
+      await this.userVerificationRepository.deleteOtpById(verification._id);
+
+      // Generate auth tokens
+      const identifier = user.email || user.phone;
+      const { accessToken, refreshToken } = await this.createAuthTokens(user._id, identifier);
+
+      const userDetails: UserDetailsDocument = await this.userDetailsRepository.findOne({ userId: user._id });
+      if (!userDetails) {
+        ErrorException(null, "USER.NOT_FOUND", HttpStatus.NOT_FOUND);
+      }
+
+      const result = await this.buildSignInResult(user, userDetails, accessToken, refreshToken);
+
+      return {
+        ...result,
+        message: Message(lang, "USER.PHONE_VERIFIED_SUCCESS"),
+        success: true,
+      };
+    } catch (e) {
+      ErrorException(
+        e,
+        "COMMON.INTERNAL_SERVER_ERROR",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   async sendVerifyPhoneOtp(sendOtpInput: PhoneInput, lang: string) {
     try {
       const { phone, type = verificationType.VERIFICATION_PHONE } = sendOtpInput;
