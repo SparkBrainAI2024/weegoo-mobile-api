@@ -43,9 +43,11 @@ import { PromoCodeService } from "@libs/services/promocode/src/promocode.service
 import { PromoCodePersistenceModule } from "@libs/services/promocode/src/promocode.persistence.module";
 import { NotificationModule } from "@libs/services/notification";
 import { AdminRidePricingPersistenceModule } from "@libs/services/admin-ride-pricing/admin-ride-pricing.persistence.module";
+import { FavouritesPersistentModule } from "@libs/services/favourites";
 @Module({
   imports: [
     RidePersistentModule,
+    FavouritesPersistentModule,
     UserPersistenceModule,
     UserServiceModule,
     TransactionModule,

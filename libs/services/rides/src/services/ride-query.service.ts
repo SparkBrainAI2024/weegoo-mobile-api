@@ -20,6 +20,7 @@ import {
   UserDocument,
   UserDailyOnlineStatusRepository,
   AvailabilityRepository,
+  FavouritesRepository,
   GetAllRidesPaginationInput,
 } from "@libs/data-access";
 import { DriverDocumentBundleStatus } from "@libs/data-access/enums/driver-document.enum";
@@ -46,6 +47,7 @@ export class RideQueryService {
     private readonly transactionService: TransactionService,
     private readonly s3: S3Service,
     private readonly walletService: WalletService,
+    private readonly favouritesRepository: FavouritesRepository,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
     @InjectModel(Vehicle.name)
     private readonly vehicleModel: Model<VehicleDocument>,
@@ -259,11 +261,18 @@ export class RideQueryService {
     const walletAmount = await this.walletService.getBalance(
       user._id.toString(),
     );
+    // Attach favouriteId if the current user has favourited this ride.
+    const favourite = await this.favouritesRepository.findOne({
+      rideId: toMongoId(rideId),
+      passengerId: user._id,
+      deleted: false,
+    });
     return {
       ...enriched,
       rideCompletedAt: rideDocument.rideCompletedAt,
       rideEndedAt: rideDocument.rideEndedAt,
       walletAmount,
+      favouriteId: favourite?._id?.toString() ?? null,
     };
   }
 

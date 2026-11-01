@@ -8,6 +8,7 @@ import { CommonVehicleModule } from "@libs/services/vehicle/vehicle.module";
 import { UserAuthModule } from "@libs/services/auth/auth.module";
 import { EnvService } from "@libs/common/config/env.service";
 import { RidesService, RideAdminDashboardService, RideQueryService, RideLifecycleService, RidePromoService } from "@libs/services/rides";
+import { FavouritesPersistentModule } from "@libs/services/favourites";
 import { TransactionModule } from "@libs/services/payment/src/transaction/transaction.module";
 import { IssuePersistenceModule } from "@libs/services/issue/src/issue-persistence.module";
 import { S3Module } from "@libs/s3";
@@ -20,6 +21,7 @@ import { AdminAuthModule } from "../auth/auth.module";
     UserAuthModule,
     UserPersistenceModule,
     RidePersistentModule,
+    FavouritesPersistentModule,
     CommonVehicleModule,
     TransactionModule,
     IssuePersistenceModule,

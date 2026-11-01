@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { RidesResolver } from './resolver/rides.resolver';
 import { RidesService } from './rides.service';
 import { RidePersistentModule } from './rides-persistent.module';
+import { FavouritesPersistentModule } from '@libs/services/favourites';
 import { TransactionService } from '@libs/services/payment/src/transaction/transaction.service';
 import { IssuePersistenceModule } from '@libs/services/issue/src/issue-persistence.module';
 import { WalletModule } from '@libs/services/payment/src/wallet/wallet.module';
@@ -14,6 +15,7 @@ import { RidePromoService } from './services/ride-promo-code.service';
 @Module({
   imports: [
     RidePersistentModule,
+    FavouritesPersistentModule,
     IssuePersistenceModule,
     WalletModule,
     TransactionPersistenceModule,

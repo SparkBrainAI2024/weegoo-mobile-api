@@ -257,6 +257,7 @@ type Rides {
   estimatedTimeInMinutes: Float
   estimatedFare: Float
   isFavourite: Boolean
+  favouriteId: String
   rideStartedAt: DateTime
   rideEndedAt: DateTime
   rideCompletedAt: DateTime
@@ -1179,6 +1180,7 @@ type RideWithoutRelations {
   estimatedTimeInMinutes: Float
   estimatedFare: Float
   isFavourite: Boolean
+  favouriteId: String
   rideStartedAt: DateTime
   rideEndedAt: DateTime
   rideCompletedAt: DateTime
