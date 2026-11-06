@@ -651,6 +651,77 @@ export class PassengerPaymentService {
    * `seatPool` selects which of the day's two independent counters loses the
    * seats: the outbound `availableSeats` or the return `returnAvailableSeats`.
    */
+  /**
+   * Resolve fare components (baseAmount, distanceAmount) from ADMIN PRICINGS
+   * for the booking's vehicle type, using Baato road distance from pickup → dropoff.
+   */
+  private async resolveScheduledFareBreakdown(
+    ride: RidesDocument,
+    day: any,
+    driverId: string,
+  ): Promise<{ baseAmount: number; distanceAmount: number }> {
+    // Resolve vehicle type: ride schedule → availability day → driver's vehicle
+    let vehicleType: string | null =
+      (ride.schedule?.vehicleType as string) ||
+      ((day?.vehicleType as string) || null);
+
+    if (!vehicleType) {
+      const driverVehicle = await this.vehicleModel
+        .findOne({
+          driverId: new Types.ObjectId(driverId),
+          deleted: { $ne: true },
+        })
+        .sort({ createdAt: -1 })
+        .exec();
+      vehicleType = (driverVehicle?.vehicleType as string) || null;
+    }
+
+    let baseFare = 0;
+    let amountPerKm = 0;
+
+    if (vehicleType) {
+      const pricing = await this.adminRidePricingModel
+        .findOne({
+          vehicleType,
+          isEnabled: true,
+          deleted: { $ne: true },
+        })
+        .exec();
+      if (pricing) {
+        baseFare = Number(pricing.baseFare) || 0;
+        amountPerKm = Number(pricing.amountPerKm) || 0;
+      }
+    }
+
+    // Baato road distance from ride pickup → dropoff
+    let distanceKm = 0;
+    const pickup = ride.pickupLocation;
+    const dropoff = ride.dropoffLocation;
+    if (
+      pickup?.coordinates?.length === 2 &&
+      dropoff?.coordinates?.length === 2
+    ) {
+      try {
+        const route = await this.getBaatoRoute(
+          pickup.coordinates[1], // lat
+          pickup.coordinates[0], // lng
+          dropoff.coordinates[1], // lat
+          dropoff.coordinates[0], // lng
+        );
+        distanceKm = route.distanceKm;
+      } catch (err: any) {
+        this.logger.warn(
+          `Baato route failed for scheduled ride ${ride.rideUUId}: ${err?.message}`,
+        );
+      }
+    }
+
+    return {
+      baseAmount: baseFare,
+      distanceAmount: Math.round(amountPerKm * distanceKm * 100) / 100,
+    };
+  }
+
   private async applyScheduledBookingToRide(
     ride: RidesDocument,
     driverId: string,
@@ -663,9 +734,15 @@ export class PassengerPaymentService {
     session: any,
     seatPool: ScheduledSeatPool = SCHEDULED_SEAT_POOL.OUTBOUND,
   ): Promise<void> {
+    const fareBreakdown = await this.resolveScheduledFareBreakdown(
+      ride,
+      day,
+      driverId,
+    );
+
     const paymentDetails: PaymentDetails = {
-      baseAmount: amount,
-      distanceAmount: 0,
+      baseAmount: fareBreakdown.baseAmount,
+      distanceAmount: fareBreakdown.distanceAmount,
       totalAmount: amount,
       subTotal: amount,
       noOfPassengers: ride.noOfPassengers || 1,
@@ -710,10 +787,10 @@ export class PassengerPaymentService {
           estimatedTimeInMinutes,
           estimatedFare: amount,
           fare: {
-            baseAmount: amount,
+            baseAmount: fareBreakdown.baseAmount,
             subTotal: amount,
             trafficCongestionAmount: 0,
-            distanceAmount: 0,
+            distanceAmount: fareBreakdown.distanceAmount,
             totalAmount: amount,
             noOfPassengers: ride.noOfPassengers || 1,
             discountAmount: 0,
