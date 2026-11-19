@@ -713,7 +713,22 @@ export class TransactionRepository {
           as: "driver",
         },
       },
+      {
+        $lookup: {
+          from: "userdetails",
+          localField: "riderId",
+          foreignField: "userId",
+          as: "rider",
+        }
+      },
+      {
+        $addFields: {
+          driver: { $arrayElemAt: ["$driver", 0] },
+          rider: { $arrayElemAt: ["$rider", 0] },
+        }
+      },
       { $unwind: { path: "$driver", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$rider", preserveNullAndEmptyArrays: true } },
     ]);
   }
 

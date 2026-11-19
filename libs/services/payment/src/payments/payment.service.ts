@@ -225,14 +225,20 @@ export class PaymentsService {
       this.transactionRepository.getPendingWithdrawalsTotal(),
     ]);
 
-    const data = rows.map((tx: any) => ({
-      id: tx.driver.userId.toString(),
-      fullName: tx.driver?.fullName ?? null,
-      displayId: tx.driver?.displayIdAsDriver ?? null,
-      amount: tx.amount,
-      status: tx.status,
-      requestedAt: tx.createdAt,
-    }));
+    const data = rows.map((tx: any) => {
+      // Withdrawals can be for either driver or rider - check which one exists
+      const person = tx.driver?.userId ? tx.driver : tx.rider;
+      const isDriver = !!tx.driver?.userId;
+
+      return {
+        id: person?.userId?.toString() ?? null,
+        fullName: person?.fullName ?? null,
+        displayId: isDriver ? tx.driver?.displayIdAsDriver : tx.rider?.displayIdAsPassenger ?? null,
+        amount: tx.amount,
+        status: tx.status,
+        requestedAt: tx.createdAt,
+      };
+    });
 
     return { data, totalPending: total };
   }
