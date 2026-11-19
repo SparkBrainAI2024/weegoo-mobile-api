@@ -3099,6 +3099,27 @@ export class MatchmakingService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       const now = new Date();
+      // Baato driver -> dropoff ETA/distance, persisted on the ride.
+      const ride = await this.ridesModel.findById(new Types.ObjectId(rideId)).exec();
+      let distanceInKm = ride?.distanceInKm ?? 0;
+      let estimatedTimeInMinutes = ride?.estimatedTimeInMinutes ?? 0;
+      if (ride) {
+        const driverDetails = await this.userDetailsModel
+          .findOne({ userId: ride.driverId }).exec();
+        const driverCoords = driverDetails?.geoLocation?.coordinates;
+        const dropoffCoords = ride.dropoffLocation?.coordinates;
+        if (driverCoords?.length === 2 && dropoffCoords?.length === 2) {
+          const [driverLng, driverLat] = driverCoords as [number, number];
+          const [dropoffLng, dropoffLat] = dropoffCoords as [number, number];
+          const route = await this.distanceCalculator.calculateDistance(
+            driverLat, driverLng, dropoffLat, dropoffLng,
+            ride.schedule?.vehicleType ?? VehicleType.CAR,
+          );
+          distanceInKm = route.distanceKm;
+          estimatedTimeInMinutes = route.durationMinutes;
+        }
+      }
+
       const updated = await this.ridesModel
         .findOneAndUpdate(
           {
@@ -3106,7 +3127,14 @@ export class MatchmakingService {
             rideStatus: RideStatus.CONFIRMED,
             deleted: false,
           },
-          { $set: { rideStatus: RideStatus.ONGOING, rideStartedAt: now } },
+          {
+            $set: {
+              rideStatus: RideStatus.ONGOING,
+              rideStartedAt: now,
+              distanceInKm,
+              estimatedTimeInMinutes,
+            },
+          },
           { new: true },
         )
         .exec();
@@ -3123,6 +3151,28 @@ export class MatchmakingService {
       // (this process owns the Ably connection).
       await this.publishScheduledRideOngoingDetails(updated);
 
+      // Passenger notification using the Baato-updated distance / ETA.
+      const passenger = await this.userModel.findById(updated.passengerId).exec();
+      if (passenger) {
+        await this.notificationService.createNotification(
+          {
+            title: "Ride has started",
+            notificationType: NotificationType.RIDE_START,
+            description: `Your scheduled ride has started. Remaining distance: ${updated.distanceInKm ?? 0} km. Estimated time: ${updated.estimatedTimeInMinutes ?? 0} minutes.`,
+            ablyChannelId: updated.ablyChannelId || `WG-RIDE-${updated.rideUUId}-ride-details`,
+            rideId: updated._id.toString(),
+            pickupLocation: updated.pickupLocation,
+            dropoffLocation: updated.dropoffLocation,
+            distanceInKm: updated.distanceInKm ?? 0,
+            estimatedTimeInMinutes: updated.estimatedTimeInMinutes ?? 0,
+            passengerSnapshot: {
+              fullName: passenger.fullName || "Passenger",
+              phone: passenger.phone || "", profileImage: "", rating: 0,
+            },
+          },
+          passenger,
+        );
+      }
       // Subscribe (or resubscribe) the driver's personal location channel so
       // live location updates keep flowing for the duration of the ride.
       const driverId = updated.driverId?.toString();
@@ -3383,11 +3433,33 @@ export class MatchmakingService {
         };
       }
 
+      // Baato driver -> dropoff ETA/distance, persisted on the ride.
+      let distanceInKm = ride.distanceInKm ?? 0;
+      let estimatedTimeInMinutes = ride.estimatedTimeInMinutes ?? 0;
+      const driverDetails = await this.userDetailsModel
+        .findOne({ userId: new Types.ObjectId(driverId) }).exec();
+      const driverCoords = driverDetails?.geoLocation?.coordinates;
+      const dropoffCoords = ride.dropoffLocation?.coordinates;
+      if (driverCoords?.length === 2 && dropoffCoords?.length === 2) {
+        const [driverLng, driverLat] = driverCoords as [number, number];
+        const [dropoffLng, dropoffLat] = dropoffCoords as [number, number];
+        const route = await this.distanceCalculator.calculateDistance(
+          driverLat, driverLng, dropoffLat, dropoffLng,
+          ride.schedule?.vehicleType ?? VehicleType.CAR,
+        );
+        distanceInKm = route.distanceKm;
+        estimatedTimeInMinutes = route.durationMinutes;
+      }
       const updatedRide = await this.ridesModel
         .findByIdAndUpdate(
           ride._id,
           {
-            $set: { rideStatus: RideStatus.ONGOING, rideStartedAt: new Date() },
+            $set: {
+              rideStatus: RideStatus.ONGOING,
+              rideStartedAt: new Date(),
+              distanceInKm,
+              estimatedTimeInMinutes,
+            },
           },
           { new: true },
         )
