@@ -94,7 +94,7 @@ export class PassengerService {
       suspended: userDoc.suspended || false,
       joinedDate: userDoc.createdAt?.toDateString(),
       lastActive: (userDoc as any).lastActiveAt?.toISOString() ?? null,
-      phoneVerified: (userDoc as any).phoneVerified ?? false,
+      phoneVerified: (userDoc as any).verified ?? false,
     };
   }
 
