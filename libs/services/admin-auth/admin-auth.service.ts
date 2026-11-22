@@ -28,7 +28,10 @@ import {
 } from "@libs/common/constants";
 import { TokenGrantType } from "@libs/data-access/enums/token.enum";
 import { Types } from "mongoose";
-import { AdminSignUpResponse, AdminSignInResponse } from "@libs/data-access/dtos/response/admin-auth.response";
+import {
+  AdminSignUpResponse,
+  AdminSignInResponse,
+} from "@libs/data-access/dtos/response/admin-auth.response";
 import { AdminUserRepository } from "@libs/data-access/repositories/admin-user.repository";
 import { Message } from "@libs/localization";
 
@@ -199,7 +202,7 @@ export class AdminAuthService {
       variables: {
         name: admin.fullName || "Admin",
         otp,
-        expiry_minutes:2
+        expiry_minutes: 2,
       },
     });
 
