@@ -2179,6 +2179,8 @@ input IssueDetailInput {
 
 enum VehicleType {
   CAR
+  MOTORBIKE
+  SCOOTER
 }
 
 input PaymentsOverviewInput {
@@ -2214,6 +2216,8 @@ input PaginationInput {
 type Mutation {
   adminSignUp(input: AdminSignUpInput!): AdminSignUpResponse!
   adminSignIn(input: AdminSignInInput!): AdminSignInResponse!
+  adminRefreshToken(input: AdminRefreshTokenInput!): AdminSignInResponse!
+  adminLogout: BasicResponse!
   adminForgotPassword(input: AdminForgotPasswordInput!): BasicResponse!
   adminVerifyOtp(input: AdminVerifyOtpInput!): AdminVerifyOTPResponse!
   adminResetPassword(input: AdminResetPasswordInput!): BasicResponse!
@@ -2306,6 +2310,10 @@ input AdminSignUpInput {
 input AdminSignInInput {
   email: String!
   password: String!
+}
+
+input AdminRefreshTokenInput {
+  refreshToken: String!
 }
 
 input AdminForgotPasswordInput {

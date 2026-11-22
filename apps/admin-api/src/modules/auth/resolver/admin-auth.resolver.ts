@@ -1,11 +1,13 @@
 // apps/admin/src/auth/resolver/admin-auth.resolver.ts
-import { Resolver, Mutation, Args } from "@nestjs/graphql";
+import { Resolver, Mutation, Args, Context } from "@nestjs/graphql";
+import { UseGuards } from "@nestjs/common";
 import {
 AdminSignUpInput,
 AdminSignInInput,
 AdminForgotPasswordInput,
 AdminVerifyOtpInput,
 AdminResetPasswordInput,
+AdminRefreshTokenInput,
 } from "@libs/data-access/dtos/input/admin-auth.input";
 import {
 AdminSignInResponse,
@@ -15,6 +17,7 @@ AdminVerifyOTPResponse,
 import { BasicResponse } from "@libs/data-access";
 import { AdminAuthService } from "@libs/services/admin-auth";
 import { CurrentLang } from "@libs/common";
+import { AdminAuthGuard } from "@libs/guards/auth.admin.guard";
 @Resolver()
 export class AdminAuthResolver {
 constructor(private readonly adminAuthService: AdminAuthService) {}
@@ -29,6 +32,17 @@ adminSignUp(@Args("input") input: AdminSignUpInput, @CurrentLang() lang: string)
 @Mutation(() => AdminSignInResponse)
 adminSignIn(@Args("input") input: AdminSignInInput, @CurrentLang() lang: string) {
   return this.adminAuthService.login(input.email, input.password, lang);
+}
+
+@Mutation(() => AdminSignInResponse)
+adminRefreshToken(@Args("input") input: AdminRefreshTokenInput, @CurrentLang() lang: string) {
+  return this.adminAuthService.refreshToken(input.refreshToken, lang);
+}
+
+@UseGuards(AdminAuthGuard)
+@Mutation(() => BasicResponse)
+adminLogout(@Context() context: any, @CurrentLang() lang: string) {
+  return this.adminAuthService.logout(context.req.jti, lang);
 }
 
 @Mutation(() => BasicResponse)
