@@ -1,5 +1,6 @@
 // libs/data-access/src/dto/admin/admin-auth.input.ts
 import { Field, InputType } from "@nestjs/graphql";
+import { IsNotEmpty } from "class-validator";
 
 @InputType()
 export class AdminSignUpInput {
@@ -20,6 +21,13 @@ export class AdminSignInInput {
 
   @Field()
   password: string;
+}
+
+@InputType()
+export class AdminRefreshTokenInput {
+  @Field()
+  @IsNotEmpty()
+  refreshToken: string;
 }
 
 @InputType()
