@@ -13,6 +13,7 @@ import { PassengerPaymentService } from './passenger-payment.service';
 import { PassengerPaymentResolver } from './resolver/passenger-payment.resolver';
 import { RidePersistentModule } from '@libs/services/rides/rides-persistent.module';
 import { PromoCodePersistenceModule } from '@libs/services/promocode/src/promocode.persistence.module';
+import { InvoiceModule } from '../invoice/invoice.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PromoCodePersistenceModule } from '@libs/services/promocode/src/promoco
     UserPersistenceModule,
     WalletModule,
     PromoCodePersistenceModule,
+    InvoiceModule,
     MongooseModule.forFeature([
       { name: AdminUser.name, schema: AdminUserSchema },
       { name: Availability.name, schema: AvailabilitySchema },

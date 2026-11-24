@@ -29,6 +29,7 @@ import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 import { SendGridMailModule } from "@libs/services/mail";
 import { AvailabilityModule } from "@libs/services/availability";
 import { AppLocationModule } from "@libs/services/location/app-location.module";
+import { DriverInvoiceModule } from "./modules/invoice/invoice.module";
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { AppLocationModule } from "@libs/services/location/app-location.module";
     IssueModule,
     NotificationModule,
     TransactionModule,
+    DriverInvoiceModule,
     PageModule,
     RatingIModule,
     WalletApiModule,

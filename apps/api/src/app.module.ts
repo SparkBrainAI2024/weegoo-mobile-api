@@ -25,6 +25,7 @@ import { UploadCenterModule } from "@libs/services/upload-center/src";
 import { ContactUsModule } from "./modules/contact-us/contact-us.module";
 import { SendGridMailModule } from "@libs/services/mail";
 import { AppLocationModule } from "@libs/services/location/app-location.module";
+import { InvoiceModule } from "./modules/invoice/invoice.module";
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { AppLocationModule } from "@libs/services/location/app-location.module";
     UploadCenterModule,
     WalletApiModule,
     TransactionModule,
+    InvoiceModule,
     ContactUsModule,
     SendGridMailModule,
     AppLocationModule,

@@ -31,6 +31,7 @@ import {
   AdminUser,
   AdminUserDocument,
 } from "@libs/data-access/entities/admin-user.entity";
+import { User, UserDocument } from "@libs/data-access/entities/user.entity";
 import {
   ErrorException,
   resolveBookedTimeSlots,
@@ -59,6 +60,7 @@ import {
   AdminRidePricingDocument,
 } from "@libs/data-access/entities/admin-ride-pricing.entity";
 import { RideTypes, RideStatus } from "@libs/data-access/enums/rides.enum";
+import { InvoiceService } from "@libs/services/invoice/invoice.service";
 
 export interface PassengerPaymentResult {
   success: boolean;
@@ -111,6 +113,9 @@ export class PassengerPaymentService {
     private readonly vehicleModel: Model<VehicleDocument>,
     @InjectModel(AdminRidePricing.name)
     private readonly adminRidePricingModel: Model<AdminRidePricingDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
+    private readonly invoiceService: InvoiceService,
   ) {
     this.matchmakingUrl = this.envService.getString(
       "RIDE_MATCHMAKING_URL",
@@ -625,6 +630,43 @@ export class PassengerPaymentService {
     this.logger.log(
       `Scheduled ride ${ride.rideUUId} booked: passenger -${amount}, driver +${driverAmount}, admin commission +${commissionAmount}, seat pool ${seatPool} (-${ride.noOfPassengers || 1} seat(s))`,
     );
+
+    // ── Send invoice emails to driver and passenger in the background ────
+    // Fire-and-forget: do not await so the booking response is not delayed.
+    const passengerTxnId = transactions.find((t) => t.userId === passengerId)?.transactionId;
+    const driverTxnId = transactions.find((t) => t.userId === driverId)?.transactionId;
+    if (passengerTxnId && driverTxnId) {
+      this.userModel
+        .findById(passengerId)
+        .exec()
+        .then((passengerUser) => {
+          return this.userModel.findById(driverId).exec().then((driverUser) => ({
+            passengerUser,
+            driverUser,
+          }));
+        })
+        .then(({ passengerUser, driverUser }) => {
+          this.invoiceService.sendScheduledRideInvoiceEmails({
+            ride,
+            passengerTransactionId: passengerTxnId,
+            driverTransactionId: driverTxnId,
+            passengerEmail: passengerUser?.email || "",
+            driverEmail: driverUser?.email || "",
+            passengerName: passengerUser?.fullName || "Passenger",
+            driverName: driverUser?.fullName || "Driver",
+            baseFare: Number(ride.fare?.baseAmount || 0),
+            distanceCharge: Number(ride.fare?.distanceAmount || 0),
+            discount: Number(ride.fare?.discountAmount || 0),
+            totalFare: Number(ride.fare?.totalAmount || amount),
+            commissionAmount,
+            driverEarnings: driverAmount,
+            paymentMethod: ride.paymentDetails?.paymentMethod || undefined,
+          });
+        })
+        .catch((err) => {
+          this.logger.error("Failed to dispatch scheduled-ride invoice emails", err);
+        });
+    }
 
     return {
       success: true,

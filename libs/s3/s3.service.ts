@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from "@nestjs/common";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -163,9 +164,48 @@ export class S3Service {
     });
   }
 
+  /**
+   * Checks whether an object exists in the configured S3 bucket.
+   * Used to serve an already-generated invoice without regenerating it.
+   */
+  async objectExists(key: string): Promise<boolean> {
+    try {
+      await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: key }),
+      );
+      return true;
+    } catch (error: any) {
+      const statusCode = error?.$metadata?.httpStatusCode;
+      const code = error?.name || error?.code;
+      if (statusCode === 404 || code === "NotFound" || code === "NoSuchKey") {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async deleteObject(key: string): Promise<void> {
     await this.client.send(
       new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
+  }
+
+  /**
+   * Uploads an object to the configured S3 bucket.
+   * Encapsulates the private bucket/client so callers don't reach into them.
+   */
+  async uploadObject(
+    key: string,
+    body: string | Buffer,
+    contentType: string,
+  ): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      }),
     );
   }
 
