@@ -83,6 +83,7 @@ export class AdminAuthGuard implements CanActivate {
 
     // 6. Attach admin to request
     request.user = admin;
+    request.jti = isVerifiedToken.jti;
     return true;
   }
 }

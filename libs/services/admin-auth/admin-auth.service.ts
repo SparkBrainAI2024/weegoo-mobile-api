@@ -2,6 +2,7 @@
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 
 import {
+  BasicResponse,
   UserTokenMetaRepository,
   UserVerificationRepository,
 } from "@libs/data-access";
@@ -27,7 +28,10 @@ import {
 } from "@libs/common/constants";
 import { TokenGrantType } from "@libs/data-access/enums/token.enum";
 import { Types } from "mongoose";
-import { AdminSignUpResponse } from "@libs/data-access/dtos/response/admin-auth.response";
+import {
+  AdminSignUpResponse,
+  AdminSignInResponse,
+} from "@libs/data-access/dtos/response/admin-auth.response";
 import { AdminUserRepository } from "@libs/data-access/repositories/admin-user.repository";
 import { Message } from "@libs/localization";
 
@@ -143,6 +147,7 @@ export class AdminAuthService {
     // store token meta — reusing UserTokenMeta with role: ADMIN
     await this.userTokenMetaRepository.create({
       userId: admin._id,
+      adminId: admin._id,
       accessTokenJti,
       refreshTokenJti,
       role: roles.ADMIN,
@@ -197,7 +202,7 @@ export class AdminAuthService {
       variables: {
         name: admin.fullName || "Admin",
         otp,
-        expiry_minutes:2
+        expiry_minutes: 2,
       },
     });
 
@@ -266,6 +271,103 @@ export class AdminAuthService {
 
     return {
       message: Message(lang, "USER.PASSWORD_RESET_SUCCESS"),
+      success: true,
+    };
+  }
+
+  // ─── Refresh Token ────────────────────────────────────────────────────────
+  async refreshToken(
+    refreshTokenInput: string,
+    lang: string,
+  ): Promise<AdminSignInResponse> {
+    const decoded: any = await verifyToken(
+      refreshTokenInput,
+      this.envService.getJwtSecretKey(),
+    );
+
+    if (
+      !decoded ||
+      decoded.type !== tokenTypes.refreshToken ||
+      decoded.role !== roles.ADMIN
+    ) {
+      ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.UNAUTHORIZED);
+    }
+
+    // Verify session meta exists in DB for security (Refresh Token Rotation)
+    const tokenMeta = await this.userTokenMetaRepository.findByRefreshTokenJti(
+      decoded.jti,
+    );
+    if (!tokenMeta) {
+      ErrorException(null, "COMMON.INVALID_TOKEN", HttpStatus.UNAUTHORIZED);
+    }
+
+    const admin = await this.adminUserRepository.findOne({
+      _id: decoded.id,
+    });
+    if (!admin) {
+      ErrorException(
+        null,
+        "ADMIN_USER.ADMIN_NOT_FOUND",
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    // Invalidate old refresh token session
+    await this.userTokenMetaRepository.deleteByRefreshTokenJti(decoded.jti);
+
+    const accessTokenJti = new Types.ObjectId().toString();
+    const refreshTokenJti = new Types.ObjectId().toString();
+
+    const accessToken = await generateToken(
+      {
+        id: admin._id,
+        type: tokenTypes.accessToken,
+        role: roles.ADMIN,
+        jti: accessTokenJti,
+      },
+      this.envService.getJwtSecretKey(),
+      { expiresIn: "1d" },
+    );
+
+    const refreshToken = await generateToken(
+      {
+        id: admin._id,
+        type: tokenTypes.refreshToken,
+        role: roles.ADMIN,
+        jti: refreshTokenJti,
+      },
+      this.envService.getJwtSecretKey(),
+      { expiresIn: "30d" },
+    );
+
+    await this.userTokenMetaRepository.create({
+      userId: admin._id,
+      adminId: admin._id,
+      accessTokenJti,
+      refreshTokenJti,
+      role: roles.ADMIN,
+      grant: TokenGrantType.REFRESH_TOKEN,
+      email: admin.email,
+    });
+
+    return {
+      accessToken,
+      refreshToken,
+      admin: {
+        _id: admin._id.toString(),
+        fullName: admin.fullName,
+        email: admin.email,
+      },
+    };
+  }
+
+  // ─── Logout ───────────────────────────────────────────────────────────────
+  async logout(accessTokenJti: string, lang: string): Promise<BasicResponse> {
+    if (accessTokenJti) {
+      await this.userTokenMetaRepository.deleteByAccessTokenJti(accessTokenJti);
+    }
+    return {
+      message: Message(lang, "USER.LOGGED_OUT"),
       success: true,
     };
   }
